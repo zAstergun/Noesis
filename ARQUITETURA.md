@@ -153,19 +153,37 @@ Noesis/
 
 ---
 
-## 5. Design System: Aster Neo-Brutalism
+## 5. Design System Oficial: Aster Soft Clay
 
-Alinhado à identidade visual encontrada em `Aster Phone OS Companion.md`:
+Seguindo com fidelidade absoluta as especificações documentadas no cofre do **Obsidian** (`Design Systems/Aster Soft Clay`):
 
-| Token | Hex / Valor | Aplicação |
-| :--- | :--- | :--- |
-| **`primary`** | `#6C63FF` | Destaque principal (*Aster Accent*), botões primários e bordas de foco. |
-| **`secondary`** | `#00CEC9` | *Aster Mint*, usado em badges de status, cronômetro e acertos no simulado. |
-| **`bgDark`** | `#0F0F14` | Fundo principal da aplicação. |
-| **`surfaceDark`** | `#171720` | Superfície da barra lateral, top bar e cards secundários. |
-| **`cardDark`** | `#1E1E2C` | Superfície dos cards interativos com bordas sutis em `#2E2E42`. |
-| **`accentRose`** | `#FF7675` | Indicadores de erro, prazos de provas e respostas incorretas. |
-| **`accentAmber`** | `#FDCB6E` | Selo de usuário VIP da Aster Account e avisos. |
+```mermaid
+flowchart TD
+    A["Zero Bordas Rígidas (border: 0px)"] --> D["Aster Soft Clay"]
+    B["Sombras Difusas Multicamada (0 18px 40px -22px)"] --> D
+    C["Cantos Orgânicos Amplos (Radius 28px)"] --> D
+    E["Tipografia Humanista Manrope (-0.02em)"] --> D
+    F["Zoneamento Semântico Quadricromático"] --> D
+```
+
+| Token | Hex / Valor | Função Semântica | Aplicação no Sistema |
+| :--- | :--- | :--- | :--- |
+| **`bgNevoa`** | `#EEF0F8` | Fundo ambiente suave | Canvas geral com iluminação radial em lavanda (12%) e menta (12%). |
+| **`surfaceCard`** | `#FFFFFF` | Superfície primária elevada | Cards flutuantes com zero bordas e raio de 28px. |
+| **`surfaceAlt`** | `#F3F4FB` | Superfície secundária suave | Campos de busca, cards internos, inputs e badges passivos. |
+| **`surfaceInset`** | `#E6E8F3` | Superfície de rebaixo | Fundo de barras de progresso e células vazias do heatmap. |
+| **`lavanda`** | `#7C6CF0` | Ação primária, foco e estudo | Botões primários, timer em execução e categoria de estudo ativo. |
+| **`menta`** | `#3CCF9A` | Revisão, constância e sucesso | Heatmap de frequência, badges de acerto e sessões concluídas. |
+| **`ambar`** | `#F5A623` | Laboratórios práticos e simulados | Alertas de meta, simulados RAG e revisões intermediárias. |
+| **`coral`** | `#FF7A90` | Provas oficiais, prazos e alertas | Prazos de exames, questões erradas e notificações críticas. |
+| **`textDark`** | `#23233A` | Tipografia de alto contraste | Títulos, numerais e leitura sem a agressividade do preto puro. |
+| **`textMuted`** | `#6F7190` | Tipografia secundária | Metadados, descrições auxiliares e rótulos de métricas. |
+
+### 🧱 Regras Visuais e Componentes Chave:
+1. **Zero Bordas Rígidas**: A delimitação é feita exclusivamente pelo contraste entre o branco puro (`#FFFFFF`) e o fundo névoa (`#EEF0F8`), amparada pela sombra multicamada suave.
+2. **Clay Shadows**: Fórmula aveludada `BoxShadow(color: Color.fromRGBO(60, 60, 120, 0.09), blurRadius: 36, offset: Offset(0, 18), spreadRadius: -14)`.
+3. **Tipografia Display e Leitura**: Família `Manrope` para interface e `JetBrains Mono` para terminais e contadores.
+4. **Layouts Desktop & Mobile Adaptativos**: Barra lateral com chassi suave, perfil e meta semanal no Desktop; navegação inferior em pílula para Mobile.
 
 ---
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/constants.dart';
+import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
 
 class AiAssistantScreen extends StatefulWidget {
@@ -23,26 +25,66 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (GeminiService.apiKey != null) {
       _apiKeyController.text = GeminiService.apiKey!;
     }
-    _messages.add({
-      'role': 'ai',
-      'text': 'Olá! Eu sou o assistente Noesis AI. Posso registrar seus estudos, agendar revisões no calendário ou resumir seu progresso. Como posso te ajudar hoje?',
-    });
+    _loadInitialMockChat();
+  }
+
+  void _loadInitialMockChat() {
+    // Configura o histórico inicial idêntico ao print clay-06 de Obsidian
+    _messages.addAll([
+      {
+        'role': 'user',
+        'text': 'registra 1h30 de criptografia, estudei AES-GCM e nonce reuse',
+        'time': '09:42',
+      },
+      {
+        'role': 'tool',
+        'status': 'completed',
+        'text': 'log_session() · 1h30 registrada em Criptografia n...',
+      },
+      {
+        'role': 'tool',
+        'status': 'completed',
+        'text': 'update_notes() · tags: aes-gcm, nonce-reuse',
+      },
+      {
+        'role': 'ai',
+        'text':
+            'Feito ✅ Sessão de 1h30 salva em Criptografia. Isso fecha 42 dias de streak. Notei que seus últimos 3 simulados erraram questões de modos de operação — quer que eu monte 10 questões focadas nisso?',
+      },
+      {
+        'role': 'user',
+        'text': 'sim, e agenda pra sexta',
+      },
+      {
+        'role': 'tool',
+        'status': 'completed',
+        'text': 'generate_quiz(rag) · 10 questões · AES/GCM/CB...',
+      },
+      {
+        'role': 'tool',
+        'status': 'running',
+        'text': 'calendar.create() · Sex 14:00 · Revisão Criptogr...',
+      },
+    ]);
   }
 
   void _openApiKeyDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AsterConstants.surfaceDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Configurar Google Gemini API Key', style: TextStyle(color: AsterConstants.textLight)),
+        backgroundColor: AsterConstants.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+        title: Text(
+          'Configurar Google Gemini API Key',
+          style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Insira sua chave de API do Google AI Studio para ativar as respostas inteligentes e ações autônomas.',
-              style: TextStyle(color: AsterConstants.textMuted, fontSize: 13),
+            Text(
+              'Insira sua chave do Google AI Studio para executar ações com Function Calling no Supabase.',
+              style: GoogleFonts.manrope(color: AsterConstants.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -55,20 +97,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: AsterConstants.textMuted)),
+            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
           ),
-          ElevatedButton(
+          SoftClayPillButton(
+            text: 'Salvar Chave',
             onPressed: () {
               final key = _apiKeyController.text.trim();
               if (key.isNotEmpty) {
                 GeminiService.initialize(key);
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chave de API configurada!')),
+                  const SnackBar(content: Text('Chave Gemini configurada com sucesso!')),
                 );
               }
             },
-            child: const Text('Salvar Chave'),
           ),
         ],
       ),
@@ -86,7 +128,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     _messageController.clear();
     setState(() {
-      _messages.add({'role': 'user', 'text': text});
+      _messages.add({'role': 'user', 'text': text, 'time': 'Agora'});
       _isLoading = true;
     });
 
@@ -123,117 +165,343 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: AsterConstants.secondary, size: 20),
-            SizedBox(width: 8),
-            Text('Noesis AI'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.key,
-              color: GeminiService.apiKey != null ? AsterConstants.secondary : AsterConstants.accentRose,
-            ),
-            tooltip: 'Configurar Gemini API Key',
-            onPressed: _openApiKeyDialog,
-          ),
-        ],
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 28.0 : 16.0,
+        vertical: 12.0,
       ),
-      body: Column(
-        children: [
-          // Sugestões Rápidas de Ação
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+      child: isDesktop
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ActionChip(
-                  avatar: const Icon(Icons.timer_outlined, size: 16, color: AsterConstants.secondary),
-                  label: const Text('Registrar 1h de estudo', style: TextStyle(fontSize: 12)),
-                  backgroundColor: AsterConstants.surfaceDark,
-                  side: const BorderSide(color: AsterConstants.borderDark),
-                  onPressed: () => _sendMessage('Registrei 1 hora de estudo em Algoritmos com o tema Grafos hoje.'),
+                // Painel Esquerdo: Área de Trabalho (Notas e Métricas)
+                Expanded(flex: 5, child: _buildWorkspaceLeftPanel()),
+                const SizedBox(width: 20),
+                // Painel Direito: Chat do Agente Noesis AI
+                Expanded(flex: 6, child: _buildChatCard()),
+              ],
+            )
+          : _buildChatCard(),
+    );
+  }
+
+  // ─── Widget: Painel da Área de Trabalho (Contexto do Estudo) ───
+  Widget _buildWorkspaceLeftPanel() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Área de trabalho',
+                    style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w900, color: AsterConstants.textDark),
+                  ),
+                  Text(
+                    'Criptografia · notas e materiais',
+                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.key, size: 20, color: AsterConstants.lavanda),
+                    tooltip: 'Chave Gemini',
+                    onPressed: _openApiKeyDialog,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Card: Notas Ativas
+          SoftClayCard(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.edit_note_rounded, size: 18, color: AsterConstants.coral),
+                        const SizedBox(width: 8),
+                        Text(
+                          'AES-GCM — notas',
+                          style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'editado agora',
+                      style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ActionChip(
-                  avatar: const Icon(Icons.event_outlined, size: 16, color: AsterConstants.primary),
-                  label: const Text('Agendar Prova no Calendário', style: TextStyle(fontSize: 12)),
-                  backgroundColor: AsterConstants.surfaceDark,
-                  side: const BorderSide(color: AsterConstants.borderDark),
-                  onPressed: () => _sendMessage('Agende uma prova de certificação para a próxima segunda-feira às 14:00.'),
-                ),
-                const SizedBox(width: 8),
-                ActionChip(
-                  avatar: const Icon(Icons.analytics_outlined, size: 16, color: AsterConstants.accentAmber),
-                  label: const Text('Ver Meus Estudos', style: TextStyle(fontSize: 12)),
-                  backgroundColor: AsterConstants.surfaceDark,
-                  side: const BorderSide(color: AsterConstants.borderDark),
-                  onPressed: () => _sendMessage('Consulte meus estudos recentes e me diga o resumo.'),
+                const SizedBox(height: 14),
+
+                // Esqueleto de Linhas Suaves do Texto da Nota
+                ...List.generate(4, (i) {
+                  return Container(
+                    height: 8,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    width: i == 3 ? 140 : double.infinity,
+                    decoration: BoxDecoration(
+                      color: AsterConstants.surfaceInset.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 12),
+
+                // Tags de Estudo
+                const Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    SoftClayTag(label: 'aes-gcm', color: AsterConstants.lavanda),
+                    SoftClayTag(label: 'nonce-reuse', color: AsterConstants.lavanda),
+                    SoftClayTag(label: 'revisar', color: AsterConstants.ambar),
+                  ],
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AsterConstants.borderDark),
+          const SizedBox(height: 16),
 
-          // Lista de Mensagens
+          // Card: Progresso nas Disciplinas
+          SoftClayCard(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Progresso · Security+',
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                ),
+                const SizedBox(height: 16),
+
+                _buildProgressItem('Criptografia', 0.82, AsterConstants.lavanda),
+                const SizedBox(height: 12),
+                _buildProgressItem('Cloud', 0.64, AsterConstants.menta),
+                const SizedBox(height: 12),
+                _buildProgressItem('AppSec', 0.71, AsterConstants.ambar),
+                const SizedBox(height: 12),
+                _buildProgressItem('Redes', 0.45, AsterConstants.coral),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Card: Consistência últimas 30 semanas
+          SoftClayCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Consistência · últimas 30 semanas',
+                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 46,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 30,
+                    itemBuilder: (context, col) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(4, (row) {
+                            final active = (col * 4 + row) % 3 == 0;
+                            return Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: active ? AsterConstants.menta : AsterConstants.surfaceInset,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressItem(String title, double fraction, Color color) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: AsterConstants.textDark)),
+            Text('${(fraction * 100).toInt()}%', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: color)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          child: LinearProgressIndicator(
+            value: fraction,
+            minHeight: 5,
+            backgroundColor: AsterConstants.surfaceInset,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Widget: Cartão do Chat Noesis AI ───
+  Widget _buildChatCard() {
+    return SoftClayCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          // Header do Chat
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AsterConstants.lavanda,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('N', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Noesis AI',
+                      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                    ),
+                    Row(
+                      children: [
+                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: AsterConstants.menta, shape: BoxShape.circle)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'agente ativo · 6 ferramentas',
+                          style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add_rounded, size: 20, color: AsterConstants.textDark),
+                  tooltip: 'Nova conversa',
+                  onPressed: () {
+                    setState(() {
+                      _messages.clear();
+                      _conversationHistory.clear();
+                      _loadInitialMockChat();
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20, color: AsterConstants.textMuted),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+
+          // Mensagens do Chat
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               itemCount: _messages.length,
               itemBuilder: (context, idx) {
                 final msg = _messages[idx];
-                final isUser = msg['role'] == 'user';
-                final isError = msg['isError'] == true;
+                final role = msg['role'];
+
+                // Renderizar Cartões de Ação Executada (Tool Calling)
+                if (role == 'tool') {
+                  final isCompleted = msg['status'] == 'completed';
+                  final color = isCompleted ? AsterConstants.menta : AsterConstants.ambar;
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
+                          size: 16,
+                          color: color,
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isCompleted ? 'AÇÃO EXECUTADA' : 'EXECUTANDO...',
+                              style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: color),
+                            ),
+                            Text(
+                              msg['text'],
+                              style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterConstants.textDark, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final isUser = role == 'user';
 
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 6),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-                    padding: const EdgeInsets.all(14),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.42),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: isUser
-                          ? AsterConstants.primary
-                          : (isError ? AsterConstants.accentRose.withValues(alpha: 0.2) : AsterConstants.surfaceDark),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isUser ? AsterConstants.primary : AsterConstants.borderDark,
-                      ),
+                      color: isUser ? AsterConstants.lavanda : AsterConstants.surfaceAlt,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: isUser ? AsterConstants.primaryButtonShadow : AsterConstants.claySubtleShadow,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!isUser) ...[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.bolt, size: 14, color: isError ? AsterConstants.accentRose : AsterConstants.secondary),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Noesis AI',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isError ? AsterConstants.accentRose : AsterConstants.secondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                        Text(
-                          msg['text'],
-                          style: TextStyle(
-                            color: isError ? AsterConstants.accentRose : AsterConstants.textLight,
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      msg['text'],
+                      style: GoogleFonts.manrope(
+                        color: isUser ? Colors.white : AsterConstants.textDark,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: isUser ? FontWeight.w600 : FontWeight.w500,
+                      ),
                     ),
                   ),
                 );
@@ -242,52 +510,93 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ),
 
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.secondary),
-                  ),
-                  SizedBox(width: 10),
-                  Text('Processando dados & executando ações...', style: TextStyle(color: AsterConstants.textDim, fontSize: 12)),
+                  const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda)),
+                  const SizedBox(width: 8),
+                  Text('Noesis AI pensando...', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
                 ],
               ),
             ),
 
-          // Campo de Entrada de Mensagem
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: AsterConstants.surfaceDark,
-              border: Border(top: BorderSide(color: AsterConstants.borderDark)),
-            ),
+          // Sugestões Rápidas de Ação
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Pergunte, registre estudos ou agende compromissos...',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
+                _buildQuickChip('✨ Criar simulado sobre OWASP', () => _sendMessage('Crie um simulado de 5 questões sobre OWASP Top 10')),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _isLoading ? null : () => _sendMessage(),
-                  icon: const Icon(Icons.send_rounded, color: AsterConstants.secondary),
-                ),
+                _buildQuickChip('✨ Agendar revisão sexta às 14h', () => _sendMessage('Agende uma revisão de Criptografia para sexta-feira às 14:00')),
               ],
             ),
           ),
+
+          // Campo de Entrada Soft Clay
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: AsterConstants.surfaceAlt,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: const InputDecoration(
+                        hintText: 'Pergunte ou peça uma ação...',
+                        filled: false,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.mic_none_rounded, size: 20, color: AsterConstants.textMuted),
+                    onPressed: () {},
+                  ),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: AsterConstants.lavanda,
+                      shape: BoxShape.circle,
+                      boxShadow: AsterConstants.primaryButtonShadow,
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.send_rounded, size: 16, color: Colors.white),
+                      onPressed: () => _sendMessage(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickChip(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AsterConstants.lavanda.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+        ),
       ),
     );
   }

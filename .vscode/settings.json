@@ -1,3 +1,20 @@
 {
-    "cmake.sourceDirectory": "C:/Users/User/Desktop/Project/Aster-Study/windows"
+  "cmake.sourceDirectory": "${workspaceFolder}/windows",
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.compile.nullAnalysis.mode": "automatic",
+  "gradle.nestedProjects": false,
+  "gradle.autoDetect": "off",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true,
+    "**/.dart_tool/**": true,
+    "**/build/**": true,
+    "**/windows/flutter/ephemeral/**": true
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.dart_tool": true,
+    "**/windows/flutter/ephemeral": true
+  }
 }

@@ -1,4 +1,4 @@
-package me.asterdev.aster_study
+package me.asterdev.noesis
 
 import io.flutter.embedding.android.FlutterActivity
 

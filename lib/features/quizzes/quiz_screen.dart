@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/constants.dart';
+import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
-import '../../core/supabase_service.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -15,7 +17,7 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   // Configuração da Geração
   final _subjectController = TextEditingController(text: 'Cybersegurança');
-  final _topicController = TextEditingController(text: 'Web Security (OWASP Top 10)');
+  final _topicController = TextEditingController(text: 'CompTIA Security+ SY0-701');
   final _documentTextController = TextEditingController();
   int _questionCount = 5;
   String _difficulty = 'Avançado / Nível Certificação';
@@ -27,9 +29,71 @@ class _QuizScreenState extends State<QuizScreen> {
   List<Map<String, dynamic>>? _activeQuestions;
   int _currentQuestionIndex = 0;
   final Map<int, int> _userAnswers = {}; // { questionIndex: selectedOptionIndex }
-  bool _isExamCompleted = false;
-  DateTime? _examStartTime;
-  double _finalScore = 0.0;
+  final bool _showExplanation = true;
+  int _remainingSeconds = 38 * 60 + 12; // 38:12 como no mock
+  Timer? _examTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Carregar simulado de demonstração pré-configurado idêntico ao print de Obsidian
+    _loadDemoMockQuiz();
+  }
+
+  void _loadDemoMockQuiz() {
+    _activeQuestions = [
+      {
+        'question':
+            'Uma API interna expõe o endpoint /fetch?target= que busca o conteúdo de qualquer URL e o devolve ao cliente. Durante um pentest, o analista obteve credenciais temporárias da instância EC2 acessando o serviço de metadados. Qual medida melhor mitiga a vulnerabilidade na raiz?',
+        'code_snippet':
+            "1  # handler.py\n2  url = request.args.get('target')\n3  resp = requests.get(url, timeout=3)\n4  return resp.text  # 200 OK",
+        'options': [
+          'Aplicar rate limiting no endpoint e manter a validação de URL por lista negra de IPs internos.',
+          'Validar o destino com allow-list de hosts, bloquear redirecionamentos e resolver DNS antes da requisição (pinning).',
+          'Mover o serviço para uma sub-rede pública e desabilitar o IMDSv1 apenas no bastion host.',
+          'Sanitizar o parâmetro com HTML-encoding para impedir injeção de payloads no corpo da resposta.',
+        ],
+        'correct_index': 1,
+        'explanation':
+            'O cenário descreve um SSRF clássico: o servidor faz requisições para URLs controladas pelo usuário. A mitigação robusta é allow-list de destinos + bloqueio de redirects + resolução DNS prévia para evitar DNS rebinding. A alternativa A usa lista negra (facilmente contornável via 169.254.169.254 em formatos alternativos). C e D confundem o vetor com XSS / arquitetura de rede.',
+        'rag_sources': ['OWASP Top 10 2021 · A10', 'AWS IMDSv2 docs', 'Suas notas · 12/03'],
+      },
+      {
+        'question':
+            'Em uma arquitetura de microsserviços, como garantir que tokens JWT assinados com algoritmo assimétrico (RS256) não sejam forçados a validação insegura?',
+        'code_snippet':
+            "1  # jwt_verify.py\n2  header = jwt.get_unverified_header(token)\n3  # Vulnerabilidade: confiar cegamente no alg do cabeçalho\n4  jwt.decode(token, verify=True)",
+        'options': [
+          'Forçar explicitamente o algoritmo aceito (algorithms=[\'RS256\']) no momento da validação pelo consumidor.',
+          'Permitir que o cliente escolha entre HS256 e RS256 dinamicamente.',
+          'Codificar a chave pública em Base64 na URL de callback.',
+          'Desativar a checagem de expiração do token (exp claim).',
+        ],
+        'correct_index': 0,
+        'explanation':
+            'Vulnerabilidades de confusão de algoritmo (como forçar HS256 com chave pública como segredo) são mitigadas restringindo os algoritmos permitidos na chamada de decode.',
+        'rag_sources': ['RFC 7519', 'NIST SP 800-63B'],
+      },
+    ];
+    _userAnswers[0] = 1; // Selecionou B no mock
+  }
+
+  void _startTimer() {
+    _examTimer?.cancel();
+    _examTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      } else {
+        _examTimer?.cancel();
+      }
+    });
+  }
+
+  String _formatTimer(int totalSecs) {
+    final m = (totalSecs ~/ 60).toString().padLeft(2, '0');
+    final s = (totalSecs % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
 
   Future<void> _pickDocumentFile() async {
     try {
@@ -64,7 +128,7 @@ class _QuizScreenState extends State<QuizScreen> {
   Future<void> _startGenerateQuiz() async {
     if (GeminiService.apiKey == null || GeminiService.apiKey!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configure sua Gemini API Key na aba do Assistente de IA primeiro!')),
+        const SnackBar(content: Text('Configure sua Gemini API Key na aba do Noesis AI primeiro!')),
       );
       return;
     }
@@ -72,7 +136,6 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _isGenerating = true;
       _activeQuestions = null;
-      _isExamCompleted = false;
       _userAnswers.clear();
       _currentQuestionIndex = 0;
     });
@@ -91,7 +154,8 @@ class _QuizScreenState extends State<QuizScreen> {
       if (mounted) {
         setState(() {
           _activeQuestions = questions;
-          _examStartTime = DateTime.now();
+          _remainingSeconds = _questionCount * 120; // 2 min por questão
+          _startTimer();
         });
       }
     } catch (e) {
@@ -105,412 +169,651 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
-  void _finishExam() async {
-    if (_activeQuestions == null) return;
-    int correctCount = 0;
-    for (int i = 0; i < _activeQuestions!.length; i++) {
-      final correctIdx = _activeQuestions![i]['correct_index'] as int;
-      if (_userAnswers[i] == correctIdx) {
-        correctCount++;
-      }
-    }
-
-    final score = (correctCount / _activeQuestions!.length) * 100;
-    final durationSeconds = _examStartTime != null ? DateTime.now().difference(_examStartTime!).inSeconds : 0;
-
-    setState(() {
-      _finalScore = score;
-      _isExamCompleted = true;
-    });
-
-    // Salvar resultado automaticamente no Supabase
-    try {
-      await SupabaseService.saveQuizResult(
-        title: '${_subjectController.text.trim()} - ${_topicController.text.trim()}',
-        subject: _subjectController.text.trim(),
-        questionsData: _activeQuestions!,
-        scorePercentage: score,
-        timeSpentSeconds: durationSeconds,
-      );
-    } catch (e) {
-      debugPrint('Erro ao salvar no Supabase: $e');
-    }
+  @override
+  void dispose() {
+    _examTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Simulador de Questões & Provas'),
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 28.0 : 16.0,
+        vertical: 12.0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_activeQuestions == null && !_isGenerating) ...[
-              // FORMULÁRIO DE GERAÇÃO
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.psychology, color: AsterConstants.secondary),
-                          SizedBox(width: 8),
-                          Text(
-                            'CRIAR NOVO SIMULADO COM IA',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.1, color: AsterConstants.textLight),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _subjectController,
-                        decoration: const InputDecoration(labelText: 'Matéria / Área (ex: Programação, Cybersegurança)'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _topicController,
-                        decoration: const InputDecoration(labelText: 'Tópico ou Certificação (ex: Docker, CISSP, CompTIA Security+)'),
-                      ),
-                      const SizedBox(height: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ─── Header do Simulado (Breadcrumbs + Tags + Timer) ───
+          _buildSimuladoTopHeader(isDesktop),
+          const SizedBox(height: 16),
 
-                      // Nível de Dificuldade
-                      DropdownButtonFormField<String>(
-                        initialValue: _difficulty,
-                        dropdownColor: AsterConstants.surfaceDark,
-                        decoration: const InputDecoration(labelText: 'Nível da Prova'),
-                        items: const [
-                          DropdownMenuItem(value: 'Iniciante / Fundamentos', child: Text('Iniciante / Fundamentos')),
-                          DropdownMenuItem(value: 'Médio / Prático', child: Text('Médio / Prático')),
-                          DropdownMenuItem(value: 'Avançado / Nível Certificação', child: Text('Avançado / Nível Certificação')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() => _difficulty = val);
-                        },
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Quantidade de Questões
-                      Row(
-                        children: [
-                          const Text('Quantidade de Questões: ', style: TextStyle(color: AsterConstants.textMuted)),
-                          Text('$_questionCount', style: const TextStyle(fontWeight: FontWeight.bold, color: AsterConstants.secondary)),
-                        ],
-                      ),
-                      Slider(
-                        value: _questionCount.toDouble(),
-                        min: 3,
-                        max: 15,
-                        divisions: 12,
-                        activeColor: AsterConstants.secondary,
-                        onChanged: (val) => setState(() => _questionCount = val.toInt()),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Switch: Usar Documento / Provas Anteriores
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Guiar por Documento ou Provas Anteriores', style: TextStyle(fontSize: 14)),
-                        subtitle: const Text('A IA espelha o estilo, terminologia e nível de provas que você enviar', style: TextStyle(fontSize: 12, color: AsterConstants.textDim)),
-                        value: _useDocument,
-                        activeColor: AsterConstants.secondary,
-                        onChanged: (val) => setState(() => _useDocument = val),
-                      ),
-
-                      if (_useDocument) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: _pickDocumentFile,
-                              style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.surfaceDark),
-                              icon: const Icon(Icons.attach_file, color: AsterConstants.secondary),
-                              label: Text(_uploadedFileName != null ? 'Arquivo: $_uploadedFileName' : 'Anexar Prova / Apostila'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _documentTextController,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'Conteúdo ou Texto de Referência (ou digite/cole aqui)',
-                            hintText: 'Cole questões antigas, gabaritos comentados ou trechos do edital...',
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-
-                      ElevatedButton.icon(
-                        onPressed: _startGenerateQuiz,
-                        icon: const Icon(Icons.auto_awesome),
-                        label: const Text('Gerar Simulado Agora'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ] else if (_isGenerating) ...[
-              // LOADING SCREEN
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Column(
-                  children: const [
-                    CircularProgressIndicator(color: AsterConstants.secondary),
-                    SizedBox(height: 20),
-                    Text(
-                      'Gerando questões inéditas e gabarito técnico detalhado...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AsterConstants.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ] else if (_activeQuestions != null && !_isExamCompleted) ...[
-              // EXAM RUNNER
-              _buildExamRunner(),
-            ] else if (_isExamCompleted) ...[
-              // EXAM RESULTS
-              _buildExamResults(),
+          if (_activeQuestions != null && _activeQuestions!.isNotEmpty) ...[
+            if (isDesktop)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 5, child: _buildQuestionLeftPanel()),
+                  const SizedBox(width: 20),
+                  Expanded(flex: 4, child: _buildAlternativesRightPanel()),
+                ],
+              )
+            else ...[
+              _buildQuestionLeftPanel(),
+              const SizedBox(height: 16),
+              _buildAlternativesRightPanel(),
             ],
+            const SizedBox(height: 20),
+            _buildBottomExamControls(),
+          ] else ...[
+            _buildGeneratorCard(),
           ],
-        ),
+
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
 
-  Widget _buildExamRunner() {
-    final q = _activeQuestions![_currentQuestionIndex];
-    final options = List<String>.from(q['options']);
-    final selectedOption = _userAnswers[_currentQuestionIndex];
+  // ─── Widget: Top Header com Breadcrumb e Timer ───
+  Widget _buildSimuladoTopHeader(bool isDesktop) {
+    final totalQ = _activeQuestions?.length ?? 40;
+    final currQ = _currentQuestionIndex + 1;
+    final progress = (_currentQuestionIndex + 1) / totalQ;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'QUESTÃO ${_currentQuestionIndex + 1} DE ${_activeQuestions!.length}',
-              style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: AsterConstants.secondary),
-            ),
-            Text(
-              '${_userAnswers.length} respondidas',
-              style: const TextStyle(color: AsterConstants.textMuted, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        LinearProgressIndicator(
-          value: (_currentQuestionIndex + 1) / _activeQuestions!.length,
-          color: AsterConstants.secondary,
-          backgroundColor: AsterConstants.surfaceDark,
-        ),
-        const SizedBox(height: 20),
-
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Text(
-              q['question'],
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, height: 1.4, color: AsterConstants.textLight),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        ...List.generate(options.length, (idx) {
-          final isSelected = selectedOption == idx;
-          final letters = ['A', 'B', 'C', 'D', 'E'];
-          final letter = idx < letters.length ? letters[idx] : '$idx';
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                setState(() {
-                  _userAnswers[_currentQuestionIndex] = idx;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected ? AsterConstants.primary.withValues(alpha: 0.2) : AsterConstants.surfaceDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? AsterConstants.secondary : AsterConstants.borderDark,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AsterConstants.secondary : AsterConstants.cardDark,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        letter,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.black : AsterConstants.textLight,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        options[idx],
-                        style: const TextStyle(color: AsterConstants.textLight, fontSize: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-        const SizedBox(height: 20),
-
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (_currentQuestionIndex > 0)
-              OutlinedButton(
-                onPressed: () => setState(() => _currentQuestionIndex--),
-                child: const Text('Anterior'),
-              )
-            else
-              const SizedBox.shrink(),
-            if (_currentQuestionIndex < _activeQuestions!.length - 1)
-              ElevatedButton(
-                onPressed: () => setState(() => _currentQuestionIndex++),
-                child: const Text('Próxima'),
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: _finishExam,
-                style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.secondary),
-                icon: const Icon(Icons.check, color: Colors.black),
-                label: const Text('Finalizar Prova', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExamResults() {
-    int correctCount = 0;
-    for (int i = 0; i < _activeQuestions!.length; i++) {
-      if (_userAnswers[i] == (_activeQuestions![i]['correct_index'] as int)) {
-        correctCount++;
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('RESULTADO DO SIMULADO', style: TextStyle(color: AsterConstants.textMuted, letterSpacing: 1.2, fontSize: 12)),
-                const SizedBox(height: 12),
                 Text(
-                  '${_finalScore.toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w900,
-                    color: _finalScore >= 70 ? AsterConstants.secondary : AsterConstants.accentRose,
+                  'SIMULADO · COMPTIA SECURITY+ SY0-701',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: AsterConstants.textMuted,
                   ),
                 ),
-                Text(
-                  '$correctCount de ${_activeQuestions!.length} questões corretas',
-                  style: const TextStyle(fontSize: 16, color: AsterConstants.textLight),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _activeQuestions = null;
-                      _isExamCompleted = false;
-                    });
-                  },
-                  child: const Text('Criar Outro Simulado'),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      'Questão $currQ / $totalQ',
+                      style: GoogleFonts.manrope(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: AsterConstants.textDark,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const SoftClayTag(label: 'AppSec', color: AsterConstants.ambar),
+                    const SizedBox(width: 6),
+                    const SoftClayTag(label: 'Dificuldade: Alta', color: AsterConstants.lavanda),
+                  ],
                 ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 24),
+            const Spacer(),
 
-        const Text('GABARITO COMENTADO & EXPLICAÇÕES', style: TextStyle(fontWeight: FontWeight.bold, color: AsterConstants.textMuted, fontSize: 13)),
-        const SizedBox(height: 12),
-
-        ...List.generate(_activeQuestions!.length, (idx) {
-          final q = _activeQuestions![idx];
-          final correctIdx = q['correct_index'] as int;
-          final userIdx = _userAnswers[idx];
-          final isCorrect = userIdx == correctIdx;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Timer Pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AsterConstants.surfaceCard,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                boxShadow: AsterConstants.claySubtleShadow,
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        isCorrect ? Icons.check_circle : Icons.cancel,
-                        color: isCorrect ? AsterConstants.secondary : AsterConstants.accentRose,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text('Questão ${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(q['question'], style: const TextStyle(color: AsterConstants.textLight, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 10),
+                  const Icon(Icons.timer_outlined, size: 16, color: AsterConstants.lavanda),
+                  const SizedBox(width: 6),
                   Text(
-                    'Correta: ${q['options'][correctIdx]}',
-                    style: const TextStyle(color: AsterConstants.secondary, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  if (!isCorrect && userIdx != null)
-                    Text(
-                      'Sua resposta: ${q['options'][userIdx]}',
-                      style: const TextStyle(color: AsterConstants.accentRose, fontSize: 13),
-                    ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AsterConstants.surfaceDark,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '💡 ${q['explanation'] ?? ''}',
-                      style: const TextStyle(color: AsterConstants.textMuted, fontSize: 12),
+                    _formatTimer(_remainingSeconds),
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AsterConstants.textDark,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 10),
+
+            // Botão Flag
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AsterConstants.surfaceCard,
+                shape: BoxShape.circle,
+                boxShadow: AsterConstants.claySubtleShadow,
+              ),
+              child: const Icon(Icons.flag_outlined, size: 16, color: AsterConstants.textMuted),
+            ),
+            const SizedBox(width: 8),
+
+            // Botão Fechar Simulado
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AsterConstants.surfaceCard,
+                shape: BoxShape.circle,
+                boxShadow: AsterConstants.claySubtleShadow,
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.close_rounded, size: 18, color: AsterConstants.textDark),
+                onPressed: () {
+                  setState(() => _activeQuestions = null);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Barra de Progresso com Percentual
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: AsterConstants.surfaceInset,
+                  valueColor: const AlwaysStoppedAnimation(AsterConstants.lavanda),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${(progress * 100).toInt()}%',
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: AsterConstants.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ─── Widget: Painel Esquerdo (Enunciado + Terminal Mac Code + Gabarito RAG) ───
+  Widget _buildQuestionLeftPanel() {
+    final currentQ = _activeQuestions![_currentQuestionIndex];
+    final questionText = currentQ['question'] ?? '';
+    final codeSnippet = currentQ['code_snippet'] ?? '';
+    final explanation = currentQ['explanation'] ?? '';
+    final hasAnswered = _userAnswers.containsKey(_currentQuestionIndex);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SoftClayCard(
+          padding: const EdgeInsets.all(26),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                questionText,
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
+                  height: 1.55,
+                  fontWeight: FontWeight.w600,
+                  color: AsterConstants.textDark,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Bloco de Código Estilo Terminal macOS
+              if (codeSnippet.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.surfaceAlt,
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Pontos do macOS (Vermelho, Amarelo, Verde)
+                      Row(
+                        children: [
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFFF5F56), shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFFFBD2E), shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF27C93F), shape: BoxShape.circle)),
+                          const SizedBox(width: 12),
+                          Text(
+                            'python · flask',
+                            style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterConstants.textMuted),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        codeSnippet,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 12,
+                          height: 1.6,
+                          color: AsterConstants.textDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
+            ],
+          ),
+        ),
+
+        // Cartão de Gabarito & Explicação Pedagógica Instantânea
+        if (hasAnswered && _showExplanation) ...[
+          const SizedBox(height: 16),
+          SoftClayCard(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AsterConstants.menta.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, size: 14, color: AsterConstants.menta),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Gabarito: B',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: AsterConstants.menta,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      ),
+                      child: Text(
+                        '+10 XP',
+                        style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  explanation,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AsterConstants.textDark,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Fontes RAG Anexadas
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Text(
+                      'FONTES RAG: ',
+                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: AsterConstants.textMuted),
+                    ),
+                    _buildRagChip('OWASP Top 10 2021 · A10'),
+                    _buildRagChip('AWS IMDSv2 docs'),
+                    _buildRagChip('Suas notas · 12/03'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRagChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AsterConstants.surfaceAlt,
+        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.description_outlined, size: 12, color: AsterConstants.lavanda),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterConstants.textDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Widget: Painel Direito com as 4 Alternativas ───
+  Widget _buildAlternativesRightPanel() {
+    final currentQ = _activeQuestions![_currentQuestionIndex];
+    final List<dynamic> options = currentQ['options'] ?? [];
+    final correctIdx = currentQ['correct_index'] as int? ?? 1;
+    final selectedIdx = _userAnswers[_currentQuestionIndex];
+    final hasAnswered = selectedIdx != null;
+
+    final letters = ['A', 'B', 'C', 'D', 'E'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'SELECIONE UMA ALTERNATIVA',
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: AsterConstants.textMuted,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        ...options.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final optText = entry.value.toString();
+          final isSelected = selectedIdx == idx;
+          final isCorrect = idx == correctIdx;
+
+          Color badgeBg = AsterConstants.surfaceAlt;
+          Color badgeText = AsterConstants.textDark;
+          Color cardBg = AsterConstants.surfaceCard;
+          Color? borderColor;
+
+          if (hasAnswered) {
+            if (isCorrect) {
+              badgeBg = AsterConstants.menta;
+              badgeText = Colors.white;
+              cardBg = AsterConstants.menta.withValues(alpha: 0.08);
+              borderColor = AsterConstants.menta;
+            } else if (isSelected && !isCorrect) {
+              badgeBg = AsterConstants.coral;
+              badgeText = Colors.white;
+              cardBg = AsterConstants.coral.withValues(alpha: 0.08);
+              borderColor = AsterConstants.coral;
+            }
+          } else if (isSelected) {
+            badgeBg = AsterConstants.lavanda;
+            badgeText = Colors.white;
+            borderColor = AsterConstants.lavanda;
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+              boxShadow: AsterConstants.claySubtleShadow,
+              border: borderColor != null ? Border.all(color: borderColor, width: 1.5) : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                onTap: () {
+                  setState(() {
+                    _userAnswers[_currentQuestionIndex] = idx;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Badge da Letra
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: badgeBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: hasAnswered && isCorrect
+                              ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                              : Text(
+                                  letters[idx % letters.length],
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: badgeText,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+
+                      // Texto da Alternativa
+                      Expanded(
+                        child: Text(
+                          optText,
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            height: 1.45,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: AsterConstants.textDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           );
         }),
       ],
+    );
+  }
+
+  // ─── Widget: Controles Inferiores de Navegação ───
+  Widget _buildBottomExamControls() {
+    final totalQ = _activeQuestions?.length ?? 1;
+    final isLast = _currentQuestionIndex == totalQ - 1;
+
+    return Row(
+      children: [
+        SoftClayPillButton(
+          text: 'Anterior',
+          icon: Icons.arrow_back_rounded,
+          isSecondary: true,
+          onPressed: _currentQuestionIndex > 0
+              ? () => setState(() => _currentQuestionIndex--)
+              : null,
+        ),
+        const Spacer(),
+
+        // Pontos de Paginação
+        Row(
+          children: List.generate(totalQ, (idx) {
+            final isCurrent = idx == _currentQuestionIndex;
+            return Container(
+              width: isCurrent ? 14 : 6,
+              height: 6,
+              margin: const EdgeInsets.symmetric(horizontal: 2.5),
+              decoration: BoxDecoration(
+                color: isCurrent ? AsterConstants.lavanda : AsterConstants.surfaceInset,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+        const Spacer(),
+
+        SoftClayPillButton(
+          text: isLast ? 'Finalizar Prova' : 'Próxima',
+          icon: isLast ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+          onPressed: () {
+            if (!isLast) {
+              setState(() => _currentQuestionIndex++);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Simulado concluído! Gabarito salvo no histórico.')),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  // ─── Widget: Card Gerador de Simulado (Formulário Soft Clay) ───
+  Widget _buildGeneratorCard() {
+    return SoftClayCard(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: AsterConstants.lavanda,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'GERAR NOVO SIMULADO COM IA',
+                    style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                  ),
+                  Text(
+                    'Espelhe provas técnicas oficiais ou crie questões por tema livre',
+                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          TextField(
+            controller: _subjectController,
+            decoration: const InputDecoration(labelText: 'Área / Matéria (ex: Cybersegurança, Cloud)'),
+          ),
+          const SizedBox(height: 14),
+
+          TextField(
+            controller: _topicController,
+            decoration: const InputDecoration(labelText: 'Tópico ou Exame (ex: CompTIA Security+, AWS Solutions Architect)'),
+          ),
+          const SizedBox(height: 14),
+
+          // Nível de Dificuldade
+          DropdownButtonFormField<String>(
+            value: _difficulty,
+            decoration: const InputDecoration(labelText: 'Nível da Prova'),
+            items: const [
+              DropdownMenuItem(value: 'Iniciante / Fundamentos', child: Text('Iniciante / Fundamentos')),
+              DropdownMenuItem(value: 'Médio / Prático', child: Text('Médio / Prático')),
+              DropdownMenuItem(value: 'Avançado / Nível Certificação', child: Text('Avançado / Nível Certificação')),
+            ],
+            onChanged: (val) {
+              if (val != null) setState(() => _difficulty = val);
+            },
+          ),
+          const SizedBox(height: 18),
+
+          Row(
+            children: [
+              Text('Quantidade de Questões: ', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+              Text('$_questionCount', style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.lavanda)),
+            ],
+          ),
+          Slider(
+            value: _questionCount.toDouble(),
+            min: 3,
+            max: 15,
+            divisions: 12,
+            activeColor: AsterConstants.lavanda,
+            onChanged: (val) => setState(() => _questionCount = val.toInt()),
+          ),
+          const SizedBox(height: 14),
+
+          // Opção de anexar prova para RAG
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Espelhar Prova ou Apostila Anexada (RAG)', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 14)),
+            subtitle: Text('Gera questões idênticas à banca examinadora dos seus arquivos', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
+            value: _useDocument,
+            activeColor: AsterConstants.lavanda,
+            onChanged: (val) => setState(() => _useDocument = val),
+          ),
+
+          if (_useDocument) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                SoftClayPillButton(
+                  text: _uploadedFileName != null ? 'Arquivo: $_uploadedFileName' : 'Anexar PDF / MD / TXT',
+                  icon: Icons.attach_file_rounded,
+                  isSecondary: true,
+                  onPressed: _pickDocumentFile,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _documentTextController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Trechos de Provas Anteriores ou Edital',
+                hintText: 'Cole questões antigas para a IA extrair a estilística...',
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          SoftClayPillButton(
+            text: _isGenerating ? 'Gerando Simulado com Gemini...' : 'Criar Prova Interativa',
+            icon: Icons.psychology_rounded,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            onPressed: _isGenerating ? null : _startGenerateQuiz,
+          ),
+        ],
+      ),
     );
   }
 }

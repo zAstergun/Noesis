@@ -3,6 +3,6 @@ import 'package:noesis/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    expect(AsterStudyApp.new, isNotNull);
+    expect(NoesisApp.new, isNotNull);
   });
 }

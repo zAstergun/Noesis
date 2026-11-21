@@ -1,11 +1,11 @@
 {
-    "name": "aster_study",
-    "short_name": "aster_study",
+    "name": "Noesis",
+    "short_name": "Noesis",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#EEF0F8",
+    "theme_color": "#7C6CF0",
+    "description": "Noesis - Cognitive OS & AI Study Engine",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
