@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NOESIS // Design Systems Lab — 5 Arquétipos Estruturais</title>
+  <title>NOESIS // Popular Apps Design Lab — 5 Novos Arquétipos</title>
 
-  <!-- TYPOGRAPHY FONTS -->
+  <!-- FONTES MODERNAS DE ALTO PADRÃO -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,600,700,800,900&f[]=cabinet-grotesk@700,800,900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
   <style>
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 0. RESET & BASE DO LABORATÓRIO                                     */
+    /* 0. RESET & SHELL GLOBAL DO LABORATÓRIO                             */
     /* ══════════════════════════════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
     body {
-      background: #08090d;
+      background: #07080b;
       color: #e2e8f0;
-      font-family: 'Satoshi', -apple-system, sans-serif;
+      font-family: 'Inter', -apple-system, sans-serif;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       line-height: 1.45;
@@ -28,13 +28,13 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 1. TOPBAR DO LABORATÓRIO & CONTROLES GLOBAIS                       */
+    /* 1. TOPBAR DO LABORATÓRIO (CONTROLES E ABAS)                        */
     /* ══════════════════════════════════════════════════════════════════ */
     .lab-header {
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: rgba(11, 13, 19, 0.94);
+      background: rgba(9, 10, 15, 0.94);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -54,13 +54,13 @@
       width: 32px;
       height: 32px;
       border-radius: 9px;
-      background: linear-gradient(135deg, #6c63ff, #00cec9);
+      background: linear-gradient(135deg, #5e6ad2, #58cc02);
       display: grid;
       place-items: center;
       font-weight: 900;
       font-size: 15px;
-      color: #0b0d13;
-      box-shadow: 0 4px 12px rgba(108, 99, 255, 0.35);
+      color: #07080b;
+      box-shadow: 0 4px 12px rgba(94, 106, 210, 0.35);
     }
     .lab-brand-title {
       font-size: 14px;
@@ -77,7 +77,7 @@
     /* GRUPOS DE BOTÕES DE SELEÇÃO */
     .ctrl-group {
       display: inline-flex;
-      background: #12141c;
+      background: #11131b;
       padding: 3px;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -103,7 +103,7 @@
       background: rgba(255, 255, 255, 0.05);
     }
     .ctrl-btn.active {
-      background: #202434;
+      background: #1e2230;
       color: #ffffff;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }
@@ -115,7 +115,7 @@
 
     /* SUB-BARRA DE TELAS INTERATIVAS */
     .screens-bar {
-      background: #0d0f16;
+      background: #0b0c12;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       padding: 8px 20px;
       display: flex;
@@ -133,7 +133,7 @@
     }
     .screen-pill {
       border: 1px solid rgba(255, 255, 255, 0.07);
-      background: #141722;
+      background: #13151f;
       color: #8f9ba8;
       font-size: 11.5px;
       font-weight: 600;
@@ -158,10 +158,10 @@
       border-color: rgba(255, 255, 255, 0.2);
     }
     .screen-pill.active {
-      background: #6c63ff;
-      border-color: #6c63ff;
+      background: #5e6ad2;
+      border-color: #5e6ad2;
       color: #ffffff;
-      box-shadow: 0 2px 10px rgba(108, 99, 255, 0.4);
+      box-shadow: 0 2px 10px rgba(94, 106, 210, 0.4);
     }
 
     /* BANNER DE INFORMAÇÕES DO ARQUÉTIPO SELECIONADO */
@@ -202,7 +202,7 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 2. PALCO PRINCIPAL (CANVAS)                                        */
+    /* 2. PALCO PRINCIPAL (CANVAS MULTIPLATAFORMA)                       */
     /* ══════════════════════════════════════════════════════════════════ */
     .stage-wrapper {
       max-width: 1640px;
@@ -217,7 +217,7 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 3. CHASSI FÍSICO DO SMARTPHONE (PRECISÃO ERGONÔMICA)               */
+    /* 3. CHASSI FÍSICO DO SMARTPHONE (PRECISÃO ERGONÔMICA 390x844)       */
     /* ══════════════════════════════════════════════════════════════════ */
     .phone-outer {
       width: 390px;
@@ -225,12 +225,11 @@
       flex-shrink: 0;
       border-radius: 48px;
       padding: 9px;
-      background: linear-gradient(145deg, #2c2b33 0%, #16151b 30%, #0d0c11 65%, #22202a 100%);
+      background: linear-gradient(145deg, #2b2a33 0%, #15141a 30%, #0c0b10 65%, #211f29 100%);
       border: 1px solid rgba(255, 255, 255, 0.16);
       box-shadow: 0 35px 80px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.25);
       position: relative;
     }
-    /* Botões físicos na lateral do chassis */
     .phone-outer::before {
       content: "";
       position: absolute;
@@ -239,7 +238,7 @@
       width: 3px;
       height: 52px;
       border-radius: 3px 0 0 3px;
-      background: #3c3a47;
+      background: #3a3845;
     }
     .phone-outer::after {
       content: "";
@@ -249,7 +248,7 @@
       width: 3px;
       height: 38px;
       border-radius: 3px 0 0 3px;
-      background: #3c3a47;
+      background: #3a3845;
     }
 
     .phone-screen {
@@ -262,7 +261,7 @@
       flex-direction: column;
     }
 
-    /* STATUS BAR & DYNAMIC ISLAND DO SMARTPHONE */
+    /* STATUS BAR & DYNAMIC ISLAND */
     .phone-top-bar {
       position: absolute;
       top: 0;
@@ -300,7 +299,7 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #1b1c24;
+      background: #191a22;
     }
     .phone-status-icons {
       font-size: 10px;
@@ -309,7 +308,7 @@
       letter-spacing: 0.5px;
     }
 
-    /* ─── SCROLL CONTAINER MOBILE (ESPAÇAMENTO RIGOROSO & NATURAL) ─── */
+    /* ─── SCROLL CONTAINER MOBILE COM RESPIRO PERFEITO ─── */
     .phone-scroll-body {
       position: absolute;
       top: 0;
@@ -318,13 +317,13 @@
       bottom: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 50px 16px 88px; /* Topo limpa a Island; Base limpa o dock de 62px + respiro */
+      padding: 50px 16px 88px; /* Topo limpa a Island; Base limpa o dock de 64px */
       display: flex;
       flex-direction: column;
       gap: 12px; /* Ritmo vertical tático e coeso */
     }
 
-    /* ─── DOCK INFERIOR MOBILE COM HOME INDICATOR ─── */
+    /* ─── DOCK INFERIOR MOBILE ─── */
     .phone-bottom-dock {
       position: absolute;
       bottom: 0;
@@ -373,7 +372,7 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 4. CHASSI E WORKSPACE DESKTOP WIDESCREEN                           */
+    /* 4. CHASSI E WORKSPACE DESKTOP WIDESCREEN (1280 × 800)              */
     /* ══════════════════════════════════════════════════════════════════ */
     .desktop-chassis {
       flex: 1;
@@ -447,192 +446,368 @@
       max-height: 802px;
     }
 
-    /* PAINÉIS DE TELAS */
-    .screen-view {
-      display: none;
-      animation: screenFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .screen-view.active { display: block; }
-    @keyframes screenFadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    /* ══════════════════════════════════════════════════════════════════ */
+    /* 5. OS 5 NOVOS ARQUÉTIPOS INSPIRADOS EM APPS POPULARES              */
+    /* ══════════════════════════════════════════════════════════════════ */
 
-    /* ══════════════════════════════════════════════════════════════════ */
-    /* 5. ARQUÉTIPO 1: ASTER BENTO SOFT (DARK LUXURY & COLOR TILES)       */
-    /*    Base: Obsidian Vault 'Aster Bento Soft'                         */
-    /* ══════════════════════════════════════════════════════════════════ */
-    .theme-bento-soft .phone-screen {
-      background: #111118;
-      color: #ffffff;
-      font-family: 'Outfit', sans-serif;
+    /* ────────────────────────────────────────────────────────────────── */
+    /* [APP 1] LINEAR PRECISION (Estética Linear.app / Raycast / Vercel)  */
+    /* Dark graphite, hairlines 1px, subtle specular glow, ⌘K shortcuts  */
+    /* ────────────────────────────────────────────────────────────────── */
+    .theme-linear .phone-screen {
+      background: #0c0d12;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
     }
-    .theme-bento-soft .phone-top-bar { color: #ffffff; }
-    .theme-bento-soft .phone-bottom-dock {
-      background: rgba(23, 23, 33, 0.94);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+    .theme-linear .phone-top-bar { color: #f1f5f9; }
+    .theme-linear .phone-bottom-dock {
+      background: rgba(12, 13, 18, 0.94);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .theme-bento-soft .dock-tab { color: #8b8f9e; }
-    .theme-bento-soft .dock-tab.active {
-      color: #111118;
-      background: #ffffff;
-      font-weight: 700;
-      border-radius: 999px;
-    }
-    .theme-bento-soft .phone-home-indicator { background: rgba(255, 255, 255, 0.25); }
-
-    .theme-bento-soft .desktop-chassis {
-      background: #111118;
+    .theme-linear .dock-tab { color: #71768c; }
+    .theme-linear .dock-tab.active {
       color: #ffffff;
-      font-family: 'Outfit', sans-serif;
+      background: rgba(94, 106, 210, 0.16);
+      border: 1px solid rgba(94, 106, 210, 0.35);
+      border-radius: 8px;
+      font-weight: 700;
+    }
+    .theme-linear .phone-home-indicator { background: rgba(255, 255, 255, 0.25); }
+
+    .theme-linear .desktop-chassis {
+      background: #0c0d12;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .theme-bento-soft .desktop-titlebar {
-      background: rgba(17, 17, 24, 0.85);
+    .theme-linear .desktop-titlebar {
+      background: #10121a;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      color: #8b8f9e;
+      color: #8b92a3;
     }
-    .theme-bento-soft .desktop-sidebar-pane {
-      background: #111118;
+    .theme-linear .desktop-sidebar-pane {
+      background: #0c0d12;
       border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .theme-bento-soft .desk-nav-btn { color: #8b8f9e; }
-    .theme-bento-soft .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.05); }
-    .theme-bento-soft .desk-nav-btn.active {
-      background: #6c63ff;
-      color: #ffffff;
+    .theme-linear .desk-nav-btn { color: #82889e; border-radius: 8px; font-size: 12px; }
+    .theme-linear .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.04); }
+    .theme-linear .desk-nav-btn.active {
+      background: rgba(94, 106, 210, 0.15);
+      color: #818cf8;
       font-weight: 700;
-      border-radius: 14px;
+      border: 1px solid rgba(94, 106, 210, 0.3);
     }
 
-    /* Componentes Exclusivos Bento Soft */
-    .bento-hero-timer {
-      background: #6c63ff;
+    .linear-card {
+      background: #13151f;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      padding: 16px 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .linear-btn-primary {
+      background: #5e6ad2;
       color: #ffffff;
-      border-radius: 26px;
-      padding: 22px 18px;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 14px 34px -8px rgba(108, 99, 255, 0.45);
-    }
-    .bento-hero-timer::before {
-      content: "";
-      position: absolute;
-      right: -30px;
-      top: -30px;
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.12);
-      pointer-events: none;
-    }
-    .bento-tile-dark {
-      background: #1b1b25;
-      border-radius: 22px;
-      padding: 16px;
-    }
-    .bento-tile-mint {
-      background: #00cec9;
-      color: #0c1a1a;
-      border-radius: 22px;
-      padding: 16px;
-    }
-    .bento-tile-amber {
-      background: #fdcb6e;
-      color: #1e1708;
-      border-radius: 22px;
-      padding: 16px;
-    }
-    .bento-pill-btn-white {
-      background: #ffffff;
-      color: #6c63ff;
-      border: none;
-      border-radius: 999px;
-      font-weight: 700;
-      padding: 10px 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      font-weight: 600;
+      padding: 10px 18px;
       min-height: 44px;
-      font-size: 13px;
+      font-size: 12.5px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      transition: transform 0.15s ease;
+      box-shadow: 0 2px 8px rgba(94, 106, 210, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: all 0.15s ease;
     }
-    .bento-pill-btn-white:active { transform: scale(0.96); }
+    .linear-btn-primary:active { transform: translateY(1px); }
+    .linear-badge {
+      background: rgba(94, 106, 210, 0.12);
+      color: #818cf8;
+      border: 1px solid rgba(94, 106, 210, 0.25);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: 'Geist Mono', monospace;
+      font-weight: 600;
+    }
+    kbd.linear-kbd {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-family: 'Geist Mono', monospace;
+      color: #94a3b8;
+    }
 
-    /* ══════════════════════════════════════════════════════════════════ */
-    /* 6. ARQUÉTIPO 2: ASTER SOFT CLAY (SERENE PASTEL MODO CLARO)         */
-    /*    Base: Obsidian Vault 'Aster Soft Clay'                          */
-    /* ══════════════════════════════════════════════════════════════════ */
-    .theme-soft-clay .phone-screen {
-      background: #eef0f8;
-      color: #23233a;
-      font-family: 'Manrope', sans-serif;
+    /* ────────────────────────────────────────────────────────────────── */
+    /* [APP 2] NOTION EDITORIAL (Estética Notion / Craft / Bear)          */
+    /* Warm dark slate, editorial typography, interactive checkboxes      */
+    /* ────────────────────────────────────────────────────────────────── */
+    .theme-notion .phone-screen {
+      background: #191919;
+      color: #ebebeb;
+      font-family: 'Satoshi', sans-serif;
     }
-    .theme-soft-clay .phone-top-bar { color: #23233a; }
-    .theme-soft-clay .phone-bottom-dock {
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-top: none;
-      box-shadow: 0 -4px 18px rgba(60, 60, 120, 0.05);
+    .theme-notion .phone-top-bar { color: #ebebeb; }
+    .theme-notion .phone-bottom-dock {
+      background: rgba(25, 25, 25, 0.96);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid #2e2e2e;
     }
-    .theme-soft-clay .dock-tab { color: #8b8ea6; }
-    .theme-soft-clay .dock-tab.active {
-      color: #7c6cf0;
-      background: #ebe8ff;
-      border-radius: 14px;
+    .theme-notion .dock-tab { color: #888888; }
+    .theme-notion .dock-tab.active {
+      color: #ffffff;
+      background: #282828;
+      border-radius: 6px;
       font-weight: 700;
     }
-    .theme-soft-clay .phone-home-indicator { background: rgba(35, 35, 58, 0.2); }
+    .theme-notion .phone-home-indicator { background: rgba(255, 255, 255, 0.25); }
 
-    .theme-soft-clay .desktop-chassis {
-      background: #eef0f8;
-      color: #23233a;
-      font-family: 'Manrope', sans-serif;
-      border: none;
-      box-shadow: 0 25px 60px rgba(60, 60, 120, 0.12);
+    .theme-notion .desktop-chassis {
+      background: #191919;
+      color: #ebebeb;
+      font-family: 'Satoshi', sans-serif;
+      border: 1px solid #2e2e2e;
     }
-    .theme-soft-clay .desktop-titlebar {
-      background: #ffffff;
-      border-bottom: none;
-      color: #6f7190;
-      box-shadow: 0 1px 4px rgba(60, 60, 120, 0.04);
+    .theme-notion .desktop-titlebar {
+      background: #202020;
+      border-bottom: 1px solid #2e2e2e;
+      color: #888888;
     }
-    .theme-soft-clay .desktop-sidebar-pane {
-      background: #ffffff;
-      border-right: none;
-      box-shadow: 1px 0 6px rgba(60, 60, 120, 0.03);
+    .theme-notion .desktop-sidebar-pane {
+      background: #141414;
+      border-right: 1px solid #282828;
     }
-    .theme-soft-clay .desk-nav-btn { color: #6f7190; }
-    .theme-soft-clay .desk-nav-btn:hover { color: #23233a; background: #f3f4fb; }
-    .theme-soft-clay .desk-nav-btn.active {
-      background: #ebe8ff;
-      color: #7c6cf0;
+    .theme-notion .desk-nav-btn { color: #888888; border-radius: 6px; font-size: 12.5px; }
+    .theme-notion .desk-nav-btn:hover { color: #ffffff; background: #202020; }
+    .theme-notion .desk-nav-btn.active {
+      background: #252525;
+      color: #ffffff;
       font-weight: 700;
-      border-radius: 14px;
     }
 
-    /* Componentes Exclusivos Soft Clay: ZERO BORDAS, SOMBRAS DIFUSAS */
-    .clay-card {
-      background: #ffffff;
-      border: none !important;
-      border-radius: 22px;
-      padding: 18px 16px;
-      box-shadow: 0 12px 30px -10px rgba(60, 60, 120, 0.12), 0 2px 6px rgba(60, 60, 120, 0.04);
+    .notion-card {
+      background: #202020;
+      border: 1px solid #2e2e2e;
+      border-radius: 8px;
+      padding: 16px 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
-    .clay-card-inset {
-      background: #f3f4fb;
-      border: none !important;
+    .notion-callout {
+      background: #242424;
+      border-left: 3px solid #71717a;
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .notion-check-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12.5px;
+      cursor: pointer;
+      padding: 6px 4px;
+      border-radius: 4px;
+      transition: background 0.12s ease;
+    }
+    .notion-check-item:hover { background: rgba(255, 255, 255, 0.04); }
+    .notion-box {
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      border: 1.5px solid #71717a;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+    }
+    .notion-box.checked {
+      background: #52525b;
+      border-color: #52525b;
+      color: #ffffff;
+    }
+
+    /* ────────────────────────────────────────────────────────────────── */
+    /* [APP 3] DUOLINGO GAMIFIED (Estética Duolingo / Forest / Habitica)  */
+    /* 3D chunky buttons (border-bottom 4px), 🔥 Streak Flames, XP, Play  */
+    /* ────────────────────────────────────────────────────────────────── */
+    .theme-duolingo .phone-screen {
+      background: #131f24;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+    }
+    .theme-duolingo .phone-top-bar { color: #58cc02; }
+    .theme-duolingo .phone-bottom-dock {
+      background: #111b20;
+      border-top: 2px solid #20333d;
+    }
+    .theme-duolingo .dock-tab { color: #627b87; font-weight: 700; }
+    .theme-duolingo .dock-tab.active {
+      color: #58cc02;
+      background: rgba(88, 204, 2, 0.12);
+      border-radius: 12px;
+    }
+    .theme-duolingo .phone-home-indicator { background: #58cc02; }
+
+    .theme-duolingo .desktop-chassis {
+      background: #131f24;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      border: 2px solid #20333d;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+    }
+    .theme-duolingo .desktop-titlebar {
+      background: #0f181c;
+      border-bottom: 2px solid #20333d;
+      color: #58cc02;
+    }
+    .theme-duolingo .desktop-sidebar-pane {
+      background: #0f181c;
+      border-right: 2px solid #20333d;
+    }
+    .theme-duolingo .desk-nav-btn { color: #708b98; border-radius: 12px; font-weight: 700; }
+    .theme-duolingo .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.05); }
+    .theme-duolingo .desk-nav-btn.active {
+      background: #58cc02;
+      color: #ffffff;
+      border-bottom: 3px solid #46a302;
+    }
+
+    .duo-card {
+      background: #1a2c35;
+      border: 2px solid #284452;
+      border-bottom: 4px solid #1c313d;
       border-radius: 18px;
-      padding: 14px;
+      padding: 16px 14px;
     }
-    .clay-btn-purple {
-      background: #7c6cf0;
+    .duo-btn-green {
+      background: #58cc02;
       color: #ffffff;
       border: none;
+      border-bottom: 4px solid #46a302;
+      border-radius: 14px;
+      font-weight: 800;
+      padding: 10px 22px;
+      min-height: 44px;
+      font-size: 13.5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.1s ease;
+    }
+    .duo-btn-green:active {
+      transform: translateY(3px);
+      border-bottom-width: 1px;
+    }
+    .duo-badge-fire {
+      background: #ff9600;
+      color: #ffffff;
+      border-bottom: 2px solid #cc7700;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .duo-badge-xp {
+      background: #1cb0f6;
+      color: #ffffff;
+      border-bottom: 2px solid #1480b3;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────── */
+    /* [APP 4] ARC SPATIAL GLASS (Estética Arc Browser / visionOS)        */
+    /* Deep cosmic mesh gradient, pure frosted glass blur(24px), capsules */
+    /* ────────────────────────────────────────────────────────────────── */
+    .theme-arc-spatial .phone-screen {
+      background: radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.35), transparent 50%),
+                  radial-gradient(ellipse at 20% 80%, rgba(6, 182, 212, 0.25), transparent 50%),
+                  #0c0e17;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .theme-arc-spatial .phone-top-bar { color: #ffffff; }
+    .theme-arc-spatial .phone-bottom-dock {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      margin: 0 10px 10px;
+      border-radius: 20px;
+      height: 60px;
+    }
+    .theme-arc-spatial .dock-tab { color: rgba(255, 255, 255, 0.6); }
+    .theme-arc-spatial .dock-tab.active {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      font-weight: 700;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+    .theme-arc-spatial .phone-home-indicator { background: rgba(255, 255, 255, 0.4); }
+
+    .theme-arc-spatial .desktop-chassis {
+      background: radial-gradient(ellipse at 85% 15%, rgba(139, 92, 246, 0.3), transparent 55%),
+                  radial-gradient(ellipse at 15% 85%, rgba(6, 182, 212, 0.2), transparent 55%),
+                  #0a0c14;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 35px 90px rgba(0, 0, 0, 0.7);
+    }
+    .theme-arc-spatial .desktop-titlebar {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .theme-arc-spatial .desktop-sidebar-pane {
+      background: rgba(255, 255, 255, 0.02);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .theme-arc-spatial .desk-nav-btn { color: rgba(255, 255, 255, 0.65); border-radius: 12px; }
+    .theme-arc-spatial .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.06); }
+    .theme-arc-spatial .desk-nav-btn.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    }
+
+    .arc-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 16px 14px;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+    .arc-btn-glass {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 999px;
       font-weight: 700;
       padding: 10px 22px;
@@ -642,299 +817,95 @@
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      box-shadow: 0 8px 20px -6px rgba(124, 108, 240, 0.6);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3), 0 6px 18px rgba(0, 0, 0, 0.3);
       transition: all 0.15s ease;
     }
-    .clay-btn-purple:active { transform: scale(0.97); }
-    .clay-chip-lavender {
-      background: #ebe8ff;
-      color: #7c6cf0;
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      display: inline-block;
-    }
-    .clay-chip-mint {
-      background: #d8f5f1;
-      color: #16937e;
-      font-size: 10.5px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      display: inline-block;
+    .arc-btn-glass:hover {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
     }
 
-    /* ══════════════════════════════════════════════════════════════════ */
-    /* 7. ARQUÉTIPO 3: ASTER NEO-CEL BRUTALISM (CEL-SHADED & HARD EDGE)   */
-    /*    Base: Obsidian Vault 'Aster Neo-Cel Brutalism'                  */
-    /* ══════════════════════════════════════════════════════════════════ */
-    .theme-neo-cel .phone-screen {
-      background: #1a1a2e;
-      color: #ffffff;
-      font-family: 'Space Grotesk', sans-serif;
-    }
-    .theme-neo-cel .phone-top-bar { color: #f8f5e6; }
-    .theme-neo-cel .phone-bottom-dock {
-      background: #131322;
-      border-top: 2.5px solid #000000;
-    }
-    .theme-neo-cel .dock-tab { color: #8888a0; }
-    .theme-neo-cel .dock-tab.active {
-      color: #000000;
-      background: #00cec9;
-      border: 2px solid #000000;
-      box-shadow: 2px 2px 0px #000000;
-      border-radius: 6px;
-      font-weight: 700;
-    }
-    .theme-neo-cel .phone-home-indicator { background: #00cec9; }
-
-    .theme-neo-cel .desktop-chassis {
-      background: #1a1a2e;
-      color: #ffffff;
-      font-family: 'Space Grotesk', sans-serif;
-      border: 3px solid #000000;
-      box-shadow: 8px 8px 0px #000000;
-    }
-    .theme-neo-cel .desktop-titlebar {
-      background: #131322;
-      border-bottom: 2.5px solid #000000;
-      color: #f8f5e6;
-    }
-    .theme-neo-cel .desktop-sidebar-pane {
-      background: #131322;
-      border-right: 2.5px solid #000000;
-    }
-    .theme-neo-cel .desk-nav-btn { color: #8b8ba5; border-radius: 6px; }
-    .theme-neo-cel .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.05); }
-    .theme-neo-cel .desk-nav-btn.active {
-      background: #f8f5e6;
-      color: #1a1a2e;
-      border: 2px solid #000000;
-      box-shadow: 3px 3px 0px #000000;
-      font-weight: 700;
-    }
-
-    /* Componentes Exclusivos Neo-Cel: BORDAS 2.5PX, OFFSET SHADOW 4PX */
-    .cel-card {
-      background: #262642;
-      border: 2px solid #000000;
-      border-radius: 10px;
-      padding: 16px 14px;
-      box-shadow: 4px 4px 0px #000000;
-    }
-    .cel-card-beige {
-      background: #f8f5e6;
-      color: #1a1a2e;
-      border: 2px solid #000000;
-      border-radius: 10px;
-      padding: 16px 14px;
-      box-shadow: 4px 4px 0px #000000;
-    }
-    .cel-btn-primary {
-      background: #6c63ff;
-      color: #ffffff;
-      border: 2px solid #000000;
-      border-radius: 6px;
-      font-weight: 700;
-      padding: 10px 20px;
-      min-height: 44px;
-      font-size: 13px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      box-shadow: 3px 3px 0px #000000;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      transition: all 0.1s ease;
-    }
-    .cel-btn-primary:active {
-      transform: translate(2px, 2px);
-      box-shadow: 1px 1px 0px #000000;
-    }
-    .cel-badge {
-      background: #fdcb6e;
-      color: #1a1a2e;
-      border: 1.5px solid #000000;
-      font-size: 10px;
-      font-weight: 800;
-      padding: 2px 7px;
-      border-radius: 4px;
-      display: inline-block;
-      text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* ══════════════════════════════════════════════════════════════════ */
-    /* 8. ARQUÉTIPO 4: ASTER PHONE OS COMPANION (TITANIUM COMPANION)      */
-    /*    Base: Obsidian Vault 'Aster Phone OS Companion'                 */
-    /* ══════════════════════════════════════════════════════════════════ */
-    .theme-companion .phone-screen {
-      background: #0f1015;
-      color: #f1f5f9;
-      font-family: 'Satoshi', sans-serif;
-    }
-    .theme-companion .phone-top-bar { color: #f1f5f9; }
-    .theme-companion .phone-bottom-dock {
-      background: rgba(18, 19, 27, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .theme-companion .dock-tab { color: #73798c; }
-    .theme-companion .dock-tab.active {
-      color: #f59e0b;
-      background: rgba(245, 158, 11, 0.14);
-      border-radius: 12px;
-      font-weight: 700;
-    }
-    .theme-companion .phone-home-indicator { background: rgba(255, 255, 255, 0.3); }
-
-    .theme-companion .desktop-chassis {
-      background: #0b0c10;
-      color: #f1f5f9;
-      font-family: 'Satoshi', sans-serif;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 35px 90px rgba(0, 0, 0, 0.7);
-    }
-    .theme-companion .desktop-titlebar {
-      background: #121319;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      color: #8b92a3;
-    }
-    .theme-companion .desktop-sidebar-pane {
-      background: #0e0f14;
-      border-right: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .theme-companion .desk-nav-btn { color: #8b92a3; border-radius: 10px; }
-    .theme-companion .desk-nav-btn:hover { color: #ffffff; background: rgba(255, 255, 255, 0.04); }
-    .theme-companion .desk-nav-btn.active {
-      background: rgba(245, 158, 11, 0.14);
-      color: #f59e0b;
-      font-weight: 700;
-    }
-
-    /* Componentes Exclusivos Companion: TITÂNIO ESCOVADO, ÂMBAR CIRÚRGICO */
-    .comp-card {
-      background: #151620;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      padding: 16px 14px;
-      box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
-    }
-    .comp-btn-amber {
-      background: #f59e0b;
-      color: #0b0c10;
-      border: none;
-      border-radius: 12px;
-      font-weight: 800;
-      padding: 10px 20px;
-      min-height: 44px;
-      font-size: 13px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
-      transition: all 0.15s ease;
-    }
-
-    /* ══════════════════════════════════════════════════════════════════ */
-    /* 9. ARQUÉTIPO 5: NOESIS TACTICAL VOID (AGGRESSIVE CYBERNETIC)       */
-    /*    Resposta direta: "Noesis não lembra algo mais agressivo?"       */
-    /* ══════════════════════════════════════════════════════════════════ */
-    .theme-tactical-void .phone-screen {
+    /* ────────────────────────────────────────────────────────────────── */
+    /* [APP 5] APPLE FITNESS VOLT (Estética Fitness+ / Nike Training)     */
+    /* OLED pitch black, volt neon #D4FF00, athletic typography, rings    */
+    /* ────────────────────────────────────────────────────────────────── */
+    .theme-fitness-volt .phone-screen {
       background: #000000;
-      color: #e2e8f0;
+      color: #ffffff;
       font-family: 'Cabinet Grotesk', -apple-system, sans-serif;
     }
-    .theme-tactical-void .phone-top-bar { color: #00ff9d; font-family: 'Geist Mono', monospace; }
-    .theme-tactical-void .phone-bottom-dock {
+    .theme-fitness-volt .phone-top-bar { color: #d4ff00; }
+    .theme-fitness-volt .phone-bottom-dock {
       background: #000000;
-      border-top: 1px solid #1f2937;
+      border-top: 1px solid #1a1a1a;
     }
-    .theme-tactical-void .dock-tab { color: #4b5563; border-radius: 0; font-family: 'Geist Mono', monospace; }
-    .theme-tactical-void .dock-tab.active {
-      color: #00ff9d;
-      background: transparent;
-      border-bottom: 2px solid #00ff9d;
-      font-weight: 700;
+    .theme-fitness-volt .dock-tab { color: #666666; font-family: 'Inter', sans-serif; }
+    .theme-fitness-volt .dock-tab.active {
+      color: #d4ff00;
+      background: rgba(212, 255, 0, 0.1);
+      border-radius: 8px;
+      font-weight: 800;
     }
-    .theme-tactical-void .phone-home-indicator { background: #00ff9d; }
+    .theme-fitness-volt .phone-home-indicator { background: #d4ff00; }
 
-    .theme-tactical-void .desktop-chassis {
+    .theme-fitness-volt .desktop-chassis {
       background: #000000;
-      color: #e2e8f0;
+      color: #ffffff;
       font-family: 'Cabinet Grotesk', sans-serif;
-      border: 1px solid #1f2937;
-      box-shadow: 0 30px 90px rgba(0, 255, 157, 0.08);
+      border: 1px solid #1a1a1a;
+      box-shadow: 0 35px 90px rgba(212, 255, 0, 0.08);
     }
-    .theme-tactical-void .desktop-titlebar {
-      background: #050507;
-      border-bottom: 1px solid #1f2937;
-      color: #00ff9d;
-      font-family: 'Geist Mono', monospace;
+    .theme-fitness-volt .desktop-titlebar {
+      background: #0a0a0a;
+      border-bottom: 1px solid #1a1a1a;
+      color: #d4ff00;
+      font-family: 'Inter', sans-serif;
     }
-    .theme-tactical-void .desktop-sidebar-pane {
+    .theme-fitness-volt .desktop-sidebar-pane {
       background: #000000;
-      border-right: 1px solid #1f2937;
+      border-right: 1px solid #1a1a1a;
     }
-    .theme-tactical-void .desk-nav-btn {
-      color: #6b7280;
-      border-radius: 2px;
-      font-family: 'Geist Mono', monospace;
-      font-size: 11.5px;
-    }
-    .theme-tactical-void .desk-nav-btn:hover { color: #00ff9d; background: rgba(0, 255, 157, 0.05); }
-    .theme-tactical-void .desk-nav-btn.active {
-      background: transparent;
-      border-left: 2px solid #00ff9d;
-      color: #00ff9d;
+    .theme-fitness-volt .desk-nav-btn {
+      color: #666666;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
       font-weight: 700;
-      padding-left: 10px;
+      font-size: 12px;
+    }
+    .theme-fitness-volt .desk-nav-btn:hover { color: #ffffff; background: #111111; }
+    .theme-fitness-volt .desk-nav-btn.active {
+      background: #d4ff00;
+      color: #000000;
+      font-weight: 900;
     }
 
-    /* Componentes Exclusivos Tactical Void: GRID MILITAR, RADIAL HUD, VERDE MATRIX */
-    .tactical-card {
-      background: #050508;
-      border: 1px solid #1f2937;
-      border-radius: 4px;
+    .fitness-card {
+      background: #0d0d0d;
+      border: 1px solid #1a1a1a;
+      border-radius: 16px;
       padding: 16px 14px;
-      position: relative;
     }
-    .tactical-card::after {
-      content: "[SYS]";
-      position: absolute;
-      top: 6px;
-      right: 8px;
-      font-size: 8px;
-      font-family: 'Geist Mono', monospace;
-      color: #374151;
-    }
-    .tactical-btn-neon {
-      background: #00ff9d;
+    .fitness-btn-volt {
+      background: #d4ff00;
       color: #000000;
       border: none;
-      border-radius: 2px;
-      font-weight: 800;
-      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 900;
+      padding: 10px 22px;
       min-height: 44px;
-      font-size: 12px;
-      font-family: 'Geist Mono', monospace;
+      font-size: 13px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 7px;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      box-shadow: 0 0 16px rgba(0, 255, 157, 0.4);
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 20px rgba(212, 255, 0, 0.35);
       transition: all 0.15s ease;
     }
+    .fitness-btn-volt:active { transform: scale(0.97); }
 
     /* ══════════════════════════════════════════════════════════════════ */
-    /* 10. COMPONENTES UNIVERSAIS & AUXILIARES                            */
+    /* 6. COMPONENTES UNIVERSAIS & AUXILIARES                             */
     /* ══════════════════════════════════════════════════════════════════ */
     .grid-2col {
       display: grid;
@@ -987,7 +958,7 @@
     }
     .gallery-card:hover {
       transform: translateY(-4px);
-      border-color: #6c63ff;
+      border-color: #5e6ad2;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
     }
     .gallery-card img {
@@ -1001,41 +972,41 @@
     }
   </style>
 </head>
-<body class="theme-bento-soft" id="app-root">
+<body class="theme-linear" id="app-root">
 
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <!-- TOPBAR DO LABORATÓRIO (CONTROLE DOS 5 ARQUÉTIPOS)                  -->
+  <!-- TOPBAR DO LABORATÓRIO (5 NOVOS ARQUÉTIPOS DE APPS POPULARES)       -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <header class="lab-header">
     <div class="lab-brand">
       <div class="lab-brand-icon">N</div>
       <div>
-        <div class="lab-brand-title">NOESIS // COGNITIVE LAB</div>
-        <div class="lab-brand-sub">5 DESIGN SYSTEMS ESTRUTURAIS & ESPAÇAMENTO NATIVO</div>
+        <div class="lab-brand-title">NOESIS // POPULAR APPS LAB</div>
+        <div class="lab-brand-sub">5 NOVOS ARQUÉTIPOS BASEADOS EM APPS DE SUCESSO</div>
       </div>
     </div>
 
-    <!-- SELETOR DOS 5 ARQUÉTIPOS -->
-    <div class="ctrl-group">
+    <!-- SELETOR DOS 5 NOVOS ARQUÉTIPOS POPULARES -->
+    <div class="ctrl-group" id="archetype-ctrls">
       <button class="ctrl-btn active" onclick="switchArchetype(1, this)">
-        <span class="ctrl-dot" style="background: #6c63ff; box-shadow: 0 0 6px #6c63ff;"></span>
-        1. Bento Soft
+        <span class="ctrl-dot" style="background: #5e6ad2; box-shadow: 0 0 6px #5e6ad2;"></span>
+        1. Linear Precision
       </button>
       <button class="ctrl-btn" onclick="switchArchetype(2, this)">
-        <span class="ctrl-dot" style="background: #7c6cf0; box-shadow: 0 0 6px #7c6cf0;"></span>
-        2. Soft Clay (Light)
+        <span class="ctrl-dot" style="background: #d4d4d8; box-shadow: 0 0 6px #d4d4d8;"></span>
+        2. Notion Editorial
       </button>
       <button class="ctrl-btn" onclick="switchArchetype(3, this)">
-        <span class="ctrl-dot" style="background: #00cec9; box-shadow: 0 0 6px #00cec9;"></span>
-        3. Neo-Cel Brutalism
+        <span class="ctrl-dot" style="background: #58cc02; box-shadow: 0 0 6px #58cc02;"></span>
+        3. Duolingo Game
       </button>
       <button class="ctrl-btn" onclick="switchArchetype(4, this)">
-        <span class="ctrl-dot" style="background: #f59e0b; box-shadow: 0 0 6px #f59e0b;"></span>
-        4. Phone OS Companion
+        <span class="ctrl-dot" style="background: #a855f7; box-shadow: 0 0 6px #a855f7;"></span>
+        4. Arc Spatial Glass
       </button>
       <button class="ctrl-btn" onclick="switchArchetype(5, this)">
-        <span class="ctrl-dot" style="background: #00ff9d; box-shadow: 0 0 6px #00ff9d;"></span>
-        5. Tactical Void (Agressivo)
+        <span class="ctrl-dot" style="background: #d4ff00; box-shadow: 0 0 6px #d4ff00;"></span>
+        5. Apple Fitness Volt
       </button>
     </div>
 
@@ -1083,12 +1054,12 @@
   <!-- BANNER DE IDENTIDADE DO ARQUÉTIPO ATUAL -->
   <div class="archetype-banner">
     <div>
-      <h2 class="banner-title" id="banner-head">1. Aster Bento Soft — Dark Luxury & Colorful Tiles</h2>
+      <h2 class="banner-title" id="banner-head">1. Linear Precision — Dev Tool & High-Speed Productivity</h2>
       <p class="banner-desc" id="banner-desc">
-        Grade bento modular sobre fundo escuro (#111118), cantos de 26px, botões em pílula, tipografia Outfit e cores semânticas vibrantes (Roxo Elétrico #6C63FF, Menta #00CEC9 e Âmbar #FDCB6E).
+        Inspirado no Linear.app e Raycast: fundo grafite escuro (#0C0D12), divisores de 1px com sutil reflexo de luz superior, atalhos de teclado ⌘K, tipografia Inter ultra-limpa e acento roxo elétrico (#5E6AD2).
       </p>
     </div>
-    <div class="banner-tag" id="banner-badge">OBSIDIAN VAULT // BENTO SOFT</div>
+    <div class="banner-tag" id="banner-badge">INSPIRAÇÃO // LINEAR & RAYCAST</div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════ -->
@@ -1112,12 +1083,12 @@
 
           <!-- CORPO DE SCROLL MOBILE DINÂMICO (INJETADO COM RIGOR DE RESPIRO) -->
           <div class="phone-scroll-body" id="mob-body-target">
-            <!-- Conteúdo é renderizado estruturalmente de acordo com o arquétipo e tela selecionados -->
+            <!-- Conteúdo injetado dinamicamente -->
           </div>
 
           <!-- DOCK DE NAVEGAÇÃO INFERIOR DO SMARTPHONE -->
           <nav class="phone-bottom-dock" id="mob-dock-target">
-            <!-- Renderizado dinamicamente -->
+            <!-- Injetado dinamicamente -->
           </nav>
 
           <!-- HOME INDICATOR PILL -->
@@ -1164,7 +1135,7 @@
         <div>
           <h2 style="font-size: 24px; font-weight: 800;">Galeria de Prints Originais (Obsidian Vault)</h2>
           <p style="font-size: 12.5px; color: #8b92a3; margin-top: 3px;">
-            Capturas em alta resolução dos design systems documentados em seu vault pessoal.
+            Capturas em alta resolução dos design systems documentados em seu vault pessoal para referência.
           </p>
         </div>
         <div class="banner-tag">27 PRINTS DISPONÍVEIS</div>
@@ -1218,7 +1189,7 @@
   </main>
 
   <!-- ══════════════════════════════════════════════════════════════════ -->
-  <!-- MOTOR JAVASCRIPT DINÂMICO & INTERATIVIDADE                         -->
+  <!-- MOTOR JAVASCRIPT DINÂMICO DOS 5 NOVOS ARQUÉTIPOS                   -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <script>
     // ESTADO GLOBAL DA APLICAÇÃO
@@ -1228,42 +1199,42 @@
     let timerTotalSeconds = 24 * 60 + 17;
     let timerEngineRef = null;
 
-    // DEFINIÇÃO DOS 5 ARQUÉTIPOS VISUAIS
+    // DEFINIÇÃO DOS 5 ARQUÉTIPOS BASEADOS EM APPS POPULARES
     const archetypesData = {
       1: {
-        className: 'theme-bento-soft',
-        title: '1. Aster Bento Soft — Dark Luxury & Colorful Tiles',
-        desc: 'Grade bento modular sobre fundo escuro (#111118), cantos de 26px, botões em pílula, tipografia Outfit e cores semânticas vibrantes (Roxo Elétrico #6C63FF, Menta #00CEC9 e Âmbar #FDCB6E).',
-        badge: 'OBSIDIAN // BENTO SOFT',
-        accentColor: '#6c63ff'
+        className: 'theme-linear',
+        title: '1. Linear Precision — Dev Tool & High-Speed Productivity',
+        desc: 'Inspirado no Linear.app e Raycast: fundo grafite escuro (#0C0D12), divisores de 1px com sutil reflexo de luz superior, atalhos de teclado ⌘K, tipografia Inter ultra-limpa e acento roxo elétrico (#5E6AD2).',
+        badge: 'APP // LINEAR & RAYCAST',
+        accentColor: '#5e6ad2'
       },
       2: {
-        className: 'theme-soft-clay',
-        title: '2. Aster Soft Clay — Serene Soft UI & Claymorphism (Modo Claro)',
-        desc: 'Identidade serena com zero bordas rígidas (0px), cartões flutuantes brancos sobre névoa pastel (#EEF0F8), sombras difusas em múltiplas camadas, cantos orgânicos de 22px e tipografia Manrope relaxante.',
-        badge: 'OBSIDIAN // SOFT CLAY',
-        accentColor: '#7c6cf0'
+        className: 'theme-notion',
+        title: '2. Notion Editorial — Workspace de Documentos & Clareza Serena',
+        desc: 'Inspirado no Notion e Craft Docs: ardósia escura acolhedora (#191919), blocos callout bem delimitados, checkboxes interativos, tipografia editorial Satoshi e foco absoluto na leitura e escrita sem poluição visual.',
+        badge: 'APP // NOTION & CRAFT',
+        accentColor: '#d4d4d8'
       },
       3: {
-        className: 'theme-neo-cel',
-        title: '3. Aster Neo-Cel Brutalism — Cel-Shaded & Retro Cyberpunk',
-        desc: 'Linguagem com bordas pretas sólidas de 2.5px, sombras duras cel-shaded (4px 4px 0px #000), contraste de alto impacto entre dark cyber (#1A1A2E) e bege térmico (#F8F5E6), tipografia Space Grotesk + JetBrains Mono.',
-        badge: 'OBSIDIAN // NEO-CEL BRUTALISM',
-        accentColor: '#00cec9'
+        className: 'theme-duolingo',
+        title: '3. Duolingo Gamified — Retenção Dopaminérgica & Gamificação',
+        desc: 'Inspirado no Duolingo e Forest: botões 3D com relevo tátil inferior (border-bottom de 4px que afundam no clique), badges de ofensiva com chama 🔥, gemas de XP 💎, verde vibrante (#58CC02) e tipografia amigável Outfit.',
+        badge: 'APP // DUOLINGO & FOREST',
+        accentColor: '#58cc02'
       },
       4: {
-        className: 'theme-companion',
-        title: '4. Aster Phone OS Companion — Titanium Skeuomorphic & Precision HUD',
-        desc: 'Inspirado em consoles e hardware titânio aeroespacial (#0F1015), botões físicos simulados, detalhes em âmbar cirúrgico (#F59E0B), divisores de 1px com reflexos especulares e tipografia Satoshi.',
-        badge: 'OBSIDIAN // PHONE OS COMPANION',
-        accentColor: '#f59e0b'
+        className: 'theme-arc-spatial',
+        title: '4. Arc Spatial Glass — Frosted Glassmorphism & Mesh Cósmico',
+        desc: 'Inspirado no Arc Browser e visionOS: gradiente mesh fluido no fundo (violeta, ciano e azul noite), cartões em vidro fosco translúcido com blur(24px), bordas de iluminação interna e tipografia Plus Jakarta Sans.',
+        badge: 'APP // ARC BROWSER & VISIONOS',
+        accentColor: '#a855f7'
       },
       5: {
-        className: 'theme-tactical-void',
-        title: '5. Noesis Tactical Void — Aggressive Cybernetic Intelligence',
-        desc: 'Design radical e agressivo focado em aceleração cognitiva: preto absoluto OLED (#000000), wireframes táticos de 1px, verde neon matrix (#00FF9D), tipografia condensada Cabinet Grotesk e telemetria pura sem distrações.',
-        badge: 'NOESIS // TACTICAL VOID',
-        accentColor: '#00ff9d'
+        className: 'theme-fitness-volt',
+        title: '5. Apple Fitness Volt — High-Performance & Typographic Contrast',
+        desc: 'Inspirado no Apple Fitness+ e Nike Training: preto absoluto OLED (#000000), números monumentais com legibilidade extrema, acento em amarelo-limão fluorescente volt (#D4FF00), anéis concêntricos de atividade e tipografia Cabinet Grotesk.',
+        badge: 'APP // APPLE FITNESS & NIKE',
+        accentColor: '#d4ff00'
       }
     };
 
@@ -1287,7 +1258,7 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // RENDERIZADOR MOBILE: ESTRUTURAS VISUAIS GENUINAMENTE DISTINTAS
+    // RENDERIZADOR MOBILE: 5 ARQUÉTIPOS GENUINAMENTE DISTINTOS
     // ─────────────────────────────────────────────────────────────
     function renderMobileView() {
       const a = currentArchetype;
@@ -1313,245 +1284,259 @@
 
       if (s === 'tracker') {
         if (a === 1) {
-          // BENTO SOFT: Bloco Roxo #6C63FF com orbe translúcido, métricas coloridas em pílula
+          // LINEAR PRECISÃO: Dark Graphite, linhas de 1px com reflexo, atalhos de teclado ⌘K
           html = `
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <span style="font-size: 11px; font-weight: 700; color: #00cec9; font-family: 'Geist Mono', monospace;">ASTER ACCOUNT</span>
-                <h3 style="font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">Noesis Focus</h3>
+                <span class="linear-badge">CYBER-SECURITY // NOESIS</span>
+                <h3 style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-top: 2px;">Active Sprint</h3>
               </div>
-              <div style="width: 36px; height: 36px; border-radius: 50%; background: #1b1b25; border: 1px solid rgba(255,255,255,0.1); display: grid; place-items: center; font-weight: 800; font-size: 12px;">AG</div>
-            </div>
-
-            <!-- HERO TIMER COM DESIGN DE ORBE DO BENTO SOFT -->
-            <div class="bento-hero-timer">
-              <div style="display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2;">
-                <span style="font-size: 11px; font-weight: 700; opacity: 0.85; text-transform: uppercase;">Sessão 3 de 4</span>
-                <span style="background: rgba(255,255,255,0.22); padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700; backdrop-filter: blur(8px);">OWASP Top 10</span>
-              </div>
-              <div style="text-align: center; margin: 10px 0 14px; position: relative; z-index: 2;">
-                <div class="timer-display-mob" id="mob-timer-label">${formatTime()}</div>
-                <div style="font-size: 12.5px; font-weight: 600; opacity: 0.9; margin-top: 2px;">Cibersegurança & Pentest</div>
-              </div>
-              <div style="display: flex; gap: 8px; justify-content: center; position: relative; z-index: 2;">
-                <button class="bento-pill-btn-white" onclick="toggleTimer()" id="mob-play-btn">Pausar</button>
-                <button class="bento-pill-btn-white" style="background: rgba(255,255,255,0.15); color: #fff;" onclick="resetTimer()">Reset</button>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <kbd class="linear-kbd">⌘K</kbd>
+                <div style="width: 32px; height: 32px; border-radius: 6px; background: #181b26; border: 1px solid rgba(255,255,255,0.12); display: grid; place-items: center; font-weight: 700; font-size: 11.5px; color: #818cf8;">AG</div>
               </div>
             </div>
 
-            <!-- TILES COLORIDOS BENTO EM GRADE PERFEITA -->
+            <!-- CARD HERO LINEAR COM 1PX HAIRLINE -->
+            <div class="linear-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 11px; font-weight: 600; color: #818cf8; font-family: 'Geist Mono', monospace;">ISSUE-402 · FOCUS</span>
+                <span class="linear-badge">HIGH PRIORITY</span>
+              </div>
+              <div style="text-align: center; margin: 12px 0 10px;">
+                <div class="timer-display-mob" style="color: #ffffff;" id="mob-timer-label">${formatTime()}</div>
+                <div style="font-size: 13px; font-weight: 600; color: #cbd5e1; margin-top: 2px;">OWASP Top 10 · Server-Side Request Forgery</div>
+              </div>
+              <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
+                <button class="linear-btn-primary" onclick="toggleTimer()" id="mob-play-btn">Pause Session</button>
+                <button style="background: transparent; color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer;" onclick="resetTimer()">Reset</button>
+              </div>
+            </div>
+
+            <!-- MÉTRICAS LINEAR EM GRADE 2 COLUNAS -->
             <div class="grid-2col">
-              <div class="bento-tile-mint">
-                <div style="font-size: 10px; font-weight: 700; opacity: 0.8;">TEMPO HOJE</div>
-                <div style="font-size: 24px; font-weight: 900; margin-top: 2px;">4h 12m</div>
-                <div style="font-size: 10.5px; font-weight: 700; opacity: 0.75; margin-top: 1px;">+45m vs média</div>
+              <div class="linear-card" style="padding: 13px;">
+                <div style="font-size: 10px; font-weight: 600; color: #82889e;">CYCLED TIME</div>
+                <div style="font-size: 22px; font-weight: 700; margin-top: 2px; color: #f1f5f9;">4h 12m</div>
+                <div style="font-size: 10px; color: #34d399; font-weight: 600; margin-top: 2px;">+45m vs velocity</div>
               </div>
-              <div class="bento-tile-amber">
-                <div style="font-size: 10px; font-weight: 700; opacity: 0.8;">STREAK</div>
-                <div style="font-size: 24px; font-weight: 900; margin-top: 2px;">14 Dias</div>
-                <div style="font-size: 10.5px; font-weight: 700; opacity: 0.75; margin-top: 1px;">Constância 100%</div>
+              <div class="linear-card" style="padding: 13px;">
+                <div style="font-size: 10px; font-weight: 600; color: #82889e;">STREAK</div>
+                <div style="font-size: 22px; font-weight: 700; margin-top: 2px; color: #818cf8;">14 Days</div>
+                <div style="font-size: 10px; color: #82889e; margin-top: 2px;">100% completed</div>
               </div>
             </div>
 
-            <!-- META SEMANAL COM PROGRESSO EM PÍLULA -->
-            <div class="bento-tile-dark" style="padding: 14px 16px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 12px; font-weight: 700;">Meta Semanal</span>
-                <span style="font-size: 12px; font-weight: 800; color: #00cec9;">18.4h / 24h</span>
+            <!-- META COM BARRA DE PROCESSO REFINADA -->
+            <div class="linear-card" style="padding: 12px 14px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; margin-bottom: 6px;">
+                <span>Weekly Target</span>
+                <span style="color: #818cf8; font-family: 'Geist Mono', monospace;">18.4h / 24h</span>
               </div>
-              <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden;">
-                <div style="width: 76%; height: 100%; background: #00cec9; border-radius: 99px;"></div>
+              <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden;">
+                <div style="width: 76%; height: 100%; background: #5e6ad2; border-radius: 99px;"></div>
               </div>
             </div>
           `;
         } else if (a === 2) {
-          // SOFT CLAY: Fundo claro (#EEF0F8), cards brancos sem borda, sombras difusas, botões lavanda
+          // NOTION EDITORIAL: Dark Slate acolhedor, estilo documento, checklists interativos
           html = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
               <div>
-                <span class="clay-chip-lavender">ESTUDO TRANQUILO</span>
-                <h3 style="font-size: 20px; font-weight: 800; color: #23233a; margin-top: 2px;">Foco Cognitivo</h3>
+                <span style="font-size: 11px; color: #888888;">WORKSPACE / ESTUDOS</span>
+                <h3 style="font-size: 20px; font-weight: 700; color: #ffffff; margin-top: 2px;">Sessão de Foco</h3>
               </div>
-              <div style="width: 36px; height: 36px; border-radius: 12px; background: #ffffff; box-shadow: 0 4px 12px rgba(60,60,120,0.08); display: grid; place-items: center; font-weight: 800; color: #7c6cf0; font-size: 12px;">AG</div>
+              <span style="font-size: 11px; color: #888888; background: #242424; padding: 2px 8px; border-radius: 4px;">Página</span>
             </div>
 
-            <div class="clay-card" style="text-align: center; padding: 22px 16px;">
-              <span class="clay-chip-mint">Sessão Ativa · Bloco 2h</span>
-              <div class="timer-display-mob" style="color: #7c6cf0; margin: 10px 0 4px;" id="mob-timer-label">${formatTime()}</div>
-              <div style="font-size: 13px; font-weight: 700; color: #23233a;">CompTIA Security+ SY0-701</div>
-              <div style="font-size: 11.5px; color: #6f7190; margin-top: 2px;">Criptografia e Gestão de Riscos</div>
+            <div class="notion-card" style="text-align: center; padding: 20px 14px;">
+              <span style="font-size: 11px; color: #a1a1aa;">CRONÔMETRO ATIVO</span>
+              <div class="timer-display-mob" style="color: #ffffff; margin: 8px 0 4px;" id="mob-timer-label">${formatTime()}</div>
+              <div style="font-size: 13.5px; font-weight: 600; color: #e4e4e7;">CompTIA Security+ · OWASP Top 10</div>
               <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
-                <button class="clay-btn-purple" onclick="toggleTimer()" id="mob-play-btn">Pausar Foco</button>
-                <button style="border:none; background:#f3f4fb; color:#6f7190; padding:10px 18px; border-radius:999px; font-weight:600; font-size:12px; cursor:pointer;" onclick="resetTimer()">Resetar</button>
+                <button style="background: #2e2e2e; color: #ffffff; border: 1px solid #3e3e3e; border-radius: 6px; padding: 10px 20px; min-height: 44px; font-size: 12.5px; font-weight: 600; cursor: pointer;" onclick="toggleTimer()" id="mob-play-btn">Pausar</button>
+                <button style="background: transparent; color: #888888; border: 1px solid #2e2e2e; border-radius: 6px; padding: 10px 16px; font-size: 12px; cursor: pointer;" onclick="resetTimer()">Resetar</button>
               </div>
             </div>
 
-            <div class="grid-2col">
-              <div class="clay-card" style="padding: 14px;">
-                <div style="font-size: 10px; font-weight: 700; color: #6f7190;">TEMPO HOJE</div>
-                <div style="font-size: 22px; font-weight: 800; color: #23233a; margin-top: 2px;">4h 12m</div>
-                <div style="font-size: 10.5px; color: #3ccf9a; font-weight: 700; margin-top: 2px;">+45m vs média</div>
-              </div>
-              <div class="clay-card" style="padding: 14px;">
-                <div style="font-size: 10px; font-weight: 700; color: #6f7190;">STREAK</div>
-                <div style="font-size: 22px; font-weight: 800; color: #7c6cf0; margin-top: 2px;">14 Dias</div>
-                <div style="font-size: 10.5px; color: #6f7190; margin-top: 2px;">Constância 100%</div>
+            <!-- CHECKLIST ESTILO NOTION CLICÁVEL -->
+            <div class="notion-card" style="padding: 12px 14px;">
+              <span style="font-size: 10px; font-weight: 700; color: #888888; text-transform: uppercase;">Metas do Bloco</span>
+              <div class="flex-col gap-10" style="margin-top: 8px;">
+                <div class="notion-check-item" onclick="toggleNotionCheck(this)">
+                  <div class="notion-box checked">✓</div>
+                  <span style="text-decoration: line-through; color: #888888;">Revisão de Broken Object Authorization</span>
+                </div>
+                <div class="notion-check-item" onclick="toggleNotionCheck(this)">
+                  <div class="notion-box checked">✓</div>
+                  <span style="text-decoration: line-through; color: #888888;">Diagrama de handshake OAuth 2.0 PKCE</span>
+                </div>
+                <div class="notion-check-item" onclick="toggleNotionCheck(this)">
+                  <div class="notion-box"></div>
+                  <span>Resolver 5 questões de SSRF no simulador</span>
+                </div>
               </div>
             </div>
 
-            <div class="clay-card" style="padding: 14px 16px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 12px; font-weight: 700; color: #23233a;">Progresso Semanal</span>
-                <span style="font-size: 12px; font-weight: 800; color: #7c6cf0;">76%</span>
-              </div>
-              <div style="width: 100%; height: 6px; background: #e6e8f3; border-radius: 99px; overflow: hidden;">
-                <div style="width: 76%; height: 100%; background: #7c6cf0; border-radius: 99px;"></div>
-              </div>
+            <div class="notion-callout">
+              💡 <strong>Dica de Estudo:</strong> Você completou 18.4 horas essa semana. Falta apenas 1 bloco para bater a meta de 24h.
             </div>
           `;
         } else if (a === 3) {
-          // NEO-CEL BRUTALISM: Bordas pretas 2.5px, sombras duras 4px, estética retro-cyberpunk
+          // DUOLINGO GAMIFIED: Chunky 3D buttons, Streak com Fogo 🔥, Gemas 💎, XP
           html = `
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 8px;">
-              <div>
-                <span class="cel-badge">SYS // V2.4</span>
-                <h3 style="font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.3px; margin-top: 2px;">Noesis Core</h3>
-              </div>
-              <div style="width: 34px; height: 34px; border: 2px solid #000; box-shadow: 2px 2px 0px #000; background: #f8f5e6; color: #1a1a2e; display: grid; place-items: center; font-weight: 900; font-size: 12px;">AG</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="duo-badge-fire">🔥 14 DIAS</div>
+              <div class="duo-badge-xp">💎 1,420 XP</div>
+              <div style="font-size: 12px; font-weight: 800; color: #ffd900;">👑 LIGA OURO</div>
             </div>
 
-            <div class="cel-card" style="text-align: center; padding: 20px 14px;">
-              <span style="font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #00cec9;">[CRONÔMETRO DE IMERSÃO]</span>
-              <div class="timer-display-mob" style="color: #f8f5e6; margin: 8px 0 4px;" id="mob-timer-label">${formatTime()}</div>
-              <div style="font-size: 13px; font-weight: 800; text-transform: uppercase;">OWASP Top 10 · SSRF</div>
-              <div style="font-size: 11px; color: #8888a0; font-family: 'JetBrains Mono', monospace; margin-top: 2px;">ID: SEC-2026-X</div>
+            <div class="duo-card" style="text-align: center; padding: 20px 14px;">
+              <span style="font-size: 11px; font-weight: 800; color: #58cc02; text-transform: uppercase; letter-spacing: 0.5px;">MISSÃO DE ESTUDO ATIVA</span>
+              <div class="timer-display-mob" style="color: #ffffff; margin: 8px 0 4px;" id="mob-timer-label">${formatTime()}</div>
+              <div style="font-size: 14px; font-weight: 800; color: #e5e7eb;">Cibersegurança: OWASP Top 10</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Ganhe +50 XP ao completar este bloco!</div>
               <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
-                <button class="cel-btn-primary" onclick="toggleTimer()" id="mob-play-btn">PAUSAR</button>
-                <button style="border: 2px solid #000; background: #f8f5e6; color: #1a1a2e; box-shadow: 2px 2px 0px #000; padding: 8px 14px; font-weight: 700; font-size: 11px; cursor: pointer;" onclick="resetTimer()">RESET</button>
+                <button class="duo-btn-green" onclick="toggleTimer()" id="mob-play-btn">PAUSAR</button>
+                <button style="background: #20333d; color: #cbd5e1; border: none; border-bottom: 3px solid #142229; border-radius: 12px; padding: 10px 16px; font-weight: 700; font-size: 12px; cursor: pointer;" onclick="resetTimer()">RESET</button>
               </div>
             </div>
 
             <div class="grid-2col">
-              <div class="cel-card" style="padding: 12px;">
-                <div style="font-size: 9.5px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #00cec9;">TEMPO HOJE</div>
-                <div style="font-size: 20px; font-weight: 800; margin-top: 2px;">4H 12M</div>
-                <div style="font-size: 10px; color: #fdcb6e;">+45M RECORD</div>
+              <div class="duo-card" style="padding: 12px;">
+                <div style="font-size: 10px; font-weight: 800; color: #ff9600;">TEMPO HOJE</div>
+                <div style="font-size: 22px; font-weight: 900; margin-top: 2px;">4h 12m</div>
+                <div style="font-size: 10px; color: #58cc02; font-weight: 700;">+45m Bônus</div>
               </div>
-              <div class="cel-card" style="padding: 12px;">
-                <div style="font-size: 9.5px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #ff7675;">STREAK</div>
-                <div style="font-size: 20px; font-weight: 800; margin-top: 2px;">14 DIAS</div>
-                <div style="font-size: 10px; color: #8888a0;">100% ATIVO</div>
+              <div class="duo-card" style="padding: 12px;">
+                <div style="font-size: 10px; font-weight: 800; color: #1cb0f6;">ACERTOS</div>
+                <div style="font-size: 22px; font-weight: 900; margin-top: 2px;">94%</div>
+                <div style="font-size: 10px; color: #94a3b8;">Excelente precisão</div>
               </div>
             </div>
 
-            <div class="cel-card" style="padding: 12px 14px;">
-              <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">
-                <span>Meta Semanal</span>
-                <span style="color: #00cec9;">18.4H / 24H</span>
+            <!-- BARRA DE RECOMPENSA GAMIFICADA -->
+            <div class="duo-card" style="padding: 12px 14px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; margin-bottom: 6px;">
+                <span>Meta Semanal de XP</span>
+                <span style="color: #58cc02;">760 / 1000 XP</span>
               </div>
-              <div style="width: 100%; height: 8px; background: #131322; border: 1.5px solid #000; overflow: hidden;">
-                <div style="width: 76%; height: 100%; background: #00cec9;"></div>
+              <div style="width: 100%; height: 10px; background: #121c21; border-radius: 99px; overflow: hidden; border: 1.5px solid #20333d;">
+                <div style="width: 76%; height: 100%; background: #58cc02; border-radius: 99px;"></div>
               </div>
             </div>
           `;
         } else if (a === 4) {
-          // PHONE OS COMPANION: Titanium, status bar escura, âmbar cirúrgico
+          // ARC SPATIAL GLASS: Fundo cósmico, frosted glass blur(24px), pílulas luminosas
           html = `
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <span style="font-size: 10.5px; font-weight: 700; color: #f59e0b; font-family: 'Geist Mono', monospace;">COMPANION // TITANIUM</span>
-                <h3 style="font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">Sessão Ativa</h3>
+                <span style="font-size: 10.5px; font-weight: 700; color: #c084fc; letter-spacing: 0.5px;">SPATIAL WORKSPACE</span>
+                <h3 style="font-size: 20px; font-weight: 800; letter-spacing: -0.3px;">Noesis Space</h3>
               </div>
-              <div style="width: 34px; height: 34px; border-radius: 10px; background: #1a1c26; border: 1px solid rgba(255,255,255,0.1); display: grid; place-items: center; font-weight: 800; color: #f59e0b; font-size: 12px;">N</div>
+              <div style="width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(14px); display: grid; place-items: center; font-weight: 800; font-size: 12px; color: #c084fc;">AG</div>
             </div>
 
-            <div class="comp-card" style="text-align: center; padding: 22px 16px;">
-              <div style="font-size: 11px; color: #8b92a3; font-family: 'Geist Mono', monospace;">DEEP WORK FOCUS</div>
-              <div class="timer-display-mob" style="color: #f59e0b; margin: 10px 0 4px;" id="mob-timer-label">${formatTime()}</div>
-              <div style="font-size: 13.5px; font-weight: 700;">OWASP Top 10 & Broken Auth</div>
-              <div style="font-size: 11.5px; color: #73798c; margin-top: 2px;">Bloco de Alta Retenção</div>
+            <div class="arc-card" style="text-align: center; padding: 22px 14px;">
+              <span style="background: rgba(255,255,255,0.12); padding: 3px 12px; border-radius: 999px; font-size: 10.5px; font-weight: 600; backdrop-filter: blur(8px);">Sessão Imersiva</span>
+              <div class="timer-display-mob" style="color: #ffffff; text-shadow: 0 0 24px rgba(168, 85, 247, 0.4); margin: 10px 0 4px;" id="mob-timer-label">${formatTime()}</div>
+              <div style="font-size: 13.5px; font-weight: 700; color: #f1f5f9;">CompTIA Security+ SY0-701</div>
+              <div style="font-size: 11.5px; color: rgba(255,255,255,0.65); margin-top: 2px;">Criptografia & Gestão de Acessos</div>
               <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
-                <button class="comp-btn-amber" onclick="toggleTimer()" id="mob-play-btn">Pausar Bloco</button>
-                <button style="border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #f1f5f9; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 12px; cursor: pointer;" onclick="resetTimer()">Reset</button>
+                <button class="arc-btn-glass" onclick="toggleTimer()" id="mob-play-btn">Pausar Sessão</button>
+                <button style="background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 10px 18px; font-size: 12px; cursor: pointer;" onclick="resetTimer()">Reset</button>
               </div>
             </div>
 
             <div class="grid-2col">
-              <div class="comp-card" style="padding: 14px;">
-                <div style="font-size: 10px; font-weight: 600; color: #8b92a3;">TEMPO HOJE</div>
+              <div class="arc-card" style="padding: 13px;">
+                <div style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6);">TEMPO HOJE</div>
                 <div style="font-size: 22px; font-weight: 800; margin-top: 2px;">4h 12m</div>
-                <div style="font-size: 10.5px; color: #f59e0b; margin-top: 1px;">+45m vs média</div>
+                <div style="font-size: 10px; color: #38bdf8; margin-top: 2px;">+45m vs média</div>
               </div>
-              <div class="comp-card" style="padding: 14px;">
-                <div style="font-size: 10px; font-weight: 600; color: #8b92a3;">SEQUÊNCIA</div>
-                <div style="font-size: 22px; font-weight: 800; color: #f59e0b; margin-top: 2px;">14 Dias</div>
-                <div style="font-size: 10.5px; color: #73798c; margin-top: 1px;">Constância 100%</div>
+              <div class="arc-card" style="padding: 13px;">
+                <div style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6);">SEQUÊNCIA</div>
+                <div style="font-size: 22px; font-weight: 800; color: #c084fc; margin-top: 2px;">14 Dias</div>
+                <div style="font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 2px;">100% constância</div>
               </div>
             </div>
 
-            <div class="comp-card" style="padding: 14px 16px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 12px; font-weight: 700;">Meta Semanal</span>
-                <span style="font-size: 12px; font-weight: 800; color: #f59e0b;">18.4h / 24h</span>
+            <div class="arc-card" style="padding: 12px 14px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; margin-bottom: 6px;">
+                <span>Progresso Semanal</span>
+                <span style="color: #c084fc;">18.4h / 24h</span>
               </div>
               <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden;">
-                <div style="width: 76%; height: 100%; background: #f59e0b; border-radius: 99px;"></div>
+                <div style="width: 76%; height: 100%; background: linear-gradient(90deg, #a855f7, #06b6d4); border-radius: 99px;"></div>
               </div>
             </div>
           `;
         } else {
-          // TACTICAL VOID: Preto absoluto OLED, Verde Matrix #00FF9D, wireframe 1px, militar
+          // APPLE FITNESS VOLT: Preto OLED puro, Amarelo Volt Neon #D4FF00, Anéis de atividade, números monumentais
           html = `
-            <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #1f2937; padding-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
               <div>
-                <span style="font-size: 10px; font-weight: 700; color: #00ff9d; font-family: 'Geist Mono', monospace;">[UNIT: ASTER_PRIMARY]</span>
-                <h3 style="font-size: 22px; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase;">TACTICAL_FOCUS</h3>
+                <span style="font-size: 10.5px; font-weight: 900; color: #d4ff00; letter-spacing: 0.8px;">PERFORMANCE // COGNITIVE</span>
+                <h3 style="font-size: 22px; font-weight: 900; letter-spacing: -0.5px; text-transform: uppercase;">ATLETA DE ESTUDO</h3>
               </div>
-              <span style="font-size: 9px; font-family: 'Geist Mono', monospace; color: #00ff9d; background: rgba(0,255,157,0.1); padding: 2px 6px; border: 1px solid #00ff9d;">ARMED</span>
+              <span style="font-size: 11px; font-weight: 900; color: #000; background: #d4ff00; padding: 2px 7px; border-radius: 4px;">RECORD</span>
             </div>
 
-            <div class="tactical-card" style="text-align: center; padding: 20px 14px;">
-              <div style="font-size: 9.5px; font-family: 'Geist Mono', monospace; color: #00ff9d;">// COGNITIVE_ACCELERATOR</div>
-              <div class="timer-display-mob" style="color: #00ff9d; font-family: 'Geist Mono', monospace; margin: 8px 0 4px;" id="mob-timer-label">${formatTime()}</div>
-              <div style="font-size: 13px; font-weight: 800; text-transform: uppercase;">OWASP TOP 10 PROTOCOL</div>
-              <div style="font-size: 10px; color: #6b7280; font-family: 'Geist Mono', monospace; margin-top: 2px;">HASH: 0x9F41C</div>
+            <!-- CARD HERO VOLT COM NÚMERO MASSIVO -->
+            <div class="fitness-card" style="text-align: center; padding: 20px 14px;">
+              <span style="font-size: 10px; font-weight: 800; color: #666; letter-spacing: 1px;">FOCO CONTÍNUO</span>
+              <div class="timer-display-mob" style="color: #d4ff00; font-size: 50px; margin: 6px 0 2px;" id="mob-timer-label">${formatTime()}</div>
+              <div style="font-size: 13.5px; font-weight: 800; text-transform: uppercase;">OWASP TOP 10 · DEEP RUN</div>
+              <div style="font-size: 11px; color: #888; font-family: 'Inter', sans-serif; margin-top: 2px;">Cibersegurança e Defesa de APIs</div>
               <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
-                <button class="tactical-btn-neon" onclick="toggleTimer()" id="mob-play-btn">PAUSAR</button>
-                <button style="background: transparent; border: 1px solid #374151; color: #e2e8f0; font-family: 'Geist Mono', monospace; font-size: 10.5px; padding: 8px 14px; cursor: pointer;" onclick="resetTimer()">RESET</button>
+                <button class="fitness-btn-volt" onclick="toggleTimer()" id="mob-play-btn">PAUSAR</button>
+                <button style="background: #1a1a1a; color: #fff; border: none; font-weight: 700; padding: 10px 16px; border-radius: 999px; font-size: 12px; cursor: pointer;" onclick="resetTimer()">RESET</button>
+              </div>
+            </div>
+
+            <!-- ANÉIS DE METAS ESTILO APPLE FITNESS -->
+            <div class="fitness-card" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px;">
+              <div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #ff0055;">FOCO DIÁRIO: 4H 12M</div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #d4ff00; margin-top: 3px;">SIMULADOS: 3 CONCLUÍDOS</div>
+                <div style="font-size: 10.5px; font-weight: 800; color: #00f0ff; margin-top: 3px;">CONSTÂNCIA: 14 DIAS</div>
+              </div>
+              <div style="width: 54px; height: 54px; position: relative;">
+                <svg viewBox="0 0 36 36" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                  <!-- Anel 1 Rosa -->
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="#220011" stroke-width="3"></circle>
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="#ff0055" stroke-width="3" stroke-dasharray="94" stroke-dashoffset="18" stroke-linecap="round"></circle>
+                  <!-- Anel 2 Volt -->
+                  <circle cx="18" cy="18" r="11" fill="none" stroke="#1a2200" stroke-width="3"></circle>
+                  <circle cx="18" cy="18" r="11" fill="none" stroke="#d4ff00" stroke-width="3" stroke-dasharray="69" stroke-dashoffset="12" stroke-linecap="round"></circle>
+                  <!-- Anel 3 Ciano -->
+                  <circle cx="18" cy="18" r="7" fill="none" stroke="#002228" stroke-width="3"></circle>
+                  <circle cx="18" cy="18" r="7" fill="none" stroke="#00f0ff" stroke-width="3" stroke-dasharray="44" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                </svg>
               </div>
             </div>
 
             <div class="grid-2col">
-              <div class="tactical-card" style="padding: 12px;">
-                <div style="font-size: 9px; font-family: 'Geist Mono', monospace; color: #6b7280;">ACCUMULATED</div>
-                <div style="font-size: 20px; font-weight: 900; font-family: 'Geist Mono', monospace; color: #ffffff; margin-top: 2px;">04:12:00</div>
-                <div style="font-size: 9.5px; color: #00ff9d; font-family: 'Geist Mono', monospace;">+45M DELTA</div>
+              <div class="fitness-card" style="padding: 12px;">
+                <div style="font-size: 9.5px; font-weight: 800; color: #888;">VOLUME SEMANAL</div>
+                <div style="font-size: 22px; font-weight: 900; color: #d4ff00; margin-top: 2px;">18.4H</div>
+                <div style="font-size: 10px; color: #888;">Meta: 24.0h (76%)</div>
               </div>
-              <div class="tactical-card" style="padding: 12px;">
-                <div style="font-size: 9px; font-family: 'Geist Mono', monospace; color: #6b7280;">STREAK_CHAIN</div>
-                <div style="font-size: 20px; font-weight: 900; font-family: 'Geist Mono', monospace; color: #00ff9d; margin-top: 2px;">14 CYCLES</div>
-                <div style="font-size: 9.5px; color: #6b7280; font-family: 'Geist Mono', monospace;">100% SOLID</div>
-              </div>
-            </div>
-
-            <div class="tactical-card" style="padding: 12px 14px;">
-              <div style="display: flex; justify-content: space-between; font-size: 10px; font-family: 'Geist Mono', monospace; margin-bottom: 6px;">
-                <span style="color: #6b7280;">WEEKLY_QUOTA</span>
-                <span style="color: #00ff9d;">18.4H / 24.0H [76%]</span>
-              </div>
-              <div style="width: 100%; height: 4px; background: #111827;">
-                <div style="width: 76%; height: 100%; background: #00ff9d; box-shadow: 0 0 8px #00ff9d;"></div>
+              <div class="fitness-card" style="padding: 12px;">
+                <div style="font-size: 9.5px; font-weight: 800; color: #888;">CALORIAS DE FOCO</div>
+                <div style="font-size: 22px; font-weight: 900; color: #ff0055; margin-top: 2px;">640 kcal</div>
+                <div style="font-size: 10px; color: #888;">Atividade cerebral</div>
               </div>
             </div>
           `;
         }
       } else if (s === 'calendar') {
-        const cardClass = a===1?'bento-tile-dark':a===2?'clay-card':a===3?'cel-card':a===4?'comp-card':'tactical-card';
+        const cardClass = a===1?'linear-card':a===2?'notion-card':a===3?'duo-card':a===4?'arc-card':'fitness-card';
         const accent = archetypesData[a].accentColor;
         html = `
           <div>
-            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">CALENDÁRIO DE METAS</span>
-            <h3 style="font-size: 20px; font-weight: 800;">Agenda & Provas</h3>
+            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">CALENDÁRIO & DEADLINES</span>
+            <h3 style="font-size: 20px; font-weight: 800;">Cronograma de Estudos</h3>
           </div>
           <div class="${cardClass}" style="padding: 14px;">
             <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 10px;">
@@ -1561,7 +1546,7 @@
             <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; gap: 4px; font-size: 11px;">
               <span style="color: #6b7280; font-size: 9px;">D</span><span style="color: #6b7280; font-size: 9px;">S</span><span style="color: #6b7280; font-size: 9px;">T</span><span style="color: #6b7280; font-size: 9px;">Q</span><span style="color: #6b7280; font-size: 9px;">Q</span><span style="color: #6b7280; font-size: 9px;">S</span><span style="color: #6b7280; font-size: 9px;">S</span>
               <span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span>
-              <span style="background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border-radius: ${a===3?'2px':a===5?'0':'50%'}; font-weight: 800; padding: 2px 0;">21</span>
+              <span style="background: ${accent}; color: ${a===5?'#000':'#fff'}; border-radius: ${a===2?'4px':a===5?'999px':'50%'}; font-weight: 800; padding: 2px 0;">21</span>
             </div>
           </div>
           <div class="flex-col gap-10">
@@ -1578,15 +1563,15 @@
           </div>
         `;
       } else if (s === 'ai') {
-        const cardClass = a===1?'bento-tile-dark':a===2?'clay-card':a===3?'cel-card':a===4?'comp-card':'tactical-card';
+        const cardClass = a===1?'linear-card':a===2?'notion-card':a===3?'duo-card':a===4?'arc-card':'fitness-card';
         const accent = archetypesData[a].accentColor;
         html = `
           <div>
-            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">GEMINI PRO · FUNCTION CALLING</span>
-            <h3 style="font-size: 20px; font-weight: 800;">Noesis Copilot</h3>
+            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">NOESIS AI · TOOL CALLING</span>
+            <h3 style="font-size: 20px; font-weight: 800;">Copilot Inteligente</h3>
           </div>
           <div class="${cardClass}" style="font-size: 12.5px; line-height: 1.5;">
-            Olá Aster! Analisei seus registros no Supabase. Sua taxa em <strong>Criptografia</strong> é de 94%, mas em <strong>OAuth 2.0 PKCE</strong> caiu para 68%. Deseja que eu agende um bloco de estudo de 45m?
+            Olá Aster! Analisei seus registros no Supabase. Sua taxa em <strong>Criptografia</strong> é de 94%, mas em <strong>OAuth 2.0 PKCE</strong> caiu para 68%. Deseja que eu agende 45m de revisão?
           </div>
           <div class="${cardClass}" style="border: 1px solid ${accent}; font-size: 11.5px;">
             <div style="font-family: 'Geist Mono', monospace; font-size: 10px; font-weight: 800; color: ${accent};">
@@ -1595,12 +1580,12 @@
             <div style="font-weight: 600; margin-top: 2px;">Bloco adicionado à tabela <code>noesis_sessions</code> com sucesso.</div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button style="border: 1px solid rgba(255,255,255,0.15); background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; font-weight: 700; padding: 8px 14px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 11.5px; cursor: pointer;">Gerar Simulado RAG</button>
-            <button style="border: 1px solid rgba(255,255,255,0.15); background: transparent; color: inherit; padding: 8px 14px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 11.5px; cursor: pointer;">Ver Metas</button>
+            <button style="border: none; background: ${accent}; color: ${a===5?'#000':'#fff'}; font-weight: 700; padding: 8px 14px; border-radius: ${a===2?'4px':'999px'}; font-size: 11.5px; cursor: pointer;">Gerar Simulado RAG</button>
+            <button style="border: 1px solid rgba(255,255,255,0.15); background: transparent; color: inherit; padding: 8px 14px; border-radius: ${a===2?'4px':'999px'}; font-size: 11.5px; cursor: pointer;">Ver Metas</button>
           </div>
         `;
       } else if (s === 'quiz') {
-        const cardClass = a===1?'bento-tile-dark':a===2?'clay-card':a===3?'cel-card':a===4?'comp-card':'tactical-card';
+        const cardClass = a===1?'linear-card':a===2?'notion-card':a===3?'duo-card':a===4?'arc-card':'fitness-card';
         const accent = archetypesData[a].accentColor;
         html = `
           <div style="display: flex; justify-content: space-between; align-items: baseline;">
@@ -1623,23 +1608,23 @@
               C) Substituir a necessidade de TLS em requisições HTTP.
             </div>
           </div>
-          <div id="mob-quiz-alert" style="display: none; padding: 12px; border-radius: 12px; background: rgba(0, 206, 201, 0.1); border: 1px solid ${accent}; font-size: 11.5px; color: ${accent};">
+          <div id="mob-quiz-alert" style="display: none; padding: 12px; border-radius: 10px; background: rgba(94, 106, 210, 0.12); border: 1px solid ${accent}; font-size: 11.5px; color: ${accent};">
             ✔ <strong>Correto!</strong> O PKCE previne interceptação do authorization code por apps maliciosos no mesmo dispositivo móvel.
           </div>
         `;
       } else if (s === 'vault') {
-        const cardClass = a===1?'bento-tile-dark':a===2?'clay-card':a===3?'cel-card':a===4?'comp-card':'tactical-card';
+        const cardClass = a===1?'linear-card':a===2?'notion-card':a===3?'duo-card':a===4?'arc-card':'fitness-card';
         const accent = archetypesData[a].accentColor;
         html = `
           <div>
-            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">TELEMETRIA COGNITIVA</span>
+            <span style="font-size: 10.5px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">TELEMETRIA ANALÍTICA</span>
             <h3 style="font-size: 20px; font-weight: 800;">Consistência & Domínio</h3>
           </div>
           <div class="${cardClass}">
             <div style="font-size: 10px; font-weight: 700; color: #8b92a3; margin-bottom: 8px;">STREAK DE 14 DIAS</div>
             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
               ${Array(14).fill(0).map((_, i) => `
-                <div style="width: 14px; height: 14px; border-radius: ${a===3?'2px':a===5?'0':'4px'}; background: ${i === 4 ? 'rgba(255,255,255,0.08)' : accent}; opacity: ${i === 4 ? '1' : '0.85'};"></div>
+                <div style="width: 14px; height: 14px; border-radius: ${a===2?'2px':'4px'}; background: ${i === 4 ? 'rgba(255,255,255,0.08)' : accent}; opacity: ${i === 4 ? '1' : '0.85'};"></div>
               `).join('')}
             </div>
           </div>
@@ -1671,9 +1656,9 @@
       let sidebarHtml = `
         <div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding-left: 4px;">
-            <div style="width: 26px; height: 26px; border-radius: ${a===3?'4px':a===5?'0':'8px'}; background: ${accent}; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: ${a===2||a===5?'#000':'#fff'};">N</div>
+            <div style="width: 26px; height: 26px; border-radius: ${a===2?'4px':'8px'}; background: ${accent}; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: ${a===5?'#000':'#fff'};">N</div>
             <div>
-              <div style="font-weight: 800; font-size: 13.5px;">Noesis OS</div>
+              <div style="font-weight: 800; font-size: 13.5px;">Noesis Workspace</div>
               <div style="font-size: 9.5px; font-family: 'Geist Mono', monospace; opacity: 0.6;">aster // dev</div>
             </div>
           </div>
@@ -1691,15 +1676,15 @@
       sidebarHtml += `
           </nav>
         </div>
-        <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: ${a===3?'4px':a===5?'0':'12px'}; border: 1px solid rgba(255,255,255,0.07); font-size: 10.5px;">
-          <div style="font-weight: 700;">Supabase RLS: OK</div>
+        <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: ${a===2?'4px':'10px'}; border: 1px solid rgba(255,255,255,0.07); font-size: 10.5px;">
+          <div style="font-weight: 700;">Supabase RLS: Synced</div>
           <div style="font-family: 'Geist Mono', monospace; opacity: 0.6; margin-top: 2px;">Latency: 14ms · 1280x800</div>
         </div>
       `;
       sidebar.innerHTML = sidebarHtml;
 
       // Conteúdo Principal Desktop
-      const cardClass = a===1?'bento-tile-dark':a===2?'clay-card':a===3?'cel-card':a===4?'comp-card':'tactical-card';
+      const cardClass = a===1?'linear-card':a===2?'notion-card':a===3?'duo-card':a===4?'arc-card':'fitness-card';
 
       let mainHtml = '';
 
@@ -1710,7 +1695,7 @@
               <span style="font-size: 11px; font-weight: 700; color: ${accent}; font-family: 'Geist Mono', monospace;">CENTRAL WORKSPACE</span>
               <h1 style="font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-top: 2px;">Sessão Ativa & Métricas</h1>
             </div>
-            <button style="background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px 22px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 13px; cursor: pointer;">+ Novo Registro</button>
+            <button style="background: ${accent}; color: ${a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px 22px; border-radius: ${a===2?'4px':'999px'}; font-size: 13px; cursor: pointer;">+ Novo Registro</button>
           </div>
 
           <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px;">
@@ -1723,8 +1708,8 @@
               <div style="font-size: 18px; font-weight: 800;">Disciplina: Cibersegurança & OWASP Top 10</div>
               <div style="font-size: 13px; opacity: 0.7; margin-top: 3px;">Tópicos: Server-Side Request Forgery & Broken Object Level Auth</div>
               <div style="display: flex; gap: 10px; margin-top: 22px;">
-                <button style="background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 12px 28px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 13.5px; cursor: pointer;" onclick="toggleTimer()" id="desk-play-btn">Pausar Sessão</button>
-                <button style="background: rgba(255,255,255,0.08); color: inherit; border: 1px solid rgba(255,255,255,0.1); font-weight: 600; padding: 12px 20px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 13px; cursor: pointer;" onclick="resetTimer()">Resetar</button>
+                <button style="background: ${accent}; color: ${a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 12px 28px; border-radius: ${a===2?'4px':'999px'}; font-size: 13.5px; cursor: pointer;" onclick="toggleTimer()" id="desk-play-btn">Pausar Sessão</button>
+                <button style="background: rgba(255,255,255,0.08); color: inherit; border: 1px solid rgba(255,255,255,0.1); font-weight: 600; padding: 12px 20px; border-radius: ${a===2?'4px':'999px'}; font-size: 13px; cursor: pointer;" onclick="resetTimer()">Resetar</button>
               </div>
             </div>
 
@@ -1751,7 +1736,7 @@
             <div style="display: flex; align-items: flex-end; gap: 16px; height: 110px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">
               ${['45','70','90','40','85','100','50'].map((h, i) => `
                 <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end;">
-                  <div style="width: 100%; max-width: 44px; height: ${h}%; background: ${accent}; border-radius: ${a===3?'0':a===5?'0':'4px 4px 0 0'}; opacity: ${i===5?'1':'0.7'};"></div>
+                  <div style="width: 100%; max-width: 44px; height: ${h}%; background: ${accent}; border-radius: ${a===2?'0':'4px 4px 0 0'}; opacity: ${i===5?'1':'0.7'};"></div>
                   <span style="font-size: 10.5px; opacity: 0.7; ${i===5?`font-weight:800;color:${accent};`:''}">${['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'][i]}</span>
                 </div>
               `).join('')}
@@ -1765,7 +1750,7 @@
               <h1 style="font-size: 30px; font-weight: 800; letter-spacing: -0.5px;">Cronograma & Prazos</h1>
               <div style="font-size: 12.5px; opacity: 0.7;">Sincronizado com a tabela <code>noesis_calendar_events</code></div>
             </div>
-            <button style="background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px 22px; border-radius: ${a===3?'4px':a===5?'0':'999px'}; font-size: 13px; cursor: pointer;">+ Agendar Bloco</button>
+            <button style="background: ${accent}; color: ${a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px 22px; border-radius: ${a===2?'4px':'999px'}; font-size: 13px; cursor: pointer;">+ Agendar Bloco</button>
           </div>
 
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
@@ -1785,7 +1770,7 @@
                 ${Array.from({length:7}, (_, i) => `<div style="padding: 10px;">${i+9}</div>`).join('')}
                 ${Array.from({length:7}, (_, i) => {
                   const d = i+16;
-                  if (d === 21) return `<div style="padding: 10px; background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border-radius: ${a===3?'4px':a===5?'0':'10px'}; font-weight: 800;">${d}</div>`;
+                  if (d === 21) return `<div style="padding: 10px; background: ${accent}; color: ${a===5?'#000':'#fff'}; border-radius: ${a===2?'4px':'10px'}; font-weight: 800;">${d}</div>`;
                   return `<div style="padding: 10px;">${d}</div>`;
                 }).join('')}
               </div>
@@ -1802,7 +1787,7 @@
                 <div style="font-size: 10.5px; font-weight: 800; color: ${accent}; font-family: 'Geist Mono', monospace;">BLOCO DE HOJE</div>
                 <div style="font-size: 15px; font-weight: 800; margin-top: 4px;">OWASP Top 10 & API Security</div>
                 <div style="font-size: 12px; opacity: 0.7; margin-top: 2px;">Hoje · 14:00 às 16:30</div>
-                <button style="margin-top: 12px; width: 100%; background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px; border-radius: ${a===3?'4px':a===5?'0':'8px'}; cursor: pointer;">Iniciar Bloco Agora</button>
+                <button style="margin-top: 12px; width: 100%; background: ${accent}; color: ${a===5?'#000':'#fff'}; border: none; font-weight: 700; padding: 10px; border-radius: ${a===2?'4px':'8px'}; cursor: pointer;">Iniciar Bloco Agora</button>
               </div>
             </div>
           </div>
@@ -1823,7 +1808,7 @@
                 <div style="background: rgba(255,255,255,0.04); padding: 14px 18px; border-radius: 12px; font-size: 13.5px; line-height: 1.6;">
                   <strong>Noesis AI:</strong> "Olá Aster. Analisei seus registros de estudo no Supabase. Você concluiu 18.4 horas nessa semana (76% da meta). Em Criptografia sua taxa é de 94%, mas em <strong>OAuth 2.0 PKCE</strong> caiu para 68%. Deseja que eu agende 45m de revisão?"
                 </div>
-                <div style="background: rgba(0, 206, 201, 0.08); border: 1px solid ${accent}; padding: 12px 16px; border-radius: 10px; font-size: 12px;">
+                <div style="background: rgba(94, 106, 210, 0.08); border: 1px solid ${accent}; padding: 12px 16px; border-radius: 10px; font-size: 12px;">
                   <div style="font-family: 'Geist Mono', monospace; font-size: 10.5px; color: ${accent}; font-weight: 800;">
                     ✔ TOOL EXECUTED: query_database_telemetry(user_id='aster', range='7d')
                   </div>
@@ -1832,7 +1817,7 @@
               </div>
               <div style="margin-top: 14px; display: flex; gap: 8px;">
                 <input type="text" id="desk-chat-input" placeholder="Pergunte ao Noesis..." style="flex:1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 11px 18px; color: inherit; font-size: 13px; outline: none;">
-                <button style="background: ${accent}; color: ${a===2||a===5?'#000':'#fff'}; border: none; border-radius: 999px; padding: 10px 22px; font-weight: 700; cursor: pointer;" onclick="handleDeskChatSubmit()">Enviar</button>
+                <button style="background: ${accent}; color: ${a===5?'#000':'#fff'}; border: none; border-radius: 999px; padding: 10px 22px; font-weight: 700; cursor: pointer;" onclick="handleDeskChatSubmit()">Enviar</button>
               </div>
             </div>
 
@@ -1877,7 +1862,7 @@
                 C) Remoção de toda autenticação interna para reduzir a latência de rede entre clusters.
               </div>
             </div>
-            <div id="desk-quiz-alert" style="display: none; margin-top: 18px; padding: 16px; border-radius: 12px; background: rgba(0, 206, 201, 0.1); border: 1px solid ${accent}; font-size: 13px; line-height: 1.5;">
+            <div id="desk-quiz-alert" style="display: none; margin-top: 18px; padding: 16px; border-radius: 10px; background: rgba(94, 106, 210, 0.12); border: 1px solid ${accent}; font-size: 13px; line-height: 1.5;">
               <strong style="color: ${accent};">✔ Gabarito Correto (B):</strong> O mTLS autentica a identidade criptográfica de cada serviço via certificados X.509, enquanto o JWT propaga o contexto do usuário final.
             </div>
           </div>
@@ -1923,7 +1908,7 @@
             <div class="${cardClass}" style="padding: 22px;">
               <h3 style="font-size: 15px; font-weight: 800; margin-bottom: 14px;">Diagnóstico de Retenção Espaçada</h3>
               <div class="flex-col gap-10" style="font-size: 12.5px;">
-                <div style="padding: 12px 14px; background: rgba(0,206,201,0.08); border-radius: 8px; border-left: 3px solid ${accent};">
+                <div style="padding: 12px 14px; background: rgba(94,106,210,0.08); border-radius: 8px; border-left: 3px solid ${accent};">
                   <strong>Memória Consolidada (94%):</strong> Criptografia de Chave Pública, Diffie-Hellman e TLS 1.3.
                 </div>
                 <div style="padding: 12px 14px; background: rgba(255,118,117,0.08); border-radius: 8px; border-left: 3px solid #ff7675;">
@@ -1959,7 +1944,7 @@
           let op = '1';
           if (rand > 0.65) { bg = accent; op = '1'; }
           else if (rand > 0.35) { bg = accent; op = '0.45'; }
-          dot.style.cssText = `width: 11px; height: 11px; border-radius: ${a===3?'2px':a===5?'0':'3px'}; background: ${bg}; opacity: ${op};`;
+          dot.style.cssText = `width: 11px; height: 11px; border-radius: ${a===2?'2px':'3px'}; background: ${bg}; opacity: ${op};`;
           col.appendChild(dot);
         }
         grid.appendChild(col);
@@ -2010,6 +1995,25 @@
     }
 
     // ─────────────────────────────────────────────────────────────
+    // INTERAÇÕES NOTION (CHECKBOX TÁTIL)
+    // ─────────────────────────────────────────────────────────────
+    function toggleNotionCheck(el) {
+      const box = el.querySelector('.notion-box');
+      const text = el.querySelector('span');
+      if (box.classList.contains('checked')) {
+        box.classList.remove('checked');
+        box.innerText = '';
+        text.style.textDecoration = 'none';
+        text.style.color = 'inherit';
+      } else {
+        box.classList.add('checked');
+        box.innerText = '✓';
+        text.style.textDecoration = 'line-through';
+        text.style.color = '#888888';
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // QUIZ INTERATIVO COM FEEDBACK IMEDIATO
     // ─────────────────────────────────────────────────────────────
     function checkMobAnswer(el, isCorrect) {
@@ -2021,7 +2025,7 @@
       const accent = archetypesData[currentArchetype].accentColor;
       if (isCorrect) {
         el.style.borderColor = accent;
-        el.style.background = 'rgba(0, 206, 201, 0.12)';
+        el.style.background = 'rgba(94, 106, 210, 0.15)';
         document.getElementById('mob-quiz-alert').style.display = 'block';
       } else {
         el.style.borderColor = '#ff7675';
@@ -2038,7 +2042,7 @@
       const accent = archetypesData[currentArchetype].accentColor;
       if (isCorrect) {
         el.style.borderColor = accent;
-        el.style.background = 'rgba(0, 206, 201, 0.12)';
+        el.style.background = 'rgba(94, 106, 210, 0.15)';
         document.getElementById('desk-quiz-alert').style.display = 'block';
       } else {
         el.style.borderColor = '#ff7675';
@@ -2059,13 +2063,13 @@
       const accent = archetypesData[currentArchetype].accentColor;
 
       const userMsg = document.createElement('div');
-      userMsg.style.cssText = `background: ${accent}; color: ${currentArchetype===2||currentArchetype===5?'#000':'#fff'}; padding: 10px 16px; border-radius: 12px; align-self: flex-end; max-width: 80%; font-size: 13px; font-weight: 600;`;
+      userMsg.style.cssText = `background: ${accent}; color: ${currentArchetype===5?'#000':'#fff'}; padding: 10px 16px; border-radius: 12px; align-self: flex-end; max-width: 80%; font-size: 13px; font-weight: 600;`;
       userMsg.innerText = txt;
       box.appendChild(userMsg);
 
       setTimeout(() => {
         const aiMsg = document.createElement('div');
-        aiMsg.style.cssText = `background: rgba(0, 206, 201, 0.08); border: 1px solid ${accent}; padding: 12px 16px; border-radius: 10px; font-size: 12.5px;`;
+        aiMsg.style.cssText = `background: rgba(94, 106, 210, 0.08); border: 1px solid ${accent}; padding: 12px 16px; border-radius: 10px; font-size: 12.5px;`;
         aiMsg.innerHTML = `
           <div style="font-family: 'Geist Mono', monospace; font-size: 10.5px; color: ${accent}; font-weight: 800;">
             ✔ TOOL EXECUTED: process_command("${txt}")
@@ -2097,11 +2101,11 @@
       document.getElementById('banner-desc').innerText = data.desc;
       document.getElementById('banner-badge').innerText = data.badge;
 
-      // Atualiza pílulas de navegação com a cor de acento
+      // Atualiza pílulas ativas com a cor de acento
       document.querySelectorAll('.screen-pill.active').forEach(p => {
         p.style.background = data.accentColor;
         p.style.borderColor = data.accentColor;
-        p.style.color = (num===2||num===5) ? '#000' : '#fff';
+        p.style.color = (num===5) ? '#000' : '#fff';
       });
 
       renderMobileView();
@@ -2124,7 +2128,7 @@
           const accent = archetypesData[currentArchetype].accentColor;
           b.style.background = accent;
           b.style.borderColor = accent;
-          b.style.color = (currentArchetype===2||currentArchetype===5) ? '#000' : '#fff';
+          b.style.color = (currentArchetype===5) ? '#000' : '#fff';
         }
       });
 
