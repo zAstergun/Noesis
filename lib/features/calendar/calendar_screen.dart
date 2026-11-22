@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -5,6 +6,38 @@ import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
+
+class CalendarCategory {
+  final String id;
+  final String label;
+  final Color color;
+  final String hex;
+  final IconData icon;
+
+  const CalendarCategory({
+    required this.id,
+    required this.label,
+    required this.color,
+    required this.hex,
+    required this.icon,
+  });
+
+  CalendarCategory copyWith({
+    String? id,
+    String? label,
+    Color? color,
+    String? hex,
+    IconData? icon,
+  }) {
+    return CalendarCategory(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      color: color ?? this.color,
+      hex: hex ?? this.hex,
+      icon: icon ?? this.icon,
+    );
+  }
+}
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -15,20 +48,241 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  DateTime _selectedDay = DateTime.now();
   String _activeViewMode = 'Semana'; // 'Dia', 'Semana', 'Mês', 'Timeline'
+  String? _selectedCategoryFilter; // null = Todos, ou 'study', 'review', 'lab', 'exam'
+
+  late final ValueNotifier<DateTime> _selectedDayNotifier;
+  late final ValueNotifier<String> _activeViewModeNotifier;
+  late final ValueNotifier<String?> _selectedCategoryFilterNotifier;
+
+  bool _aiSuggestionDismissed = false;
+  bool _aiSuggestionScheduled = false;
 
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
-  String _selectedCategory = 'study';
+  String _dialogCategory = 'study';
+  String _dialogColorHex = '#7C6CF0';
+  late DateTime _dialogDate;
+  int _dialogStartHour = 9;
+  int _dialogStartMinute = 0;
+  int _dialogDurationMinutes = 60; // 30, 60, 90, 120, 180
+
+  static final Map<String, CalendarCategory> _categoryInfo = {
+    'study': const CalendarCategory(id: 'study', label: 'Estudo', color: AsterConstants.lavanda, hex: '#7C6CF0', icon: Icons.menu_book_rounded),
+    'review': const CalendarCategory(id: 'review', label: 'Revisão', color: AsterConstants.menta, hex: '#3CCF9A', icon: Icons.replay_rounded),
+    'lab': const CalendarCategory(id: 'lab', label: 'Lab / Simulado', color: AsterConstants.ambar, hex: '#F5A623', icon: Icons.science_rounded),
+    'exam': const CalendarCategory(id: 'exam', label: 'Prova / Compromisso', color: AsterConstants.coral, hex: '#FF7A90', icon: Icons.event_available_rounded),
+  };
+
+  static const List<({String name, IconData icon})> _availableCategoryIcons = [
+    (name: 'Estudo', icon: Icons.menu_book_rounded),
+    (name: 'Revisão', icon: Icons.replay_rounded),
+    (name: 'Lab', icon: Icons.science_rounded),
+    (name: 'Prova', icon: Icons.event_available_rounded),
+    (name: 'Código', icon: Icons.code_rounded),
+    (name: 'Computador', icon: Icons.laptop_mac_rounded),
+    (name: 'Alvo / Foco', icon: Icons.track_changes_rounded),
+    (name: 'Trabalho', icon: Icons.work_outline_rounded),
+    (name: 'Treino', icon: Icons.fitness_center_rounded),
+    (name: 'Café', icon: Icons.local_cafe_rounded),
+    (name: 'Ideia', icon: Icons.lightbulb_outline_rounded),
+    (name: 'Fogo', icon: Icons.local_fire_department_rounded),
+    (name: 'Estrela', icon: Icons.star_rounded),
+    (name: 'Música', icon: Icons.headphones_rounded),
+    (name: 'Chave / Segurança', icon: Icons.vpn_key_rounded),
+    (name: 'Bug / Testes', icon: Icons.bug_report_rounded),
+  ];
+
+  static const List<({String name, Color color, String hex})> _colorPalette = [
+    (name: 'Lavanda', color: AsterConstants.lavanda, hex: '#7C6CF0'),
+    (name: 'Menta', color: AsterConstants.menta, hex: '#3CCF9A'),
+    (name: 'Âmbar', color: AsterConstants.ambar, hex: '#F5A623'),
+    (name: 'Coral', color: AsterConstants.coral, hex: '#FF7A90'),
+    (name: 'Azul Céu', color: Color(0xFF3B82F6), hex: '#3B82F6'),
+    (name: 'Índigo', color: Color(0xFF6366F1), hex: '#6366F1'),
+    (name: 'Púrpura', color: Color(0xFF8B5CF6), hex: '#8B5CF6'),
+    (name: 'Turquesa', color: Color(0xFF06B6D4), hex: '#06B6D4'),
+    (name: 'Laranja', color: Color(0xFFF97316), hex: '#F97316'),
+    (name: 'Rosa', color: Color(0xFFEC4899), hex: '#EC4899'),
+  ];
+
+  late final Stream<List<Map<String, dynamic>>> _eventsStream;
+  final Map<String, DateTime> _parsedDateCache = {};
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay;
+    _dialogDate = _selectedDay;
+    _selectedDayNotifier = ValueNotifier<DateTime>(_selectedDay);
+    _activeViewModeNotifier = ValueNotifier<String>(_activeViewMode);
+    _selectedCategoryFilterNotifier = ValueNotifier<String?>(_selectedCategoryFilter);
+    _eventsStream = SupabaseService.calendarEventsStream().distinct((prev, next) {
+      if (prev.length != next.length) return false;
+      for (int i = 0; i < prev.length; i++) {
+        if (!mapEquals(prev[i], next[i])) return false;
+      }
+      return true;
+    });
   }
 
-  void _openAddEventDialog() {
+  @override
+  void dispose() {
+    _selectedDayNotifier.dispose();
+    _activeViewModeNotifier.dispose();
+    _selectedCategoryFilterNotifier.dispose();
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Color _getCategoryColor(String? cat) => _categoryInfo[cat]?.color ?? AsterConstants.lavanda;
+  String _getCategoryLabel(String? cat) => _categoryInfo[cat]?.label ?? 'Estudo';
+  IconData _getCategoryIcon(String? cat) => _categoryInfo[cat]?.icon ?? Icons.menu_book_rounded;
+
+  Color _getEventColor(Map<String, dynamic> event) {
+    if (event['color'] != null) {
+      final cStr = event['color'].toString();
+      if (cStr.startsWith('#')) {
+        final hex = cStr.replaceAll('#', '');
+        try {
+          return Color(int.parse(hex.length == 6 ? 'FF$hex' : hex, radix: 16));
+        } catch (_) {}
+      } else if (int.tryParse(cStr) != null) {
+        return Color(int.parse(cStr));
+      }
+    }
+    return _getCategoryColor(event['category']);
+  }
+
+  DateTime _parseDateTime(dynamic val) {
+    if (val is DateTime) return val;
+    if (val is String) {
+      final cached = _parsedDateCache[val];
+      if (cached != null) return cached;
+      try {
+        final parsed = DateTime.parse(val);
+        _parsedDateCache[val] = parsed;
+        return parsed;
+      } catch (_) {}
+    }
+    return DateTime.now();
+  }
+
+  List<Map<String, dynamic>> _getEventsForDay(List<Map<String, dynamic>> allEvents, DateTime day) {
+    final y = day.year;
+    final m = day.month;
+    final d = day.day;
+    return allEvents.where((evt) {
+      final start = _parseDateTime(evt['start_time']);
+      return start.year == y && start.month == m && start.day == d;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> events, [String? filter]) {
+    final cat = filter ?? _selectedCategoryFilter;
+    if (cat == null) return events;
+    return events.where((e) => e['category'] == cat).toList();
+  }
+
+  void _confirmDeleteEvent(Map<String, dynamic> event) {
+    final title = event['title'] ?? 'Bloco';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AsterConstants.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AsterConstants.coral.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: AsterConstants.coral, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Excluir Bloco',
+              style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+            ),
+          ],
+        ),
+        content: Text(
+          'Tem certeza que deseja remover o bloco "$title" da sua agenda?',
+          style: GoogleFonts.manrope(fontSize: 13, height: 1.4, color: AsterConstants.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AsterConstants.coral,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteEventWithUndo(event);
+            },
+            child: Text('Sim, Excluir', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteEventWithUndo(Map<String, dynamic> event) {
+    final id = event['id']?.toString() ?? '';
+    final title = event['title'] ?? 'Bloco';
+    if (id.isEmpty) return;
+
+    // Dispara a remoção de forma otimista imediata
+    SupabaseService.deleteCalendarEvent(id);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AsterConstants.surfaceDark,
+          content: Text('Bloco "$title" excluído com sucesso.'),
+          action: SnackBarAction(
+            label: 'Desfazer',
+            textColor: AsterConstants.ambar,
+            onPressed: () {
+              SupabaseService.addCalendarEvent(
+                title: event['title'] ?? '',
+                description: event['description'],
+                category: event['category'] ?? 'study',
+                color: event['color'],
+                startTime: _parseDateTime(event['start_time']),
+                endTime: _parseDateTime(event['end_time']),
+              );
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _openAddEventDialog({DateTime? prefilledDate, int? prefilledHour}) {
+    _dialogDate = prefilledDate ?? _selectedDay;
+    _dialogStartHour = prefilledHour ?? 9;
+    _dialogStartMinute = 0;
+    _dialogDurationMinutes = 60;
+    final initialCat = _selectedCategoryFilter != null && _categoryInfo.containsKey(_selectedCategoryFilter)
+        ? _selectedCategoryFilter!
+        : (_categoryInfo.containsKey('study') ? 'study' : _categoryInfo.keys.first);
+    _dialogCategory = initialCat;
+    _dialogColorHex = _categoryInfo[_dialogCategory]?.hex ?? '#7C6CF0';
+    _titleController.clear();
+    _descController.clear();
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -42,30 +296,200 @@ class _CalendarScreenState extends State<CalendarScreen> {
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: _titleController,
-                  decoration: const InputDecoration(labelText: 'Título do Bloco (ex: Prova Security+, Revisão de Redes)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Título do Bloco',
+                    hintText: 'ex: Prova Security+, Revisão de Redes',
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  value: _categoryInfo.containsKey(_dialogCategory) ? _dialogCategory : _categoryInfo.keys.first,
                   decoration: const InputDecoration(labelText: 'Categoria Semântica'),
-                  items: const [
-                    DropdownMenuItem(value: 'study', child: Text('Estudo Teórico (Lavanda)')),
-                    DropdownMenuItem(value: 'review', child: Text('Revisão Espaçada (Menta)')),
-                    DropdownMenuItem(value: 'lab', child: Text('Lab / Simulado (Âmbar)')),
-                    DropdownMenuItem(value: 'exam', child: Text('Prova Oficial / Prazos (Coral)')),
+                  items: [
+                    ..._categoryInfo.entries.map((e) {
+                      return DropdownMenuItem(
+                        value: e.key,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(color: e.value.color, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      );
+                    }),
+                    DropdownMenuItem(
+                      value: '__add_category__',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterConstants.lavanda),
+                          const SizedBox(width: 8),
+                          Text(
+                            '+ Nova Categoria...',
+                            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                   onChanged: (val) {
-                    if (val != null) setModalState(() => _selectedCategory = val);
+                    if (val == '__add_category__') {
+                      _openAddEditCategoryDialog(
+                        onSaved: () {
+                          setModalState(() {
+                            _dialogCategory = _categoryInfo.keys.last;
+                            _dialogColorHex = _categoryInfo.values.last.hex;
+                          });
+                        },
+                      );
+                    } else if (val != null) {
+                      setModalState(() {
+                        _dialogCategory = val;
+                        _dialogColorHex = _categoryInfo[val]?.hex ?? '#7C6CF0';
+                      });
+                    }
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+
+                // ─── Seletor de Cores Personalizadas ───
+                Text(
+                  'Cor do Bloco',
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _colorPalette.map((p) {
+                    final isSelected = _dialogColorHex.toUpperCase() == p.hex.toUpperCase();
+
+                    return InkWell(
+                      onTap: () => setModalState(() => _dialogColorHex = p.hex),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: p.color,
+                          shape: BoxShape.circle,
+                          border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
+                          boxShadow: [
+                            if (isSelected)
+                              BoxShadow(
+                                color: p.color.withValues(alpha: 0.6),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                          ],
+                        ),
+                        child: isSelected
+                            ? const Center(
+                                child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                              )
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+
+                // Seletor de Data
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _dialogDate,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
+                      locale: const Locale('pt', 'BR'),
+                    );
+                    if (picked != null) {
+                      setModalState(() => _dialogDate = picked);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AsterConstants.surfaceAlt,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 16, color: AsterConstants.lavanda),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_dialogDate),
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AsterConstants.textDark),
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.textMuted),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Seletor de Horário e Duração
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: DropdownButtonFormField<int>(
+                        value: _dialogStartHour,
+                        decoration: const InputDecoration(labelText: 'Horário de Início'),
+                        items: List.generate(16, (i) => i + 7).map((h) {
+                          final hStr = '${h.toString().padLeft(2, '0')}:00';
+                          return DropdownMenuItem(value: h, child: Text(hStr, style: GoogleFonts.manrope(fontSize: 13)));
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => _dialogStartHour = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 5,
+                      child: DropdownButtonFormField<int>(
+                        value: _dialogDurationMinutes,
+                        decoration: const InputDecoration(labelText: 'Duração'),
+                        items: const [
+                          DropdownMenuItem(value: 30, child: Text('30 min')),
+                          DropdownMenuItem(value: 60, child: Text('1 hora')),
+                          DropdownMenuItem(value: 90, child: Text('1h 30m')),
+                          DropdownMenuItem(value: 120, child: Text('2 horas')),
+                          DropdownMenuItem(value: 180, child: Text('3 horas')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => _dialogDurationMinutes = val);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
                 TextField(
                   controller: _descController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Detalhes ou Objetivos'),
+                  decoration: const InputDecoration(
+                    labelText: 'Detalhes ou Objetivos (opcional)',
+                    hintText: 'Capítulos, links de lab, requisitos de estudo...',
+                  ),
                 ),
               ],
             ),
@@ -79,27 +503,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
               text: 'Agendar Bloco',
               onPressed: () async {
                 final title = _titleController.text.trim();
-                if (title.isNotEmpty) {
-                  final start = _selectedDay ?? DateTime.now();
-                  final end = start.add(const Duration(hours: 1));
-
-                  await SupabaseService.addCalendarEvent(
-                    title: title,
-                    description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
-                    category: _selectedCategory,
-                    startTime: start,
-                    endTime: end,
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Por favor, informe o título do bloco.')),
                   );
-
-                  if (mounted && ctx.mounted) {
-                    Navigator.pop(ctx);
-                    _titleController.clear();
-                    _descController.clear();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Bloco agendado com sucesso!')),
-                    );
-                  }
+                  return;
                 }
+
+                final start = DateTime(
+                  _dialogDate.year,
+                  _dialogDate.month,
+                  _dialogDate.day,
+                  _dialogStartHour,
+                  _dialogStartMinute,
+                );
+                final end = start.add(Duration(minutes: _dialogDurationMinutes));
+
+                // Disparo imediato otimista
+                SupabaseService.addCalendarEvent(
+                  title: title,
+                  description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
+                  category: _dialogCategory,
+                  color: _dialogColorHex,
+                  startTime: start,
+                  endTime: end,
+                );
+
+                Navigator.pop(ctx);
+                _titleController.clear();
+                _descController.clear();
+                setState(() {
+                  _selectedDay = _dialogDate;
+                  _focusedDay = _dialogDate;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AsterConstants.lavanda,
+                    content: Text('Bloco "$title" agendado com sucesso!'),
+                  ),
+                );
               },
             ),
           ],
@@ -108,14 +550,1032 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  void _showEventDetailsDialog(Map<String, dynamic> event) {
+    final title = event['title'] ?? 'Sem título';
+    final desc = event['description'] ?? '';
+    final category = event['category'] ?? 'study';
+    final start = _parseDateTime(event['start_time']);
+    final end = _parseDateTime(event['end_time']);
+    final isCompleted = event['is_completed'] == true;
+    final color = _getEventColor(event);
+    final label = _getCategoryLabel(category);
+    final icon = _getCategoryIcon(category);
+
+    final duration = end.difference(start);
+    final durationHours = duration.inMinutes / 60.0;
+    final durationStr = durationHours == durationHours.truncateToDouble()
+        ? '${durationHours.toInt()}h'
+        : '${durationHours.toStringAsFixed(1)}h';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AsterConstants.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                  ),
+                  Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cartão Interativo de Data e Horário (Toque para trocar data/horário)
+            InkWell(
+              onTap: () {
+                Navigator.pop(ctx);
+                _openEditEventDialog(event);
+              },
+              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.25), width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.access_time_rounded, size: 18, color: AsterConstants.lavanda),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${DateFormat("EEEE, d 'de' MMM", 'pt_BR').format(start)} · ${DateFormat('HH:mm').format(start)} às ${DateFormat('HH:mm').format(end)} ($durationStr)',
+                            style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Toque para remarcar data ou horário ✏️',
+                            style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.lavanda),
+                  ],
+                ),
+              ),
+            ),
+            if (desc.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AsterConstants.surfaceAlt,
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                ),
+                child: Text(
+                  desc,
+                  style: GoogleFonts.manrope(fontSize: 12, height: 1.4, color: AsterConstants.textDark),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Status:', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isCompleted ? AsterConstants.menta : AsterConstants.ambar).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                  ),
+                  child: Text(
+                    isCompleted ? 'Concluído' : 'Pendente',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isCompleted ? AsterConstants.menta : AsterConstants.ambar,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          Row(
+            children: [
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AsterConstants.coral,
+                  side: const BorderSide(color: AsterConstants.coral, width: 1.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                label: Text('Excluir', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 12)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _confirmDeleteEvent(event);
+                },
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AsterConstants.lavanda,
+                  side: const BorderSide(color: AsterConstants.lavanda, width: 1.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                ),
+                icon: const Icon(Icons.edit_calendar_rounded, size: 16),
+                label: Text('Editar', style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 12)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _openEditEventDialog(event);
+                },
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final id = event['id']?.toString() ?? '';
+                  if (id.isNotEmpty) {
+                    await SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
+                  }
+                },
+                child: Text(
+                  isCompleted ? 'Marcar Pendente' : 'Marcar Concluído',
+                  style: GoogleFonts.manrope(color: AsterConstants.lavanda, fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 6),
+              SoftClayPillButton(
+                text: 'Fechar',
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openEditEventDialog(Map<String, dynamic> event) {
+    final eventId = event['id']?.toString() ?? '';
+    final start = _parseDateTime(event['start_time']);
+    final end = _parseDateTime(event['end_time']);
+    final duration = end.difference(start);
+
+    DateTime editDate = start;
+    int editStartHour = start.hour;
+    int editStartMinute = start.minute;
+    int editDurationMinutes = duration.inMinutes.clamp(15, 480);
+    String editCategory = event['category'] ?? 'study';
+    String editColorHex = event['color'] ?? (_categoryInfo[editCategory]?.hex ?? '#7C6CF0');
+    final titleEditController = TextEditingController(text: event['title'] ?? '');
+    final descEditController = TextEditingController(text: event['description'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final computedStart = DateTime(
+            editDate.year,
+            editDate.month,
+            editDate.day,
+            editStartHour,
+            editStartMinute,
+          );
+          final computedEnd = computedStart.add(Duration(minutes: editDurationMinutes));
+          final durH = editDurationMinutes / 60.0;
+          final durStr = durH == durH.truncateToDouble() ? '${durH.toInt()}h' : '${durH.toStringAsFixed(1)}h';
+
+          return AlertDialog(
+            backgroundColor: AsterConstants.surfaceCard,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit_calendar_rounded, size: 20, color: AsterConstants.lavanda),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Editar Data & Horário da Tarefa',
+                        style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                      ),
+                      Text(
+                        'Altere o dia, horário ou tempo estimado',
+                        style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleEditController,
+                    decoration: const InputDecoration(
+                      labelText: 'Título do Bloco',
+                      hintText: 'ex: Prova Security+, Revisão de Redes',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ─── 1. Seletor de Data Interativo ───
+                  Text(
+                    'DATA DA TAREFA',
+                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: editDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime(2030),
+                        locale: const Locale('pt', 'BR'),
+                      );
+                      if (picked != null) {
+                        setModalState(() => editDate = picked);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AsterConstants.surfaceAlt,
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                        border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.35), width: 1.2),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded, size: 16, color: AsterConstants.lavanda),
+                              const SizedBox(width: 10),
+                              Text(
+                                DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(editDate),
+                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.edit_rounded, size: 12, color: AsterConstants.lavanda),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Trocar Data',
+                                  style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ─── 2. Seletor de Horário e Duração ───
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'HORÁRIO DE INÍCIO',
+                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                            ),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<int>(
+                              value: editStartHour,
+                              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                              items: List.generate(18, (i) => i + 6).map((h) {
+                                final hStr = '${h.toString().padLeft(2, '0')}:${editStartMinute.toString().padLeft(2, '0')}';
+                                return DropdownMenuItem(
+                                  value: h,
+                                  child: Text(hStr, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700)),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => editStartHour = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DURAÇÃO',
+                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                            ),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<int>(
+                              value: [15, 30, 45, 60, 90, 120, 180, 240].contains(editDurationMinutes) ? editDurationMinutes : 60,
+                              decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                              items: const [
+                                DropdownMenuItem(value: 15, child: Text('15 min')),
+                                DropdownMenuItem(value: 30, child: Text('30 min')),
+                                DropdownMenuItem(value: 45, child: Text('45 min')),
+                                DropdownMenuItem(value: 60, child: Text('1 hora')),
+                                DropdownMenuItem(value: 90, child: Text('1h 30m')),
+                                DropdownMenuItem(value: 120, child: Text('2 horas')),
+                                DropdownMenuItem(value: 180, child: Text('3 horas')),
+                                DropdownMenuItem(value: 240, child: Text('4 horas')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => editDurationMinutes = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Resumo do Horário Calculado
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 15, color: AsterConstants.lavanda),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Horário final: ${DateFormat('HH:mm').format(computedStart)} às ${DateFormat('HH:mm').format(computedEnd)} ($durStr)',
+                          style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<String>(
+                    value: _categoryInfo.containsKey(editCategory) ? editCategory : _categoryInfo.keys.first,
+                    decoration: const InputDecoration(labelText: 'Categoria Semântica'),
+                    items: [
+                      ..._categoryInfo.entries.map((e) {
+                        return DropdownMenuItem(
+                          value: e.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(color: e.value.color, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        );
+                      }),
+                      DropdownMenuItem(
+                        value: '__add_category__',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterConstants.lavanda),
+                            const SizedBox(width: 8),
+                            Text(
+                              '+ Nova Categoria...',
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val == '__add_category__') {
+                        _openAddEditCategoryDialog(
+                          onSaved: () {
+                            setModalState(() {
+                              editCategory = _categoryInfo.keys.last;
+                              editColorHex = _categoryInfo.values.last.hex;
+                            });
+                          },
+                        );
+                      } else if (val != null) {
+                        setModalState(() {
+                          editCategory = val;
+                          editColorHex = _categoryInfo[val]?.hex ?? '#7C6CF0';
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Seletor de Cor
+                  Text(
+                    'Cor do Bloco',
+                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _colorPalette.map((p) {
+                      final isSelected = editColorHex.toUpperCase() == p.hex.toUpperCase();
+
+                      return InkWell(
+                        onTap: () => setModalState(() => editColorHex = p.hex),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: p.color,
+                            shape: BoxShape.circle,
+                            border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
+                            boxShadow: [
+                              if (isSelected)
+                                BoxShadow(
+                                  color: p.color.withValues(alpha: 0.6),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                            ],
+                          ),
+                          child: isSelected
+                              ? const Center(
+                                  child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                                )
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextField(
+                    controller: descEditController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Detalhes ou Objetivos (opcional)',
+                      hintText: 'Capítulos, links de lab, requisitos de estudo...',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  titleEditController.dispose();
+                  descEditController.dispose();
+                  Navigator.pop(ctx);
+                },
+                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+              ),
+              SoftClayPillButton(
+                text: 'Salvar Alterações',
+                onPressed: () async {
+                  final newTitle = titleEditController.text.trim();
+                  if (newTitle.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor, informe o título do bloco.')),
+                    );
+                    return;
+                  }
+
+                  final newStart = DateTime(
+                    editDate.year,
+                    editDate.month,
+                    editDate.day,
+                    editStartHour,
+                    editStartMinute,
+                  );
+                  final newEnd = newStart.add(Duration(minutes: editDurationMinutes));
+
+                  SupabaseService.updateCalendarEvent(
+                    id: eventId,
+                    title: newTitle,
+                    description: descEditController.text.trim().isNotEmpty ? descEditController.text.trim() : null,
+                    category: editCategory,
+                    color: editColorHex,
+                    startTime: newStart,
+                    endTime: newEnd,
+                  );
+
+                  titleEditController.dispose();
+                  descEditController.dispose();
+                  Navigator.pop(ctx);
+
+                  setState(() {
+                    _selectedDay = editDate;
+                    _focusedDay = editDate;
+                  });
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AsterConstants.lavanda,
+                      content: Text('Bloco "$newTitle" remarcado para ${DateFormat("d 'de' MMMM", 'pt_BR').format(editDate)} às ${DateFormat('HH:mm').format(newStart)}!'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── Gerenciamento Dinâmico de Categorias (Adicionar, Editar e Excluir) ───
+  void _showCategoryManagerDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AsterConstants.surfaceCard,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.tune_rounded, size: 20, color: AsterConstants.lavanda),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gerenciar Categorias',
+                        style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                      ),
+                      Text(
+                        'Crie, edite ou remova categorias do seu calendário',
+                        style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Botão de Adicionar Categoria
+                  InkWell(
+                    onTap: () {
+                      _openAddEditCategoryDialog(
+                        onSaved: () {
+                          setDialogState(() {});
+                          setState(() {});
+                        },
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                        border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.35), width: 1.2),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add_rounded, size: 18, color: AsterConstants.lavanda),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Criar Nova Categoria',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AsterConstants.lavanda,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text(
+                    'CATEGORIAS EXISTENTES (${_categoryInfo.length})',
+                    style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                  ),
+                  const SizedBox(height: 8),
+
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 340),
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: _categoryInfo.values.map((cat) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AsterConstants.surfaceAlt,
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                            border: Border.all(color: AsterConstants.surfaceInset, width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: cat.color.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(cat.icon, size: 17, color: cat.color),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      cat.label,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AsterConstants.textDark,
+                                      ),
+                                    ),
+                                    Text(
+                                      cat.hex,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        fontSize: 10,
+                                        color: AsterConstants.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_rounded, size: 18, color: AsterConstants.lavanda),
+                                tooltip: 'Editar Categoria',
+                                onPressed: () {
+                                  _openAddEditCategoryDialog(
+                                    categoryToEdit: cat,
+                                    onSaved: () {
+                                      setDialogState(() {});
+                                      setState(() {});
+                                    },
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                                tooltip: 'Excluir Categoria',
+                                onPressed: () {
+                                  if (_categoryInfo.length <= 1) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Você deve manter pelo menos uma categoria no calendário.')),
+                                    );
+                                    return;
+                                  }
+
+                                  showDialog(
+                                    context: context,
+                                    builder: (deleteCtx) => AlertDialog(
+                                      backgroundColor: AsterConstants.surfaceCard,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+                                      title: Text('Excluir categoria "${cat.label}"?'),
+                                      content: const Text(
+                                        'Tem certeza que deseja remover esta categoria? Os blocos já agendados continuarão salvos com suas cores.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(deleteCtx),
+                                          child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+                                        ),
+                                        SoftClayPillButton(
+                                          text: 'Excluir',
+                                          color: AsterConstants.coral,
+                                          onPressed: () {
+                                            Navigator.pop(deleteCtx);
+                                            setState(() {
+                                              _categoryInfo.remove(cat.id);
+                                              if (_selectedCategoryFilter == cat.id) {
+                                                _selectedCategoryFilter = null;
+                                              }
+                                            });
+                                            setDialogState(() {});
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Categoria "${cat.label}" excluída.')),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              SoftClayPillButton(
+                text: 'Concluir',
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                onPressed: () => Navigator.pop(dialogCtx),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _openAddEditCategoryDialog({CalendarCategory? categoryToEdit, VoidCallback? onSaved}) {
+    final isEditing = categoryToEdit != null;
+    final nameController = TextEditingController(text: categoryToEdit?.label ?? '');
+    String selectedHex = categoryToEdit?.hex ?? _colorPalette.first.hex;
+    Color selectedColor = categoryToEdit?.color ?? _colorPalette.first.color;
+    IconData selectedIcon = categoryToEdit?.icon ?? _availableCategoryIcons.first.icon;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            backgroundColor: AsterConstants.surfaceCard,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: selectedColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(selectedIcon, size: 20, color: selectedColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isEditing ? 'Editar Categoria' : 'Nova Categoria',
+                    style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome da Categoria',
+                        hintText: 'ex: Criptografia, Inglês, Redes',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ─── 1. Escolher Cor ───
+                    Text(
+                      'COR DA CATEGORIA',
+                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _colorPalette.map((p) {
+                        final isSelected = selectedHex.toUpperCase() == p.hex.toUpperCase();
+
+                        return InkWell(
+                          onTap: () {
+                            setModalState(() {
+                              selectedHex = p.hex;
+                              selectedColor = p.color;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: p.color,
+                              shape: BoxShape.circle,
+                              border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
+                              boxShadow: [
+                                if (isSelected)
+                                  BoxShadow(
+                                    color: p.color.withValues(alpha: 0.6),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                              ],
+                            ),
+                            child: isSelected
+                                ? const Center(
+                                    child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ─── 2. Escolher Ícone ───
+                    Text(
+                      'ÍCONE DA CATEGORIA',
+                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableCategoryIcons.map((item) {
+                        final isSelected = selectedIcon == item.icon;
+
+                        return InkWell(
+                          onTap: () => setModalState(() => selectedIcon = item.icon),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? selectedColor.withValues(alpha: 0.2)
+                                  : AsterConstants.surfaceAlt,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? selectedColor : AsterConstants.surfaceInset,
+                                width: isSelected ? 1.8 : 1,
+                              ),
+                            ),
+                            child: Icon(
+                              item.icon,
+                              size: 19,
+                              color: isSelected ? selectedColor : AsterConstants.textDark,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  nameController.dispose();
+                  Navigator.pop(ctx);
+                },
+                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+              ),
+              SoftClayPillButton(
+                text: isEditing ? 'Salvar Alterações' : 'Criar Categoria',
+                onPressed: () {
+                  final label = nameController.text.trim();
+                  if (label.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Por favor, informe o nome da categoria.')),
+                    );
+                    return;
+                  }
+
+                  final id = isEditing
+                      ? categoryToEdit.id
+                      : 'cat_${DateTime.now().millisecondsSinceEpoch}';
+
+                  setState(() {
+                    _categoryInfo[id] = CalendarCategory(
+                      id: id,
+                      label: label,
+                      color: selectedColor,
+                      hex: selectedHex,
+                      icon: selectedIcon,
+                    );
+                  });
+
+                  nameController.dispose();
+                  Navigator.pop(ctx);
+                  onSaved?.call();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AsterConstants.lavanda,
+                      content: Text('Categoria "$label" ${isEditing ? "atualizada" : "criada"} com sucesso!'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _scheduleAiRecommendation() async {
+    final now = DateTime.now();
+    final daysUntilThu = (DateTime.thursday - now.weekday + 7) % 7;
+    final nextThu = now.add(Duration(days: daysUntilThu == 0 ? 7 : daysUntilThu));
+    final start = DateTime(nextThu.year, nextThu.month, nextThu.day, 15, 0);
+    final end = DateTime(nextThu.year, nextThu.month, nextThu.day, 17, 0);
+
+    await SupabaseService.addCalendarEvent(
+      title: 'Redes & Protocolos (Sugerido pela AI)',
+      description: 'Sessão intensiva de 2h de revisão focada em Topologias, OSI e TCP/IP sugerida pelo Noesis AI.',
+      category: 'study',
+      color: '#7C6CF0',
+      startTime: start,
+      endTime: end,
+    );
+
+    if (mounted) {
+      setState(() {
+        _aiSuggestionScheduled = true;
+        _focusedDay = start;
+        _selectedDay = start;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AsterConstants.lavanda,
+          content: Text('Bloco de 2h de Redes agendado para ${DateFormat("EEEE, d 'de' MMMM 'às' 15:00", 'pt_BR').format(start)}!'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: SupabaseService.calendarEventsStream(),
+      stream: _eventsStream,
       builder: (context, snapshot) {
-        final events = snapshot.data ?? [];
+        final rawEvents = snapshot.data ?? [];
 
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -126,24 +1586,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ─── Header do Calendário ───
-              _buildTopHeader(isDesktop),
+              _buildTopHeader(rawEvents, isDesktop),
               const SizedBox(height: 18),
 
               if (isDesktop)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Grade Semanal de Blocos (Timeline)
-                    Expanded(flex: 7, child: _buildWeeklyTimelineGrid(events)),
+                    // Área Principal Dinâmica: Semana, Dia, Mês ou Timeline
+                    Expanded(
+                      flex: 7,
+                      child: _buildMainViewContent(rawEvents),
+                    ),
                     const SizedBox(width: 20),
-                    // Painel Lateral: Mini Mês + Próximos Marcos + Sugestão AI
-                    Expanded(flex: 3, child: _buildRightSidePanel(events)),
+                    // Painel Lateral: Mini Mês Interativo + Próximos Marcos + Sugestão AI
+                    Expanded(
+                      flex: 3,
+                      child: _buildRightSidePanel(rawEvents),
+                    ),
                   ],
                 )
               else ...[
-                _buildRightSidePanel(events),
+                _buildRightSidePanel(rawEvents),
                 const SizedBox(height: 16),
-                _buildWeeklyTimelineGrid(events),
+                _buildMainViewContent(rawEvents),
               ],
 
               const SizedBox(height: 32),
@@ -154,10 +1620,46 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // ─── Widget: Top Header com Controles e Legenda ───
-  Widget _buildTopHeader(bool isDesktop) {
+  // ─── Header do Calendário (Mês, Navegação, Resumo e Filtros) ───
+  Widget _buildTopHeader(List<Map<String, dynamic>> allEvents, bool isDesktop) {
     final monthName = DateFormat('MMMM yyyy', 'pt_BR').format(_focusedDay);
     final capitalizedMonth = monthName[0].toUpperCase() + monthName.substring(1);
+
+    final monday = _focusedDay.subtract(Duration(days: _focusedDay.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final weekEvents = allEvents.where((e) {
+      final st = _parseDateTime(e['start_time']);
+      return st.isAfter(monday.subtract(const Duration(seconds: 1))) &&
+          st.isBefore(sunday.add(const Duration(hours: 23, minutes: 59)));
+    }).toList();
+
+    double totalHours = 0;
+    for (final e in weekEvents) {
+      final st = _parseDateTime(e['start_time']);
+      final et = _parseDateTime(e['end_time']);
+      totalHours += et.difference(st).inMinutes / 60.0;
+    }
+    final hoursStr = totalHours == totalHours.truncateToDouble() ? '${totalHours.toInt()}h' : '${totalHours.toStringAsFixed(1)}h';
+
+    final upcomingExams = allEvents.where((e) {
+      final st = _parseDateTime(e['start_time']);
+      return e['category'] == 'exam' && st.isAfter(DateTime.now().subtract(const Duration(hours: 2)));
+    }).toList();
+
+    String examSummary = '';
+    if (upcomingExams.isNotEmpty) {
+      upcomingExams.sort((a, b) => _parseDateTime(a['start_time']).compareTo(_parseDateTime(b['start_time'])));
+      final nextExam = upcomingExams.first;
+      final daysDiff = _parseDateTime(nextExam['start_time']).difference(DateTime.now()).inDays;
+      final daysText = daysDiff <= 0
+          ? 'hoje'
+          : daysDiff == 1
+              ? 'amanhã'
+              : 'em $daysDiff dias';
+      examSummary = ' · ${nextExam['title']} $daysText';
+    }
+
+    final weekNumber = ((_focusedDay.difference(DateTime(_focusedDay.year, 1, 1)).inDays) / 7).ceil();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +1678,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
                 Text(
-                  'Semana 12 · 11h planejadas · prova Security+ em 2 dias',
+                  'Semana $weekNumber · $hoursStr planejadas${examSummary.isNotEmpty ? examSummary : ' · ${weekEvents.length} blocos'}',
                   style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
                 ),
               ],
@@ -191,155 +1693,359 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 boxShadow: AsterConstants.claySubtleShadow,
               ),
-              child: Row(
-                children: ['Dia', 'Semana', 'Mês', 'Timeline'].map((mode) {
-                  final isSelected = _activeViewMode == mode;
-                  return InkWell(
-                    onTap: () => setState(() => _activeViewMode = mode),
-                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+              child: ValueListenableBuilder<String>(
+                valueListenable: _activeViewModeNotifier,
+                builder: (context, activeMode, _) {
+                  return Row(
+                    children: ['Dia', 'Semana', 'Mês', 'Timeline'].map((mode) {
+                      final isSelected = activeMode == mode;
+                      return InkWell(
+                        onTap: () {
+                          _activeViewMode = mode;
+                          _activeViewModeNotifier.value = mode;
+                        },
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                      ),
-                      child: Text(
-                        mode,
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? Colors.white : AsterConstants.textDark,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                          ),
+                          child: Text(
+                            mode,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              color: isSelected ? Colors.white : AsterConstants.textDark,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
             ),
             const SizedBox(width: 10),
 
-            // Navegação Rápida
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AsterConstants.surfaceCard,
-                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                boxShadow: AsterConstants.claySubtleShadow,
-              ),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () => setState(() => _focusedDay = DateTime.now()),
-                    child: Text('Hoje', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark)),
+            // Navegação Rápida (Hoje independente + Chevrons Circulares com toque suave)
+            Row(
+              children: [
+                InkWell(
+                  onTap: () => setState(() {
+                    _focusedDay = DateTime.now();
+                    _selectedDay = DateTime.now();
+                  }),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AsterConstants.surfaceCard,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      boxShadow: AsterConstants.claySubtleShadow,
+                    ),
+                    child: Text(
+                      'Hoje',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AsterConstants.textDark,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () => setState(() => _focusedDay = _focusedDay.subtract(const Duration(days: 7))),
-                    child: const Icon(Icons.chevron_left_rounded, size: 18, color: AsterConstants.textDark),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.surfaceCard,
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    boxShadow: AsterConstants.claySubtleShadow,
                   ),
-                  InkWell(
-                    onTap: () => setState(() => _focusedDay = _focusedDay.add(const Duration(days: 7))),
-                    child: const Icon(Icons.chevron_right_rounded, size: 18, color: AsterConstants.textDark),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: () => _navigateDate(isForward: false),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AsterConstants.surfaceAlt,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.chevron_left_rounded, size: 18, color: AsterConstants.textDark),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => _navigateDate(isForward: true),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AsterConstants.surfaceAlt,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.chevron_right_rounded, size: 18, color: AsterConstants.textDark),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 14),
 
-        // Barra de Legenda Semântica Soft Clay
-        Row(
-          children: [
-            const SoftClayTag(label: 'Estudo', color: AsterConstants.lavanda),
-            const SizedBox(width: 8),
-            const SoftClayTag(label: 'Revisão', color: AsterConstants.menta),
-            const SizedBox(width: 8),
-            const SoftClayTag(label: 'Lab / Simulado', color: AsterConstants.ambar),
-            const SizedBox(width: 8),
-            const SoftClayTag(label: 'Prova / Compromisso', color: AsterConstants.coral),
-            const Spacer(),
-            SoftClayPillButton(
-              text: '+ Novo bloco',
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              onPressed: _openAddEventDialog,
-            ),
-          ],
+        // Barra de Legenda Semântica / Filtros Interativos
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterPill('Todos', null, AsterConstants.textDark),
+              const SizedBox(width: 8),
+              ..._categoryInfo.entries.map((e) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildFilterPill(e.value.label, e.key, e.value.color),
+                );
+              }),
+              InkWell(
+                onTap: _showCategoryManagerDialog,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.surfaceAlt,
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    border: Border.all(color: AsterConstants.surfaceInset, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 14, color: AsterConstants.lavanda),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Categorias',
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AsterConstants.textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              SoftClayPillButton(
+                text: '+ Novo bloco',
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                onPressed: () => _openAddEventDialog(),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // ─── Widget: Grade da Linha do Tempo Semanal (07h às 22h) ───
-  Widget _buildWeeklyTimelineGrid(List<Map<String, dynamic>> realEvents) {
-    final days = [
-      {'name': 'Seg', 'num': '16'},
-      {'name': 'Ter', 'num': '17'},
-      {'name': 'Qua', 'num': '18', 'isToday': true},
-      {'name': 'Qui', 'num': '19'},
-      {'name': 'Sex', 'num': '20'},
-      {'name': 'Sáb', 'num': '21'},
-      {'name': 'Dom', 'num': '22'},
-    ];
+  Widget _buildFilterPill(String label, String? categoryKey, Color color) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: _selectedCategoryFilterNotifier,
+      builder: (context, activeFilter, _) {
+        final isSelected = activeFilter == categoryKey;
 
-    final hours = [
-      '07h', '08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h', '19h', '20h', '21h', '22h'
-    ];
+        return InkWell(
+          onTap: () {
+            _selectedCategoryFilter = categoryKey;
+            _selectedCategoryFilterNotifier.value = categoryKey;
+          },
+          onLongPress: categoryKey != null
+              ? () {
+                  final cat = _categoryInfo[categoryKey];
+                  if (cat != null) {
+                    _openAddEditCategoryDialog(
+                      categoryToEdit: cat,
+                      onSaved: () => setState(() {}),
+                    );
+                  }
+                }
+              : null,
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected ? color : color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+              border: isSelected ? null : Border.all(color: color.withValues(alpha: 0.3), width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.white : color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? Colors.white : AsterConstants.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-    // Blocos mock fiéis ao print clay-07 de Obsidian
-    final mockGridBlocks = [
-      {'dayCol': 0, 'hourIdx': 1, 'title': 'Criptografia · ...', 'sub': 'Estudo · 1.5h', 'color': AsterConstants.lavanda},
-      {'dayCol': 1, 'hourIdx': 2, 'title': 'Lab OWASP · S...', 'sub': 'Lab · 2h', 'color': AsterConstants.ambar},
-      {'dayCol': 2, 'hourIdx': 1, 'title': 'Criptografia · ...', 'sub': 'Estudo · 1.5h', 'color': AsterConstants.lavanda},
-      {'dayCol': 2, 'hourIdx': 7, 'title': 'Mentoria', 'sub': 'Compromisso · 1h', 'color': AsterConstants.coral},
-      {'dayCol': 3, 'hourIdx': 3, 'title': 'Simulado #12', 'sub': 'Prova · 1.5h', 'color': AsterConstants.ambar},
-      {'dayCol': 4, 'hourIdx': 2, 'title': 'Deep work · Cl...', 'sub': 'Estudo · 3h', 'color': AsterConstants.menta},
-      {'dayCol': 4, 'hourIdx': 7, 'title': 'Revisão Cript...', 'sub': 'Revisão · 1h', 'color': AsterConstants.lavanda},
-      {'dayCol': 4, 'hourIdx': 9, 'title': 'Security+ · Pr...', 'sub': 'Prova · 2h', 'color': AsterConstants.coral},
-      {'dayCol': 5, 'hourIdx': 3, 'title': 'Planejamento', 'sub': 'Compromisso · 1h', 'color': AsterConstants.ambar},
-      {'dayCol': 0, 'hourIdx': 12, 'title': 'Raft & Paxos', 'sub': 'Estudo · 1h', 'color': AsterConstants.coral},
-      {'dayCol': 1, 'hourIdx': 14, 'title': 'IAM Policies', 'sub': 'Estudo · 1h', 'color': AsterConstants.menta},
-      {'dayCol': 3, 'hourIdx': 13, 'title': 'Revisão espa...', 'sub': 'Revisão · 1h', 'color': AsterConstants.menta},
-    ];
+  void _navigateDate({required bool isForward}) {
+    setState(() {
+      if (_activeViewMode == 'Dia') {
+        final step = isForward ? 1 : -1;
+        _focusedDay = _focusedDay.add(Duration(days: step));
+        _selectedDay = _focusedDay;
+      } else if (_activeViewMode == 'Mês') {
+        _focusedDay = DateTime(
+          _focusedDay.year,
+          _focusedDay.month + (isForward ? 1 : -1),
+          _focusedDay.day,
+        );
+      } else {
+        final step = isForward ? 7 : -7;
+        _focusedDay = _focusedDay.add(Duration(days: step));
+      }
+      _selectedDayNotifier.value = _selectedDay;
+    });
+  }
 
-    return SoftClayCard(
-      padding: const EdgeInsets.all(22),
+  // ─── Seletor de Visão Principal ───
+  Widget _buildMainViewContent(List<Map<String, dynamic>> rawEvents) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: _selectedCategoryFilterNotifier,
+      builder: (context, catFilter, _) {
+        final events = _applyFilter(rawEvents, catFilter);
+
+        return ValueListenableBuilder<String>(
+          valueListenable: _activeViewModeNotifier,
+          builder: (context, activeMode, _) {
+            return ValueListenableBuilder<DateTime>(
+              valueListenable: _selectedDayNotifier,
+              builder: (context, selectedDay, _) {
+                switch (activeMode) {
+                  case 'Dia':
+                    return _buildDayView(events);
+                  case 'Mês':
+                    return _buildMonthView(events);
+                  case 'Timeline':
+                    return _buildTimelineView(events);
+                  case 'Semana':
+                  default:
+                    return _buildWeeklyTimelineGrid(events);
+                }
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ─── 1. Visão Semanal Aprimorada: Linha do Tempo Contínua e Altura Proporcional ───
+  Widget _buildWeeklyTimelineGrid(List<Map<String, dynamic>> events) {
+    final monday = _focusedDay.subtract(Duration(days: _focusedDay.weekday - 1));
+    final weekDays = List.generate(7, (i) => monday.add(Duration(days: i)));
+    final dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+    // 07:00 até 22:00 (15 horas)
+    const startHour = 7;
+    const endHour = 22;
+    const totalHours = endHour - startHour; // 15
+    const double hourHeight = 58.0;
+    const double totalGridHeight = totalHours * hourHeight;
+
+    final now = DateTime.now();
+
+    return RepaintBoundary(
+      child: SoftClayCard(
+        padding: const EdgeInsets.all(20),
       child: Column(
         children: [
           // Cabeçalho dos Dias da Semana
           Row(
             children: [
               const SizedBox(width: 48), // Espaço para as horas
-              ...days.map((d) {
-                final isToday = d['isToday'] == true;
+              ...List.generate(7, (dIdx) {
+                final d = weekDays[dIdx];
+                final isToday = isSameDay(d, now);
+                final isSelected = isSameDay(d, _selectedDayNotifier.value);
+
                 return Expanded(
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          d['name'] as String,
-                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: isToday ? AsterConstants.lavanda : Colors.transparent,
-                            shape: BoxShape.circle,
+                  child: InkWell(
+                    onTap: () {
+                      _selectedDay = d;
+                      _selectedDayNotifier.value = d;
+                      _focusedDay = d;
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected && !isToday ? AsterConstants.lavanda.withValues(alpha: 0.1) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            dayNames[dIdx],
+                            style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: isToday ? AsterConstants.lavanda : AsterConstants.textMuted,
+                            ),
                           ),
-                          child: Center(
-                            child: Text(
-                              d['num'] as String,
-                              style: GoogleFonts.manrope(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: isToday ? Colors.white : AsterConstants.textDark,
+                          const SizedBox(height: 4),
+                          Container(
+                            width: 32,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: isToday
+                                  ? AsterConstants.lavanda
+                                  : (isSelected ? AsterConstants.lavanda.withValues(alpha: 0.20) : Colors.transparent),
+                              borderRadius: BorderRadius.circular(8),
+                              border: isSelected && !isToday
+                                  ? Border.all(color: AsterConstants.lavanda, width: 1.5)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                d.day.toString(),
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: isToday
+                                      ? Colors.white
+                                      : (isSelected ? AsterConstants.lavanda : AsterConstants.textDark),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -349,72 +2055,375 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(height: 12),
           const Divider(),
 
-          // Grade de Horários
+          // Grade Contínua de Horários com Scroll
+          SizedBox(
+            height: 520,
+            child: SingleChildScrollView(
+              child: SizedBox(
+                height: totalGridHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Coluna de Rótulos de Horas
+                    SizedBox(
+                      width: 48,
+                      child: Stack(
+                        children: List.generate(totalHours, (idx) {
+                          final h = startHour + idx;
+                          return Positioned(
+                            top: idx * hourHeight,
+                            child: Text(
+                              '${h.toString().padLeft(2, '0')}h',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                color: AsterConstants.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    // Colunas dos 7 Dias da Semana
+                    ...List.generate(7, (dIdx) {
+                      final cellDate = weekDays[dIdx];
+                      final isToday = isSameDay(cellDate, now);
+
+                      // Eventos que caem neste dia usando cache
+                      final dayEvents = _getEventsForDay(events, cellDate);
+
+                      return Expanded(
+                        child: RepaintBoundary(
+                          child: Container(
+                            decoration: BoxDecoration(
+                            color: isToday ? AsterConstants.lavanda.withValues(alpha: 0.03) : Colors.transparent,
+                            border: Border(
+                              right: BorderSide(
+                                color: AsterConstants.surfaceInset.withValues(alpha: 0.6),
+                                width: 0.5,
+                              ),
+                            ),
+                          ),
+                          child: Stack(
+                            children: [
+                              // 1. Linhas de Fundo Horárias (com toque para agendar)
+                              ...List.generate(totalHours, (hIdx) {
+                                final currentH = startHour + hIdx;
+                                return Positioned(
+                                  top: hIdx * hourHeight,
+                                  left: 0,
+                                  right: 0,
+                                  height: hourHeight,
+                                  child: InkWell(
+                                    onTap: () => _openAddEventDialog(prefilledDate: cellDate, prefilledHour: currentH),
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        border: Border(
+                                          bottom: BorderSide(color: AsterConstants.surfaceInset, width: 0.5),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+
+                              // 2. Linha do Horário Atual (se for hoje e estiver entre 07h e 22h)
+                              if (isToday && now.hour >= startHour && now.hour < endHour)
+                                Positioned(
+                                  top: ((now.hour - startHour) + (now.minute / 60.0)) * hourHeight,
+                                  left: 0,
+                                  right: 0,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: AsterConstants.coral,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Container(
+                                          height: 1.5,
+                                          color: AsterConstants.coral.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                              // 3. Blocos de Eventos com Altura Proporcional e Botão de Excluir Direto
+                              ...dayEvents.map((evt) {
+                                final st = _parseDateTime(evt['start_time']);
+                                final et = _parseDateTime(evt['end_time']);
+                                final color = _getEventColor(evt);
+                                final category = evt['category'] ?? 'study';
+                                final title = evt['title'] ?? 'Sem título';
+                                final isCompleted = evt['is_completed'] == true;
+
+                                // Calcula posição e altura proporcional
+                                final eventStartHours = (st.hour - startHour) + (st.minute / 60.0);
+                                final durationHours = (et.difference(st).inMinutes / 60.0).clamp(0.4, 8.0);
+
+                                final top = (eventStartHours * hourHeight).clamp(0.0, totalGridHeight - 20.0);
+                                final height = (durationHours * hourHeight - 4.0).clamp(28.0, totalGridHeight - top);
+
+                                final durStr = durationHours == durationHours.truncateToDouble()
+                                    ? '${durationHours.toInt()}h'
+                                    : '${durationHours.toStringAsFixed(1)}h';
+
+                                return Positioned(
+                                  top: top,
+                                  left: 2,
+                                  right: 2,
+                                  height: height,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _showEventDetailsDialog(evt),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: isCompleted ? 0.08 : 0.16),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border(left: BorderSide(color: color, width: 3.5)),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: color.withValues(alpha: 0.08),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Stack(
+                                          children: [
+                                            // Conteúdo do Bloco
+                                            Padding(
+                                              padding: const EdgeInsets.only(right: 18), // Espaço para o botão excluir
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    title,
+                                                    maxLines: height > 70 ? 2 : 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w800,
+                                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                                      color: isCompleted ? AsterConstants.textMuted : AsterConstants.textDark,
+                                                    ),
+                                                  ),
+                                                  if (height > 44)
+                                                    Text(
+                                                      '${_getCategoryLabel(category)} · $durStr',
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 8.5,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: AsterConstants.textMuted,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            // Botão de Excluir Rápido (X no canto superior direito)
+                                            Positioned(
+                                              top: -2,
+                                              right: -2,
+                                              child: InkWell(
+                                                onTap: () => _confirmDeleteEvent(evt),
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: Container(
+                                                  width: 18,
+                                                  height: 18,
+                                                  decoration: BoxDecoration(
+                                                    color: AsterConstants.surfaceCard.withValues(alpha: 0.85),
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withValues(alpha: 0.05),
+                                                        blurRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.close_rounded,
+                                                    size: 11,
+                                                    color: AsterConstants.coral,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+  // ─── 2. Visão Diária Detalhada ───
+  Widget _buildDayView(List<Map<String, dynamic>> allEvents) {
+    final dayEvents = _getEventsForDay(allEvents, _selectedDay);
+    final hours = List.generate(16, (i) => i + 7);
+
+    return SoftClayCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(_selectedDay),
+                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                  ),
+                  Text(
+                    '${dayEvents.length} bloco(s) agendados para este dia',
+                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  ),
+                ],
+              ),
+              SoftClayPillButton(
+                text: '+ Adicionar neste dia',
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: () => _openAddEventDialog(prefilledDate: _selectedDay),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+
           SizedBox(
             height: 480,
             child: ListView.builder(
               itemCount: hours.length,
-              itemBuilder: (context, hIdx) {
-                return SizedBox(
-                  height: 38,
+              itemBuilder: (context, idx) {
+                final h = hours[idx];
+                final slotEvents = dayEvents.where((e) => _parseDateTime(e['start_time']).hour == h).toList();
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: AsterConstants.surfaceInset, width: 0.5)),
+                  ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Rótulo da Hora
                       SizedBox(
-                        width: 48,
+                        width: 52,
                         child: Text(
-                          hours[hIdx],
-                          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AsterConstants.textMuted),
+                          '${h.toString().padLeft(2, '0')}:00',
+                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterConstants.textMuted),
                         ),
                       ),
+                      Expanded(
+                        child: slotEvents.isNotEmpty
+                            ? Column(
+                                children: slotEvents.map((evt) {
+                                  final color = _getEventColor(evt);
+                                  final isCompleted = evt['is_completed'] == true;
 
-                      // Células dos Dias
-                      ...List.generate(7, (dIdx) {
-                        final block = mockGridBlocks.firstWhere(
-                          (b) => b['dayCol'] == dIdx && b['hourIdx'] == hIdx,
-                          orElse: () => {},
-                        );
-
-                        if (block.isNotEmpty) {
-                          final color = block['color'] as Color;
-                          return Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.all(2),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border(left: BorderSide(color: color, width: 3)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    block['title'] as String,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                      border: Border(left: BorderSide(color: color, width: 4)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () => _showEventDetailsDialog(evt),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  evt['title'] ?? '',
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w800,
+                                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                                    color: AsterConstants.textDark,
+                                                  ),
+                                                ),
+                                                if ((evt['description'] ?? '').isNotEmpty)
+                                                  Text(
+                                                    evt['description'],
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                            size: 20,
+                                            color: isCompleted ? AsterConstants.menta : AsterConstants.textMuted,
+                                          ),
+                                          onPressed: () {
+                                            final id = evt['id']?.toString() ?? '';
+                                            if (id.isNotEmpty) {
+                                              SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
+                                            }
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                                          tooltip: 'Excluir bloco',
+                                          onPressed: () => _confirmDeleteEvent(evt),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              )
+                            : InkWell(
+                                onTap: () => _openAddEventDialog(prefilledDate: _selectedDay, prefilledHour: h),
+                                child: Container(
+                                  height: 32,
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    '+ toque para agendar às ${h.toString().padLeft(2, '0')}:00',
+                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textFaint),
                                   ),
-                                  Text(
-                                    block['sub'] as String,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.manrope(fontSize: 8, color: AsterConstants.textMuted),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          );
-                        }
-
-                        return Expanded(
-                          child: Container(
-                            margin: const EdgeInsets.all(1),
-                            decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AsterConstants.surfaceInset, width: 0.5)),
-                            ),
-                          ),
-                        );
-                      }),
+                      ),
                     ],
                   ),
                 );
@@ -426,45 +2435,513 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // ─── Widget: Painel Lateral (Mini Calendário + Marcos + Sugestão AI) ───
-  Widget _buildRightSidePanel(List<Map<String, dynamic>> events) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Mini Calendário do Mês
-        SoftClayCard(
-          padding: const EdgeInsets.all(16),
-          child: TableCalendar(
+  // ─── 3. Visão Mensal (Grid Expandido) ───
+  Widget _buildMonthView(List<Map<String, dynamic>> allEvents) {
+    final selectedEvents = _getEventsForDay(allEvents, _selectedDay);
+
+    return SoftClayCard(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RepaintBoundary(
+            child: TableCalendar(
+            locale: 'pt_BR',
             firstDay: DateTime.utc(2024, 1, 1),
             lastDay: DateTime.utc(2030, 12, 31),
             focusedDay: _focusedDay,
             currentDay: DateTime.now(),
+            rowHeight: 46.0,
+            selectedDayPredicate: (day) => isSameDay(_selectedDayNotifier.value, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              _selectedDay = selectedDay;
+              _selectedDayNotifier.value = selectedDay;
+              _focusedDay = focusedDay;
+            },
+            onPageChanged: (focusedDay) {
+              setState(() => _focusedDay = focusedDay);
+            },
+            eventLoader: (day) => _getEventsForDay(allEvents, day),
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
+              titleTextFormatter: (date, locale) {
+                final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
+                return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
+              },
+              titleTextStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+              leftChevronIcon: const Icon(Icons.chevron_left_rounded, size: 20, color: AsterConstants.textDark),
+              rightChevronIcon: const Icon(Icons.chevron_right_rounded, size: 20, color: AsterConstants.textDark),
+            ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              dowTextFormatter: (date, locale) {
+                final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
+                return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
+              },
+              weekdayStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+              weekendStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
+            ),
+            calendarStyle: CalendarStyle(
+              cellMargin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+              todayDecoration: BoxDecoration(
+                color: AsterConstants.lavanda,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              selectedDecoration: BoxDecoration(
+                color: AsterConstants.lavanda.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AsterConstants.lavanda, width: 1.8),
+              ),
+              todayTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+              selectedTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+              markerDecoration: BoxDecoration(
+                color: AsterConstants.coral,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              defaultTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textDark),
+              weekendTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textMuted),
+            ),
+            calendarBuilders: CalendarBuilders(
+              selectedBuilder: (context, day, focusedDay) {
+                final isToday = isSameDay(DateTime.now(), day);
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isToday ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      width: 1.8,
+                    ),
+                    boxShadow: isToday
+                        ? [
+                            BoxShadow(
+                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                    ),
+                  ),
+                );
+              },
+              todayBuilder: (context, day, focusedDay) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.lavanda,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+          const Divider(),
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Blocos em ${DateFormat("d 'de' MMMM", 'pt_BR').format(_selectedDay)} (${selectedEvents.length})',
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+              ),
+              SoftClayPillButton(
+                text: '+ Adicionar',
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: () => _openAddEventDialog(prefilledDate: _selectedDay),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (selectedEvents.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'Nenhum bloco agendado para este dia.',
+                  style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                ),
+              ),
+            )
+          else
+            ...selectedEvents.map((evt) {
+              final color = _getEventColor(evt);
+              final st = _parseDateTime(evt['start_time']);
+              final et = _parseDateTime(evt['end_time']);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  border: Border(left: BorderSide(color: color, width: 4)),
+                ),
+                child: InkWell(
+                  onTap: () => _showEventDetailsDialog(evt),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${DateFormat('HH:mm').format(st)} - ${DateFormat('HH:mm').format(et)}',
+                        style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          evt['title'] ?? '',
+                          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                        tooltip: 'Excluir bloco',
+                        onPressed: () => _confirmDeleteEvent(evt),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  // ─── 4. Visão Timeline (Feed Cronológico de Agendamentos) ───
+  Widget _buildTimelineView(List<Map<String, dynamic>> allEvents) {
+    if (allEvents.isEmpty) {
+      return SoftClayCard(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Column(
+            children: [
+              const Icon(Icons.event_note_rounded, size: 40, color: AsterConstants.textMuted),
+              const SizedBox(height: 12),
+              Text(
+                'Nenhum evento agendado.',
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+              ),
+              const SizedBox(height: 12),
+              SoftClayPillButton(
+                text: '+ Adicionar Primeiro Bloco',
+                onPressed: () => _openAddEventDialog(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final sorted = List<Map<String, dynamic>>.from(allEvents);
+    sorted.sort((a, b) => _parseDateTime(a['start_time']).compareTo(_parseDateTime(b['start_time'])));
+
+    return SoftClayCard(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Linha do Tempo Cronológica (${sorted.length} blocos)',
+                style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+              ),
+              SoftClayPillButton(
+                text: '+ Novo bloco',
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: () => _openAddEventDialog(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+
+          ...sorted.map((evt) {
+            final st = _parseDateTime(evt['start_time']);
+            final et = _parseDateTime(evt['end_time']);
+            final cat = evt['category'] ?? 'study';
+            final color = _getEventColor(evt);
+            final isCompleted = evt['is_completed'] == true;
+
+            final duration = et.difference(st);
+            final durHours = duration.inMinutes / 60.0;
+            final durStr = durHours == durHours.truncateToDouble() ? '${durHours.toInt()}h' : '${durHours.toStringAsFixed(1)}h';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isCompleted ? 0.08 : 0.14),
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                border: Border(left: BorderSide(color: color, width: 4)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _showEventDetailsDialog(evt),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _getCategoryLabel(cat),
+                                  style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: color),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${DateFormat("d 'de' MMM", 'pt_BR').format(st)} · ${DateFormat('HH:mm').format(st)} às ${DateFormat('HH:mm').format(et)} ($durStr)',
+                                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterConstants.textMuted),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            evt['title'] ?? '',
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              color: AsterConstants.textDark,
+                            ),
+                          ),
+                          if ((evt['description'] ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                evt['description'],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                      color: isCompleted ? AsterConstants.menta : AsterConstants.textMuted,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      final id = evt['id']?.toString() ?? '';
+                      if (id.isNotEmpty) {
+                        SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                    tooltip: 'Excluir bloco',
+                    onPressed: () => _confirmDeleteEvent(evt),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ─── Painel Lateral Direito (Mini Calendário + Marcos + Sugestão AI) ───
+  Widget _buildRightSidePanel(List<Map<String, dynamic>> allEvents) {
+    final upcomingMilestones = allEvents.where((e) {
+      final st = _parseDateTime(e['start_time']);
+      return st.isAfter(DateTime.now().subtract(const Duration(hours: 12))) || e['category'] == 'exam' || e['category'] == 'lab';
+    }).toList();
+    upcomingMilestones.sort((a, b) => _parseDateTime(a['start_time']).compareTo(_parseDateTime(b['start_time'])));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Mini Calendário do Mês (Totalmente Interativo e Vinculado)
+        SoftClayCard(
+          padding: const EdgeInsets.all(16),
+          child: RepaintBoundary(
+            child: ValueListenableBuilder<DateTime>(
+              valueListenable: _selectedDayNotifier,
+              builder: (context, currentSelectedDay, _) {
+                return TableCalendar(
+                  locale: 'pt_BR',
+                  firstDay: DateTime.utc(2024, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: _focusedDay,
+                  currentDay: DateTime.now(),
+                  rowHeight: 38.0,
+                  selectedDayPredicate: (day) => isSameDay(currentSelectedDay, day),
+                  onDaySelected: (selectedDay, focusedDay) {
+                    _selectedDay = selectedDay;
+                    _selectedDayNotifier.value = selectedDay;
+                    _focusedDay = focusedDay;
+                  },
+                  onPageChanged: (focusedDay) {
+                    setState(() => _focusedDay = focusedDay);
+                  },
+            eventLoader: (day) => _getEventsForDay(allEvents, day),
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextFormatter: (date, locale) {
+                final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
+                return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
+              },
               titleTextStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
               leftChevronIcon: const Icon(Icons.chevron_left_rounded, size: 18, color: AsterConstants.textDark),
               rightChevronIcon: const Icon(Icons.chevron_right_rounded, size: 18, color: AsterConstants.textDark),
             ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              dowTextFormatter: (date, locale) {
+                final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
+                return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
+              },
+              weekdayStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+              weekendStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
+            ),
             calendarStyle: CalendarStyle(
-              todayDecoration: const BoxDecoration(
+              cellMargin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+              todayDecoration: BoxDecoration(
                 color: AsterConstants.lavanda,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               selectedDecoration: BoxDecoration(
-                color: AsterConstants.lavanda.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
+                color: AsterConstants.lavanda.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AsterConstants.lavanda, width: 1.8),
+              ),
+              todayTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+              selectedTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+              markerDecoration: BoxDecoration(
+                color: AsterConstants.coral,
+                borderRadius: BorderRadius.circular(2),
               ),
               defaultTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textDark),
               weekendTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
+            calendarBuilders: CalendarBuilders(
+              selectedBuilder: (context, day, focusedDay) {
+                final isToday = isSameDay(DateTime.now(), day);
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isToday ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      width: 1.6,
+                    ),
+                    boxShadow: isToday
+                        ? [
+                            BoxShadow(
+                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                    ),
+                  ),
+                );
+              },
+              todayBuilder: (context, day, focusedDay) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.lavanda,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    ),
+  ),
+      const SizedBox(height: 16),
 
-        // Próximos Marcos (Exames e Prazos)
-        SoftClayCard(
-          padding: const EdgeInsets.all(20),
+      // Próximos Marcos (Extraídos Dinamicamente)
+      SoftClayCard.list(
+        padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -474,62 +2951,95 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               const SizedBox(height: 14),
 
-              _buildMilestoneRow('Sex 20', 'Prova Security+', '16:00 · Pearson VUE', AsterConstants.coral),
-              const SizedBox(height: 10),
-              _buildMilestoneRow('Qui 26', 'Simulado AWS SAA', '40 questões · 65 min', AsterConstants.ambar),
-              const SizedBox(height: 10),
-              _buildMilestoneRow('Abr 02', 'Revisão geral Cripto', 'sugerido pela AI', AsterConstants.menta),
+              if (upcomingMilestones.isEmpty)
+                Text(
+                  'Nenhum marco futuro registrado.',
+                  style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                )
+              else
+                ...upcomingMilestones.take(4).map((m) {
+                  final st = _parseDateTime(m['start_time']);
+                  final dateBadge = DateFormat("E d", 'pt_BR').format(st);
+                  final color = _getEventColor(m);
+                  final timeSub = DateFormat('HH:mm').format(st);
+                  final desc = m['description'] ?? '';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedDay = st;
+                          _focusedDay = st;
+                        });
+                      },
+                      child: _buildMilestoneRow(
+                        dateBadge,
+                        m['title'] ?? '',
+                        '$timeSub${desc.isNotEmpty ? ' · $desc' : ''}',
+                        color,
+                      ),
+                    ),
+                  );
+                }),
             ],
           ),
         ),
         const SizedBox(height: 16),
 
-        // Sugestão Proativa do Noesis AI
-        SoftClayCard(
-          padding: const EdgeInsets.all(20),
-          color: AsterConstants.surfaceAlt,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, size: 14, color: AsterConstants.lavanda),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Noesis AI',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+        // Sugestão Proativa do Noesis AI (Agendamento Real)
+        if (!_aiSuggestionDismissed)
+          SoftClayCard.list(
+            padding: const EdgeInsets.all(20),
+            color: AsterConstants.surfaceAlt,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 14, color: AsterConstants.lavanda),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Noesis AI',
+                      style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 14, color: AsterConstants.textMuted),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => setState(() => _aiSuggestionDismissed = true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _aiSuggestionScheduled
+                      ? '✅ Sessão de 2h de Redes adicionada ao seu cronograma com sucesso!'
+                      : 'Quinta está livre das 15h às 18h. Quer um bloco de 2h de Redes antes da prova?',
+                  style: GoogleFonts.manrope(fontSize: 12, height: 1.45, color: AsterConstants.textDark),
+                ),
+                const SizedBox(height: 14),
+                if (!_aiSuggestionScheduled)
+                  Row(
+                    children: [
+                      SoftClayPillButton(
+                        text: 'Sim, agendar',
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        onPressed: _scheduleAiRecommendation,
+                      ),
+                      const SizedBox(width: 8),
+                      SoftClayPillButton(
+                        text: 'Agora não',
+                        isSecondary: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        onPressed: () => setState(() => _aiSuggestionDismissed = true),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Quinta está livre das 15h às 18h. Quer um bloco de 2h de Redes antes da prova?',
-                style: GoogleFonts.manrope(fontSize: 12, height: 1.45, color: AsterConstants.textDark),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  SoftClayPillButton(
-                    text: 'Sim, agendar',
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Bloco de 2h de Redes agendado para quinta às 15:00!')),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  SoftClayPillButton(
-                    text: 'Agora não',
-                    isSecondary: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -538,7 +3048,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Row(
       children: [
         Container(
-          width: 52,
+          width: 54,
           padding: const EdgeInsets.symmetric(vertical: 4),
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -557,10 +3067,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
               ),
               Text(
                 subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.textMuted),
               ),
             ],

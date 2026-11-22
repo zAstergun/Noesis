@@ -1,0 +1,1099 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants.dart';
+import '../../core/theme.dart';
+import '../../core/gemini_service.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _selectedProviderId = 'google';
+  String _selectedModel = 'gemini-3.1-flash-lite';
+  final _apiKeyController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _baseUrlController = TextEditingController();
+  bool _obscureApiKey = true;
+  bool _isTestingKey = false;
+  String? _testResult;
+  bool? _testSuccess;
+  bool _isManualModelMode = false;
+
+  // Idioma selecionado (padrão Português do Brasil)
+  String _selectedLangCode = 'br';
+
+  static const List<({String code, String name, String flag, String region})> _languages = [
+    (code: 'br', name: 'Português', flag: '🇧🇷', region: 'Brasil'),
+    (code: 'en', name: 'English', flag: '🇬🇧', region: 'United Kingdom / Global'),
+    (code: 'es', name: 'Español', flag: '🇪🇸', region: 'España / América Latina'),
+    (code: 'jp', name: '日本語', flag: '🇯🇵', region: 'Japão'),
+    (code: 'cn', name: '中文', flag: '🇨🇳', region: 'China'),
+    (code: 'kr', name: '한국어', flag: '🇰🇷', region: 'Coreia do Sul'),
+    (code: 'vn', name: 'Tiếng Việt', flag: '🇻🇳', region: 'Vietnã'),
+    (code: 'id', name: 'Bahasa Indonesia', flag: '🇮🇩', region: 'Indonésia'),
+    (code: 'fr', name: 'Français', flag: '🇫🇷', region: 'França'),
+    (code: 'de', name: 'Deutsch', flag: '🇩🇪', region: 'Alemanha'),
+    (code: 'it', name: 'Italiano', flag: '🇮🇹', region: 'Itália'),
+    (code: 'nl', name: 'Nederlands', flag: '🇳🇱', region: 'Holanda'),
+    (code: 'ru', name: 'Русский', flag: '🇷🇺', region: 'Rússia'),
+    (code: 'ar', name: 'العربية', flag: '🇸🇦', region: 'Mundo Árabe'),
+    (code: 'pt', name: 'Português', flag: '🇵🇹', region: 'Portugal'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedProviderId = GeminiService.provider;
+    _selectedModel = GeminiService.model;
+    _modelController.text = _selectedModel;
+    _baseUrlController.text = GeminiService.baseUrl;
+    if (GeminiService.apiKey != null && GeminiService.apiKey!.isNotEmpty) {
+      _apiKeyController.text = GeminiService.apiKey!;
+    }
+    final prov = GeminiService.providers.firstWhere(
+      (p) => p.id == _selectedProviderId,
+      orElse: () => GeminiService.providers.first,
+    );
+    if (prov.models.isEmpty || (!prov.models.contains(_selectedModel) && _selectedModel.isNotEmpty)) {
+      _isManualModelMode = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _apiKeyController.dispose();
+    _modelController.dispose();
+    _baseUrlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openUrl(String url) async {
+    if (url.isEmpty) return;
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AsterConstants.coral,
+            content: Text('Não foi possível abrir o link: $url'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _onSelectProvider(String providerId) {
+    final prov = GeminiService.providers.firstWhere(
+      (p) => p.id == providerId,
+      orElse: () => GeminiService.providers.first,
+    );
+    setState(() {
+      _selectedProviderId = providerId;
+      _selectedModel = prov.defaultModel;
+      _modelController.text = prov.defaultModel;
+      _isManualModelMode = prov.models.isEmpty;
+      if (providerId == 'custom' && _baseUrlController.text.isEmpty) {
+        _baseUrlController.text = prov.defaultBaseUrl ?? '';
+      }
+      _testResult = null;
+      _testSuccess = null;
+    });
+  }
+
+  void _onSelectModel(String modelName) {
+    setState(() {
+      _selectedModel = modelName;
+      _modelController.text = modelName;
+      _isManualModelMode = false;
+      _testResult = null;
+      _testSuccess = null;
+    });
+  }
+
+  Future<void> _testAiConnection() async {
+    setState(() {
+      _isTestingKey = true;
+      _testResult = null;
+      _testSuccess = null;
+    });
+
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final msg = await GeminiService.testConnection(
+        providerId: _selectedProviderId,
+        modelName: _modelController.text.trim(),
+        apiKey: _apiKeyController.text.trim(),
+        baseUrl: _baseUrlController.text.trim(),
+      );
+      stopwatch.stop();
+
+      if (mounted) {
+        setState(() {
+          _isTestingKey = false;
+          _testSuccess = true;
+          _testResult = '$msg (${stopwatch.elapsedMilliseconds}ms)';
+        });
+        GeminiService.configure(
+          providerId: _selectedProviderId,
+          modelName: _modelController.text.trim(),
+          key: _apiKeyController.text.trim(),
+          customBaseUrl: _baseUrlController.text.trim(),
+        );
+      }
+    } catch (e) {
+      stopwatch.stop();
+      if (mounted) {
+        setState(() {
+          _isTestingKey = false;
+          _testSuccess = false;
+          _testResult = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  void _saveAiSettings() {
+    final key = _apiKeyController.text.trim();
+    final mod = _modelController.text.trim();
+    final url = _baseUrlController.text.trim();
+
+    GeminiService.configure(
+      providerId: _selectedProviderId,
+      modelName: mod,
+      key: key,
+      customBaseUrl: url,
+    );
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: AsterConstants.lavanda,
+        content: Text('Configurações de IA salvas com sucesso!'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 36.0 : 16.0,
+        vertical: 18.0,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ─── Título da Página ───
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Configurações',
+                    style: GoogleFonts.manrope(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white : AsterConstants.textDark,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Preferências de tema, chave de IA, idiomas do ecossistema e perfil',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // ─── Card 1: Aparência e Tema (Light vs Dark) ───
+              _buildThemeSection(isDark),
+              const SizedBox(height: 20),
+
+              // ─── Card 2: Chave de IA (Google Gemini API Key) ───
+              _buildAiKeySection(isDark),
+              const SizedBox(height: 20),
+
+              // ─── Card 3: Seleção de Idiomas do Portfólio ───
+              _buildLanguageSection(isDark),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── 1. Seção de Aparência e Tema ───
+  Widget _buildThemeSection(bool isDark) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AsterTheme.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        return SoftClayCard(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.palette_rounded, size: 20, color: AsterConstants.lavanda),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Aparência e Tema',
+                        style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AsterConstants.textDark),
+                      ),
+                      Text(
+                        'Escolha o modo de exibição ideal para o seu ambiente de estudos',
+                        style: GoogleFonts.manrope(fontSize: 12, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildThemeModeOption(
+                      title: 'Modo Claro',
+                      subtitle: 'Soft Clay Névoa',
+                      icon: Icons.light_mode_rounded,
+                      mode: ThemeMode.light,
+                      isSelected: currentMode == ThemeMode.light,
+                      isDark: isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _buildThemeModeOption(
+                      title: 'Modo Escuro',
+                      subtitle: 'Soft Clay Noturno',
+                      icon: Icons.dark_mode_rounded,
+                      mode: ThemeMode.dark,
+                      isSelected: currentMode == ThemeMode.dark,
+                      isDark: isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _buildThemeModeOption(
+                      title: 'Sistema',
+                      subtitle: 'Automático',
+                      icon: Icons.brightness_auto_rounded,
+                      mode: ThemeMode.system,
+                      isSelected: currentMode == ThemeMode.system,
+                      isDark: isDark,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeModeOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required ThemeMode mode,
+    required bool isSelected,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: () => AsterTheme.setThemeMode(mode),
+      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AsterConstants.lavanda.withValues(alpha: 0.12)
+              : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+          borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+          border: Border.all(
+            color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: isSelected ? AsterConstants.primaryButtonShadow : null,
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 26,
+              color: isSelected ? AsterConstants.lavanda : (isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? AsterConstants.lavanda : (isDark ? Colors.white : AsterConstants.textDark),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: GoogleFonts.manrope(
+                fontSize: 10.5,
+                color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── 2. Seção de Provedor de IA & Modelos (Studio OS Style) ───
+  Widget _buildAiKeySection(bool isDark) {
+    final currentProv = GeminiService.providers.firstWhere(
+      (p) => p.id == _selectedProviderId,
+      orElse: () => GeminiService.providers.first,
+    );
+    final hasKey = (_selectedProviderId == 'custom' && _baseUrlController.text.trim().isNotEmpty) ||
+        _apiKeyController.text.trim().isNotEmpty;
+
+    return SoftClayCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.psychology_rounded, size: 20, color: AsterConstants.lavanda),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Inteligência Artificial & Provedores',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : AsterConstants.textDark,
+                      ),
+                    ),
+                    Text(
+                      'Escolha o provedor de IA, personalize a URL e selecione modelos recomendados',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (hasKey ? AsterConstants.menta : AsterConstants.ambar).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: hasKey ? AsterConstants.menta : AsterConstants.ambar,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      hasKey ? 'Configurado · ${currentProv.label}' : 'Não configurada',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: hasKey ? AsterConstants.menta : AsterConstants.ambar,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // 1. Provedores de IA
+          Text(
+            'PROVEDOR DE IA',
+            style: GoogleFonts.manrope(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth;
+              final crossAxisCount = availableWidth > 880
+                  ? 4
+                  : (availableWidth > 640 ? 3 : (availableWidth > 420 ? 2 : 1));
+              const double spacing = 10;
+              final double itemWidth =
+                  (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: GeminiService.providers.map((p) {
+                  final isSelected = _selectedProviderId == p.id;
+
+                  return InkWell(
+                    onTap: () => _onSelectProvider(p.id),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: itemWidth,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AsterConstants.lavanda.withValues(alpha: 0.12)
+                            : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                        border: Border.all(
+                          color: isSelected
+                              ? AsterConstants.lavanda
+                              : (isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset),
+                          width: isSelected ? 1.8 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  p.label,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                                    color: isSelected
+                                        ? AsterConstants.lavanda
+                                        : (isDark ? Colors.white : AsterConstants.textDark),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  p.models.isNotEmpty
+                                      ? '${p.models.length} modelos'
+                                      : 'URL e modelo próprios',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 10,
+                                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle_rounded, size: 16, color: AsterConstants.lavanda),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+
+          // 2. Campo de URL Base (apenas para Provedor Personalizado)
+          if (_selectedProviderId == 'custom') ...[
+            Text(
+              'URL BASE DA API (OPENAI-COMPATIBLE)',
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _baseUrlController,
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+              decoration: const InputDecoration(
+                hintText: 'https://api.exemplo.com/v1',
+                prefixIcon: Icon(Icons.link_rounded, size: 18, color: AsterConstants.lavanda),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '💡 A URL deve aceitar o formato de chat completions. O Noesis acrescenta /chat/completions se necessário.',
+              style: GoogleFonts.manrope(fontSize: 11, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // 3. Campo de Chave de API
+          Text(
+            'CHAVE DE API (${currentProv.label.toUpperCase()})',
+            style: GoogleFonts.manrope(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _apiKeyController,
+            obscureText: _obscureApiKey,
+            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+            decoration: InputDecoration(
+              hintText: _selectedProviderId == 'custom'
+                  ? 'Opcional para provedores locais (ex: Ollama/LM Studio)'
+                  : 'sk-... ou AIzaSy...',
+              prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: AsterConstants.lavanda),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureApiKey ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                  size: 20,
+                  color: AsterConstants.textMuted,
+                ),
+                onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
+              ),
+            ),
+          ),
+          if (currentProv.keyUrl.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                InkWell(
+                  onTap: () => _openUrl(currentProv.keyUrl),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      border: Border.all(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.key_rounded, size: 15, color: AsterConstants.lavanda),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Obter Chave da API (${currentProv.label})',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AsterConstants.lavanda,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.open_in_new_rounded, size: 14, color: AsterConstants.lavanda),
+                      ],
+                    ),
+                  ),
+                ),
+                Text(
+                  'Abre o console de credenciais oficial em nova aba',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11.5,
+                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+
+          // 4. Seletor de Modelo com Dropdown Menu (Studio OS Style)
+          Text(
+            'MODELO',
+            style: GoogleFonts.manrope(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (currentProv.models.isNotEmpty && !_isManualModelMode) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset,
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: currentProv.models.contains(_modelController.text.trim())
+                      ? _modelController.text.trim()
+                      : currentProv.defaultModel,
+                  isExpanded: true,
+                  dropdownColor: isDark ? const Color(0xFF1E2030) : AsterConstants.surfaceCard,
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AsterConstants.lavanda),
+                  items: [
+                    ...currentProv.models.map((mod) {
+                      final isDefault = mod == currentProv.defaultModel;
+                      return DropdownMenuItem<String>(
+                        value: mod,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.smart_toy_outlined, size: 18, color: AsterConstants.lavanda),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                mod,
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? Colors.white : AsterConstants.textDark,
+                                ),
+                              ),
+                            ),
+                            if (isDefault) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AsterConstants.menta.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                ),
+                                child: Text(
+                                  'Padrão',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: AsterConstants.menta,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }),
+                    DropdownMenuItem<String>(
+                      value: '__custom__',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_note_rounded, size: 18, color: AsterConstants.textMuted),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Personalizado (digitar outro modelo...)',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AsterConstants.lavanda,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val == null) return;
+                    if (val == '__custom__') {
+                      setState(() {
+                        _isManualModelMode = true;
+                      });
+                    } else {
+                      _onSelectModel(val);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text(
+                  'Modelo ativo: ',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                  ),
+                ),
+                Text(
+                  _modelController.text.isNotEmpty ? _modelController.text : currentProv.defaultModel,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AsterConstants.lavanda,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isManualModelMode = true;
+                    });
+                  },
+                  icon: const Icon(Icons.edit_rounded, size: 13, color: AsterConstants.lavanda),
+                  label: Text(
+                    'Digitar ID manualmente',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AsterConstants.lavanda,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            TextField(
+              controller: _modelController,
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+              decoration: InputDecoration(
+                hintText: currentProv.models.isNotEmpty
+                    ? 'Digite o ID do modelo (ex: ${currentProv.defaultModel})'
+                    : 'ID exato do modelo (ex: llama3:8b, mistral, qwen2.5)',
+                prefixIcon: const Icon(Icons.memory_rounded, size: 18, color: AsterConstants.lavanda),
+                suffixIcon: currentProv.models.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18, color: AsterConstants.lavanda),
+                        tooltip: 'Voltar ao menu dropdown',
+                        onPressed: () {
+                          setState(() {
+                            _isManualModelMode = false;
+                            if (_modelController.text.trim().isEmpty) {
+                              _modelController.text = currentProv.defaultModel;
+                            }
+                          });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (text) => setState(() {}),
+            ),
+            if (currentProv.models.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isManualModelMode = false;
+                      if (_modelController.text.trim().isEmpty) {
+                        _modelController.text = currentProv.defaultModel;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.list_rounded, size: 14, color: AsterConstants.lavanda),
+                  label: Text(
+                    'Selecionar da lista dropdown',
+                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 18),
+
+          // 5. Feedback de Teste
+          if (_testResult != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: (_testSuccess == true ? AsterConstants.menta : AsterConstants.coral).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                border: Border.all(
+                  color: (_testSuccess == true ? AsterConstants.menta : AsterConstants.coral).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _testSuccess == true ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                    size: 18,
+                    color: _testSuccess == true ? AsterConstants.menta : AsterConstants.coral,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _testResult!,
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _testSuccess == true ? AsterConstants.menta : AsterConstants.coral,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // 6. Botões de Ação
+          Row(
+            children: [
+              SoftClayPillButton(
+                text: 'Salvar Configuração',
+                onPressed: _saveAiSettings,
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AsterConstants.lavanda,
+                  side: const BorderSide(color: AsterConstants.lavanda, width: 1.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                ),
+                icon: _isTestingKey
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda))
+                    : const Icon(Icons.flash_on_rounded, size: 16),
+                label: Text(
+                  _isTestingKey ? 'Testando...' : 'Testar Conexão',
+                  style: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                onPressed: _isTestingKey ? null : _testAiConnection,
+              ),
+              if (hasKey) ...[
+                const SizedBox(width: 10),
+                TextButton(
+                  onPressed: () {
+                    _apiKeyController.clear();
+                    _modelController.text = currentProv.defaultModel;
+                    _baseUrlController.clear();
+                    GeminiService.configure(
+                      providerId: _selectedProviderId,
+                      modelName: currentProv.defaultModel,
+                      key: '',
+                      customBaseUrl: '',
+                    );
+                    setState(() {
+                      _testResult = null;
+                      _testSuccess = null;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Configurações de IA redefinidas.')),
+                    );
+                  },
+                  child: Text('Limpar', style: GoogleFonts.manrope(color: AsterConstants.coral, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 3. Seção de Idiomas do Ecossistema Aster (15 Idiomas) ───
+  Widget _buildLanguageSection(bool isDark) {
+    return SoftClayCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.language_rounded, size: 20, color: AsterConstants.lavanda),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Idioma e Região',
+                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AsterConstants.textDark),
+                  ),
+                  Text(
+                    'Todos os 15 idiomas suportados no ecossistema Aster Portfolio',
+                    style: GoogleFonts.manrope(fontSize: 12, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AsterConstants.lavanda.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: AsterConstants.lavanda),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'As traduções completas estão em desenvolvimento. Sua seleção fica registrada no perfil.',
+                    style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w600, color: AsterConstants.lavanda),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Grade com os 15 Idiomas do Portfólio (Responsiva e Preenchendo a Largura Total)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth;
+              final crossAxisCount = availableWidth > 880
+                  ? 4
+                  : (availableWidth > 640 ? 3 : (availableWidth > 420 ? 2 : 1));
+              const double spacing = 12;
+              final double itemWidth =
+                  (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: _languages.map((lang) {
+                  final isSelected = _selectedLangCode == lang.code;
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() => _selectedLangCode = lang.code);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 2),
+                          backgroundColor: AsterConstants.lavanda,
+                          content: Text(
+                              'Idioma selecionado: ${lang.flag} ${lang.name} (${lang.region})'),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: itemWidth,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AsterConstants.lavanda.withValues(alpha: 0.12)
+                            : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                        border: Border.all(
+                          color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(lang.flag, style: const TextStyle(fontSize: 22)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  lang.name,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                    color: isSelected
+                                        ? AsterConstants.lavanda
+                                        : (isDark ? Colors.white : AsterConstants.textDark),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  lang.region,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 10,
+                                    color: isDark
+                                        ? const Color(0xFF9093B5)
+                                        : AsterConstants.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle_rounded,
+                                size: 16, color: AsterConstants.lavanda),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
