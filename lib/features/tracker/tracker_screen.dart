@@ -95,90 +95,100 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AsterConstants.surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-        title: Text(
-          'Registrar Sessão de Estudo',
-          style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _subjectController,
-                decoration: const InputDecoration(labelText: 'Disciplina (ex: Criptografia, Cloud)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _topicController,
-                decoration: const InputDecoration(labelText: 'Tópico (ex: AES-GCM, Modos de Operação)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _durationController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Duração em Minutos (ex: 90)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _notesController,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Anotações e Insights'),
-              ),
-            ],
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          title: Text(
+            'Registrar Sessão de Estudo',
+            style: GoogleFonts.manrope(
+              fontWeight: FontWeight.w800,
+              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _subjectController,
+                  decoration: const InputDecoration(labelText: 'Disciplina (ex: Criptografia, Cloud)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _topicController,
+                  decoration: const InputDecoration(labelText: 'Tópico (ex: AES-GCM, Modos de Operação)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _durationController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Duração em Minutos (ex: 90)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Anotações e Insights'),
+                ),
+              ],
+            ),
           ),
-          SoftClayPillButton(
-            text: 'Salvar Sessão',
-            onPressed: () {
-              final subject = _subjectController.text.trim();
-              final topic = _topicController.text.trim();
-              final duration = int.tryParse(_durationController.text.trim()) ?? 0;
-              final notes = _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+              ),
+            ),
+            SoftClayPillButton(
+              text: 'Salvar Sessão',
+              onPressed: () {
+                final subject = _subjectController.text.trim();
+                final topic = _topicController.text.trim();
+                final duration = int.tryParse(_durationController.text.trim()) ?? 0;
+                final notes = _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null;
 
-              if (subject.isNotEmpty && topic.isNotEmpty && duration > 0) {
-                // Fechamento imediato do modal (0ms UI feedback otimista)
-                Navigator.pop(ctx);
-                _subjectController.clear();
-                _topicController.clear();
-                _durationController.clear();
-                _notesController.clear();
-                _resetTimer();
+                if (subject.isNotEmpty && topic.isNotEmpty && duration > 0) {
+                  // Fechamento imediato do modal (0ms UI feedback otimista)
+                  Navigator.pop(ctx);
+                  _subjectController.clear();
+                  _topicController.clear();
+                  _durationController.clear();
+                  _notesController.clear();
+                  _resetTimer();
 
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sessão registrada com sucesso!')),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Sessão registrada com sucesso!')),
+                    );
+                  }
+
+                  // Sincronização em segundo plano via SupabaseService com tratamento de erro
+                  SupabaseService.addStudySession(
+                    subject: subject,
+                    topic: topic,
+                    durationMinutes: duration,
+                    studyDate: DateTime.now(),
+                    notes: notes,
+                  ).catchError((e) {
+                    debugPrint('Erro ao sincronizar sessão de estudo: $e');
+                  });
                 }
-
-                // Sincronização em segundo plano via SupabaseService com tratamento de erro
-                SupabaseService.addStudySession(
-                  subject: subject,
-                  topic: topic,
-                  durationMinutes: duration,
-                  studyDate: DateTime.now(),
-                  notes: notes,
-                ).catchError((e) {
-                  debugPrint('Erro ao sincronizar sessão de estudo: $e');
-                });
-              }
-            },
-          ),
-        ],
-      ),
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
@@ -193,15 +203,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: _buildTimerHeroCard()),
+                Expanded(flex: 3, child: _buildTimerHeroCard(isDark)),
                 const SizedBox(width: 20),
-                Expanded(flex: 2, child: _buildLoweredHoursStatsCard()),
+                Expanded(flex: 2, child: _buildLoweredHoursStatsCard(isDark)),
               ],
             )
           else ...[
-            _buildTimerHeroCard(),
+            _buildTimerHeroCard(isDark),
             const SizedBox(height: 16),
-            _buildLoweredHoursStatsCard(),
+            _buildLoweredHoursStatsCard(isDark),
           ],
 
           const SizedBox(height: 20),
@@ -211,15 +221,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 2, child: _buildLoweredDistributionCard()),
+                Expanded(flex: 2, child: _buildLoweredDistributionCard(isDark)),
                 const SizedBox(width: 20),
-                Expanded(flex: 3, child: _buildHeatmapCard()),
+                Expanded(flex: 3, child: _buildHeatmapCard(isDark)),
               ],
             )
           else ...[
-            _buildLoweredDistributionCard(),
+            _buildLoweredDistributionCard(isDark),
             const SizedBox(height: 16),
-            _buildHeatmapCard(),
+            _buildHeatmapCard(isDark),
           ],
 
           const SizedBox(height: 20),
@@ -229,15 +239,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: _buildLoweredRecentSessionsCard()),
+                Expanded(flex: 3, child: _buildLoweredRecentSessionsCard(isDark)),
                 const SizedBox(width: 20),
-                Expanded(flex: 2, child: _buildAgentInsightCard()),
+                Expanded(flex: 2, child: _buildAgentInsightCard(isDark)),
               ],
             )
           else ...[
-            _buildLoweredRecentSessionsCard(),
+            _buildLoweredRecentSessionsCard(isDark),
             const SizedBox(height: 16),
-            _buildAgentInsightCard(),
+            _buildAgentInsightCard(isDark),
           ],
 
           const SizedBox(height: 32),
@@ -246,7 +256,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
-  Widget _buildLoweredHoursStatsCard() {
+  Widget _buildLoweredHoursStatsCard(bool isDark) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _sessionsStream,
       builder: (context, snapshot) {
@@ -256,12 +266,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
           totalMinutes += (s['duration_minutes'] as num?)?.toInt() ?? 0;
         }
         if (totalMinutes == 0) totalMinutes = 123 * 60;
-        return _buildHoursStatsCard(totalMinutes);
+        return _buildHoursStatsCard(totalMinutes, isDark);
       },
     );
   }
 
-  Widget _buildLoweredDistributionCard() {
+  Widget _buildLoweredDistributionCard(bool isDark) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _sessionsStream,
       builder: (context, snapshot) {
@@ -281,23 +291,23 @@ class _TrackerScreenState extends State<TrackerScreen> {
           subjectMinutes['Sistemas Dist.'] = 23 * 60;
           totalMinutes = 123 * 60;
         }
-        return _buildDistributionCard(subjectMinutes, totalMinutes);
+        return _buildDistributionCard(subjectMinutes, totalMinutes, isDark);
       },
     );
   }
 
-  Widget _buildLoweredRecentSessionsCard() {
+  Widget _buildLoweredRecentSessionsCard(bool isDark) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _sessionsStream,
       builder: (context, snapshot) {
         final sessions = snapshot.data ?? [];
-        return _buildRecentSessionsCard(sessions);
+        return _buildRecentSessionsCard(sessions, isDark);
       },
     );
   }
 
   // ─── Widget: Timer Hero Card (Identidade Soft Clay) ───
-  Widget _buildTimerHeroCard() {
+  Widget _buildTimerHeroCard(bool isDark) {
     return SoftClayCard(
       padding: const EdgeInsets.all(26),
       child: Column(
@@ -321,7 +331,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
-                  color: AsterConstants.textMuted,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                 ),
               ),
             ],
@@ -344,7 +354,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                           fontSize: 54,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.5,
-                          color: AsterConstants.textDark,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                         ),
                       ),
                       Text(
@@ -367,11 +377,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AsterConstants.surfaceAlt,
+                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.flag_outlined, size: 20, color: AsterConstants.textDark),
+                  icon: Icon(Icons.flag_outlined, size: 20, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Marcador de ciclo registrado!')),
@@ -429,11 +439,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AsterConstants.surfaceAlt,
+                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.check_rounded, size: 20, color: AsterConstants.textDark),
+                  icon: Icon(Icons.check_rounded, size: 20, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
                   tooltip: 'Concluir & Salvar',
                   onPressed: () {
                     final mins = (_secondsElapsed / 60).ceil();
@@ -467,7 +477,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 'Meta da sessão: 1h30',
                 style: GoogleFonts.manrope(
                   fontSize: 12,
-                  color: AsterConstants.textMuted,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -483,7 +493,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 value: (seconds / (90 * 60)).clamp(0.0, 1.0),
                 minHeight: 4,
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                backgroundColor: AsterConstants.surfaceInset,
+                backgroundColor: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
                 valueColor: const AlwaysStoppedAnimation(AsterConstants.lavanda),
               );
             },
@@ -494,7 +504,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   // ─── Widget: Horas Estudadas nos Últimos 7 Dias ───
-  Widget _buildHoursStatsCard(int totalMinutes) {
+  Widget _buildHoursStatsCard(int totalMinutes, bool isDark) {
     final hours = (totalMinutes / 60).toStringAsFixed(0);
 
     return SoftClayCard.list(
@@ -507,11 +517,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
             children: [
               Text(
                 'Horas estudadas',
-                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
               ),
               Text(
                 'últimos 7 dias',
-                style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                ),
               ),
             ],
           ),
@@ -526,7 +543,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   fontSize: 34,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -1,
-                  color: AsterConstants.textDark,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                 ),
               ),
               const SizedBox(width: 10),
@@ -549,13 +566,13 @@ class _TrackerScreenState extends State<TrackerScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildMiniBar('S', 0.45),
-                _buildMiniBar('T', 0.65),
-                _buildMiniBar('Q', 0.35),
-                _buildMiniBar('Q', 0.85),
-                _buildMiniBar('S', 0.70),
-                _buildMiniBar('S', 0.50),
-                _buildMiniBar('D', 1.0, isHighlight: true),
+                _buildMiniBar('S', 0.45, isDark: isDark),
+                _buildMiniBar('T', 0.65, isDark: isDark),
+                _buildMiniBar('Q', 0.35, isDark: isDark),
+                _buildMiniBar('Q', 0.85, isDark: isDark),
+                _buildMiniBar('S', 0.70, isDark: isDark),
+                _buildMiniBar('S', 0.50, isDark: isDark),
+                _buildMiniBar('D', 1.0, isHighlight: true, isDark: isDark),
               ],
             ),
           ),
@@ -564,7 +581,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
-  Widget _buildMiniBar(String day, double heightFraction, {bool isHighlight = false}) {
+  Widget _buildMiniBar(String day, double heightFraction, {bool isHighlight = false, bool isDark = false}) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -582,7 +599,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           style: GoogleFonts.manrope(
             fontSize: 10,
             fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-            color: isHighlight ? AsterConstants.lavanda : AsterConstants.textMuted,
+            color: isHighlight ? AsterConstants.lavanda : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
           ),
         ),
       ],
@@ -590,7 +607,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   // ─── Widget: Distribuição por Disciplina (Donut Chart) ───
-  Widget _buildDistributionCard(Map<String, int> subjectMinutes, int totalMinutes) {
+  Widget _buildDistributionCard(Map<String, int> subjectMinutes, int totalMinutes, bool isDark) {
     final colors = [
       AsterConstants.lavanda,
       AsterConstants.menta,
@@ -608,11 +625,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
             children: [
               Text(
                 'Distribuição',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
               ),
               Text(
                 'por disciplina',
-                style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                ),
               ),
             ],
           ),
@@ -650,11 +674,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       children: [
                         Text(
                           '${subjectMinutes.length}',
-                          style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w900, color: AsterConstants.textDark),
+                          style: GoogleFonts.manrope(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          ),
                         ),
                         Text(
                           'áreas',
-                          style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.textMuted),
+                          style: GoogleFonts.manrope(
+                            fontSize: 10,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -683,12 +714,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
                             child: Text(
                               item.value.key,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: AsterConstants.textDark),
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                              ),
                             ),
                           ),
                           Text(
                             '${hours}h',
-                            style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                            ),
                           ),
                         ],
                       ),
@@ -704,7 +743,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   // ─── Widget: Consistência · 182 dias (Heatmap) ───
-  Widget _buildHeatmapCard() {
+  Widget _buildHeatmapCard(bool isDark) {
     return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -715,17 +754,33 @@ class _TrackerScreenState extends State<TrackerScreen> {
             children: [
               Text(
                 'Consistência · 182 dias',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
               ),
               Row(
                 children: [
-                  Text('Menos ', style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.textMuted)),
-                  _buildDot(0),
-                  _buildDot(1),
-                  _buildDot(2),
-                  _buildDot(3),
-                  _buildDot(4),
-                  Text(' Mais', style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.textMuted)),
+                  Text(
+                    'Menos ',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ),
+                  ),
+                  _buildDot(0, isDark: isDark),
+                  _buildDot(1, isDark: isDark),
+                  _buildDot(2, isDark: isDark),
+                  _buildDot(3, isDark: isDark),
+                  _buildDot(4, isDark: isDark),
+                  Text(
+                    ' Mais',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -753,20 +808,38 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 children: [
                   Text(
                     'STREAK ATUAL',
-                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: AsterConstants.textMuted, letterSpacing: 0.5),
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   Text(
                     '42d',
-                    style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w900, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     'MELHOR DIA',
-                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: AsterConstants.textMuted, letterSpacing: 0.5),
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   Text(
                     '6h20',
-                    style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
                   ),
                 ],
               ),
@@ -777,20 +850,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
-  Widget _buildDot(int level) {
+  Widget _buildDot(int level, {bool isDark = false}) {
     return Container(
       width: 9,
       height: 9,
       margin: const EdgeInsets.symmetric(horizontal: 1.5),
       decoration: BoxDecoration(
-        color: ConsistencyHeatmap.colorForLevel(level),
+        color: ConsistencyHeatmap.colorForLevel(level, isDark: isDark),
         shape: BoxShape.circle,
       ),
     );
   }
 
   // ─── Widget: Sessões Recentes com Tags e Ações ───
-  Widget _buildRecentSessionsCard(List<Map<String, dynamic>> realSessions) {
+  Widget _buildRecentSessionsCard(List<Map<String, dynamic>> realSessions, bool isDark) {
     // Se não houver dados reais, exibe os itens conceituais fiéis ao design de Obsidian
     final sampleSessions = [
       {
@@ -829,13 +902,21 @@ class _TrackerScreenState extends State<TrackerScreen> {
             children: [
               Text(
                 'Sessões recentes',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
               ),
               InkWell(
                 onTap: () => _openAddSessionModal(),
                 child: Text(
                   '+ Nova Sessão',
-                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AsterConstants.lavanda,
+                  ),
                 ),
               ),
             ],
@@ -857,6 +938,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 duration: hours,
                 color: AsterConstants.lavanda,
                 onDelete: () => SupabaseService.deleteStudySession(s['id']),
+                isDark: isDark,
               );
             })
           else
@@ -868,6 +950,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 duration: s['time'] as String,
                 color: s['color'] as Color,
                 onDelete: null,
+                isDark: isDark,
               );
             }),
         ],
@@ -882,12 +965,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
     required String duration,
     required Color color,
     VoidCallback? onDelete,
+    required bool isDark,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.only(bottom: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AsterConstants.surfaceInset, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+            width: 1,
+          ),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,7 +1002,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: AsterConstants.textDark,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                         ),
                       ),
                     ),
@@ -926,7 +1015,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   subtitle,
                   style: GoogleFonts.manrope(
                     fontSize: 11,
-                    color: AsterConstants.textMuted,
+                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                   ),
                 ),
               ],
@@ -941,7 +1030,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: AsterConstants.textDark,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                 ),
               ),
               if (onDelete != null)
@@ -961,7 +1050,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   // ─── Widget: Insight do Agente (Noesis AI) ───
-  Widget _buildAgentInsightCard() {
+  Widget _buildAgentInsightCard(bool isDark) {
     return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -972,12 +1061,16 @@ class _TrackerScreenState extends State<TrackerScreen> {
             children: [
               Text(
                 'Insight do agente',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AsterConstants.surfaceAlt,
+                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: Text(
@@ -993,7 +1086,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             style: GoogleFonts.manrope(
               fontSize: 12,
               height: 1.5,
-              color: AsterConstants.textDark,
+              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
             ),
           ),
           const SizedBox(height: 16),
@@ -1029,11 +1122,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 children: [
                   Text(
                     'ACURÁCIA NOS SIMULADOS',
-                    style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: AsterConstants.textMuted, letterSpacing: 0.5),
+                    style: GoogleFonts.manrope(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   Text(
                     '78%',
-                    style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w900, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
                   ),
                 ],
               ),
@@ -1093,7 +1195,7 @@ class ConsistencyHeatmap extends StatelessWidget {
     this.levels,
   });
 
-  static Color colorForLevel(int level) {
+  static Color colorForLevel(int level, {bool isDark = false}) {
     switch (level) {
       case 4:
         return AsterConstants.menta;
@@ -1104,7 +1206,7 @@ class ConsistencyHeatmap extends StatelessWidget {
       case 1:
         return AsterConstants.menta.withValues(alpha: 0.22);
       default:
-        return AsterConstants.surfaceInset;
+        return isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset;
     }
   }
 
@@ -1121,6 +1223,7 @@ class ConsistencyHeatmap extends StatelessWidget {
   Widget build(BuildContext context) {
     const double colWidth = 17.0;
     final totalWidth = columns * colWidth;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return RepaintBoundary(
       child: CustomPaint(
@@ -1129,6 +1232,7 @@ class ConsistencyHeatmap extends StatelessWidget {
           columns: columns,
           rows: rows,
           levels: levels,
+          isDark: isDark,
         ),
       ),
     );
@@ -1139,11 +1243,13 @@ class _HeatmapPainter extends CustomPainter {
   final int columns;
   final int rows;
   final List<List<int>>? levels;
+  final bool isDark;
 
   _HeatmapPainter({
     required this.columns,
     required this.rows,
     this.levels,
+    this.isDark = false,
   });
 
   @override
@@ -1167,7 +1273,7 @@ class _HeatmapPainter extends CustomPainter {
           level = ConsistencyHeatmap.simulatedLevelFor(col, row);
         }
 
-        paint.color = ConsistencyHeatmap.colorForLevel(level);
+        paint.color = ConsistencyHeatmap.colorForLevel(level, isDark: isDark);
         canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
       }
     }
@@ -1177,6 +1283,7 @@ class _HeatmapPainter extends CustomPainter {
   bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
     return oldDelegate.columns != columns ||
         oldDelegate.rows != rows ||
-        oldDelegate.levels != levels;
+        oldDelegate.levels != levels ||
+        oldDelegate.isDark != isDark;
   }
 }

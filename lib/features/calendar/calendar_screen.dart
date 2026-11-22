@@ -190,51 +190,64 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AsterConstants.surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AsterConstants.coral.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AsterConstants.coral.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.delete_outline_rounded, color: AsterConstants.coral, size: 20),
               ),
-              child: const Icon(Icons.delete_outline_rounded, color: AsterConstants.coral, size: 20),
+              const SizedBox(width: 12),
+              Text(
+                'Excluir Bloco',
+                style: GoogleFonts.manrope(
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Tem certeza que deseja remover o bloco "$title" da sua agenda?',
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              height: 1.4,
+              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Excluir Bloco',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AsterConstants.coral,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _deleteEventWithUndo(event);
+              },
+              child: Text('Sim, Excluir', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
             ),
           ],
-        ),
-        content: Text(
-          'Tem certeza que deseja remover o bloco "$title" da sua agenda?',
-          style: GoogleFonts.manrope(fontSize: 13, height: 1.4, color: AsterConstants.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AsterConstants.coral,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteEventWithUndo(event);
-            },
-            child: Text('Sim, Excluir', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -286,13 +299,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          backgroundColor: AsterConstants.surfaceCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-          title: Text(
-            'Novo Bloco / Agendamento',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-          ),
+        builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return AlertDialog(
+            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            title: Text(
+              'Novo Bloco / Agendamento',
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w800,
+                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+              ),
+            ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -545,10 +563,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
 
   void _showEventDetailsDialog(Map<String, dynamic> event) {
     final title = event['title'] ?? 'Sem título';
@@ -569,93 +588,113 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AsterConstants.surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: Icon(icon, size: 20, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-                  ),
-                  Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-                ],
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                child: Icon(icon, size: 20, color: color),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cartão Interativo de Data e Horário (Toque para trocar data/horário)
-            InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _openEditEventDialog(event);
-              },
-              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AsterConstants.lavanda.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                  border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.25), width: 1.2),
-                ),
-                child: Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.access_time_rounded, size: 18, color: AsterConstants.lavanda),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${DateFormat("EEEE, d 'de' MMM", 'pt_BR').format(start)} · ${DateFormat('HH:mm').format(start)} às ${DateFormat('HH:mm').format(end)} ($durationStr)',
-                            style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Toque para remarcar data ou horário ✏️',
-                            style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
-                          ),
-                        ],
+                    Text(
+                      title,
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       ),
                     ),
-                    const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.lavanda),
+                    Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
                   ],
                 ),
               ),
-            ),
-            if (desc.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AsterConstants.surfaceAlt,
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                ),
-                child: Text(
-                  desc,
-                  style: GoogleFonts.manrope(fontSize: 12, height: 1.4, color: AsterConstants.textDark),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Cartão Interativo de Data e Horário (Toque para trocar data/horário)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openEditEventDialog(event);
+                },
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.25), width: 1.2),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time_rounded, size: 18, color: AsterConstants.lavanda),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${DateFormat("EEEE, d 'de' MMM", 'pt_BR').format(start)} · ${DateFormat('HH:mm').format(start)} às ${DateFormat('HH:mm').format(end)} ($durationStr)',
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Toque para remarcar data ou horário ✏️',
+                              style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.lavanda),
+                    ],
+                  ),
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Status:', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
+              if (desc.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  ),
+                  child: Text(
+                    desc,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    'Status:',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ),
+                  ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -732,9 +771,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   void _openEditEventDialog(Map<String, dynamic> event) {
     final eventId = event['id']?.toString() ?? '';
@@ -766,8 +806,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final durH = editDurationMinutes / 60.0;
           final durStr = durH == durH.truncateToDouble() ? '${durH.toInt()}h' : '${durH.toStringAsFixed(1)}h';
 
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: AsterConstants.surfaceCard,
+            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
@@ -786,11 +827,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Text(
                         'Editar Data & Horário da Tarefa',
-                        style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                        ),
                       ),
                       Text(
                         'Altere o dia, horário ou tempo estimado',
-                        style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -1138,8 +1186,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: AsterConstants.surfaceCard,
+            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
@@ -1158,11 +1207,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Text(
                         'Gerenciar Categorias',
-                        style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                        ),
                       ),
                       Text(
                         'Crie, edite ou remova categorias do seu calendário',
-                        style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -1291,18 +1347,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                                   showDialog(
                                     context: context,
-                                    builder: (deleteCtx) => AlertDialog(
-                                      backgroundColor: AsterConstants.surfaceCard,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-                                      title: Text('Excluir categoria "${cat.label}"?'),
-                                      content: const Text(
-                                        'Tem certeza que deseja remover esta categoria? Os blocos já agendados continuarão salvos com suas cores.',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(deleteCtx),
-                                          child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+                                    builder: (deleteCtx) {
+                                      final isDark = Theme.of(deleteCtx).brightness == Brightness.dark;
+                                      return AlertDialog(
+                                        backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+                                        title: Text(
+                                          'Excluir categoria "${cat.label}"?',
+                                          style: GoogleFonts.manrope(
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                          ),
                                         ),
+                                        content: Text(
+                                          'Tem certeza que deseja remover esta categoria? Os blocos já agendados continuarão salvos com suas cores.',
+                                          style: GoogleFonts.manrope(
+                                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(deleteCtx),
+                                            child: Text(
+                                              'Cancelar',
+                                              style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                            ),
+                                          ),
                                         SoftClayPillButton(
                                           text: 'Excluir',
                                           color: AsterConstants.coral,
@@ -1321,9 +1391,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           },
                                         ),
                                       ],
-                                    ),
-                                  );
-                                },
+                                    );
+                                  },
+                                );
+                              },
                               ),
                             ],
                           ),
@@ -1358,8 +1429,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: AsterConstants.surfaceCard,
+            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
@@ -1375,7 +1447,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Expanded(
                   child: Text(
                     isEditing ? 'Editar Categoria' : 'Nova Categoria',
-                    style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
                   ),
                 ),
               ],

@@ -310,71 +310,76 @@ class _QuizScreenState extends State<QuizScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-        backgroundColor: AsterConstants.surfaceCard,
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: (isApproved ? AsterConstants.menta : AsterConstants.ambar).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: (isApproved ? AsterConstants.menta : AsterConstants.ambar).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isApproved ? Icons.emoji_events_rounded : Icons.auto_awesome_rounded,
+                    color: isApproved ? AsterConstants.menta : AsterConstants.ambar,
+                    size: 32,
+                  ),
                 ),
-                child: Icon(
-                  isApproved ? Icons.emoji_events_rounded : Icons.auto_awesome_rounded,
-                  color: isApproved ? AsterConstants.menta : AsterConstants.ambar,
-                  size: 32,
+                const SizedBox(height: 18),
+                Text(
+                  isApproved ? 'Excelente Aproveitamento!' : 'Simulado Finalizado!',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                isApproved ? 'Excelente Aproveitamento!' : 'Simulado Finalizado!',
-                style: GoogleFonts.manrope(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AsterConstants.textDark,
+                const SizedBox(height: 6),
+                Text(
+                  'Você acertou $correctCount de $totalQ questões ($scorePercent%).',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Você acertou $correctCount de $totalQ questões ($scorePercent%).',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.manrope(fontSize: 14, color: AsterConstants.textMuted),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AsterConstants.surfaceAlt,
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Column(
-                      children: [
-                        Text('Pontuação', style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted)),
-                        const SizedBox(height: 4),
-                        Text('$scorePercent%', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.lavanda)),
-                      ],
-                    ),
-                    Container(width: 1, height: 28, color: AsterConstants.surfaceInset),
-                    Column(
-                      children: [
-                        Text('XP Ganho', style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted)),
-                        const SizedBox(height: 4),
-                        Text('+${correctCount * 10} XP', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.menta)),
-                      ],
-                    ),
-                    Container(width: 1, height: 28, color: AsterConstants.surfaceInset),
-                    Column(
-                      children: [
-                        Text('Status', style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted)),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          Text('Pontuação', style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
+                          const SizedBox(height: 4),
+                          Text('$scorePercent%', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.lavanda)),
+                        ],
+                      ),
+                      Container(width: 1, height: 28, color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                      Column(
+                        children: [
+                          Text('XP Ganho', style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
+                          const SizedBox(height: 4),
+                          Text('+${correctCount * 10} XP', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.menta)),
+                        ],
+                      ),
+                      Container(width: 1, height: 28, color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                      Column(
+                        children: [
+                          Text('Status', style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
                         const SizedBox(height: 4),
                         Text(
                           isApproved ? 'Aprovado' : 'Revisão',
@@ -417,9 +422,10 @@ class _QuizScreenState extends State<QuizScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   @override
   void dispose() {

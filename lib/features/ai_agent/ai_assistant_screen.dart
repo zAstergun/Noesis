@@ -223,13 +223,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   void _openApiKeyDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AsterConstants.surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-        title: Text(
-          'Configurar Google Gemini API Key',
-          style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-        ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          title: Text(
+            'Configurar Google Gemini API Key',
+            style: GoogleFonts.manrope(
+              fontWeight: FontWeight.w800,
+              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+            ),
+          ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,9 +270,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             },
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Future<void> _sendMessage([String? quickText]) async {
     final text = quickText ?? _messageController.text.trim();

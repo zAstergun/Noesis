@@ -23,16 +23,16 @@ O **Noesis** é o sistema operacional cognitivo, assistente pessoal e motor de e
    - Sugestões inteligentes da IA (com agendamento em 1 clique) e exclusão com feedback otimista e botão "Desfazer".
 3. **Agente Cognitivo Autônomo com Tool Calling**:
    - Assistente inteligente conversacional integrado com capacidade de executar ações reais no banco de dados.
-   - Ferramentas ativas (*Function Calling*): registrar sessões de estudo (`log_study_session`) e agendar eventos no calendário (`schedule_calendar_event`).
+   - Ferramentas ativas (_Function Calling_): registrar sessões de estudo (`log_study_session`) e agendar eventos no calendário (`schedule_calendar_event`).
    - Modal com atalhos de comando por voz e predefinições rápidas.
 4. **Motor de Simulados com RAG (Retrieval-Augmented Generation)**:
    - Geração de questões inéditas de múltipla escolha com base em temas livres, presets de bancas examinadoras ou **documentos e provas anteriores anexados** (`.pdf`, `.txt`, `.md`, `.json`).
-   - Interface de prova completa: contagem regressiva, snippets de código formatados com fonte monoespaçada, marcação de questões para revisão (*flag*), gabarito interativo com justificativas detalhadas e citação das fontes RAG.
+   - Interface de prova completa: contagem regressiva, snippets de código formatados com fonte monoespaçada, marcação de questões para revisão (_flag_), gabarito interativo com justificativas detalhadas e citação das fontes RAG.
    - Persistência automática do score, tempo gasto e histórico na nuvem.
 5. **Autenticação Unificada (Aster Account / SSO Global)**:
    - Login e cadastro via email/senha, suporte a OAuth (Discord, Google, GitHub, Apple).
    - Perfil dinâmico sincronizado com a rede Aster (`public.profiles`).
-   - Modo Visitante / Demonstração (*Guest Mode*) totalmente funcional para testes offline ou sem login imediato.
+   - Modo Visitante / Demonstração (_Guest Mode_) totalmente funcional para testes offline ou sem login imediato.
 6. **Central de Configurações Multi-Provedor**:
    - Suporte nativo a múltiplos provedores de IA: Google Gemini, OpenAI, Anthropic, xAI (Grok), DeepSeek, OpenRouter e Endpoints personalizados (OpenAI-compatible).
    - Ferramenta de benchmark de latência da chave de API em milissegundos.
@@ -43,7 +43,7 @@ O **Noesis** é o sistema operacional cognitivo, assistente pessoal e motor de e
 
 ## 2. Topologia do Ecossistema Aster e Diretrizes Mandatórias
 
-O projeto Noesis opera como uma das aplicações centrais da rede **Aster** (`asterdev.me`), coexistindo no mesmo banco de dados com outras soluções do ecossistema (*StudioOS*, *Soul Fighter*, *IdealCalc*, *Aster CRM*).
+O projeto Noesis opera como uma das aplicações centrais da rede **Aster** (`asterdev.me`), coexistindo no mesmo banco de dados com outras soluções do ecossistema (_StudioOS_, _Soul Fighter_, _IdealCalc_, _Aster CRM_).
 
 ```mermaid
 flowchart TD
@@ -86,6 +86,7 @@ flowchart TD
 ```
 
 ### 👑 Regras de Ouro Obrigatórias para Qualquer IA ou Desenvolvedor:
+
 1. **Regra de Prefixagem Estrita**: O banco PostgreSQL do Supabase é compartilhado por toda a rede Aster. **NENHUMA tabela, view, trigger ou função criada para este projeto pode ter nome genérico.** Toda tabela do Noesis DEVE obrigatoriamente iniciar com o prefixo: **`noesis_`** (ex: `noesis_sessions`, `noesis_calendar_events`, `noesis_quizzes`).
 2. **Identidade Global Aster**: Não criar tabelas separadas de usuários ou perfis no Noesis. O usuário é identificado por `auth.users(id)` e seus dados visuais públicos (`full_name`, `channel`, `avatar_url`, `is_vip`) residem na tabela compartilhada `public.profiles`.
 3. **Catálogo CRM Aster**: O aplicativo está registrado em `public.crm_apps` com a chave `id: noesis`, prefixo `noesis_` e cor primária `#6c63ff`.
@@ -193,6 +194,7 @@ create policy "Usuários podem gerenciar seus próprios simulados"
 ```
 
 ### Estrutura do JSON Armazenado em `questions_data`
+
 ```json
 [
   {
@@ -206,7 +208,11 @@ create policy "Usuários podem gerenciar seus próprios simulados"
     ],
     "correct_index": 1,
     "explanation": "Explicação pedagógica e técnica fundamentando o gabarito e desmontando os distratores.",
-    "rag_sources": ["OWASP Top 10 2021", "NIST SP 800-63B", "Material da Aula 04"]
+    "rag_sources": [
+      "OWASP Top 10 2021",
+      "NIST SP 800-63B",
+      "Material da Aula 04"
+    ]
   }
 ]
 ```
@@ -219,21 +225,34 @@ O Noesis implementa com fidelidade a especificação visual do ecossistema Aster
 
 ### Tokens de Cor e Semântica (`AsterConstants`):
 
-| Token | Hex / Valor | Função Semântica | Aplicação no Sistema |
-| :--- | :--- | :--- | :--- |
-| **`bgNevoa` / `bgCanvas`** | `#EEF0F8` | Fundo ambiente suave | Canvas geral da aplicação com iluminação suave. |
-| **`surfaceCard`** | `#FFFFFF` | Superfície primária elevada | Cards flutuantes com zero bordas e raio de 28px. |
-| **`surfaceAlt`** | `#F3F4FB` | Superfície secundária suave | Campos de busca, cards internos, inputs e badges passivos. |
-| **`surfaceInset`** | `#E6E8F3` | Superfície de rebaixo | Fundo de trilhas de progresso e células vazias do heatmap. |
-| **`lavanda`** | `#7C6CF0` | Ação primária, foco e estudo | Botões de ação, timer ativo, logo Noesis e categoria Estudo. |
-| **`menta`** | `#3CCF9A` | Revisão, constância e sucesso | Heatmap de consistência, badges de acerto e categoria Revisão. |
-| **`ambar`** | `#F5A623` | Laboratórios práticos e metas | Alertas de meta semanal, simulados RAG e categoria Lab. |
-| **`coral`** | `#FF7A90` | Provas oficiais, prazos e alertas | Prazos de exames, questões erradas, notificações e categoria Prova. |
-| **`textDark`** | `#23233A` | Tipografia de alto contraste | Títulos, numerais e leitura sem a agressividade do preto puro. |
-| **`textMuted`** | `#6F7190` | Tipografia secundária | Metadados, descrições auxiliares e rótulos de métricas. |
-| **`textFaint`** | `#A7A9C2` | Elementos inativos e placeholders | Dicas em campos de texto e ícones secundários passivos. |
+| Token                      | Hex / Valor | Função Semântica                  | Aplicação no Sistema                                                |
+| :------------------------- | :---------- | :-------------------------------- | :------------------------------------------------------------------ |
+| **`bgNevoa` / `bgCanvas`** | `#EEF0F8`   | Fundo ambiente suave              | Canvas geral da aplicação com iluminação suave.                     |
+| **`surfaceCard`**          | `#FFFFFF`   | Superfície primária elevada       | Cards flutuantes com zero bordas e raio de 28px.                    |
+| **`surfaceAlt`**           | `#F3F4FB`   | Superfície secundária suave       | Campos de busca, cards internos, inputs e badges passivos.          |
+| **`surfaceInset`**         | `#E6E8F3`   | Superfície de rebaixo             | Fundo de trilhas de progresso e células vazias do heatmap.          |
+| **`lavanda`**              | `#7C6CF0`   | Ação primária, foco e estudo      | Botões de ação, timer ativo, logo Noesis e categoria Estudo.        |
+| **`menta`**                | `#3CCF9A`   | Revisão, constância e sucesso     | Heatmap de consistência, badges de acerto e categoria Revisão.      |
+| **`ambar`**                | `#F5A623`   | Laboratórios práticos e metas     | Alertas de meta semanal, simulados RAG e categoria Lab.             |
+| **`coral`**                | `#FF7A90`   | Provas oficiais, prazos e alertas | Prazos de exames, questões erradas, notificações e categoria Prova. |
+| **`textDark`**             | `#23233A`   | Tipografia de alto contraste      | Títulos, numerais e leitura sem a agressividade do preto puro.      |
+| **`textMuted`**            | `#6F7190`   | Tipografia secundária             | Metadados, descrições auxiliares e rótulos de métricas.             |
+| **`textFaint`**            | `#A7A9C2`   | Elementos inativos e placeholders | Dicas em campos de texto e ícones secundários passivos.             |
+
+### Paleta Canônica Dark Mode (Aster Soft Clay Noturno):
+
+| Token                   | Hex / Valor | Função Semântica                  | Aplicação no Modo Escuro                                           |
+| :---------------------- | :---------- | :-------------------------------- | :----------------------------------------------------------------- |
+| **`bgDark`**            | `#11121C`   | Névoa Noturna profunda            | Fundo geral com iluminação radial suave lavanda/menta.            |
+| **`surfaceCardDark`**   | `#1B1C2A`   | Cartões elevados soft clay        | Cards e modais com sombra profunda e zero bordas secas.           |
+| **`surfaceAltDark`**    | `#24263A`   | Superfície alternativa escurecida | Chips de disciplina, botões secundários e campos de input.         |
+| **`surfaceInsetDark`**  | `#2E3149`   | Superfície rebaixada escura       | Trilhas de progresso e pontos vazios do Consistency Heatmap.       |
+| **`textLight`**         | `#F4F5FB`   | Tipografia clara de alto contraste| Títulos, números do timer e leitura profunda com contraste WCAG AAA.|
+| **`textMutedDark`**     | `#989BB8`   | Tipografia secundária escurecida  | Subtítulos, metadados e rótulos auxiliares.                        |
+| **`textFaintDark`**     | `#656888`   | Elementos inativos escuros        | Dicas, ícones passivos e divisores secundários.                    |
 
 ### Regras Visuais e Construtores:
+
 - **Zero Bordas Rígidas**: Elementos são delimitados por contraste e pelas sombras multicamadas Soft Clay:
   ```dart
   static const List<BoxShadow> clayShadow = [
@@ -253,13 +272,13 @@ O Noesis implementa com fidelidade a especificação visual do ecossistema Aster
   ```
 - **Raios de Curvatura**: `radiusLarge = 28.0` (cards), `radiusMedium = 16.0` (inputs/diálogos), `radiusPill = 999.0` (botões e badges).
 - **Tipografia**: `GoogleFonts.manrope` para interface, cabeçalhos e leitura; `GoogleFonts.jetbrainsMono` para contadores de timer e snippets de código.
-- **Suporte Completo a Dark Mode**: Alternância controlada por `AsterTheme.themeModeNotifier`, trocando dinamicamente as superfícies para tons profundos de grafite/índigo (`#191A26`, `#1E202E`, `#26283B`) mantendo os tokens de destaque (`lavanda`, `menta`, `ambar`, `coral`).
+- **Suporte Completo a Dark Mode & Transição Fluida**: Alternância controlada por `AsterTheme.themeModeNotifier`, com instâncias imutáveis pré-compiladas em memória (`softClayTheme` e `darkTheme`) e animação calibrada em `280ms` com curva `Curves.easeInOutCubic` configurada no `MaterialApp`. Zero recalculação de fontes em runtime e zero lag visual na transição.
 
 ---
 
 ## 5. Estrutura do Código e Arquitetura de Pastas
 
-O projeto adota uma arquitetura modular orientada a funcionalidades (*feature-first*), separando regras essenciais de infraestrutura no diretório `core/`:
+O projeto adota uma arquitetura modular orientada a funcionalidades (_feature-first_), separando regras essenciais de infraestrutura no diretório `core/`:
 
 ```
 c:\Users\User\Desktop\Project\Noesis\
@@ -299,25 +318,28 @@ c:\Users\User\Desktop\Project\Noesis\
 ## 6. Módulos e Funcionalidades Detalhadas
 
 ### 6.1 Shell Adaptativo & Notificações (`lib/main.dart`)
+
 - **Navegação Responsiva**:
   - **Desktop / Tablet (>= 900px)**: Sidebar fixa de 240px com logotipo Noesis, pílula de navegação ativa animada, widget de progresso da meta semanal (ex: `18h / 25h · 72%`), card de perfil com avatar e streak (`🔥 42 dias`), e botão de logout.
   - **Mobile (< 900px)**: Barra de navegação inferior flutuante com ícones táteis e cabeçalho compacto.
 - **Central de Notificações Interativa**:
-  - Painel flutuante em diálogo no Desktop ou *bottom sheet* no Mobile.
+  - Painel flutuante em diálogo no Desktop ou _bottom sheet_ no Mobile.
   - Contador de notificações não lidas em tempo real com indicador visual em `coral`.
   - Notificações com categorias de estudo, simulados e alertas com ação direta: tocar na notificação marca como lida e redireciona imediatamente para a aba correspondente.
 - **Carregamento Otimizado (Lazy Loading)**:
   - Abas são mantidas em cache sob demanda (`_loadedTabs`) para transições instantâneas a 60 FPS sem reconstruções desnecessárias.
 
 ### 6.2 Autenticação & Identidade Aster (`lib/features/auth/auth_screen.dart`)
+
 - **Doppelrand (Double-Bezel Architecture)**: Card de login com moldura concêntrica dupla suave e sombra aveludada.
-- **Alternador de Modo Animado**: *Sliding pill* fluida para alternar entre "Entrar" e "Criar Conta".
+- **Alternador de Modo Animado**: _Sliding pill_ fluida para alternar entre "Entrar" e "Criar Conta".
 - **Integração Supabase Auth**: Login e cadastro com suporte a `full_name` vinculado ao perfil global.
 - **Recuperação de Senha**: Modal com envio de link de redefinição via email por `resetPasswordForEmail`.
 - **Provedores OAuth**: Botões configurados para Google, GitHub, Discord e Apple com tratamento de redirecionamento.
 - **Modo Visitante (Guest Mode)**: Botão "Entrar sem login · Modo de Teste" que permite ao usuário explorar todas as abas, simulados e timers com dados mockados em memória sem precisar criar conta.
 
 ### 6.3 Tracker de Estudos & Métricas (`lib/features/tracker/tracker_screen.dart`)
+
 - **Timer Hero**:
   - Mostrador de alta precisão (`HH:MM:SS`) renderizado via `ValueNotifier<int>` (evitando reconstruir a árvore inteira a cada segundo).
   - Ações de Iniciar, Pausar, Resetar e Registrar no banco Supabase.
@@ -331,6 +353,7 @@ c:\Users\User\Desktop\Project\Noesis\
   - Recomendações sintéticas da IA sobre retenção e revisão espaçada.
 
 ### 6.4 Calendário & Planejamento Cognitivo (`lib/features/calendar/calendar_screen.dart`)
+
 - **Quatro Modos de Visualização**:
   - **Dia**: Detalhamento horário bloco a bloco.
   - **Semana**: Grade horizontal com colunas para cada dia da semana e cálculo de horas diárias.
@@ -348,6 +371,7 @@ c:\Users\User\Desktop\Project\Noesis\
   - Seeding in-memory inteligente de eventos mockados para demonstração imediata caso o banco esteja vazio.
 
 ### 6.5 Simulados RAG & Exames Técnicos (`lib/features/quizzes/quiz_screen.dart`)
+
 - **Presets de Exames Oficiais Integrados**:
   - CompTIA Security+ (SY0-701)
   - AWS Solutions Architect Associate (SAA-C03)
@@ -357,17 +381,18 @@ c:\Users\User\Desktop\Project\Noesis\
   - Kubernetes & CKA
 - **Configurador de Simulado**:
   - Seletor de quantidade de questões (2 a 20).
-  - 3 Níveis de dificuldade: *Iniciante / Fundamentos*, *Médio / Prático*, *Avançado / Nível Certificação*.
+  - 3 Níveis de dificuldade: _Iniciante / Fundamentos_, _Médio / Prático_, _Avançado / Nível Certificação_.
   - Alternador de ingestão de documentos para RAG (`file_picker`), aceitando `.txt`, `.md`, `.json` e `.pdf`.
 - **Interface Interativa de Prova**:
   - Cronômetro regressivo de tempo de prova.
   - Suporte a exibição de snippets de código (`code_snippet`) com visual escuro e numeração de linhas.
-  - Botão de bandeira (*flag*) para marcar questões com dúvida para revisão posterior.
+  - Botão de bandeira (_flag_) para marcar questões com dúvida para revisão posterior.
   - Feedback imediato ou pós-exame com explicação aprofundada da alternativa correta e lista de fontes RAG citadas.
   - Modo Demo Mock instantâneo carregado com 1 clique caso a chave de IA não esteja configurada no momento.
   - Salvamento automático de resultados no Supabase `noesis_quizzes`.
 
 ### 6.6 Agente Cognitivo Noesis AI (`lib/features/ai_agent/ai_assistant_screen.dart`)
+
 - **Interface Conversacional**:
   - Renderização completa de Markdown (`flutter_markdown`) com tabelas, listas e blocos de código.
   - Histórico de diálogo contínuo (`_conversationHistory`).
@@ -378,6 +403,7 @@ c:\Users\User\Desktop\Project\Noesis\
   - Modal com gravador simulado e sugestões de comandos de alta produtividade com envio em 1 toque.
 
 ### 6.7 Central de Configurações (`lib/features/settings/settings_screen.dart`)
+
 - **Aparência e Tema**: Alternador entre Modo Claro (Aster Soft Clay) e Modo Escuro.
 - **Multi-Provedor de IA**:
   - Provedores disponíveis: Google Gemini, OpenAI, Anthropic, xAI Grok, DeepSeek, OpenRouter, Custom REST.
@@ -394,6 +420,7 @@ c:\Users\User\Desktop\Project\Noesis\
 O `GeminiService` atua como um hub agnóstico de IA. Ele opera prioritariamente com o SDK nativo do Google Gemini quando configurado no provedor Google, e faz roteamento automático via REST para provedores compatíveis com OpenAI ou Anthropic.
 
 ### 7.1 Catálogo de Provedores e Modelos Pré-Configurados:
+
 1. **Google**: Modelos `gemini-3.1-flash-lite`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.1-pro-preview`, `gemini-2.0-flash`, `gemini-1.5-flash`.
 2. **OpenAI**: Modelos `gpt-4o`, `gpt-4o-mini`, `o4-mini`.
 3. **Anthropic**: Modelos `claude-sonnet-4`, `claude-haiku-4`.
@@ -403,6 +430,7 @@ O `GeminiService` atua como um hub agnóstico de IA. Ele opera prioritariamente 
 7. **Personalizado (Custom)**: URL base configurável compatível com o endpoint `/chat/completions`.
 
 ### 7.2 Definição das Ferramentas (Tool Calling):
+
 ```dart
 // 1. Ferramenta de registro de estudos
 FunctionDeclaration(
@@ -442,12 +470,14 @@ FunctionDeclaration(
 ## 8. Como Rodar, Compilar e Desenvolver
 
 ### Pré-requisitos
+
 - **Flutter SDK**: 3.50+ (localizado em `C:\src\flutter\bin` no ambiente padrão).
 - **Dart SDK**: 3.14+ (incluso com o Flutter).
 - **Navegador**: Google Chrome ou Edge para execução Web.
 - **Visual Studio C++ Desktop Tools**: Para compilação do executável nativo do Windows.
 
 ### Comandos de Execução (PowerShell):
+
 ```powershell
 # 1. Navegar até o diretório do projeto
 cd "C:\Users\User\Desktop\Project\Noesis"
@@ -472,7 +502,9 @@ flutter build web --release --wasm
 ```
 
 ### Nota de Performance Web (Otimizações Implementadas)
+
 A versão Web do Noesis passou por uma auditoria completa de latência de clique e renderização, atingindo feedback visual < 16 ms e eliminação total de travamentos:
+
 1. **Fontes 100% Locais Offline**: 9 variantes canônicas de Manrope e JetBrains Mono em `assets/fonts/` com `allowRuntimeFetching = false`, eliminando round-trips de rede HTTP ao desenhar tipografia.
 2. **Sombras Soft Clay Otimizadas (`clayListShadow`)**: Redução de camadas de blur na GPU para listas e grids repetitivos, preservando o toque de argila suave.
 3. **Heatmap de Consistência com `CustomPainter`**: Substituição de mais de 240 widgets e 600 RenderObjects por um único canvas desenhado em menos de 0,05 ms.
@@ -507,4 +539,5 @@ Ao receber instruções para criar novas telas, alterar regras de negócio ou re
    - Certifique-se de que a funcionalidade possa ser testada mesmo se o usuário estiver usando o "Modo de Teste" sem login. Mantenha dados de demonstração limpos e coerentes.
 
 ---
-*Este documento é a referência definitiva sobre a arquitetura, modelo de dados e decisões de design do Noesis. Mantenha-o sempre atualizado após modificações estruturais no projeto.*
+
+_Este documento é a referência definitiva sobre a arquitetura, modelo de dados e decisões de design do Noesis. Mantenha-o sempre atualizado após modificações estruturais no projeto._

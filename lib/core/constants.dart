@@ -29,9 +29,18 @@ class AsterConstants {
   static const Color coral = Color(0xFFFF7A90);   // Provas oficiais, prazos, alertas
 
   // Tipografia de Alto Contraste & Muted
-  static const Color textDark = Color(0xFF23233A);   // Títulos, numerais, leitura profunda
+  static const Color textDark = Color(0xFF23233A);   // Títulos, numerais, leitura profunda (Light)
   static const Color textMuted = Color(0xFF6F7190);  // Metadados, subtítulos
   static const Color textFaint = Color(0xFFA7A9C2);  // Bordas e ícones passivos
+
+  // ─── Paleta Oficial Dark Mode: Aster Soft Clay Escuro ───
+  static const Color bgDark = Color(0xFF11121C);          // Névoa Noturna profunda grafite/índigo
+  static const Color surfaceCardDark = Color(0xFF1B1C2A); // Cartões elevados soft clay
+  static const Color surfaceAltDark = Color(0xFF24263A);  // Chips, inputs e superfícies secundárias
+  static const Color surfaceInsetDark = Color(0xFF2E3149);// Trilhas, divisores e bordas sutis
+  static const Color textLight = Color(0xFFF4F5FB);        // Títulos e leitura em alto contraste (Dark)
+  static const Color textMutedDark = Color(0xFF989BB8);    // Subtítulos e metadados no escuro
+  static const Color textFaintDark = Color(0xFF656888);    // Bordas e ícones passivos no escuro
 
   // Compatibilidade com código legado
   static const Color primary = lavanda;
@@ -39,13 +48,11 @@ class AsterConstants {
   static const Color accentRose = coral;
   static const Color accentOrange = ambar;
   static const Color accentAmber = ambar;
-  static const Color bgDark = bgNevoa;
-  static const Color surfaceDark = surfaceAlt;
-  static const Color cardDark = surfaceCard;
-  static const Color cardHover = surfaceAlt;
+  static const Color surfaceDark = surfaceAltDark;
+  static const Color cardDark = surfaceCardDark;
+  static const Color cardHover = surfaceAltDark;
   static const Color borderDark = Colors.transparent;
-  static const Color textLight = textDark;
-  static const Color textDim = textMuted;
+  static const Color textDim = textMutedDark;
 
   // ─── Raios de Curvatura (Clay Radii) ───
   static const double radiusLarge = 28.0;
@@ -82,6 +89,33 @@ class AsterConstants {
       color: Color.fromRGBO(60, 60, 120, 0.07),
       blurRadius: 10,
       offset: Offset(0, 4),
+      spreadRadius: -2,
+    ),
+  ];
+
+  // ─── Sombras Multicamadas Soft Clay para Dark Mode ───
+  static const List<BoxShadow> clayDarkShadow = [
+    BoxShadow(
+      color: Color.fromRGBO(0, 0, 0, 0.35),
+      blurRadius: 24,
+      offset: Offset(0, 8),
+    ),
+  ];
+
+  static const List<BoxShadow> clayListDarkShadow = [
+    BoxShadow(
+      color: Color.fromRGBO(0, 0, 0, 0.32),
+      blurRadius: 10,
+      offset: Offset(0, 4),
+      spreadRadius: -2,
+    ),
+  ];
+
+  static const List<BoxShadow> claySubtleDarkShadow = [
+    BoxShadow(
+      color: Color.fromRGBO(0, 0, 0, 0.25),
+      blurRadius: 8,
+      offset: Offset(0, 3),
       spreadRadius: -2,
     ),
   ];

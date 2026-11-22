@@ -209,7 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
-                      color: isDark ? Colors.white : AsterConstants.textDark,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -218,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Preferências de tema, chave de IA, idiomas do ecossistema e perfil',
                     style: GoogleFonts.manrope(
                       fontSize: 13,
-                      color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                     ),
                   ),
                 ],
@@ -270,11 +270,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         'Aparência e Tema',
-                        style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AsterConstants.textDark),
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                        ),
                       ),
                       Text(
                         'Escolha o modo de exibição ideal para o seu ambiente de estudos',
-                        style: GoogleFonts.manrope(fontSize: 12, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -337,12 +344,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onTap: () => AsterTheme.setThemeMode(mode),
       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected
               ? AsterConstants.lavanda.withValues(alpha: 0.12)
-              : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+              : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
           border: Border.all(
             color: isSelected ? AsterConstants.lavanda : Colors.transparent,
@@ -355,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icon(
               icon,
               size: 26,
-              color: isSelected ? AsterConstants.lavanda : (isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+              color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
             ),
             const SizedBox(height: 10),
             Text(
@@ -363,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: GoogleFonts.manrope(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? AsterConstants.lavanda : (isDark ? Colors.white : AsterConstants.textDark),
+                color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
               ),
             ),
             const SizedBox(height: 2),
@@ -371,7 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle,
               style: GoogleFonts.manrope(
                 fontSize: 10.5,
-                color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
               ),
             ),
           ],
@@ -415,14 +423,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AsterConstants.textDark,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       ),
                     ),
                     Text(
                       'Escolha o provedor de IA, personalize a URL e selecione modelos recomendados',
                       style: GoogleFonts.manrope(
                         fontSize: 12,
-                        color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                       ),
                     ),
                   ],
@@ -468,7 +476,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
-              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
             ),
           ),
           const SizedBox(height: 8),
@@ -493,18 +501,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () => _onSelectProvider(p.id),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeInOutCubic,
                       width: itemWidth,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AsterConstants.lavanda.withValues(alpha: 0.12)
-                            : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+                            : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                         border: Border.all(
                           color: isSelected
                               ? AsterConstants.lavanda
-                              : (isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset),
+                              : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
                           width: isSelected ? 1.8 : 1,
                         ),
                       ),
@@ -521,7 +530,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                                     color: isSelected
                                         ? AsterConstants.lavanda
-                                        : (isDark ? Colors.white : AsterConstants.textDark),
+                                        : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -531,7 +540,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       : 'URL e modelo próprios',
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
-                                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                                   ),
                                 ),
                               ],
@@ -557,13 +566,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.8,
-                color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
               ),
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _baseUrlController,
-              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
               decoration: const InputDecoration(
                 hintText: 'https://api.exemplo.com/v1',
                 prefixIcon: Icon(Icons.link_rounded, size: 18, color: AsterConstants.lavanda),
@@ -572,7 +581,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 6),
             Text(
               '💡 A URL deve aceitar o formato de chat completions. O Noesis acrescenta /chat/completions se necessário.',
-              style: GoogleFonts.manrope(fontSize: 11, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+              style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
             ),
             const SizedBox(height: 16),
           ],
@@ -584,14 +593,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
-              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
             ),
           ),
           const SizedBox(height: 6),
           TextField(
             controller: _apiKeyController,
             obscureText: _obscureApiKey,
-            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
             decoration: InputDecoration(
               hintText: _selectedProviderId == 'custom'
                   ? 'Opcional para provedores locais (ex: Ollama/LM Studio)'
@@ -601,7 +610,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icon(
                   _obscureApiKey ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                   size: 20,
-                  color: AsterConstants.textMuted,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                 ),
                 onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
               ),
@@ -650,7 +659,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Abre o console de credenciais oficial em nova aba',
                   style: GoogleFonts.manrope(
                     fontSize: 11.5,
-                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                   ),
                 ),
               ],
@@ -665,17 +674,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
-              color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
             ),
           ),
           const SizedBox(height: 6),
           if (currentProv.models.isNotEmpty && !_isManualModelMode) ...[
             Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt,
+                color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset,
+                  color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
                   width: 1,
                 ),
               ),
@@ -686,7 +695,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? _modelController.text.trim()
                       : currentProv.defaultModel,
                   isExpanded: true,
-                  dropdownColor: isDark ? const Color(0xFF1E2030) : AsterConstants.surfaceCard,
+                  dropdownColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                   borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AsterConstants.lavanda),
                   items: [
@@ -704,7 +713,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 style: GoogleFonts.jetBrainsMono(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: isDark ? Colors.white : AsterConstants.textDark,
+                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                                 ),
                               ),
                             ),
@@ -733,7 +742,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       value: '__custom__',
                       child: Row(
                         children: [
-                          const Icon(Icons.edit_note_rounded, size: 18, color: AsterConstants.textMuted),
+                          Icon(Icons.edit_note_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                           const SizedBox(width: 10),
                           Text(
                             'Personalizado (digitar outro modelo...)',
@@ -767,7 +776,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Modelo ativo: ',
                   style: GoogleFonts.manrope(
                     fontSize: 11,
-                    color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
+                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                   ),
                 ),
                 Text(
@@ -805,7 +814,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ] else ...[
             TextField(
               controller: _modelController,
-              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? Colors.white : AsterConstants.textDark),
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
               decoration: InputDecoration(
                 hintText: currentProv.models.isNotEmpty
                     ? 'Digite o ID do modelo (ex: ${currentProv.defaultModel})'
@@ -971,11 +980,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     'Idioma e Região',
-                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AsterConstants.textDark),
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    ),
                   ),
                   Text(
                     'Todos os 15 idiomas suportados no ecossistema Aster Portfolio',
-                    style: GoogleFonts.manrope(fontSize: 12, color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted),
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -1035,13 +1051,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeInOutCubic,
                       width: itemWidth,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AsterConstants.lavanda.withValues(alpha: 0.12)
-                            : (isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt),
+                            : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                         border: Border.all(
                           color: isSelected ? AsterConstants.lavanda : Colors.transparent,
@@ -1063,7 +1080,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                                     color: isSelected
                                         ? AsterConstants.lavanda
-                                        : (isDark ? Colors.white : AsterConstants.textDark),
+                                        : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -1074,7 +1091,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     color: isDark
-                                        ? const Color(0xFF9093B5)
+                                        ? AsterConstants.textMutedDark
                                         : AsterConstants.textMuted,
                                   ),
                                 ),
