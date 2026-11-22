@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -17,6 +18,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
   // Timer State
   Timer? _timer;
   int _secondsElapsed = 47 * 60 + 12; // Inicia em 00:47:12 para demonstrar o visual idêntico ao mock
+  late final ValueNotifier<int> _secondsNotifier;
+  late final ValueNotifier<bool> _isTimerRunningNotifier;
+  late final ValueNotifier<String> _activeSubjectNotifier;
+  late final Stream<List<Map<String, dynamic>>> _sessionsStream;
   bool _isTimerRunning = false;
   String _activeSubject = 'Criptografia';
 
@@ -26,24 +31,56 @@ class _TrackerScreenState extends State<TrackerScreen> {
   final _durationController = TextEditingController();
   final _notesController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _secondsNotifier = ValueNotifier<int>(_secondsElapsed);
+    _isTimerRunningNotifier = ValueNotifier<bool>(_isTimerRunning);
+    _activeSubjectNotifier = ValueNotifier<String>(_activeSubject);
+    _sessionsStream = SupabaseService.studySessionsStream().distinct((prev, next) {
+      if (prev.length != next.length) return false;
+      for (int i = 0; i < prev.length; i++) {
+        if (!mapEquals(prev[i], next[i])) return false;
+      }
+      return true;
+    });
+  }
+
   void _startTimer() {
-    setState(() => _isTimerRunning = true);
+    _isTimerRunning = true;
+    _isTimerRunningNotifier.value = true;
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() => _secondsElapsed++);
+      _secondsElapsed++;
+      _secondsNotifier.value = _secondsElapsed;
     });
   }
 
   void _pauseTimer() {
     _timer?.cancel();
-    setState(() => _isTimerRunning = false);
+    _isTimerRunning = false;
+    _isTimerRunningNotifier.value = false;
   }
 
   void _resetTimer() {
     _timer?.cancel();
-    setState(() {
-      _secondsElapsed = 0;
-      _isTimerRunning = false;
-    });
+    _secondsElapsed = 0;
+    _secondsNotifier.value = 0;
+    _isTimerRunning = false;
+    _isTimerRunningNotifier.value = false;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _secondsNotifier.dispose();
+    _isTimerRunningNotifier.dispose();
+    _activeSubjectNotifier.dispose();
+    _subjectController.dispose();
+    _topicController.dispose();
+    _durationController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   String _formatHours(int seconds) => (seconds ~/ 3600).toString().padLeft(2, '0');
@@ -100,30 +137,37 @@ class _TrackerScreenState extends State<TrackerScreen> {
           ),
           SoftClayPillButton(
             text: 'Salvar Sessão',
-            onPressed: () async {
+            onPressed: () {
               final subject = _subjectController.text.trim();
               final topic = _topicController.text.trim();
               final duration = int.tryParse(_durationController.text.trim()) ?? 0;
+              final notes = _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null;
 
               if (subject.isNotEmpty && topic.isNotEmpty && duration > 0) {
-                await SupabaseService.addStudySession(
-                  subject: subject,
-                  topic: topic,
-                  durationMinutes: duration,
-                  studyDate: DateTime.now(),
-                  notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-                );
-                if (mounted && ctx.mounted) {
-                  Navigator.pop(ctx);
-                  _subjectController.clear();
-                  _topicController.clear();
-                  _durationController.clear();
-                  _notesController.clear();
-                  _resetTimer();
+                // Fechamento imediato do modal (0ms UI feedback otimista)
+                Navigator.pop(ctx);
+                _subjectController.clear();
+                _topicController.clear();
+                _durationController.clear();
+                _notesController.clear();
+                _resetTimer();
+
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Sessão registrada com sucesso!')),
                   );
                 }
+
+                // Sincronização em segundo plano via SupabaseService com tratamento de erro
+                SupabaseService.addStudySession(
+                  subject: subject,
+                  topic: topic,
+                  durationMinutes: duration,
+                  studyDate: DateTime.now(),
+                  notes: notes,
+                ).catchError((e) {
+                  debugPrint('Erro ao sincronizar sessão de estudo: $e');
+                });
               }
             },
           ),
@@ -133,21 +177,95 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 900;
 
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 28.0 : 16.0,
+        vertical: 12.0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ─── Linha 1: Timer Hero & Horas Estudadas ───
+          if (isDesktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: _buildTimerHeroCard()),
+                const SizedBox(width: 20),
+                Expanded(flex: 2, child: _buildLoweredHoursStatsCard()),
+              ],
+            )
+          else ...[
+            _buildTimerHeroCard(),
+            const SizedBox(height: 16),
+            _buildLoweredHoursStatsCard(),
+          ],
+
+          const SizedBox(height: 20),
+
+          // ─── Linha 2: Distribuição & Heatmap de Consistência ───
+          if (isDesktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: _buildLoweredDistributionCard()),
+                const SizedBox(width: 20),
+                Expanded(flex: 3, child: _buildHeatmapCard()),
+              ],
+            )
+          else ...[
+            _buildLoweredDistributionCard(),
+            const SizedBox(height: 16),
+            _buildHeatmapCard(),
+          ],
+
+          const SizedBox(height: 20),
+
+          // ─── Linha 3: Sessões Recentes & Insight do Agente ───
+          if (isDesktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: _buildLoweredRecentSessionsCard()),
+                const SizedBox(width: 20),
+                Expanded(flex: 2, child: _buildAgentInsightCard()),
+              ],
+            )
+          else ...[
+            _buildLoweredRecentSessionsCard(),
+            const SizedBox(height: 16),
+            _buildAgentInsightCard(),
+          ],
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoweredHoursStatsCard() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: SupabaseService.studySessionsStream(),
+      stream: _sessionsStream,
       builder: (context, snapshot) {
         final sessions = snapshot.data ?? [];
+        int totalMinutes = 0;
+        for (var s in sessions) {
+          totalMinutes += (s['duration_minutes'] as num?)?.toInt() ?? 0;
+        }
+        if (totalMinutes == 0) totalMinutes = 123 * 60;
+        return _buildHoursStatsCard(totalMinutes);
+      },
+    );
+  }
 
-        // Agregação de Métricas
+  Widget _buildLoweredDistributionCard() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _sessionsStream,
+      builder: (context, snapshot) {
+        final sessions = snapshot.data ?? [];
         int totalMinutes = 0;
         final Map<String, int> subjectMinutes = {};
         for (var s in sessions) {
@@ -156,8 +274,6 @@ class _TrackerScreenState extends State<TrackerScreen> {
           final String sub = (s['subject'] as String?) ?? 'Outros';
           subjectMinutes[sub] = (subjectMinutes[sub] ?? 0) + m;
         }
-
-        // Mock fallback se o banco for novo, para exibir a rica distribuição do design de Obsidian
         if (subjectMinutes.isEmpty) {
           subjectMinutes['Criptografia'] = 42 * 60;
           subjectMinutes['Cloud / AWS'] = 31 * 60;
@@ -165,71 +281,17 @@ class _TrackerScreenState extends State<TrackerScreen> {
           subjectMinutes['Sistemas Dist.'] = 23 * 60;
           totalMinutes = 123 * 60;
         }
+        return _buildDistributionCard(subjectMinutes, totalMinutes);
+      },
+    );
+  }
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: isDesktop ? 28.0 : 16.0,
-            vertical: 12.0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ─── Linha 1: Timer Hero & Horas Estudadas ───
-              if (isDesktop)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 3, child: _buildTimerHeroCard()),
-                    const SizedBox(width: 20),
-                    Expanded(flex: 2, child: _buildHoursStatsCard(totalMinutes)),
-                  ],
-                )
-              else ...[
-                _buildTimerHeroCard(),
-                const SizedBox(height: 16),
-                _buildHoursStatsCard(totalMinutes),
-              ],
-
-              const SizedBox(height: 20),
-
-              // ─── Linha 2: Distribuição & Heatmap de Consistência ───
-              if (isDesktop)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 2, child: _buildDistributionCard(subjectMinutes, totalMinutes)),
-                    const SizedBox(width: 20),
-                    Expanded(flex: 3, child: _buildHeatmapCard()),
-                  ],
-                )
-              else ...[
-                _buildDistributionCard(subjectMinutes, totalMinutes),
-                const SizedBox(height: 16),
-                _buildHeatmapCard(),
-              ],
-
-              const SizedBox(height: 20),
-
-              // ─── Linha 3: Sessões Recentes & Insight do Agente ───
-              if (isDesktop)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 3, child: _buildRecentSessionsCard(sessions)),
-                    const SizedBox(width: 20),
-                    Expanded(flex: 2, child: _buildAgentInsightCard()),
-                  ],
-                )
-              else ...[
-                _buildRecentSessionsCard(sessions),
-                const SizedBox(height: 16),
-                _buildAgentInsightCard(),
-              ],
-
-              const SizedBox(height: 32),
-            ],
-          ),
-        );
+  Widget _buildLoweredRecentSessionsCard() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _sessionsStream,
+      builder: (context, snapshot) {
+        final sessions = snapshot.data ?? [];
+        return _buildRecentSessionsCard(sessions);
       },
     );
   }
@@ -266,27 +328,37 @@ class _TrackerScreenState extends State<TrackerScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Mostrador do Timer
+          // Mostrador do Timer com ValueListenableBuilder (apenas os dígitos re-renderizam a cada segundo)
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                '${_formatHours(_secondsElapsed)}:${_formatMinutes(_secondsElapsed)}',
-                style: GoogleFonts.manrope(
-                  fontSize: 54,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1.5,
-                  color: AsterConstants.textDark,
-                ),
-              ),
-              Text(
-                ':${_formatSecs(_secondsElapsed)}',
-                style: GoogleFonts.manrope(
-                  fontSize: 54,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1.5,
-                  color: AsterConstants.lavanda.withValues(alpha: 0.65),
-                ),
+              ValueListenableBuilder<int>(
+                valueListenable: _secondsNotifier,
+                builder: (context, seconds, _) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_formatHours(seconds)}:${_formatMinutes(seconds)}',
+                        style: GoogleFonts.manrope(
+                          fontSize: 54,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.5,
+                          color: AsterConstants.textDark,
+                        ),
+                      ),
+                      Text(
+                        ':${_formatSecs(seconds)}',
+                        style: GoogleFonts.manrope(
+                          fontSize: 54,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.5,
+                          color: AsterConstants.lavanda.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const Spacer(),
 
@@ -310,40 +382,45 @@ class _TrackerScreenState extends State<TrackerScreen> {
               const SizedBox(width: 10),
 
               // Botão Play / Pausar Primário
-              Container(
-                decoration: const BoxDecoration(
-                  color: AsterConstants.lavanda,
-                  borderRadius: BorderRadius.all(Radius.circular(AsterConstants.radiusPill)),
-                  boxShadow: AsterConstants.primaryButtonShadow,
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                    onTap: _isTimerRunning ? _pauseTimer : _startTimer,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 20,
+              ValueListenableBuilder<bool>(
+                valueListenable: _isTimerRunningNotifier,
+                builder: (context, isRunning, _) {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      color: AsterConstants.lavanda,
+                      borderRadius: BorderRadius.all(Radius.circular(AsterConstants.radiusPill)),
+                      boxShadow: AsterConstants.primaryButtonShadow,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        onTap: isRunning ? _pauseTimer : _startTimer,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isRunning ? 'Pausar' : 'Iniciar',
+                                style: GoogleFonts.manrope(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _isTimerRunning ? 'Pausar' : 'Iniciar',
-                            style: GoogleFonts.manrope(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
               const SizedBox(width: 10),
 
@@ -371,13 +448,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
           // Chips de Disciplina & Meta da Sessão
           Row(
             children: [
-              SoftClayTag(
-                label: _activeSubject,
-                color: AsterConstants.lavanda,
-                onTap: () {
-                  setState(() {
-                    _activeSubject = _activeSubject == 'Criptografia' ? 'Cloud / AWS' : 'Criptografia';
-                  });
+              ValueListenableBuilder<String>(
+                valueListenable: _activeSubjectNotifier,
+                builder: (context, activeSubject, _) {
+                  return SoftClayTag(
+                    label: activeSubject,
+                    color: AsterConstants.lavanda,
+                    onTap: () {
+                      final next = activeSubject == 'Criptografia' ? 'Cloud / AWS' : 'Criptografia';
+                      _activeSubject = next;
+                      _activeSubjectNotifier.value = next;
+                    },
+                  );
                 },
               ),
               const SizedBox(width: 12),
@@ -394,14 +476,17 @@ class _TrackerScreenState extends State<TrackerScreen> {
           const SizedBox(height: 16),
 
           // Linha de Progresso Suave Inferior
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-            child: LinearProgressIndicator(
-              value: (_secondsElapsed / (90 * 60)).clamp(0.0, 1.0),
-              minHeight: 4,
-              backgroundColor: AsterConstants.surfaceInset,
-              valueColor: const AlwaysStoppedAnimation(AsterConstants.lavanda),
-            ),
+          ValueListenableBuilder<int>(
+            valueListenable: _secondsNotifier,
+            builder: (context, seconds, _) {
+              return LinearProgressIndicator(
+                value: (seconds / (90 * 60)).clamp(0.0, 1.0),
+                minHeight: 4,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                backgroundColor: AsterConstants.surfaceInset,
+                valueColor: const AlwaysStoppedAnimation(AsterConstants.lavanda),
+              );
+            },
           ),
         ],
       ),
@@ -412,7 +497,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   Widget _buildHoursStatsCard(int totalMinutes) {
     final hours = (totalMinutes / 60).toStringAsFixed(0);
 
-    return SoftClayCard(
+    return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,7 +544,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
           // Mini Gráfico de Barras em Pílula
           SizedBox(
-            height: 64,
+            height: 72,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -485,7 +570,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       children: [
         Container(
           width: 16,
-          height: 48 * heightFraction,
+          height: 44 * heightFraction,
           decoration: BoxDecoration(
             color: isHighlight ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -513,7 +598,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       AsterConstants.coral,
     ];
 
-    return SoftClayCard(
+    return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,20 +627,22 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 36,
-                        sections: subjectMinutes.entries.toList().asMap().entries.map((item) {
-                          final color = colors[item.key % colors.length];
-                          final val = item.value.value.toDouble();
-                          return PieChartSectionData(
-                            color: color,
-                            value: val,
-                            radius: 14,
-                            showTitle: false,
-                          );
-                        }).toList(),
+                    RepaintBoundary(
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 2,
+                          centerSpaceRadius: 36,
+                          sections: subjectMinutes.entries.toList().asMap().entries.map((item) {
+                            final color = colors[item.key % colors.length];
+                            final val = item.value.value.toDouble();
+                            return PieChartSectionData(
+                              color: color,
+                              value: val,
+                              radius: 14,
+                              showTitle: false,
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                     Column(
@@ -618,7 +705,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
   // ─── Widget: Consistência · 182 dias (Heatmap) ───
   Widget _buildHeatmapCard() {
-    return SoftClayCard(
+    return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,36 +736,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Grid de Pontos Suaves
-              Expanded(
+              const Expanded(
                 child: SizedBox(
                   height: 110,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(26, (col) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 5),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(7, (row) {
-                              // Determinar densidade simulada
-                              final seed = (col * 7 + row);
-                              int level = 0;
-                              if (seed % 11 == 0) {
-                                level = 4;
-                              } else if (seed % 5 == 0) {
-                                level = 3;
-                              } else if (seed % 3 == 0) {
-                                level = 2;
-                              } else if (seed % 2 == 0) {
-                                level = 1;
-                              }
-                              return _buildDot(level);
-                            }),
-                          ),
-                        );
-                      }),
-                    ),
+                    child: ConsistencyHeatmap(),
                   ),
                 ),
               ),
@@ -715,30 +778,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   Widget _buildDot(int level) {
-    Color dotColor;
-    switch (level) {
-      case 4:
-        dotColor = AsterConstants.menta;
-        break;
-      case 3:
-        dotColor = AsterConstants.menta.withValues(alpha: 0.7);
-        break;
-      case 2:
-        dotColor = AsterConstants.menta.withValues(alpha: 0.45);
-        break;
-      case 1:
-        dotColor = AsterConstants.menta.withValues(alpha: 0.22);
-        break;
-      default:
-        dotColor = AsterConstants.surfaceInset;
-    }
-
     return Container(
       width: 9,
       height: 9,
       margin: const EdgeInsets.symmetric(horizontal: 1.5),
       decoration: BoxDecoration(
-        color: dotColor,
+        color: ConsistencyHeatmap.colorForLevel(level),
         shape: BoxShape.circle,
       ),
     );
@@ -774,7 +819,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       },
     ];
 
-    return SoftClayCard(
+    return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,6 +946,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
               ),
               if (onDelete != null)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: onDelete,
                   child: const Padding(
                     padding: EdgeInsets.only(top: 4),
@@ -916,7 +962,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
   // ─── Widget: Insight do Agente (Noesis AI) ───
   Widget _buildAgentInsightCard() {
-    return SoftClayCard(
+    return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -994,33 +1040,35 @@ class _TrackerScreenState extends State<TrackerScreen> {
               SizedBox(
                 width: 90,
                 height: 32,
-                child: LineChart(
-                  LineChartData(
-                    gridData: const FlGridData(show: false),
-                    titlesData: const FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    minX: 0,
-                    maxX: 6,
-                    minY: 50,
-                    maxY: 100,
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: const [
-                          FlSpot(0, 65),
-                          FlSpot(1, 68),
-                          FlSpot(2, 60),
-                          FlSpot(3, 72),
-                          FlSpot(4, 70),
-                          FlSpot(5, 75),
-                          FlSpot(6, 78),
-                        ],
-                        isCurved: true,
-                        color: AsterConstants.menta,
-                        barWidth: 2.5,
-                        isStrokeCapRound: true,
-                        dotData: const FlDotData(show: false),
-                      ),
-                    ],
+                child: RepaintBoundary(
+                  child: LineChart(
+                    LineChartData(
+                      gridData: const FlGridData(show: false),
+                      titlesData: const FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                      minX: 0,
+                      maxX: 6,
+                      minY: 50,
+                      maxY: 100,
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: const [
+                            FlSpot(0, 65),
+                            FlSpot(1, 68),
+                            FlSpot(2, 60),
+                            FlSpot(3, 72),
+                            FlSpot(4, 70),
+                            FlSpot(5, 75),
+                            FlSpot(6, 78),
+                          ],
+                          isCurved: true,
+                          color: AsterConstants.menta,
+                          barWidth: 2.5,
+                          isStrokeCapRound: true,
+                          dotData: const FlDotData(show: false),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1029,5 +1077,106 @@ class _TrackerScreenState extends State<TrackerScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Widget de Heatmap de Consistência Otimizado com CustomPainter
+class ConsistencyHeatmap extends StatelessWidget {
+  final int columns;
+  final int rows;
+  final List<List<int>>? levels;
+
+  const ConsistencyHeatmap({
+    super.key,
+    this.columns = 26,
+    this.rows = 7,
+    this.levels,
+  });
+
+  static Color colorForLevel(int level) {
+    switch (level) {
+      case 4:
+        return AsterConstants.menta;
+      case 3:
+        return AsterConstants.menta.withValues(alpha: 0.7);
+      case 2:
+        return AsterConstants.menta.withValues(alpha: 0.45);
+      case 1:
+        return AsterConstants.menta.withValues(alpha: 0.22);
+      default:
+        return AsterConstants.surfaceInset;
+    }
+  }
+
+  static int simulatedLevelFor(int col, int row) {
+    final seed = col * 7 + row;
+    if (seed % 11 == 0) return 4;
+    if (seed % 5 == 0) return 3;
+    if (seed % 3 == 0) return 2;
+    if (seed % 2 == 0) return 1;
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double colWidth = 17.0;
+    final totalWidth = columns * colWidth;
+
+    return RepaintBoundary(
+      child: CustomPaint(
+        size: Size(totalWidth, 110),
+        painter: _HeatmapPainter(
+          columns: columns,
+          rows: rows,
+          levels: levels,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeatmapPainter extends CustomPainter {
+  final int columns;
+  final int rows;
+  final List<List<int>>? levels;
+
+  _HeatmapPainter({
+    required this.columns,
+    required this.rows,
+    this.levels,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double dotDiameter = 9.0;
+    const double dotRadius = dotDiameter / 2.0;
+    const double colStep = 17.0;
+    const double startX = 1.5 + dotRadius;
+    final double rowStep = (size.height - dotDiameter) / (rows - 1);
+
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int col = 0; col < columns; col++) {
+      final double cx = col * colStep + startX;
+      for (int row = 0; row < rows; row++) {
+        final double cy = row * rowStep + dotRadius;
+        final int level;
+        if (levels != null && col < levels!.length && row < levels![col].length) {
+          level = levels![col][row];
+        } else {
+          level = ConsistencyHeatmap.simulatedLevelFor(col, row);
+        }
+
+        paint.color = ConsistencyHeatmap.colorForLevel(level);
+        canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
+    return oldDelegate.columns != columns ||
+        oldDelegate.rows != rows ||
+        oldDelegate.levels != levels;
   }
 }

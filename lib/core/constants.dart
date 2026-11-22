@@ -52,17 +52,17 @@ class AsterConstants {
   static const double radiusMedium = 16.0;
   static const double radiusPill = 999.0;
 
-  // ─── Sombras Multicamadas Soft Clay ───
+  // ─── Sombras Multicamadas Soft Clay (Otimizadas para 60/120 FPS no CanvasKit/WebGL) ───
   static const List<BoxShadow> clayShadow = [
     BoxShadow(
-      color: Color.fromRGBO(60, 60, 120, 0.09),
-      blurRadius: 36,
-      offset: Offset(0, 18),
-      spreadRadius: -14,
+      color: Color.fromRGBO(60, 60, 120, 0.08),
+      blurRadius: 18,
+      offset: Offset(0, 8),
+      spreadRadius: -4,
     ),
     BoxShadow(
-      color: Color.fromRGBO(60, 60, 120, 0.04),
-      blurRadius: 10,
+      color: Color.fromRGBO(60, 60, 120, 0.03),
+      blurRadius: 6,
       offset: Offset(0, 2),
       spreadRadius: 0,
     ),
@@ -70,8 +70,17 @@ class AsterConstants {
 
   static const List<BoxShadow> claySubtleShadow = [
     BoxShadow(
-      color: Color.fromRGBO(60, 60, 120, 0.06),
-      blurRadius: 12,
+      color: Color.fromRGBO(60, 60, 120, 0.05),
+      blurRadius: 8,
+      offset: Offset(0, 3),
+      spreadRadius: -2,
+    ),
+  ];
+
+  static const List<BoxShadow> clayListShadow = [
+    BoxShadow(
+      color: Color.fromRGBO(60, 60, 120, 0.07),
+      blurRadius: 10,
       offset: Offset(0, 4),
       spreadRadius: -2,
     ),
@@ -79,10 +88,10 @@ class AsterConstants {
 
   static const List<BoxShadow> primaryButtonShadow = [
     BoxShadow(
-      color: Color.fromRGBO(124, 108, 240, 0.42),
-      blurRadius: 20,
-      offset: Offset(0, 8),
-      spreadRadius: -4,
+      color: Color.fromRGBO(124, 108, 240, 0.35),
+      blurRadius: 12,
+      offset: Offset(0, 5),
+      spreadRadius: -2,
     ),
   ];
 }

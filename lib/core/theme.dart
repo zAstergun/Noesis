@@ -3,9 +3,19 @@ import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
 import 'constants.dart';
 
 class AsterTheme {
+  static final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.light);
+
+  static bool get isDarkMode => themeModeNotifier.value == ThemeMode.dark;
+
+  static void setThemeMode(ThemeMode mode) {
+    themeModeNotifier.value = mode;
+  }
+
   static ThemeData get softClayTheme {
     return ThemeData(
       useMaterial3: true,
+      splashFactory: InkRipple.splashFactory,
+      highlightColor: Colors.transparent,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AsterConstants.bgNevoa,
       primaryColor: AsterConstants.lavanda,
@@ -115,11 +125,85 @@ class AsterTheme {
     );
   }
 
-  // Compatibilidade com imports antigos
-  static ThemeData get darkTheme => softClayTheme;
+  static ThemeData get darkTheme {
+    const bgDark = Color(0xFF13141F);
+    const surfaceCardDark = Color(0xFF1D1F2E);
+    const surfaceAltDark = Color(0xFF26283B);
+    const textLight = Color(0xFFF1F2F8);
+    const textMutedDark = Color(0xFF9093B5);
+
+    return ThemeData(
+      useMaterial3: true,
+      splashFactory: InkRipple.splashFactory,
+      highlightColor: Colors.transparent,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: bgDark,
+      primaryColor: AsterConstants.lavanda,
+      colorScheme: const ColorScheme.dark(
+        primary: AsterConstants.lavanda,
+        secondary: AsterConstants.menta,
+        surface: surfaceCardDark,
+        error: AsterConstants.coral,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textLight,
+      ),
+      textTheme: TextTheme(
+        displayLarge: GoogleFonts.manrope(color: textLight, fontWeight: FontWeight.w800, letterSpacing: -0.8),
+        displayMedium: GoogleFonts.manrope(color: textLight, fontWeight: FontWeight.w800, letterSpacing: -0.6),
+        titleLarge: GoogleFonts.manrope(color: textLight, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+        titleMedium: GoogleFonts.manrope(color: textLight, fontWeight: FontWeight.w700),
+        bodyLarge: GoogleFonts.manrope(color: textLight, fontSize: 15),
+        bodyMedium: GoogleFonts.manrope(color: textLight, fontSize: 14),
+        bodySmall: GoogleFonts.manrope(color: textMutedDark, fontSize: 12),
+      ),
+      cardTheme: CardThemeData(
+        color: surfaceCardDark,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+          side: BorderSide.none,
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: GoogleFonts.manrope(color: textLight, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3),
+        iconTheme: const IconThemeData(color: textLight),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surfaceAltDark,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium), borderSide: const BorderSide(color: AsterConstants.lavanda, width: 1.5)),
+        hintStyle: GoogleFonts.manrope(color: textMutedDark.withValues(alpha: 0.6), fontSize: 13),
+        labelStyle: GoogleFonts.manrope(color: textMutedDark, fontSize: 13),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AsterConstants.lavanda,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium)),
+          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF282A3E),
+        thickness: 1,
+        space: 1,
+      ),
+    );
+  }
 }
 
-/// Fundo oficial com iluminação radial suave em Lavanda e Menta
+/// Fundo oficial com iluminação radial suave em Lavanda e Menta (Isolado em GPU Layer)
 class SoftClayBackground extends StatelessWidget {
   final Widget child;
 
@@ -127,42 +211,57 @@ class SoftClayBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AsterConstants.bgNevoa,
-        gradient: RadialGradient(
-          center: Alignment(0.85, -0.9),
-          radius: 1.1,
-          colors: [
-            Color(0x1F7C6CF0), // 12% Lavanda
-            Colors.transparent,
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: -150,
-            bottom: -150,
-            width: 450,
-            height: 450,
-            child: IgnorePointer(
-              child: Container(
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Color(0x1F3CCF9A), // 12% Menta
-                      Colors.transparent,
-                    ],
-                  ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF13141F) : AsterConstants.bgNevoa;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // ─── Camada de Fundo Estática Isolada (Zero repaints na interação) ───
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                gradient: RadialGradient(
+                  center: const Alignment(0.85, -0.9),
+                  radius: 1.1,
+                  colors: [
+                    isDark ? const Color(0x287C6CF0) : const Color(0x1F7C6CF0), // 12-16% Lavanda
+                    Colors.transparent,
+                  ],
                 ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: -150,
+                    bottom: -150,
+                    width: 450,
+                    height: 450,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              isDark ? const Color(0x283CCF9A) : const Color(0x1F3CCF9A), // 12-16% Menta
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          child,
-        ],
-      ),
+        ),
+
+        // ─── Conteúdo Interativo do App ───
+        child,
+      ],
     );
   }
 }
@@ -177,6 +276,8 @@ class SoftClayCard extends StatelessWidget {
   final Color? color;
   final double borderRadius;
   final VoidCallback? onTap;
+  final bool useListShadow;
+  final List<BoxShadow>? shadow;
 
   const SoftClayCard({
     super.key,
@@ -188,14 +289,41 @@ class SoftClayCard extends StatelessWidget {
     this.color,
     this.borderRadius = AsterConstants.radiusLarge,
     this.onTap,
+    this.useListShadow = false,
+    this.shadow,
   });
+
+  const SoftClayCard.list({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(22),
+    this.margin,
+    this.width,
+    this.height,
+    this.color,
+    this.borderRadius = AsterConstants.radiusLarge,
+    this.onTap,
+    this.shadow,
+  }) : useListShadow = true;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = color ?? (isDark ? const Color(0xFF1D1F2E) : AsterConstants.surfaceCard);
+    final defaultShadow = useListShadow ? AsterConstants.clayListShadow : AsterConstants.clayShadow;
+
     final decoration = BoxDecoration(
-      color: color ?? AsterConstants.surfaceCard,
+      color: cardBg,
       borderRadius: BorderRadius.circular(borderRadius),
-      boxShadow: AsterConstants.clayShadow,
+      boxShadow: shadow ?? (isDark
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ]
+          : defaultShadow),
     );
 
     Widget content = Container(
