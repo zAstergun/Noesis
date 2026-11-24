@@ -15,6 +15,22 @@ String _decodeUtf8Bytes(List<int> bytes) {
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
 
+  static final ValueNotifier<Map<String, dynamic>?> externalQuizStarter = ValueNotifier(null);
+
+  static void startQuiz({
+    required String title,
+    required String subject,
+    required List<Map<String, dynamic>> questions,
+    String? difficulty,
+  }) {
+    externalQuizStarter.value = {
+      'title': title,
+      'subject': subject,
+      'questions': questions,
+      'difficulty': difficulty,
+    };
+  }
+
   @override
   State<QuizScreen> createState() => _QuizScreenState();
 }
@@ -138,6 +154,31 @@ class _QuizScreenState extends State<QuizScreen> {
     _timerNotifier = ValueNotifier<int>(_remainingSeconds);
     // Inicia na tela do Gerador com opção imediata de carregar a Demo
     _activeQuestions = null;
+    QuizScreen.externalQuizStarter.addListener(_onExternalQuizStarted);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (QuizScreen.externalQuizStarter.value != null) {
+        _onExternalQuizStarted();
+      }
+    });
+  }
+
+  void _onExternalQuizStarted() {
+    final data = QuizScreen.externalQuizStarter.value;
+    if (data != null && mounted) {
+      setState(() {
+        _subjectController.text = data['subject'] ?? 'Geral';
+        _topicController.text = data['title'] ?? 'Simulado Noesis AI';
+        _difficulty = data['difficulty'] ?? 'Médio / Prático';
+        _activeQuestions = List<Map<String, dynamic>>.from(data['questions']);
+        _questionCount = _activeQuestions!.length;
+        _currentQuestionIndex = 0;
+        _userAnswers.clear();
+        _flaggedQuestions.clear();
+        _remainingSeconds = _questionCount * 120;
+        _startTimer();
+      });
+      QuizScreen.externalQuizStarter.value = null;
+    }
   }
 
   void _loadDemoMockQuiz() {
@@ -429,6 +470,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   void dispose() {
+    QuizScreen.externalQuizStarter.removeListener(_onExternalQuizStarted);
     _examTimer?.cancel();
     super.dispose();
   }
@@ -1536,31 +1578,55 @@ class _QuizScreenState extends State<QuizScreen> {
           const SizedBox(height: 28),
 
           // ── Botões de Ação Final (Criar com IA ou Testar Demo) ──
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: SoftClayPillButton(
-                  text: _isGenerating
-                      ? 'Gerando Simulado com ${GeminiService.currentProvider.label}...'
-                      : 'Criar Prova Interativa com IA',
-                  icon: _isGenerating ? null : Icons.psychology_rounded,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  onPressed: _isGenerating ? null : _startGenerateQuiz,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SoftClayPillButton(
-                  text: 'Testar com Demo',
-                  icon: Icons.play_circle_outline_rounded,
-                  isSecondary: true,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  onPressed: _loadDemoMockQuiz,
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 560;
+              final createBtn = SoftClayPillButton(
+                text: _isGenerating
+                    ? 'Gerando Simulado com ${GeminiService.currentProvider.label}...'
+                    : 'Criar Prova Interativa com IA',
+                icon: _isGenerating ? null : Icons.psychology_rounded,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                fontSize: 14,
+                iconSize: 18,
+                onPressed: _isGenerating ? null : _startGenerateQuiz,
+              );
+
+              final demoBtn = SoftClayPillButton(
+                text: 'Testar com Demo',
+                icon: Icons.play_circle_outline_rounded,
+                isSecondary: true,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                fontSize: 14,
+                iconSize: 18,
+                onPressed: _loadDemoMockQuiz,
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    createBtn,
+                    const SizedBox(height: 12),
+                    demoBtn,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: createBtn,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    flex: 2,
+                    child: demoBtn,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

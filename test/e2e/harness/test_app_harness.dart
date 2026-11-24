@@ -60,6 +60,27 @@ class TestAppHarness {
       },
     );
 
+    // Mock audioplayers platform and event channels in headless tests
+    for (final ch in [
+      'xyz.luan/audioplayers',
+      'xyz.luan/audioplayers.global',
+      'xyz.luan/audioplayers/events',
+      'xyz.luan/audioplayers.global/events',
+    ]) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        MethodChannel(ch),
+        (MethodCall call) async {
+          if (call.method == 'listen' || call.method == 'cancel') {
+            return null;
+          }
+          if (call.method == 'getSources') {
+            return [];
+          }
+          return 1;
+        },
+      );
+    }
+
     // Mock SharedPreferences method channel for hermetic test execution
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('plugins.flutter.io/shared_preferences'),

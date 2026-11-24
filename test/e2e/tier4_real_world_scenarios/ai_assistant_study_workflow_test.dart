@@ -11,7 +11,7 @@ void main() {
 
   group('Tier 4 - Scenario 2: Autonomous AI Assistant Study Session Logging', () {
     testWidgets(
-        'Autonomous AI assistant loads real screen, shows conversation history, triggers action chip and voice dialog',
+        'Autonomous AI assistant loads real screen, shows conversation history, triggers action chip and sends message',
         (WidgetTester tester) async {
       GeminiService.initialize('dummy-gemini-key');
 
@@ -38,12 +38,9 @@ void main() {
       // Verify user message is rendered in the real conversation
       expect(find.text('Faça um resumo dos principais conceitos de Criptografia'), findsOneWidget);
 
-      // Open voice input dialog
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
-      await tester.pumpAndSettle();
-
-      // Verify voice command list in modal
-      expect(find.textContaining('Registre 1h30 de estudo de Criptografia'), findsOneWidget);
+      // Verify text input bar and send button are present and accessible
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byIcon(Icons.send_rounded), findsOneWidget);
 
       // Drain any pending font or async callbacks
       await TestAppHarness.drainAsync(tester);

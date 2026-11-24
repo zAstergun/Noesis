@@ -24,16 +24,21 @@ O **Noesis** é o sistema operacional cognitivo, assistente pessoal e motor de e
 3. **Agente Cognitivo Autônomo com Tool Calling**:
    - Assistente inteligente conversacional integrado com capacidade de executar ações reais no banco de dados.
    - Ferramentas ativas (_Function Calling_): registrar sessões de estudo (`log_study_session`) e agendar eventos no calendário (`schedule_calendar_event`).
-   - Modal com atalhos de comando por voz e predefinições rápidas.
+   - Chips com atalhos de ações rápidas e barra de comando de texto.
 4. **Motor de Simulados com RAG (Retrieval-Augmented Generation)**:
    - Geração de questões inéditas de múltipla escolha com base em temas livres, presets de bancas examinadoras ou **documentos e provas anteriores anexados** (`.pdf`, `.txt`, `.md`, `.json`).
    - Interface de prova completa: contagem regressiva, snippets de código formatados com fonte monoespaçada, marcação de questões para revisão (_flag_), gabarito interativo com justificativas detalhadas e citação das fontes RAG.
    - Persistência automática do score, tempo gasto e histórico na nuvem.
-5. **Autenticação Unificada (Aster Account / SSO Global)**:
+5. **Flashcards Cognitivos & Repetição Espaçada (Active Recall)**:
+   - Baralhos técnicos organizados por disciplina e temas específicos.
+   - Gerador inteligente por IA com suporte a Active Recall e anotações de referência.
+   - Modo de Estudo 3D com rotação interativa de cartão (*card flip*) e avaliação de retenção (Difícil 🔴, Bom 🟡, Fácil 🟢).
+   - Integração direta com o Tracker de Estudos (salva tempo de revisão no Dashboard com 1 clique).
+6. **Autenticação Unificada (Aster Account / SSO Global)**:
    - Login e cadastro via email/senha, suporte a OAuth (Discord, Google, GitHub, Apple).
    - Perfil dinâmico sincronizado com a rede Aster (`public.profiles`).
    - Modo Visitante / Demonstração (_Guest Mode_) totalmente funcional para testes offline ou sem login imediato.
-6. **Central de Configurações Multi-Provedor**:
+7. **Central de Configurações Multi-Provedor**:
    - Suporte nativo a múltiplos provedores de IA: Google Gemini, OpenAI, Anthropic, xAI (Grok), DeepSeek, OpenRouter e Endpoints personalizados (OpenAI-compatible).
    - Ferramenta de benchmark de latência da chave de API em milissegundos.
    - Alternância de tema entre **Aster Soft Clay (Light)** e **Dark Mode**.
@@ -300,9 +305,13 @@ c:\Users\User\Desktop\Project\Noesis\
 │   │   ├── calendar/
 │   │   │   └── calendar_screen.dart # Agenda 4 vistas (Dia/Sem/Mês/Timeline), categorias e IA
 │   │   ├── ai_agent/
-│   │   │   └── ai_assistant_screen.dart # Chat com Noesis AI, Tool Calling e comandos por voz
+│   │   │   └── ai_assistant_screen.dart # Chat com Noesis AI, Tool Calling e chips de ação rápida
 │   │   ├── quizzes/
 │   │   │   └── quiz_screen.dart  # Gerador RAG, prova interativa, cronômetro e gabarito
+│   │   ├── flashcards/
+│   │   │   ├── flashcards_screen.dart # Hub de baralhos, gerador IA e revisor 3D flip
+│   │   │   └── models/
+│   │   │       └── flashcard_model.dart # Modelos de cartão e baralho com cálculo de progresso
 │   │   └── settings/
 │   │       └── settings_screen.dart # Configurações multi-IA, benchmark, tema e idiomas
 │   │
@@ -396,13 +405,31 @@ c:\Users\User\Desktop\Project\Noesis\
 - **Interface Conversacional**:
   - Renderização completa de Markdown (`flutter_markdown`) com tabelas, listas e blocos de código.
   - Histórico de diálogo contínuo (`_conversationHistory`).
-- **Function Calling / Execução de Ações Reais**:
-  - Quando o usuário fala "Estudei 1h de Criptografia hoje", a IA invoca `log_study_session` e persiste no banco Supabase em tempo real.
-  - Quando fala "Agende uma revisão para amanhã às 14h", a IA invoca `schedule_calendar_event` e cria o bloco na agenda.
-- **Entrada por Voz e Prompts Rápidos**:
-  - Modal com gravador simulado e sugestões de comandos de alta produtividade com envio em 1 toque.
+  - Botão de cópia rápida para a área de transferência em cada resposta do assistente.
+- **Function Calling / Execução de Ações Reais no Noesis**:
+  - **Registrar Sessão de Estudo (`log_study_session`)**: Persiste no banco Supabase / Tracker com atalho "Ver no Dashboard".
+  - **Agendar Evento no Calendário (`schedule_calendar_event`)**: Cria blocos na agenda cognitiva com atalho "Ver no Calendário".
+  - **Criar Simulado Técnico (`create_quiz`)**: Gera 5 questões completas com gabarito e explicação, salvando em `noesis_quizzes` com botão interativo direto: "Iniciar Simulado Agora 🚀" (que carrega o exame instantaneamente na aba Simulados).
+  - **Criar Baralho de Flashcards (`create_flashcards`)**: Gera conjunto de cartões cognitivos com Active Recall e salva no Noesis com botão interativo: "Praticar Flashcards Agora 🎴".
 
-### 6.7 Central de Configurações (`lib/features/settings/settings_screen.dart`)
+### 6.7 Flashcards Cognitivos (`lib/features/flashcards/flashcards_screen.dart`)
+
+- **Hub de Baralhos & Métricas**:
+  - Estatísticas de retenção (Total de Baralhos, Total de Cartões, Dominados 🟢, Média de Retenção %).
+  - Filtro ágil por disciplina e busca full-text por conceito ou enunciado.
+  - Cartões com visual Aster Soft Clay, barra de progresso percentual e menu contextual.
+- **Gerador Inteligente por IA (Temas Específicos)**:
+  - Criação rápida orientada a temas específicos digitados pelo usuário (ex: TLS 1.3, Kubernetes Pods, OWASP Injection).
+  - Seleção de profundidade (Iniciante, Prático, Técnico/Certificação) e quantidade (5, 8, 12, 16 cartões).
+  - Campo opcional para anexar anotações e resumos como contexto para geração.
+- **Criação Manual Flexível**:
+  - Modal dinâmico para criar baralhos personalizados e adicionar cartões ilimitados (frente e verso).
+- **Modo de Estudo 3D (Active Recall)**:
+  - Animação tátil de rotação tridimensional de 180° (`Transform` com `Matrix4` e perspectiva).
+  - Classificação cognitiva espaçada: **Difícil 🔴** (Revisar logo), **Bom 🟡** (Lembrei com esforço), **Fácil 🟢** (Dominei!).
+  - Resumo de conclusão com taxa de acertos e botão de 1 clique para persistir o tempo estudado no Tracker do Dashboard.
+
+### 6.8 Central de Configurações (`lib/features/settings/settings_screen.dart`)
 
 - **Aparência e Tema**: Alternador entre Modo Claro (Aster Soft Clay) e Modo Escuro.
 - **Multi-Provedor de IA**:
@@ -421,7 +448,7 @@ O `GeminiService` atua como um hub agnóstico de IA. Ele opera prioritariamente 
 
 ### 7.1 Catálogo de Provedores e Modelos Pré-Configurados:
 
-1. **Google**: Modelos `gemini-3.1-flash-lite`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.1-pro-preview`, `gemini-2.0-flash`, `gemini-1.5-flash`.
+1. **Google**: Modelos `gemini-2.0-flash`, `gemini-2.5-flash`, `gemini-2.0-flash-lite`, `gemini-1.5-flash`, `gemini-1.5-pro`.
 2. **OpenAI**: Modelos `gpt-4o`, `gpt-4o-mini`, `o4-mini`.
 3. **Anthropic**: Modelos `claude-sonnet-4`, `claude-haiku-4`.
 4. **xAI (Grok)**: Modelo `grok-4.7`.

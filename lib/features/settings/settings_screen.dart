@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,7 +15,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedProviderId = 'google';
-  String _selectedModel = 'gemini-3.1-flash-lite';
+  String _selectedModel = 'gemini-1.5-flash';
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
   final _baseUrlController = TextEditingController();
@@ -23,6 +24,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _testResult;
   bool? _testSuccess;
   bool _isManualModelMode = false;
+  List<String> _dynamicGoogleModels = [];
+  bool _isCheckingOperationalModels = false;
+  Timer? _debounceTimer;
 
   // Idioma selecionado (padrão Português do Brasil)
   String _selectedLangCode = 'br';
@@ -52,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _selectedModel = GeminiService.model;
     _modelController.text = _selectedModel;
     _baseUrlController.text = GeminiService.baseUrl;
+    _selectedLangCode = 'br';
     if (GeminiService.apiKey != null && GeminiService.apiKey!.isNotEmpty) {
       _apiKeyController.text = GeminiService.apiKey!;
     }
@@ -62,14 +67,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (prov.models.isEmpty || (!prov.models.contains(_selectedModel) && _selectedModel.isNotEmpty)) {
       _isManualModelMode = true;
     }
+    _apiKeyController.addListener(_onApiKeyChanged);
+    if (_selectedProviderId == 'google' && _apiKeyController.text.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndSyncOperationalModels(_apiKeyController.text.trim());
+      });
+    }
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _apiKeyController.removeListener(_onApiKeyChanged);
     _apiKeyController.dispose();
     _modelController.dispose();
     _baseUrlController.dispose();
     super.dispose();
+  }
+
+  void _onApiKeyChanged() {
+    final key = _apiKeyController.text.trim();
+    if (_selectedProviderId == 'google' && key.length >= 30) {
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted && _apiKeyController.text.trim() == key) {
+          _checkAndSyncOperationalModels(key);
+        }
+      });
+    }
+  }
+
+  int _getModelCountForProvider(AIProvider p) {
+    if (p.id == 'google' && _dynamicGoogleModels.isNotEmpty) {
+      return _dynamicGoogleModels.length;
+    }
+    return p.models.length;
   }
 
   Future<void> _openUrl(String url) async {
@@ -151,12 +183,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
           key: _apiKeyController.text.trim(),
           customBaseUrl: _baseUrlController.text.trim(),
         );
+        if (_selectedProviderId == 'google') {
+          _checkAndSyncOperationalModels(_apiKeyController.text.trim());
+        }
       }
     } catch (e) {
       stopwatch.stop();
       if (mounted) {
         setState(() {
           _isTestingKey = false;
+          _testSuccess = false;
+          _testResult = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  Future<void> _checkAndSyncOperationalModels(String key, {bool showSuccessSnackbar = false}) async {
+    if (_isCheckingOperationalModels || !mounted || key.isEmpty) return;
+
+    setState(() {
+      _isCheckingOperationalModels = true;
+      _testResult = null;
+    });
+
+    try {
+      final result = await GeminiService.fetchOperationalGoogleModels(key);
+      if (!mounted) return;
+
+      if (result.models.isNotEmpty) {
+        setState(() {
+          _dynamicGoogleModels = result.models;
+          _isCheckingOperationalModels = false;
+          _testSuccess = true;
+          _testResult = '${result.models.length} modelo(s) validado(s) e 100% operacional(is) para sua conta agora!';
+          if (!result.models.contains(_modelController.text.trim())) {
+            _selectedModel = result.models.first;
+            _modelController.text = _selectedModel;
+          }
+          _isManualModelMode = false;
+        });
+
+        GeminiService.configure(
+          providerId: 'google',
+          modelName: _modelController.text.trim(),
+          key: key,
+        );
+
+        if (showSuccessSnackbar) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${result.models.length} modelo(s) operacionais prontos: ${result.models.join(", ")}'),
+              backgroundColor: AsterConstants.lavanda,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isCheckingOperationalModels = false;
+          _testSuccess = false;
+          _testResult = result.error ?? 'Nenhum modelo Gemini respondeu com sucesso para esta chave.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCheckingOperationalModels = false;
           _testSuccess = false;
           _testResult = e.toString().replaceAll('Exception: ', '');
         });
@@ -536,11 +628,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   p.models.isNotEmpty
-                                      ? '${p.models.length} modelos'
+                                      ? (p.id == 'google' && _isCheckingOperationalModels
+                                          ? 'Verificando...'
+                                          : '${_getModelCountForProvider(p)} disponíveis')
                                       : 'URL e modelo próprios',
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
-                                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                    color: (p.id == 'google' && _dynamicGoogleModels.isNotEmpty)
+                                        ? AsterConstants.menta
+                                        : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                    fontWeight: (p.id == 'google' && _dynamicGoogleModels.isNotEmpty)
+                                        ? FontWeight.w700
+                                        : FontWeight.normal,
                                   ),
                                 ),
                               ],
@@ -600,6 +699,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _apiKeyController,
             obscureText: _obscureApiKey,
+            onSubmitted: (val) {
+              if (_selectedProviderId == 'google' && val.trim().isNotEmpty) {
+                _checkAndSyncOperationalModels(val.trim(), showSuccessSnackbar: true);
+              }
+            },
             style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
             decoration: InputDecoration(
               hintText: _selectedProviderId == 'custom'
@@ -668,14 +772,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 18),
 
           // 4. Seletor de Modelo com Dropdown Menu (Studio OS Style)
-          Text(
-            'MODELO',
-            style: GoogleFonts.manrope(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
-              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-            ),
+          Row(
+            children: [
+              Text(
+                'MODELO',
+                style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                ),
+              ),
+              if (_selectedProviderId == 'google' && _isCheckingOperationalModels) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.8, color: AsterConstants.lavanda),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Validando modelos em tempo real...',
+                  style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                ),
+              ],
+              const Spacer(),
+              if (_selectedProviderId == 'google' && _apiKeyController.text.trim().isNotEmpty) ...[
+                InkWell(
+                  onTap: _isCheckingOperationalModels
+                      ? null
+                      : () => _checkAndSyncOperationalModels(_apiKeyController.text.trim(), showSuccessSnackbar: true),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.sync_rounded, size: 14, color: AsterConstants.lavanda),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Sincronizar da Conta',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AsterConstants.lavanda,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 6),
           if (currentProv.models.isNotEmpty && !_isManualModelMode) ...[
@@ -690,81 +838,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: currentProv.models.contains(_modelController.text.trim())
-                      ? _modelController.text.trim()
-                      : currentProv.defaultModel,
-                  isExpanded: true,
-                  dropdownColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AsterConstants.lavanda),
-                  items: [
-                    ...currentProv.models.map((mod) {
-                      final isDefault = mod == currentProv.defaultModel;
-                      return DropdownMenuItem<String>(
-                        value: mod,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.smart_toy_outlined, size: 18, color: AsterConstants.lavanda),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                mod,
-                                style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                ),
-                              ),
-                            ),
-                            if (isDefault) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AsterConstants.menta.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                ),
-                                child: Text(
-                                  'Padrão',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: AsterConstants.menta,
+                child: Builder(
+                  builder: (context) {
+                    final allModels = <String>{
+                      ...(_selectedProviderId == 'google' && _dynamicGoogleModels.isNotEmpty
+                          ? _dynamicGoogleModels
+                          : currentProv.models),
+                      if (_modelController.text.trim().isNotEmpty) _modelController.text.trim(),
+                    }.toList();
+
+                    final selectedVal = allModels.contains(_modelController.text.trim())
+                        ? _modelController.text.trim()
+                        : (allModels.isNotEmpty ? allModels.first : currentProv.defaultModel);
+
+                    return DropdownButton<String>(
+                      value: selectedVal,
+                      isExpanded: true,
+                      dropdownColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AsterConstants.lavanda),
+                      items: [
+                        ...allModels.map((mod) {
+                          final isDefault = mod == currentProv.defaultModel;
+                          return DropdownMenuItem<String>(
+                            value: mod,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.smart_toy_outlined, size: 18, color: AsterConstants.lavanda),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    mod,
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                    ),
                                   ),
+                                ),
+                                if (isDefault) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AsterConstants.menta.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    ),
+                                    child: Text(
+                                      'Padrão',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: AsterConstants.menta,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+                        DropdownMenuItem<String>(
+                          value: '__custom__',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_note_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Personalizado (digitar outro modelo...)',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AsterConstants.lavanda,
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                      );
-                    }),
-                    DropdownMenuItem<String>(
-                      value: '__custom__',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_note_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Personalizado (digitar outro modelo...)',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AsterConstants.lavanda,
-                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val == null) return;
-                    if (val == '__custom__') {
-                      setState(() {
-                        _isManualModelMode = true;
-                      });
-                    } else {
-                      _onSelectModel(val);
-                    }
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val == null) return;
+                        if (val == '__custom__') {
+                          setState(() {
+                            _isManualModelMode = true;
+                          });
+                        } else {
+                          _onSelectModel(val);
+                        }
+                      },
+                    );
                   },
                 ),
               ),

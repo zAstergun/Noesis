@@ -13,6 +13,8 @@ import 'features/tracker/tracker_screen.dart';
 import 'features/calendar/calendar_screen.dart';
 import 'features/ai_agent/ai_assistant_screen.dart';
 import 'features/quizzes/quiz_screen.dart';
+import 'features/flashcards/flashcards_screen.dart';
+import 'features/notebooks/notebooks_screen.dart';
 import 'features/settings/settings_screen.dart';
 
 void main() async {
@@ -97,6 +99,11 @@ class _NotificationItem {
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
+  static late ValueNotifier<int> activeTabNotifier;
+  static void switchTab(int index) {
+    activeTabNotifier.value = index;
+  }
+
   @override
   State<RootScreen> createState() => _RootScreenState();
 }
@@ -134,7 +141,7 @@ class _RootScreenState extends State<RootScreen> {
       time: 'Hoje às 09:15',
       icon: Icons.event_available_rounded,
       color: AsterConstants.coral,
-      targetTab: 3,
+      targetTab: 4,
     ),
     _NotificationItem(
       id: '4',
@@ -143,7 +150,7 @@ class _RootScreenState extends State<RootScreen> {
       time: 'Ontem',
       icon: Icons.auto_awesome_rounded,
       color: AsterConstants.lavanda,
-      targetTab: 2,
+      targetTab: 4,
       isRead: true,
     ),
   ];
@@ -159,10 +166,14 @@ class _RootScreenState extends State<RootScreen> {
       case 1:
         return const QuizScreen();
       case 2:
-        return const AiAssistantScreen();
+        return const FlashcardsScreen();
       case 3:
-        return const CalendarScreen();
+        return const NotebooksScreen();
       case 4:
+        return const AiAssistantScreen();
+      case 5:
+        return const CalendarScreen();
+      case 6:
         return const SettingsScreen();
       default:
         return const TrackerScreen();
@@ -173,6 +184,14 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     _activeTabNotifier = ValueNotifier<int>(0);
+    RootScreen.activeTabNotifier = _activeTabNotifier;
+    _activeTabNotifier.addListener(() {
+      if (mounted) {
+        setState(() {
+          _loadedTabs.add(_activeTabNotifier.value);
+        });
+      }
+    });
     _session = SupabaseService.client.auth.currentSession;
     _authSubscription = SupabaseService.authStateChanges.listen((data) {
       if (mounted) {
@@ -692,18 +711,30 @@ class _RootScreenState extends State<RootScreen> {
                           const SizedBox(height: 8),
                           _buildNavItem(
                             index: 2,
+                            title: 'Flashcards',
+                            icon: Icons.style_rounded,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildNavItem(
+                            index: 3,
+                            title: 'Cadernos',
+                            icon: Icons.menu_book_rounded,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildNavItem(
+                            index: 4,
                             title: 'Noesis AI',
                             icon: Icons.smart_toy_rounded,
                           ),
                           const SizedBox(height: 8),
                           _buildNavItem(
-                            index: 3,
+                            index: 5,
                             title: 'Calendário',
                             icon: Icons.calendar_today_rounded,
                           ),
                           const SizedBox(height: 8),
                           _buildNavItem(
-                            index: 4,
+                            index: 6,
                             title: 'Configurações',
                             icon: Icons.settings_rounded,
                           ),
@@ -841,163 +872,129 @@ class _RootScreenState extends State<RootScreen> {
                 Expanded(
                   child: Column(
                     children: [
-                      // Header Top Bar (Isolado para repaint eficiente)
-                      RepaintBoundary(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
-                          child: Row(
-                          children: [
-                            if (!isWideScreen) ...[
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: const BoxDecoration(
-                                  color: AsterConstants.lavanda,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Text('N', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Noesis',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                ),
-                              ),
-                            ] else ...[
-                              ValueListenableBuilder<int>(
-                                valueListenable: _activeTabNotifier,
-                                builder: (context, activeIndex, _) {
-                                  if (activeIndex != 0) return const SizedBox.shrink();
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$_greeting, $userName.',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w800,
-                                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                          letterSpacing: -0.5,
-                                        ),
+                      // Header Top Bar (Visível apenas na tela inicial / Dashboard)
+                      ValueListenableBuilder<int>(
+                        valueListenable: _activeTabNotifier,
+                        builder: (context, activeIndex, _) {
+                          if (activeIndex != 0) return const SizedBox.shrink();
+                          return RepaintBoundary(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
+                              child: Row(
+                                children: [
+                                  if (!isWideScreen) ...[
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: const BoxDecoration(
+                                        color: AsterConstants.lavanda,
+                                        shape: BoxShape.circle,
                                       ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            '${_formatTodayDate()} · 42 dias de streak ',
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 13,
-                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                      child: const Center(
+                                        child: Text('N', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Noesis',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '$_greeting, $userName.',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '${_formatTodayDate()} · 42 dias de streak ',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 13,
+                                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                              ),
+                                            ),
+                                            const Text('🔥', style: TextStyle(fontSize: 13)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+
+                                  const Spacer(),
+
+                                  // Botão Interativo de Notificações
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(milliseconds: 280),
+                                        curve: Curves.easeInOutCubic,
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                          shape: BoxShape.circle,
+                                          boxShadow: isDark ? AsterConstants.claySubtleDarkShadow : AsterConstants.claySubtleShadow,
+                                        ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () => _showNotificationsPanel(context, isWideScreen),
+                                            borderRadius: BorderRadius.circular(20),
+                                            child: Center(
+                                              child: Icon(
+                                                Icons.notifications_none_rounded,
+                                                size: 20,
+                                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                              ),
                                             ),
                                           ),
-                                          const Text('🔥', style: TextStyle(fontSize: 13)),
-                                        ],
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-
-                            const Spacer(),
-
-                            if (_isGuestMode) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: AsterConstants.ambar.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                ),
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _isGuestMode = false;
-                                    });
-                                  },
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.logout_rounded, size: 14, color: AsterConstants.ambar),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Sair do Teste',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AsterConstants.ambar,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
-
-                            // Botão Interativo de Notificações
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeInOutCubic,
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                                    shape: BoxShape.circle,
-                                    boxShadow: isDark ? AsterConstants.claySubtleDarkShadow : AsterConstants.claySubtleShadow,
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () => _showNotificationsPanel(context, isWideScreen),
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.notifications_none_rounded,
-                                          size: 20,
-                                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (_unreadNotificationCount > 0)
-                                  Positioned(
-                                    top: 2,
-                                    right: 2,
-                                    child: Container(
-                                      width: 10,
-                                      height: 10,
-                                      decoration: BoxDecoration(
-                                        color: AsterConstants.coral,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isDark ? AsterConstants.surfaceCardDark : Colors.white,
-                                          width: 2,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color.fromRGBO(255, 122, 144, 0.4),
-                                            blurRadius: 4,
-                                            offset: Offset(0, 1),
+                                      if (_unreadNotificationCount > 0)
+                                        Positioned(
+                                          top: 2,
+                                          right: 2,
+                                          child: Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              color: AsterConstants.coral,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: isDark ? AsterConstants.surfaceCardDark : Colors.white,
+                                                width: 2,
+                                              ),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(255, 122, 144, 0.4),
+                                                  blurRadius: 4,
+                                                  offset: Offset(0, 1),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
+                                        ),
+                                    ],
                                   ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
+                          );
+                        },
                       ),
 
                       // Telas do App com Carregamento Sob Demanda (Lazy Cache)
@@ -1008,7 +1005,7 @@ class _RootScreenState extends State<RootScreen> {
                             _loadedTabs.add(activeIndex);
                             return IndexedStack(
                               index: activeIndex,
-                              children: List.generate(5, (index) {
+                              children: List.generate(7, (index) {
                                 if (_loadedTabs.contains(index)) {
                                   return RepaintBoundary(child: _buildScreen(index));
                                 }
@@ -1049,9 +1046,11 @@ class _RootScreenState extends State<RootScreen> {
                       children: [
                         _buildMobileNavItem(0, Icons.home_rounded, 'Dashboard'),
                         _buildMobileNavItem(1, Icons.assignment_rounded, 'Simulados'),
-                        _buildMobileNavItem(2, Icons.smart_toy_rounded, 'Noesis AI'),
-                        _buildMobileNavItem(3, Icons.calendar_today_rounded, 'Calendário'),
-                        _buildMobileNavItem(4, Icons.settings_rounded, 'Config'),
+                        _buildMobileNavItem(2, Icons.style_rounded, 'Flashcards'),
+                        _buildMobileNavItem(3, Icons.menu_book_rounded, 'Cadernos'),
+                        _buildMobileNavItem(4, Icons.smart_toy_rounded, 'Noesis AI'),
+                        _buildMobileNavItem(5, Icons.calendar_today_rounded, 'Calendário'),
+                        _buildMobileNavItem(6, Icons.settings_rounded, 'Config'),
                       ],
                     ),
                   ),

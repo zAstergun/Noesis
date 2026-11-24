@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -6,6 +7,10 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
+import '../../main.dart';
+import '../quizzes/quiz_screen.dart';
+import '../flashcards/flashcards_screen.dart';
+import '../flashcards/models/flashcard_model.dart';
 
 class AiAssistantScreen extends StatefulWidget {
   const AiAssistantScreen({super.key});
@@ -20,156 +25,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<Map<String, dynamic>> _messages = [];
   final List<Content> _conversationHistory = [];
   bool _isLoading = false;
-  bool _isListening = false;
-
-  void _toggleListening() {
-    setState(() {
-      _isListening = !_isListening;
-    });
-
-    if (_isListening) {
-      _openVoiceInputDialog();
-    }
-  }
-
-  void _openVoiceInputDialog() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            final commands = [
-              'Registre 1h30 de estudo de Criptografia',
-              'Agende uma revisão para amanhã às 14:00',
-              'Crie um simulado de 5 questões sobre OWASP',
-              'Faça um resumo dos modos de operação AES',
-              'Como funciona o nonce reuse em criptografia?',
-            ];
-
-            return Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E202E) : AsterConstants.surfaceCard,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: AsterConstants.clayShadow,
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AsterConstants.textFaint.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AsterConstants.coral.withValues(alpha: 0.12),
-                        border: Border.all(color: AsterConstants.coral.withValues(alpha: 0.3), width: 2),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.mic_rounded, size: 34, color: AsterConstants.coral),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Entrada por Voz · Noesis AI',
-                      style: GoogleFonts.manrope(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AsterConstants.textDark,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Fale naturalmente ou toque em uma sugestão para transcrever e enviar:',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.manrope(
-                        fontSize: 12.5,
-                        color: isDark ? const Color(0xFF9093B5) : AsterConstants.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
-                      children: commands.map((cmd) {
-                        return InkWell(
-                          onTap: () {
-                            _messageController.text = cmd;
-                            Navigator.pop(ctx);
-                            setState(() => _isListening = false);
-                            _sendMessage();
-                          },
-                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF26283B) : AsterConstants.surfaceAlt,
-                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                              border: Border.all(
-                                color: isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.mic_rounded, size: 14, color: AsterConstants.lavanda),
-                                const SizedBox(width: 6),
-                                Text(
-                                  cmd,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : AsterConstants.textDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AsterConstants.textMuted,
-                              side: const BorderSide(color: AsterConstants.surfaceInset),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              setState(() => _isListening = false);
-                            },
-                            child: Text('Fechar', style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 
   @override
   void initState() {
@@ -180,8 +35,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _loadInitialMockChat();
   }
 
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _apiKeyController.dispose();
+    super.dispose();
+  }
+
   void _loadInitialMockChat() {
-    // Configura o histórico inicial idêntico ao print clay-06 de Obsidian
     _messages.addAll([
       {
         'role': 'user',
@@ -191,31 +52,24 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       {
         'role': 'tool',
         'status': 'completed',
-        'text': 'log_session() · 1h30 registrada em Criptografia n...',
-      },
-      {
-        'role': 'tool',
-        'status': 'completed',
-        'text': 'update_notes() · tags: aes-gcm, nonce-reuse',
+        'text': 'log_session() · 1h30 registrada em Criptografia',
+        'actionName': 'log_study_session',
       },
       {
         'role': 'ai',
         'text':
-            'Feito ✅ Sessão de 1h30 salva em Criptografia. Isso fecha 42 dias de streak. Notei que seus últimos 3 simulados erraram questões de modos de operação — quer que eu monte 10 questões focadas nisso?',
-      },
-      {
-        'role': 'user',
-        'text': 'sim, e agenda pra sexta',
+            'Feito ✅ Sessão de 1h30 salva em Criptografia. Isso fecha 42 dias de streak.\n\nNotei que seus últimos simulados focaram em modos de operação — criei um simulado com 5 questões de alto nível técnico sobre isso caso queira praticar!',
       },
       {
         'role': 'tool',
         'status': 'completed',
-        'text': 'generate_quiz(rag) · 10 questões · AES/GCM/CB...',
-      },
-      {
-        'role': 'tool',
-        'status': 'running',
-        'text': 'calendar.create() · Sex 14:00 · Revisão Criptogr...',
+        'text': 'quiz.create() · 5 questões · Modos de Operação AES & GCM',
+        'actionName': 'create_quiz',
+        'data': {
+          'title': 'Modos de Operação AES & GCM',
+          'subject': 'Criptografia',
+          'difficulty': 'Avançado / Nível Certificação',
+        },
       },
     ]);
   }
@@ -229,60 +83,55 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
           title: Text(
-            'Configurar Google Gemini API Key',
+            'Configurar Provedor de IA',
             style: GoogleFonts.manrope(
               fontWeight: FontWeight.w800,
               color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
             ),
           ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Insira sua chave do Google AI Studio para executar ações com Function Calling no Supabase.',
-              style: GoogleFonts.manrope(color: AsterConstants.textMuted, fontSize: 13),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Insira sua chave de API para habilitar o modelo oficial em nuvem com raciocínio ao vivo.',
+                style: GoogleFonts.manrope(color: AsterConstants.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _apiKeyController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Chave de API (Google, OpenAI, etc.)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _apiKeyController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'AI Studio Gemini API Key'),
+            SoftClayPillButton(
+              text: 'Salvar Chave',
+              onPressed: () {
+                final key = _apiKeyController.text.trim();
+                if (key.isNotEmpty) {
+                  GeminiService.initialize(key);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Chave de IA configurada com sucesso!')),
+                  );
+                }
+              },
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
-          ),
-          SoftClayPillButton(
-            text: 'Salvar Chave',
-            onPressed: () {
-              final key = _apiKeyController.text.trim();
-              if (key.isNotEmpty) {
-                GeminiService.initialize(key);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chave Gemini configurada com sucesso!')),
-                );
-              }
-            },
-          ),
-        ],
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Future<void> _sendMessage([String? quickText]) async {
     final text = quickText ?? _messageController.text.trim();
     if (text.isEmpty) return;
-
-    if (GeminiService.apiKey == null || GeminiService.apiKey!.isEmpty) {
-      _openApiKeyDialog();
-      return;
-    }
 
     _messageController.clear();
     setState(() {
@@ -301,7 +150,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
       if (mounted) {
         setState(() {
-          _messages.add({'role': 'ai', 'text': reply});
+          for (final act in GeminiService.lastExecutedActions) {
+            _messages.add({
+              'role': 'tool',
+              'status': act.status,
+              'text': act.summary,
+              'actionName': act.name,
+              'parameters': act.parameters,
+              'data': act.data,
+            });
+          }
+          _messages.add({
+            'role': 'ai',
+            'text': reply,
+          });
         });
       }
     } catch (e) {
@@ -341,7 +203,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 
-  // ─── Widget: Cartão do Chat Noesis AI ───
   Widget _buildChatCard(bool isDesktop) {
     return SoftClayCard(
       height: double.infinity,
@@ -379,7 +240,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         Container(width: 6, height: 6, decoration: const BoxDecoration(color: AsterConstants.menta, shape: BoxShape.circle)),
                         const SizedBox(width: 6),
                         Text(
-                          'agente ativo · 6 ferramentas',
+                          'agente ativo · ferramentas operacionais',
                           style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
                         ),
                       ],
@@ -389,7 +250,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.key_rounded, size: 20, color: AsterConstants.lavanda),
-                  tooltip: 'Configurar Gemini API Key',
+                  tooltip: 'Configurar Chave de API',
                   onPressed: _openApiKeyDialog,
                 ),
                 IconButton(
@@ -445,7 +306,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Peça para criar simulados, resumir tópicos ou agendar revisões.',
+                          'Peça para criar simulados, registrar estudos, agendar revisões ou resumir tópicos.',
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             color: AsterConstants.textMuted,
@@ -465,6 +326,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       if (role == 'tool') {
                         final isCompleted = msg['status'] == 'completed';
                         final color = isCompleted ? AsterConstants.menta : AsterConstants.ambar;
+                        final actionName = msg['actionName'] as String?;
+                        final actionData = msg['data'] as Map<String, dynamic>?;
 
                         return Align(
                           alignment: Alignment.centerLeft,
@@ -476,40 +339,179 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                               color: color.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
-                                  size: 16,
-                                  color: color,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
+                                      size: 16,
+                                      color: color,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            isCompleted ? 'AÇÃO EXECUTADA NO NOESIS' : 'EXECUTANDO...',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.5,
+                                              color: color,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            msg['text'],
+                                            style: GoogleFonts.jetBrainsMono(
+                                              fontSize: 11,
+                                              color: AsterConstants.textDark,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 10),
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        isCompleted ? 'AÇÃO EXECUTADA' : 'EXECUTANDO...',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.5,
-                                          color: color,
-                                        ),
+
+                                // Botão de Ação Direta para cada ferramenta criada
+                                if (actionName == 'create_quiz') ...[
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () {
+                                      if (actionData != null && actionData['questions_data'] != null) {
+                                        QuizScreen.startQuiz(
+                                          title: actionData['title'] ?? 'Simulado Noesis',
+                                          subject: actionData['subject'] ?? 'Tecnologia',
+                                          questions: List<Map<String, dynamic>>.from(actionData['questions_data']),
+                                          difficulty: actionData['difficulty'],
+                                        );
+                                      }
+                                      RootScreen.switchTab(1);
+                                    },
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AsterConstants.lavanda,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        boxShadow: AsterConstants.primaryButtonShadow,
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        msg['text'],
-                                        style: GoogleFonts.jetBrainsMono(
-                                          fontSize: 11,
-                                          color: AsterConstants.textDark,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.white),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Iniciar Simulado Agora 🚀',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                ] else if (actionName == 'create_flashcards') ...[
+                                   const SizedBox(height: 8),
+                                   InkWell(
+                                     onTap: () {
+                                       if (actionData != null) {
+                                         FlashcardsScreen.startDeck(FlashcardDeck.fromMap(actionData));
+                                       }
+                                       RootScreen.switchTab(2);
+                                     },
+                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                     child: Container(
+                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                       decoration: BoxDecoration(
+                                         color: AsterConstants.lavanda,
+                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                         boxShadow: AsterConstants.primaryButtonShadow,
+                                       ),
+                                       child: Row(
+                                         mainAxisSize: MainAxisSize.min,
+                                         children: [
+                                           const Icon(Icons.style_rounded, size: 16, color: Colors.white),
+                                           const SizedBox(width: 6),
+                                           Text(
+                                             'Praticar Flashcards Agora 🎴',
+                                             style: GoogleFonts.manrope(
+                                               fontSize: 11.5,
+                                               fontWeight: FontWeight.w800,
+                                               color: Colors.white,
+                                             ),
+                                           ),
+                                         ],
+                                       ),
+                                     ),
+                                   ),
+                                 ] else if (actionName == 'schedule_calendar_event') ...[
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () => RootScreen.switchTab(4),
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AsterConstants.surfaceCard,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.4)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.calendar_month_rounded, size: 14, color: AsterConstants.lavanda),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Ver no Calendário 📅',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AsterConstants.lavanda,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ] else if (actionName == 'log_study_session') ...[
+                                  const SizedBox(height: 8),
+                                  InkWell(
+                                    onTap: () => RootScreen.switchTab(0),
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: AsterConstants.surfaceCard,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        border: Border.all(color: AsterConstants.menta.withValues(alpha: 0.5)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.dashboard_rounded, size: 14, color: AsterConstants.menta),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Ver no Dashboard 📊',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: AsterConstants.menta,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -583,6 +585,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                       ),
                                     ),
                                     const Spacer(),
+
+                                    // Botão Copiar
                                     IconButton(
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
@@ -695,49 +699,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 children: [
                   const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda)),
                   const SizedBox(width: 8),
-                  Text('Noesis AI pensando...', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
+                  Text('Noesis AI processando ação...', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
                 ],
-              ),
-            ),
-
-          if (_isListening)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AsterConstants.coral.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                  border: Border.all(color: AsterConstants.coral.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(color: AsterConstants.coral, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Microfone ativo · Fale ou escolha um comando rápido de voz',
-                        style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: AsterConstants.coral),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: _openVoiceInputDialog,
-                      child: Text(
-                        'Ver opções',
-                        style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => setState(() => _isListening = false),
-                      child: const Icon(Icons.close_rounded, size: 16, color: AsterConstants.textMuted),
-                    ),
-                  ],
-                ),
               ),
             ),
 
@@ -753,6 +716,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   _buildQuickChip('✨ Agendar revisão sexta às 14h', () => _sendMessage('Agende uma revisão de Criptografia para sexta-feira às 14:00')),
                   const SizedBox(width: 8),
                   _buildQuickChip('✨ Resumo de Criptografia', () => _sendMessage('Faça um resumo dos principais conceitos de Criptografia')),
+                  const SizedBox(width: 8),
+                  _buildQuickChip('✨ Registre 1h30 de estudo', () => _sendMessage('Registre 1h30 de estudo de Criptografia')),
+                  const SizedBox(width: 8),
+                  _buildQuickChip('🎴 Flashcards de Criptografia', () => _sendMessage('Gere flashcards sobre Criptografia')),
                 ],
               ),
             ),
@@ -773,22 +740,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     child: TextField(
                       controller: _messageController,
                       decoration: const InputDecoration(
-                        hintText: 'Pergunte ou peça uma ação...',
+                        hintText: 'Pergunte ou peça uma ação (simulado, agenda, tracker)...',
                         filled: false,
                         contentPadding: EdgeInsets.symmetric(vertical: 10),
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                      size: 20,
-                      color: _isListening ? AsterConstants.coral : AsterConstants.lavanda,
-                    ),
-                    tooltip: _isListening ? 'Parar gravação' : 'Falar com Noesis AI',
-                    onPressed: _toggleListening,
-                  ),
+                  const SizedBox(width: 8),
                   Container(
                     width: 36,
                     height: 36,

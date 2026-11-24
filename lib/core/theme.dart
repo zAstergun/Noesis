@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
 import 'constants.dart';
@@ -512,6 +513,8 @@ class SoftClayPillButton extends StatelessWidget {
   final Color textColor;
   final bool isSecondary;
   final EdgeInsetsGeometry padding;
+  final double? fontSize;
+  final double? iconSize;
 
   const SoftClayPillButton({
     super.key,
@@ -522,11 +525,21 @@ class SoftClayPillButton extends StatelessWidget {
     this.textColor = Colors.white,
     this.isSecondary = false,
     this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    this.fontSize,
+    this.iconSize,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final resolvedPadding = padding.resolve(Directionality.maybeOf(context) ?? TextDirection.ltr);
+    // Garante espaçamento horizontal equilibrado e seguro contra a borda arredondada da pílula
+    final effectivePadding = EdgeInsets.only(
+      top: resolvedPadding.top,
+      bottom: resolvedPadding.bottom,
+      left: math.max(resolvedPadding.left, 16.0),
+      right: math.max(resolvedPadding.right, 16.0),
+    );
 
     if (isSecondary) {
       final secondaryBg = isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt;
@@ -545,23 +558,31 @@ class SoftClayPillButton extends StatelessWidget {
             onTap: onPressed,
             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
             child: Padding(
-              padding: padding,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 16, color: secondaryText),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    text,
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: secondaryText,
+              padding: effectivePadding,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: iconSize ?? 17, color: secondaryText),
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: fontSize ?? 13,
+                          fontWeight: FontWeight.w700,
+                          color: secondaryText,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -581,23 +602,31 @@ class SoftClayPillButton extends StatelessWidget {
           onTap: onPressed,
           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
           child: Padding(
-            padding: padding,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 16, color: textColor),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  text,
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
+            padding: effectivePadding,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: iconSize ?? 17, color: textColor),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: fontSize ?? 13,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
