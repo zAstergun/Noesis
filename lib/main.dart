@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -41,7 +42,9 @@ class AsterScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
     PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
     PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
   };
 
   @override
@@ -65,6 +68,16 @@ class NoesisApp extends StatelessWidget {
           theme: AsterTheme.softClayTheme,
           darkTheme: AsterTheme.darkTheme,
           themeMode: themeMode,
+          locale: const Locale('pt', 'BR'),
+          supportedLocales: const [
+            Locale('pt', 'BR'),
+            Locale('en', 'US'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           themeAnimationDuration: const Duration(milliseconds: 280),
           themeAnimationCurve: Curves.easeInOutCubic,
           home: const RootScreen(),
@@ -871,6 +884,7 @@ class _RootScreenState extends State<RootScreen> {
                 // ─── Área Principal de Conteúdo ───
                 Expanded(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Header Top Bar (Visível apenas na tela inicial / Dashboard)
                       ValueListenableBuilder<int>(

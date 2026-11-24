@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/constants.dart';
+import '../../core/gemini_service.dart';
 import '../../core/supabase_service.dart';
 import 'models/notebook_model.dart';
 
@@ -27,6 +29,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
   final TextEditingController _searchCtrl = TextEditingController();
 
+  // Estados de busca e filtros internos do caderno aberto
+  String _notesSearchQuery = '';
+  final TextEditingController _notesSearchCtrl = TextEditingController();
+  final ScrollController _tagsScrollCtrl = ScrollController();
+  String _selectedTagFilter = 'Todas';
+  DateTime? _selectedDateFilter;
+  String _noteSortOrder = 'recent'; // 'recent' | 'oldest'
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +46,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _notesSearchCtrl.dispose();
+    _tagsScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -399,6 +411,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
     final List<StudyLink> draftLinks = List.from(note?.links ?? []);
     bool isSaving = false;
+    bool isFormattingWithAi = false;
+    String? previousNoteText;
 
     // Controladores para adicionar link/imagem
     final newUrlCtrl = TextEditingController();
@@ -538,35 +552,216 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'CONTEÚDO DA ANOTAÇÃO (SUPORTA MARKDOWN) *',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.8,
-                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                  Text(
+                                    'CONTEÚDO DA ANOTAÇÃO (SUPORTA MARKDOWN) *',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                        border: Border.all(
+                                          color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
                                         ),
                                       ),
-                                      Text(
-                                        'Dica: use ![legenda](url) para imagens inline',
-                                        style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.lavanda),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: contentCtrl,
-                                      maxLines: null,
-                                      expands: true,
-                                      textAlignVertical: TextAlignVertical.top,
-                                      decoration: InputDecoration(
-                                        hintText: 'Escreva suas notas de estudo aqui...\n\nVocê pode usar títulos (# Título), tópicos (* item), blocos de código (```codigo```) ou colar links.',
-                                        fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                                        filled: true,
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            child: Padding(
+                                              padding: const EdgeInsets.fromLTRB(14, 12, 14, 46),
+                                              child: TextField(
+                                                controller: contentCtrl,
+                                                maxLines: null,
+                                                expands: true,
+                                                textAlignVertical: TextAlignVertical.top,
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 13.5,
+                                                  height: 1.5,
+                                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                                ),
+                                                decoration: const InputDecoration(
+                                                  hintText: 'Escreva suas notas de estudo aqui...\n\nVocê pode usar títulos (# Título), tópicos (* item), blocos de código (```codigo```) ou colar links.',
+                                                  border: InputBorder.none,
+                                                  enabledBorder: InputBorder.none,
+                                                  focusedBorder: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                  filled: false,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // Barra de Ações e Aviso posicionada dentro do bloco da anotação (canto inferior direito)
+                                          Positioned(
+                                            bottom: 8,
+                                            right: 10,
+                                            child: previousNoteText != null
+                                                // Aviso inline que aparece SOMENTE no bloco da anotação com botão para retornar
+                                                ? Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                    decoration: BoxDecoration(
+                                                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                      border: Border.all(
+                                                        color: isDark ? AsterConstants.surfaceInsetDark : const Color(0xFFCBD5E1),
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black.withValues(alpha: 0.08),
+                                                          blurRadius: 4,
+                                                          offset: const Offset(0, 1),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.check_circle_rounded, size: 13, color: AsterConstants.menta),
+                                                        const SizedBox(width: 5),
+                                                        Text(
+                                                          'Formatado com IA ✨',
+                                                          style: GoogleFonts.manrope(
+                                                            fontSize: 10.5,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        InkWell(
+                                                          onTap: () {
+                                                            contentCtrl.text = previousNoteText!;
+                                                            setModalState(() => previousNoteText = null);
+                                                          },
+                                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                          child: Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                                            decoration: BoxDecoration(
+                                                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                              border: Border.all(
+                                                                color: AsterConstants.lavanda.withValues(alpha: 0.4),
+                                                              ),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                const Icon(Icons.undo_rounded, size: 12, color: AsterConstants.lavanda),
+                                                                const SizedBox(width: 3),
+                                                                Text(
+                                                                  'Retornar',
+                                                                  style: GoogleFonts.manrope(
+                                                                    fontSize: 10.5,
+                                                                    fontWeight: FontWeight.w800,
+                                                                    color: AsterConstants.lavanda,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        InkWell(
+                                                          onTap: () => setModalState(() => previousNoteText = null),
+                                                          child: Padding(
+                                                            padding: const EdgeInsets.all(2),
+                                                            child: Icon(
+                                                              Icons.close_rounded,
+                                                              size: 14,
+                                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                // Botão de Formatação com IA (visível quando não há aviso ativo)
+                                                : Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: (isSaving || isFormattingWithAi)
+                                                          ? null
+                                                          : () async {
+                                                              final raw = contentCtrl.text.trim();
+                                                              if (raw.isEmpty) {
+                                                                return;
+                                                              }
+
+                                                              final originalText = contentCtrl.text;
+                                                              setModalState(() {
+                                                                isFormattingWithAi = true;
+                                                                previousNoteText = null;
+                                                              });
+                                                              try {
+                                                                final formatted = await GeminiService.formatStudyNote(
+                                                                  rawText: raw,
+                                                                  topicOrSubject: notebook.subject,
+                                                                );
+                                                                if (formatted.trim().isNotEmpty) {
+                                                                  contentCtrl.text = formatted.trim();
+                                                                  setModalState(() {
+                                                                    previousNoteText = originalText;
+                                                                  });
+                                                                }
+                                                              } catch (e) {
+                                                                debugPrint('Erro ao formatar com IA: $e');
+                                                              } finally {
+                                                                setModalState(() => isFormattingWithAi = false);
+                                                              }
+                                                            },
+                                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                        decoration: BoxDecoration(
+                                                          color: isFormattingWithAi
+                                                              ? AsterConstants.lavanda.withValues(alpha: 0.2)
+                                                              : (isDark ? const Color(0xFF26204E) : const Color(0xFFF3F0FF)),
+                                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                          border: Border.all(
+                                                            color: isDark ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.7),
+                                                          ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                              blurRadius: 4,
+                                                              offset: const Offset(0, 1),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            if (isFormattingWithAi) ...[
+                                                              const SizedBox(
+                                                                width: 12,
+                                                                height: 12,
+                                                                child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda),
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text(
+                                                                'Formatando...',
+                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                              ),
+                                                            ] else ...[
+                                                              const Icon(Icons.auto_awesome_rounded, size: 12, color: AsterConstants.lavanda),
+                                                              const SizedBox(width: 5),
+                                                              Text(
+                                                                'Corrigir Formatação com IA ✨',
+                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                              ),
+                                                            ],
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -960,7 +1155,17 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
           nb.title.toLowerCase().contains(query) ||
           nb.subject.toLowerCase().contains(query) ||
           nb.description.toLowerCase().contains(query) ||
-          nb.notes.any((n) => n.title.toLowerCase().contains(query) || n.content.toLowerCase().contains(query));
+          nb.notes.any((n) {
+            final dateShort = DateFormat('dd/MM').format(n.updatedAt);
+            final dateFull = DateFormat('dd/MM/yyyy').format(n.updatedAt);
+            final month = _monthNamePt(n.updatedAt.month);
+            return n.title.toLowerCase().contains(query) ||
+                n.content.toLowerCase().contains(query) ||
+                n.tags.any((t) => t.toLowerCase().contains(query.replaceAll('#', ''))) ||
+                dateShort.contains(query) ||
+                dateFull.contains(query) ||
+                month.contains(query);
+          });
 
       final matchesSubject = _selectedSubjectFilter == 'Todos' || nb.subject == _selectedSubjectFilter;
       return matchesQuery && matchesSubject;
@@ -1318,6 +1523,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   setState(() {
                                     _selectedNotebook = nb;
                                     _selectedNote = nb.notes.isNotEmpty ? nb.notes.first : null;
+                                    _notesSearchQuery = '';
+                                    _notesSearchCtrl.clear();
+                                    _selectedTagFilter = 'Todas';
+                                    _selectedDateFilter = null;
+                                    _noteSortOrder = 'recent';
                                   });
                                 },
                               ),
@@ -1410,12 +1620,73 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
     );
   }
 
+  String _monthNamePt(int month) {
+    const months = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
+  }
+
   // ----------------------------------------------------
   // 2. VISÃO INTERNA DO CADERNO (ANOTAÇÕES, LINKS & IMAGENS)
   // ----------------------------------------------------
   Widget _buildNotebookDetailView(bool isDark) {
     final notebook = _selectedNotebook!;
     final nbColor = _parseColor(notebook.colorHex);
+
+    final allTags = <String>{'Todas'};
+    for (final n in notebook.notes) {
+      for (final t in n.tags) {
+        final clean = t.trim();
+        if (clean.isNotEmpty) allTags.add(clean);
+      }
+    }
+
+    final query = _notesSearchQuery.trim().toLowerCase();
+    final filteredNotes = notebook.notes.where((n) {
+      // 1. Busca por texto (nome/título, tags, conteúdo ou data)
+      if (query.isNotEmpty) {
+        final titleMatch = n.title.toLowerCase().contains(query);
+        final contentMatch = n.content.toLowerCase().contains(query);
+        final tagMatch = n.tags.any((t) => t.toLowerCase().contains(query.replaceAll('#', '')));
+        final dateShortMatch = DateFormat('dd/MM').format(n.updatedAt).contains(query);
+        final dateFullMatch = DateFormat('dd/MM/yyyy').format(n.updatedAt).contains(query);
+        final monthName = _monthNamePt(n.updatedAt.month);
+        final monthMatch = monthName.contains(query);
+        if (!titleMatch && !contentMatch && !tagMatch && !dateShortMatch && !dateFullMatch && !monthMatch) {
+          return false;
+        }
+      }
+
+      // 2. Filtro por tag selecionada
+      if (_selectedTagFilter != 'Todas') {
+        final hasTag = n.tags.any((t) => t.trim().toLowerCase() == _selectedTagFilter.toLowerCase());
+        if (!hasTag) return false;
+      }
+
+      // 3. Filtro por data específica
+      if (_selectedDateFilter != null) {
+        final matchesDate = n.updatedAt.year == _selectedDateFilter!.year &&
+            n.updatedAt.month == _selectedDateFilter!.month &&
+            n.updatedAt.day == _selectedDateFilter!.day;
+        if (!matchesDate) return false;
+      }
+
+      return true;
+    }).toList();
+
+    // Ordenação
+    if (_noteSortOrder == 'recent') {
+      filteredNotes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } else if (_noteSortOrder == 'oldest') {
+      filteredNotes.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    } else if (_noteSortOrder == 'az') {
+      filteredNotes.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    }
+
+    final currentReadingNote = _selectedNote ?? (filteredNotes.isNotEmpty ? filteredNotes.first : null);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1427,6 +1698,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             setState(() {
               _selectedNotebook = null;
               _selectedNote = null;
+              _notesSearchQuery = '';
+              _notesSearchCtrl.clear();
+              _selectedTagFilter = 'Todas';
+              _selectedDateFilter = null;
+              _noteSortOrder = 'recent';
             });
           },
         ),
@@ -1514,8 +1790,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
               ),
             )
           : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Coluna Esquerda: Lista de Anotações do Caderno
+                // Coluna Esquerda: Lista de Anotações do Caderno com Busca e Filtros
                 SizedBox(
                   width: 320,
                   child: Container(
@@ -1526,102 +1803,557 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         ),
                       ),
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: notebook.notes.length,
-                      separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, idx) {
-                        final n = notebook.notes[idx];
-                        final isSelected = _selectedNote?.id == n.id;
-
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedNote = n),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? (isDark ? AsterConstants.lavanda.withValues(alpha: 0.15) : AsterConstants.lavanda.withValues(alpha: 0.12))
-                                  : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
-                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AsterConstants.lavanda
-                                    : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                width: isSelected ? 1.5 : 1,
+                    child: Column(
+                      children: [
+                        // Barra de Busca e Menu de Data/Ordenação
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: TextField(
+                                        controller: _notesSearchCtrl,
+                                        style: GoogleFonts.manrope(fontSize: 12.5),
+                                        decoration: InputDecoration(
+                                          hintText: 'Buscar tags, nomes ou data...',
+                                          hintStyle: GoogleFonts.manrope(
+                                            fontSize: 11.5,
+                                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                          ),
+                                          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                                          suffixIcon: _notesSearchQuery.isNotEmpty
+                                              ? IconButton(
+                                                  icon: const Icon(Icons.close_rounded, size: 16),
+                                                  splashRadius: 16,
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _notesSearchCtrl.clear();
+                                                      _notesSearchQuery = '';
+                                                    });
+                                                  },
+                                                )
+                                              : null,
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                                          fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                          filled: true,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                            borderSide: BorderSide(
+                                              color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                            borderSide: BorderSide(
+                                              color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                            borderSide: const BorderSide(
+                                              color: AsterConstants.lavanda,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                        onChanged: (val) => setState(() => _notesSearchQuery = val),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  PopupMenuButton<String>(
+                                    tooltip: 'Filtrar ou ordenar por data',
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium)),
+                                    icon: Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: _selectedDateFilter != null || _noteSortOrder != 'recent'
+                                            ? AsterConstants.lavanda.withValues(alpha: 0.15)
+                                            : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        border: Border.all(
+                                          color: _selectedDateFilter != null || _noteSortOrder != 'recent'
+                                              ? AsterConstants.lavanda
+                                              : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.calendar_month_rounded,
+                                        size: 18,
+                                        color: _selectedDateFilter != null || _noteSortOrder != 'recent'
+                                            ? AsterConstants.lavanda
+                                            : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                      ),
+                                    ),
+                                    onSelected: (val) async {
+                                      if (val == 'pick_date') {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: _selectedDateFilter ?? DateTime.now(),
+                                          firstDate: DateTime(2020),
+                                          lastDate: DateTime(2035),
+                                          locale: const Locale('pt', 'BR'),
+                                          helpText: 'Selecionar Data',
+                                          cancelText: 'Cancelar',
+                                          confirmText: 'OK',
+                                          builder: (context, child) {
+                                            return Theme(
+                                              data: isDark
+                                                  ? ThemeData.dark().copyWith(
+                                                      colorScheme: const ColorScheme.dark(
+                                                        primary: AsterConstants.lavanda,
+                                                        onPrimary: Colors.white,
+                                                        surface: AsterConstants.surfaceCardDark,
+                                                        onSurface: AsterConstants.textLight,
+                                                      ),
+                                                    )
+                                                  : ThemeData.light().copyWith(
+                                                      colorScheme: const ColorScheme.light(
+                                                        primary: AsterConstants.lavanda,
+                                                        onPrimary: Colors.white,
+                                                        surface: AsterConstants.surfaceCard,
+                                                        onSurface: AsterConstants.textDark,
+                                                      ),
+                                                    ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked != null) {
+                                          setState(() => _selectedDateFilter = picked);
+                                        }
+                                      } else if (val == 'clear_date') {
+                                        setState(() => _selectedDateFilter = null);
+                                      } else if (val == 'recent' || val == 'oldest' || val == 'az') {
+                                        setState(() => _noteSortOrder = val);
+                                      }
+                                    },
+                                    itemBuilder: (popCtx) => [
+                                      PopupMenuItem(
+                                        value: 'pick_date',
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.event_rounded, size: 18, color: AsterConstants.lavanda),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              _selectedDateFilter == null
+                                                  ? 'Filtrar por data...'
+                                                  : 'Alterar data (${DateFormat('dd/MM/yyyy').format(_selectedDateFilter!)})',
+                                              style: GoogleFonts.manrope(fontSize: 12.5),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (_selectedDateFilter != null)
+                                        const PopupMenuItem(
+                                          value: 'clear_date',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.clear_rounded, size: 18, color: AsterConstants.coral),
+                                              SizedBox(width: 8),
+                                              Text('Remover filtro de data', style: TextStyle(color: AsterConstants.coral, fontSize: 12.5)),
+                                            ],
+                                          ),
+                                        ),
+                                      const PopupMenuDivider(),
+                                      PopupMenuItem(
+                                        value: 'recent',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.arrow_downward_rounded,
+                                              size: 16,
+                                              color: _noteSortOrder == 'recent' ? AsterConstants.lavanda : null,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Mais recentes primeiro',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 12,
+                                                fontWeight: _noteSortOrder == 'recent' ? FontWeight.w700 : FontWeight.w500,
+                                                color: _noteSortOrder == 'recent' ? AsterConstants.lavanda : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'oldest',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.arrow_upward_rounded,
+                                              size: 16,
+                                              color: _noteSortOrder == 'oldest' ? AsterConstants.lavanda : null,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Mais antigas primeiro',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 12,
+                                                fontWeight: _noteSortOrder == 'oldest' ? FontWeight.w700 : FontWeight.w500,
+                                                color: _noteSortOrder == 'oldest' ? AsterConstants.lavanda : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'az',
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.sort_by_alpha_rounded,
+                                              size: 16,
+                                              color: _noteSortOrder == 'az' ? AsterConstants.lavanda : null,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Ordem Alfabética (A-Z)',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 12,
+                                                fontWeight: _noteSortOrder == 'az' ? FontWeight.w700 : FontWeight.w500,
+                                                color: _noteSortOrder == 'az' ? AsterConstants.lavanda : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  n.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: isSelected
-                                        ? AsterConstants.lavanda
-                                        : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+
+                              // Chips de Tags horizontais se houver tags
+                              if (allTags.length > 1) ...[
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 32,
+                                  child: Listener(
+                                    onPointerSignal: (pointerSignal) {
+                                      if (pointerSignal is PointerScrollEvent && _tagsScrollCtrl.hasClients) {
+                                        final target = (_tagsScrollCtrl.offset + pointerSignal.scrollDelta.dy)
+                                            .clamp(0.0, _tagsScrollCtrl.position.maxScrollExtent);
+                                        _tagsScrollCtrl.jumpTo(target);
+                                      }
+                                    },
+                                    child: ScrollConfiguration(
+                                      behavior: ScrollConfiguration.of(context).copyWith(
+                                        dragDevices: {
+                                          PointerDeviceKind.touch,
+                                          PointerDeviceKind.mouse,
+                                          PointerDeviceKind.trackpad,
+                                          PointerDeviceKind.stylus,
+                                        },
+                                      ),
+                                      child: ListView(
+                                        controller: _tagsScrollCtrl,
+                                        scrollDirection: Axis.horizontal,
+                                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                                        children: allTags.map((tag) {
+                                          final isSelected = _selectedTagFilter == tag;
+                                          final labelText = tag == 'Todas' ? 'Todas' : '#$tag';
+                                          return Padding(
+                                            padding: const EdgeInsets.only(right: 6),
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                              onTap: () => setState(() => _selectedTagFilter = tag),
+                                              child: AnimatedContainer(
+                                                duration: const Duration(milliseconds: 180),
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                      ? AsterConstants.lavanda.withValues(alpha: 0.18)
+                                                      : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
+                                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? AsterConstants.lavanda
+                                                        : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                                    width: isSelected ? 1.5 : 1,
+                                                  ),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    labelText,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 11,
+                                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                                      color: isSelected
+                                                          ? AsterConstants.lavanda
+                                                          : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  n.content.isNotEmpty ? n.content.replaceAll(RegExp(r'[#*`\n]'), ' ').trim() : 'Sem texto.',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 11.5,
-                                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                  ),
-                                ),
+                              ],
+
+                              // Indicador de Filtro Ativo
+                              if (_selectedDateFilter != null || _selectedTagFilter != 'Todas' || _notesSearchQuery.isNotEmpty) ...[
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    if (n.allImageUrls.isNotEmpty) ...[
-                                      const Icon(Icons.image_rounded, size: 12, color: AsterConstants.menta),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '${n.allImageUrls.length}',
-                                        style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.menta),
+                                    if (_selectedDateFilter != null) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.calendar_today_rounded, size: 10, color: AsterConstants.lavanda),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              DateFormat('dd/MM/yyyy').format(_selectedDateFilter!),
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: AsterConstants.lavanda,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            GestureDetector(
+                                              onTap: () => setState(() => _selectedDateFilter = null),
+                                              child: const Icon(Icons.close_rounded, size: 12, color: AsterConstants.lavanda),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 6),
                                     ],
-                                    if (n.generalLinks.isNotEmpty) ...[
-                                      const Icon(Icons.link_rounded, size: 12, color: AsterConstants.lavanda),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '${n.generalLinks.length}',
-                                        style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    const Spacer(),
                                     Text(
-                                      DateFormat('dd/MM').format(n.updatedAt),
-                                      style: GoogleFonts.manrope(fontSize: 10, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                      '${filteredNotes.length} de ${notebook.notes.length}',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 10.5,
+                                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _notesSearchCtrl.clear();
+                                          _notesSearchQuery = '';
+                                          _selectedTagFilter = 'Todas';
+                                          _selectedDateFilter = null;
+                                        });
+                                      },
+                                      child: Text(
+                                        'Limpar',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AsterConstants.lavanda,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                        ),
+
+                        // Lista de Anotações ou Estado Vazio
+                        Expanded(
+                          child: filteredNotes.isEmpty
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.search_off_rounded,
+                                          size: 38,
+                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'Nenhuma anotação encontrada',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Tente alterar os termos da busca, tags ou data.',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 11,
+                                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        TextButton.icon(
+                                          icon: const Icon(Icons.refresh_rounded, size: 14),
+                                          label: const Text('Limpar filtros'),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AsterConstants.lavanda,
+                                            textStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _notesSearchCtrl.clear();
+                                              _notesSearchQuery = '';
+                                              _selectedTagFilter = 'Todas';
+                                              _selectedDateFilter = null;
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.all(14),
+                                  itemCount: filteredNotes.length,
+                                  separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
+                                  itemBuilder: (ctx, idx) {
+                                    final n = filteredNotes[idx];
+                                    final isSelected = currentReadingNote?.id == n.id;
+
+                                    return GestureDetector(
+                                      onTap: () => setState(() => _selectedNote = n),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? (isDark ? AsterConstants.lavanda.withValues(alpha: 0.15) : AsterConstants.lavanda.withValues(alpha: 0.12))
+                                              : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? AsterConstants.lavanda
+                                                : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                            width: isSelected ? 1.5 : 1,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              n.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: isSelected
+                                                    ? AsterConstants.lavanda
+                                                    : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              n.content.isNotEmpty ? n.content.replaceAll(RegExp(r'[#*`\n]'), ' ').trim() : 'Sem texto.',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11.5,
+                                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                              ),
+                                            ),
+                                            if (n.tags.isNotEmpty) ...[
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 4,
+                                                runSpacing: 4,
+                                                children: n.tags.take(3).map((t) {
+                                                  return Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: isDark
+                                                          ? AsterConstants.surfaceInsetDark
+                                                          : AsterConstants.surfaceInset,
+                                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                    ),
+                                                    child: Text(
+                                                      '#$t',
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 9.5,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                if (n.allImageUrls.isNotEmpty) ...[
+                                                  const Icon(Icons.image_rounded, size: 12, color: AsterConstants.menta),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    '${n.allImageUrls.length}',
+                                                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.menta),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                ],
+                                                if (n.generalLinks.isNotEmpty) ...[
+                                                  const Icon(Icons.link_rounded, size: 12, color: AsterConstants.lavanda),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    '${n.generalLinks.length}',
+                                                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                ],
+                                                const Spacer(),
+                                                Text(
+                                                  DateFormat('dd/MM').format(n.updatedAt),
+                                                  style: GoogleFonts.manrope(fontSize: 10, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
 
                 // Coluna Direita: Leitor e Renderizador Completo da Anotação
                 Expanded(
-                  child: _selectedNote == null
+                  child: currentReadingNote == null
                       ? Center(
                           child: Text(
                             'Selecione uma anotação à esquerda para visualizar.',
                             style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                           ),
                         )
-                      : _buildNoteReaderView(_selectedNote!, isDark),
+                      : _buildNoteReaderView(currentReadingNote, isDark),
                 ),
               ],
             ),
@@ -1672,15 +2404,21 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                           Wrap(
                             spacing: 6,
                             children: note.tags.map((t) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                ),
-                                child: Text(
-                                  '#$t',
-                                  style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedTagFilter = t),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    ),
+                                    child: Text(
+                                      '#$t',
+                                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                    ),
+                                  ),
                                 ),
                               );
                             }).toList(),
@@ -1691,6 +2429,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 icon: const Icon(Icons.edit_outlined, size: 16),
                 label: const Text('Editar'),
@@ -1875,6 +2614,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 : MarkdownBody(
                     data: note.content,
                     selectable: true,
+                    syntaxHighlighter: AsterCodeSyntaxHighlighter(isDark: isDark),
                     onTapLink: (text, href, title) {
                       if (href != null) _launchExternalUrl(href);
                     },
@@ -1899,16 +2639,39 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         fontWeight: FontWeight.w800,
                         color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       ),
-                      code: GoogleFonts.firaCode(
-                        fontSize: 12.5,
-                        backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                      strong: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       ),
+                      code: GoogleFonts.jetBrainsMono(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: AsterConstants.lavanda,
+                        backgroundColor: AsterConstants.lavanda.withValues(alpha: 0.12),
+                      ),
+                      codeblockPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       codeblockDecoration: BoxDecoration(
-                        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                         border: Border.all(
-                          color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                         ),
+                      ),
+                      blockquoteDecoration: BoxDecoration(
+                        color: AsterConstants.lavanda.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: const Border(
+                          left: BorderSide(
+                            color: AsterConstants.lavanda,
+                            width: 4,
+                          ),
+                        ),
+                      ),
+                      blockquotePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      listBullet: GoogleFonts.manrope(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AsterConstants.lavanda,
                       ),
                     ),
                   ),
@@ -2017,5 +2780,91 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Syntax Highlighter para renderização refinada e autêntica de blocos de código em anotações Markdown
+class AsterCodeSyntaxHighlighter extends SyntaxHighlighter {
+  final bool isDark;
+  AsterCodeSyntaxHighlighter({required this.isDark});
+
+  @override
+  TextSpan format(String source) {
+    final lines = source.split('\n');
+    final spans = <TextSpan>[];
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trimLeft();
+      final isLast = (i == lines.length - 1);
+      final lineBreak = isLast ? '' : '\n';
+
+      if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';') || trimmed.startsWith('--')) {
+        // Linha de comentário (bash '#', comentários em código, etc.)
+        spans.add(
+          TextSpan(
+            text: '$line$lineBreak',
+            style: GoogleFonts.jetBrainsMono(
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              fontWeight: FontWeight.w400,
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
+        );
+      } else {
+        // Linha de comando ou código com destaque de sintaxe
+        final words = line.split(' ');
+        final lineSpans = <TextSpan>[];
+
+        for (var w = 0; w < words.length; w++) {
+          final word = words[w];
+          final space = (w == words.length - 1) ? '' : ' ';
+
+          Color wordColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
+          FontWeight weight = FontWeight.w400;
+
+          if (w == 0 && (word.startsWith(RegExp(r'[a-zA-Z]')))) {
+            // Comando inicial (ex: aws, docker, git, npm, flutter)
+            wordColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+            weight = FontWeight.w700;
+          } else if (word.startsWith('-')) {
+            // Flags e opções (ex: --filters, -it, --name)
+            wordColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+            weight = FontWeight.w500;
+          } else if (word.startsWith('"') || word.startsWith("'")) {
+            // Strings e argumentos literais
+            wordColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+            weight = FontWeight.w400;
+          } else if (word == '=' || word == '|' || word == '&&' || word == '||') {
+            wordColor = isDark ? const Color(0xFFF472B6) : const Color(0xFFDB2777);
+            weight = FontWeight.w700;
+          }
+
+          lineSpans.add(
+            TextSpan(
+              text: '$word$space',
+              style: GoogleFonts.jetBrainsMono(
+                color: wordColor,
+                fontSize: 13,
+                fontWeight: weight,
+                height: 1.55,
+              ),
+            ),
+          );
+        }
+
+        lineSpans.add(
+          TextSpan(
+            text: lineBreak,
+            style: GoogleFonts.jetBrainsMono(fontSize: 13, height: 1.55),
+          ),
+        );
+
+        spans.add(TextSpan(children: lineSpans));
+      }
+    }
+
+    return TextSpan(children: spans);
   }
 }

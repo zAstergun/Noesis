@@ -906,6 +906,131 @@ RETORNE ESTRITAMENTE um array JSON no formato:
   }
 
   // ---------------------------------------------------------------------------
+  // FORMATAÇÃO E ESTRUTURAÇÃO DE ANOTAÇÕES DE ESTUDO COM IA
+  // ---------------------------------------------------------------------------
+  /// Formata e aprimora uma anotação de estudos em Markdown estruturado, elegante e pedagógico
+  static Future<String> formatStudyNote({
+    required String rawText,
+    String? topicOrSubject,
+  }) async {
+    final clean = rawText.trim();
+    if (clean.isEmpty) return rawText;
+
+    final key = apiKey?.trim() ?? '';
+    final hasActiveAi = (provider == 'custom' || key.isNotEmpty);
+
+    if (hasActiveAi) {
+      try {
+        const systemInstruction =
+            'Você é um assistente especialista em pedagogia, revisão gramatical e formatação Markdown para o aplicativo Noesis.\n'
+            'Sua missão é organizar, enriquecer a legibilidade e formatar com maestria as anotações de estudo do estudante mantendo 100% DO CONTEÚDO ORIGINAL.\n'
+            'DIRETRIZES CRÍTICAS E OBRIGATÓRIAS:\n'
+            '1. NUNCA RESUMA, NUNCA CORTE, NUNCA ABREVIE E NUNCA APAGUE NENHUM PARÁGRAFO OU FRASE. É estritamente proibido omitir qualquer conteúdo fornecido pelo usuário. A totalidade absoluta do texto deve estar presente na resposta.\n'
+            '2. Preserve e mantenha na íntegra todos os blocos de código (ex: ```bash, ```python, etc.), comandos, parâmetros e exemplos técnicos sem nenhuma modificação no código.\n'
+            '3. PRESERVE estritamente quaisquer URLs, links de referência [texto](url) e imagens markdown ![legenda](url) que o usuário já tenha inserido.\n'
+            '4. Corrija pontuação, concordância e erros gramaticais/ortográficos no texto explicativo.\n'
+            '5. Estruture em seções lógicas com títulos e subtítulos (#, ##, ###), marcadores (- ou *) e negritos em termos essenciais (**conceito**).\n'
+            '6. Retorne EXCLUSIVAMENTE o conteúdo formatado em Markdown, sem nenhuma introdução, saudação, comentário prévio ou notas de encerramento.';
+
+        final prompt = 'Por favor, formate e estruture as seguintes anotações de estudo na íntegra, sem resumir ou omitir nenhuma linha (Matéria/Contexto: ${topicOrSubject ?? "Geral"}):\n\n$clean';
+
+        final result = await _executeRawPrompt(
+          prompt: prompt,
+          systemInstruction: systemInstruction,
+        );
+
+        if (result.trim().isNotEmpty) {
+          var formatted = result.trim();
+          if (formatted.startsWith('```markdown') && formatted.endsWith('```')) {
+            formatted = formatted.substring(11, formatted.length - 3).trim();
+          } else if (formatted.startsWith('```') && formatted.endsWith('```')) {
+            formatted = formatted.substring(3, formatted.length - 3).trim();
+          }
+
+          // Proteção anti-truncamento / anti-apagamento de conteúdo
+          final hasCodeBlockInOriginal = clean.contains('```');
+          final hasCodeBlockInFormatted = formatted.contains('```');
+          final isSevereTruncation = clean.length > 150 && formatted.length < (clean.length * 0.55);
+          final lostCodeBlock = hasCodeBlockInOriginal && !hasCodeBlockInFormatted;
+
+          if (isSevereTruncation || lostCodeBlock) {
+            debugPrint('Aviso: IA retornou texto truncado ou com partes faltantes. Usando formatação autônoma segura para preservar 100% do conteúdo.');
+            return _autonomousFormatStudyNote(clean, topicOrSubject);
+          }
+
+          return formatted;
+        }
+      } catch (e) {
+        debugPrint('Erro ao chamar IA para formatação de nota: $e. Usando formatação autônoma.');
+      }
+    }
+
+    return _autonomousFormatStudyNote(clean, topicOrSubject);
+  }
+
+  static String _autonomousFormatStudyNote(String rawText, String? topicOrSubject) {
+    final lines = rawText.split('\n');
+    final formattedLines = <String>[];
+    bool inCodeBlock = false;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line.isEmpty) {
+        formattedLines.add('');
+        continue;
+      }
+
+      if (line.startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+        formattedLines.add(line);
+        continue;
+      }
+
+      if (inCodeBlock) {
+        formattedLines.add(lines[i]);
+        continue;
+      }
+
+      // Se já possui marcação markdown
+      if (RegExp(r'^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|!\[|\[)').hasMatch(line)) {
+        formattedLines.add(line);
+        continue;
+      }
+
+      // Título inicial
+      if (i == 0 && line.length < 70 && !line.endsWith('.')) {
+        formattedLines.add('## $line\n');
+        continue;
+      }
+
+      // Subtítulo
+      if (line.length < 45 && !line.endsWith('.') && !line.endsWith(':') && i + 1 < lines.length && lines[i + 1].trim().isNotEmpty) {
+        formattedLines.add('\n### $line');
+        continue;
+      }
+
+      // Destaque de conceito
+      if (line.contains(':') && !line.startsWith('http')) {
+        final colonIdx = line.indexOf(':');
+        final prefix = line.substring(0, colonIdx).trim();
+        final suffix = line.substring(colonIdx + 1).trim();
+        if (prefix.length < 35 && !prefix.contains('**') && suffix.isNotEmpty) {
+          line = '**$prefix:** $suffix';
+        }
+      }
+
+      // Marcadores comuns
+      if (line.startsWith('•') || line.startsWith('–') || line.startsWith('—')) {
+        line = '- ${line.substring(1).trim()}';
+      }
+
+      formattedLines.add(line);
+    }
+
+    return formattedLines.join('\n');
+  }
+
+  // ---------------------------------------------------------------------------
   // ASSISTENTE DE ESTUDOS COM TOOL CALLING COMPLETO E AÇÕES REAIS
   // ---------------------------------------------------------------------------
   static Future<String> executeAgentChat({
@@ -1581,13 +1706,13 @@ Como posso acelerar seus estudos agora?
         },
         body: jsonEncode({
           'model': cleanModel,
-          'max_tokens': 2048,
+          'max_tokens': 8192,
           'system': systemInstruction,
           'messages': [
             {'role': 'user', 'content': prompt}
           ]
         }),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 25));
 
       if (resp.statusCode != 200) {
         throw Exception('Falha na API Anthropic (${resp.statusCode}): ${resp.body}');
@@ -1629,9 +1754,9 @@ Como posso acelerar seus estudos agora?
           {'role': 'user', 'content': prompt}
         ],
         'temperature': temperature,
-        'max_tokens': 2048,
+        'max_tokens': 8192,
       }),
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(const Duration(seconds: 25));
 
     if (resp.statusCode != 200) {
       throw Exception('Falha na API ($provider / ${resp.statusCode}): ${resp.body}');
@@ -1669,14 +1794,26 @@ Como posso acelerar seus estudos agora?
         ],
         'generationConfig': {
           'temperature': temperature,
-          'maxOutputTokens': 2048,
+          'maxOutputTokens': 8192,
         }
       }),
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(const Duration(seconds: 25));
 
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
-      return data['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
+      final candidate = (data['candidates'] as List?)?.firstOrNull;
+      if (candidate == null) return '';
+      final parts = candidate['content']?['parts'] as List?;
+      if (parts == null || parts.isEmpty) return '';
+      final buffer = StringBuffer();
+      for (final p in parts) {
+        if (p is Map<String, dynamic>) {
+          if (p['thought'] == true) continue;
+          final txt = p['text'] as String?;
+          if (txt != null) buffer.write(txt);
+        }
+      }
+      return buffer.toString();
     } else {
       throw Exception('Erro Google REST: status ${resp.statusCode}');
     }

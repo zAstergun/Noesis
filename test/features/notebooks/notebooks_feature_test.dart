@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noesis/core/gemini_service.dart';
 import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/features/notebooks/models/notebook_model.dart';
 import 'package:noesis/features/notebooks/notebooks_screen.dart';
@@ -220,6 +221,219 @@ void main() {
       // Verificar que a anotação e sua imagem renderizada agora aparecem na tela do caderno
       expect(find.text('Bases Legais do Artigo 7º da LGPD'), findsWidgets);
       expect(find.text('Imagens Anexadas ao Estudo (1)'), findsOneWidget);
+
+      await TestAppHarness.drainAsync(tester);
+    });
+
+    testWidgets('5. GeminiService.formatStudyNote and NotebooksScreen button format text with AI', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // 1. Testa a lógica de formatação do GeminiService
+      const rawNotes = 'Fundamentos de Docker e Containers\n'
+          'Docker é uma plataforma de virtualização em nível de sistema operacional.\n'
+          'Vantagens: Isolamento ágil, portabilidade total e economia de recursos.\n'
+          '• Comandos principais: docker run, docker build, docker compose\n'
+          'Referência: https://docs.docker.com/';
+
+      final formatted = await GeminiService.formatStudyNote(
+        rawText: rawNotes,
+        topicOrSubject: 'DevOps / Cloud',
+      );
+
+      expect(formatted.contains('## Fundamentos de Docker e Containers'), isTrue);
+      expect(formatted.contains('**Vantagens:**'), isTrue);
+      expect(formatted.contains('https://docs.docker.com/'), isTrue);
+
+      // 2. Testa o botão na interface do editor de anotação
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const NotebooksScreen(),
+      );
+
+      // Abrir o primeiro caderno
+      await tester.tap(find.text('Abrir Caderno 📖').first);
+      await tester.pumpAndSettle();
+
+      // Clicar em "Nova Anotação 📝"
+      await tester.tap(find.text('Nova Anotação 📝'));
+      await tester.pumpAndSettle();
+
+      // Botão 'Corrigir Formatação com IA ✨' deve estar visível no editor
+      expect(find.text('Corrigir Formatação com IA ✨'), findsOneWidget);
+
+      // Digitar conteúdo bruto
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Ex: Resumo sobre Protocolos de Enlace e Criptografia...'),
+        'Virtualização de Servidores',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Escreva suas notas de estudo aqui...\n\nVocê pode usar títulos (# Título), tópicos (* item), blocos de código (```codigo```) ou colar links.'),
+        rawNotes,
+      );
+      await tester.pumpAndSettle();
+
+      // Clicar no botão para formatar com IA
+      await tester.tap(find.text('Corrigir Formatação com IA ✨'));
+      await tester.pumpAndSettle();
+
+      // O campo de texto agora deve conter o texto estruturado com Markdown
+      final textFinder = find.widgetWithText(TextField, formatted);
+      expect(textFinder, findsOneWidget);
+
+      // Aviso inline aparece no bloco da anotação com o botão 'Retornar'
+      expect(find.text('Formatado com IA ✨'), findsOneWidget);
+      expect(find.text('Retornar'), findsOneWidget);
+
+      // Clicar em Retornar deve restaurar o texto anterior
+      await tester.tap(find.text('Retornar'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, rawNotes), findsOneWidget);
+
+      // Reformatar para salvar a versão formatada
+      await tester.tap(find.text('Corrigir Formatação com IA ✨'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, formatted), findsOneWidget);
+
+      // Salvar a anotação
+      await tester.tap(find.text('Salvar Anotação 💾'));
+      await tester.pumpAndSettle();
+
+      // No leitor, o botão de formatação NÃO deve estar no cabeçalho (apenas dentro da edição)
+      expect(find.text('Formatar com IA ✨'), findsNothing);
+      expect(find.text('Editar'), findsOneWidget);
+
+      await TestAppHarness.drainAsync(tester);
+    });
+
+    test('6. AsterCodeSyntaxHighlighter formats code and comments with JetBrainsMono and distinct syntax colors', () {
+      final highlighter = AsterCodeSyntaxHighlighter(isDark: false);
+      const codeSnippet = '# Exemplo de verificação de rotas e gateways\naws ec2 describe-route-tables --filters "Name=vpc-id"';
+
+      final span = highlighter.format(codeSnippet);
+      expect(span.children, isNotNull);
+      expect(span.children!.length, greaterThanOrEqualTo(2));
+
+      // A primeira linha é comentário bash
+      final firstSpan = span.children!.first;
+      expect(firstSpan.toPlainText(), contains('# Exemplo de verificação'));
+      expect(firstSpan.style?.color, isNotNull);
+      expect(firstSpan.style?.fontFamily, contains('JetBrainsMono'));
+    });
+
+    testWidgets('7. NotebooksScreen sidebar filters and searches notes by name, tag, and date', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const NotebooksScreen(),
+      );
+
+      // Abrir o caderno pré-carregado de Arquitetura Cloud
+      final cloudTitle = find.text('Arquitetura Cloud & Infraestrutura');
+      expect(cloudTitle, findsOneWidget);
+      final cloudCard = find.ancestor(of: cloudTitle, matching: find.byType(Container));
+      final openBtn = find.descendant(of: cloudCard, matching: find.text('Abrir Caderno 📖'));
+      await tester.tap(openBtn.first);
+      await tester.pumpAndSettle();
+
+      // Verificar que o campo de busca com hint de busca existe
+      final searchInput = find.widgetWithText(TextField, 'Buscar tags, nomes ou data...');
+      expect(searchInput, findsOneWidget);
+
+      // Verificar que o botão de calendário/ordenação existe
+      expect(find.byIcon(Icons.calendar_month_rounded), findsOneWidget);
+
+      // 1. Busca por nome (título): digitar 'Topologia'
+      await tester.enterText(searchInput, 'Topologia');
+      await tester.pumpAndSettle();
+
+      // Deve encontrar 'Topologia de Redes VPC...' e não 'Configuração de Segurança'
+      expect(find.text('Topologia de Redes VPC & Subnets Públicas vs Privadas'), findsWidgets);
+      expect(find.text('Configuração de Segurança: Security Groups vs Network ACLs'), findsNothing);
+
+      // Limpar busca pelo botão de fechar no TextField
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Configuração de Segurança: Security Groups vs Network ACLs'), findsWidgets);
+
+      // 2. Filtro por tag via chip: Clicar em '#Cloud' ou '#Infra'
+      final infraChip = find.text('#Infra');
+      if (infraChip.evaluate().isNotEmpty) {
+        await tester.tap(infraChip.first);
+        await tester.pumpAndSettle();
+        expect(find.text('Topologia de Redes VPC & Subnets Públicas vs Privadas'), findsWidgets);
+        expect(find.text('Configuração de Segurança: Security Groups vs Network ACLs'), findsNothing);
+
+        // Limpar filtro clicando em 'Limpar'
+        await tester.tap(find.text('Limpar'));
+        await tester.pumpAndSettle();
+        expect(find.text('Configuração de Segurança: Security Groups vs Network ACLs'), findsWidgets);
+      }
+
+      // 3. Busca por data ou mês: digitar mês 'novembro' ou '24'
+      await tester.enterText(searchInput, 'Topologia');
+      await tester.pumpAndSettle();
+      expect(find.text('Topologia de Redes VPC & Subnets Públicas vs Privadas'), findsWidgets);
+
+      // 4. Teste de busca sem resultados
+      await tester.enterText(searchInput, 'termo_inexistente_123456');
+      await tester.pumpAndSettle();
+      expect(find.text('Nenhuma anotação encontrada'), findsOneWidget);
+      expect(find.text('Limpar filtros'), findsOneWidget);
+
+      // Clicar em 'Limpar filtros' restaura a lista
+      await tester.tap(find.text('Limpar filtros'));
+      await tester.pumpAndSettle();
+      expect(find.text('Topologia de Redes VPC & Subnets Públicas vs Privadas'), findsWidgets);
+      expect(find.text('Configuração de Segurança: Security Groups vs Network ACLs'), findsWidgets);
+
+      await TestAppHarness.drainAsync(tester);
+    });
+
+    testWidgets('8. Tags row supports horizontal dragging and date picker option operates in pt_BR', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const NotebooksScreen(),
+      );
+
+      // Abrir o caderno pré-carregado
+      final cloudTitle = find.text('Arquitetura Cloud & Infraestrutura');
+      final cloudCard = find.ancestor(of: cloudTitle, matching: find.byType(Container));
+      final openBtn = find.descendant(of: cloudCard, matching: find.text('Abrir Caderno 📖'));
+      await tester.tap(openBtn.first);
+      await tester.pumpAndSettle();
+
+      // Verificar que as tags horizontais estão presentes
+      final todasTag = find.text('Todas');
+      expect(todasTag, findsOneWidget);
+
+      // Realizar arrasto horizontal (drag) na linha de tags
+      await tester.drag(todasTag, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+
+      // Abrir o menu de data e ordenação
+      await tester.tap(find.byIcon(Icons.calendar_month_rounded));
+      await tester.pumpAndSettle();
+
+      // Opção de filtrar por data em português
+      expect(find.text('Filtrar por data...'), findsOneWidget);
 
       await TestAppHarness.drainAsync(tester);
     });

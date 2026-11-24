@@ -45,5 +45,28 @@ void main() {
       // Drain any pending font or async callbacks
       await TestAppHarness.drainAsync(tester);
     });
+
+    testWidgets('AiAssistantScreen occupies full content area without 1000px constraint cutoff', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1600, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const AiAssistantScreen(),
+        screenSize: const Size(1600, 1000),
+      );
+
+      final cardFinder = find.byType(AiAssistantScreen);
+      expect(cardFinder, findsOneWidget);
+
+      final renderBox = tester.renderObject<RenderBox>(cardFinder);
+      expect(renderBox.size.width, equals(1600));
+
+      await TestAppHarness.drainAsync(tester);
+    });
   });
 }

@@ -190,20 +190,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isDesktop ? 28.0 : 16.0,
-        0,
+        20.0,
         isDesktop ? 28.0 : 16.0,
-        16.0,
+        20.0,
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: _buildChatCard(isDesktop),
-        ),
-      ),
+      child: _buildChatCard(isDesktop),
     );
   }
 
   Widget _buildChatCard(bool isDesktop) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SoftClayCard(
       height: double.infinity,
       width: double.infinity,
@@ -233,7 +230,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   children: [
                     Text(
                       'Noesis AI',
-                      style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                      style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
                     ),
                     Row(
                       children: [
@@ -241,7 +242,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         const SizedBox(width: 6),
                         Text(
                           'agente ativo · ferramentas operacionais',
-                          style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -254,7 +258,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   onPressed: _openApiKeyDialog,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_rounded, size: 22, color: AsterConstants.textDark),
+                  icon: Icon(Icons.add_rounded, size: 22, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
                   tooltip: 'Restaurar exemplo',
                   onPressed: () {
                     setState(() {
@@ -265,7 +269,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AsterConstants.textMuted),
+                  icon: Icon(Icons.delete_outline_rounded, size: 20, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                   tooltip: 'Limpar conversa',
                   onPressed: () {
                     setState(() {
@@ -277,7 +281,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ],
             ),
           ),
-          const Divider(),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+          ),
 
           // Mensagens do Chat
           Expanded(
@@ -301,7 +309,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           style: GoogleFonts.manrope(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AsterConstants.textDark,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -309,7 +317,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           'Peça para criar simulados, registrar estudos, agendar revisões ou resumir tópicos.',
                           style: GoogleFonts.manrope(
                             fontSize: 13,
-                            color: AsterConstants.textMuted,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                           ),
                         ),
                       ],
@@ -731,7 +739,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: AsterConstants.surfaceAlt,
+                color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
               child: Row(
