@@ -12,6 +12,8 @@ import '../../core/theme.dart';
 import 'models/flashcard_model.dart';
 import 'utils/deck_file_importer.dart';
 
+enum _DeckStatusFilter { all, toReview, completed }
+
 class FlashcardsScreen extends StatefulWidget {
   static final ValueNotifier<FlashcardDeck?> externalDeckStarter = ValueNotifier<FlashcardDeck?>(null);
 
@@ -88,11 +90,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   List<FlashcardDeck> _decks = [];
   bool _isLoading = true;
   String _selectedSubjectFilter = 'Todos';
+  _DeckStatusFilter _statusFilter = _DeckStatusFilter.all;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   // Active study session state
   FlashcardDeck? _activeStudyDeck;
+  List<Flashcard> _studyQueue = [];
+  final Set<String> _requeuedCardIds = {};
+  bool _studyPendingOnly = true;
   int _activeCardIndex = 0;
   bool _isCardFlipped = false;
   late final AnimationController _flipAnimationController;
@@ -152,15 +158,25 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     }
   }
 
-  void _startStudySession(FlashcardDeck deck) {
+  void _startStudySession(FlashcardDeck deck, {bool reviewAll = false}) {
     if (deck.cards.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Este baralho ainda não tem cartões. Adicione cartões antes de estudar!')),
       );
       return;
     }
+
+    final pendingCards = deck.cardsToReview();
+    final usePendingOnly = !reviewAll && pendingCards.isNotEmpty;
+    final queue = usePendingOnly
+        ? List<Flashcard>.from(pendingCards)
+        : List<Flashcard>.from(deck.cards);
+
     setState(() {
       _activeStudyDeck = deck;
+      _studyQueue = queue;
+      _requeuedCardIds.clear();
+      _studyPendingOnly = usePendingOnly;
       _activeCardIndex = 0;
       _isCardFlipped = false;
       _sessionEasyCount = 0;
@@ -187,10 +203,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   }
 
   void _rateCurrentCard(String difficulty) async {
-    if (_activeStudyDeck == null) return;
+    if (_activeStudyDeck == null || _studyQueue.isEmpty) return;
     HapticFeedback.mediumImpact();
 
-    final currentCard = _activeStudyDeck!.cards[_activeCardIndex];
+    final currentCard = _studyQueue[_activeCardIndex];
+    final now = DateTime.now();
 
     if (difficulty == 'easy') _sessionEasyCount++;
     if (difficulty == 'good') _sessionGoodCount++;
@@ -202,12 +219,52 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       difficulty: difficulty,
     );
 
-    if (_activeCardIndex + 1 < _activeStudyDeck!.cards.length) {
+    final updatedCard = currentCard.copyWith(
+      difficulty: difficulty,
+      reviewCount: currentCard.reviewCount + 1,
+      lastReviewed: now,
+    );
+
+    final updatedDeckCards = List<Flashcard>.from(_activeStudyDeck!.cards);
+    final deckCardIdx = updatedDeckCards.indexWhere((c) => c.id == currentCard.id);
+    if (deckCardIdx != -1) {
+      updatedDeckCards[deckCardIdx] = updatedCard;
+    }
+    final updatedDeck = _activeStudyDeck!.copyWith(cards: updatedDeckCards);
+
+    // Atualiza estado do baralho na lista em memória imediatamente
+    final deckIdx = _decks.indexWhere((d) => d.id == updatedDeck.id);
+    if (deckIdx != -1) {
+      _decks[deckIdx] = updatedDeck;
+    }
+
+    // Cartões marcados como 'hard' ainda não foram aprendidos: retornam para o fim da fila
+    // enquanto cartões 'good' e 'easy' não voltam na sessão atual.
+    final nextQueue = List<Flashcard>.from(_studyQueue);
+    nextQueue[_activeCardIndex] = updatedCard;
+    if (difficulty == 'hard') {
+      nextQueue.add(updatedCard);
+      _requeuedCardIds.add(updatedCard.id);
+      if (mounted && _studyQueue.length - _activeCardIndex == 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            content: Text('Cartão difícil mantido na fila para reforço ativo.'),
+          ),
+        );
+      }
+    } else {
+      _requeuedCardIds.remove(updatedCard.id);
+    }
+
+    if (_activeCardIndex + 1 < nextQueue.length) {
       AudioService().stopAudio();
       if (_isCardFlipped) {
         _flipAnimationController.reverse();
       }
       setState(() {
+        _activeStudyDeck = updatedDeck;
+        _studyQueue = nextQueue;
         _activeCardIndex++;
         _isCardFlipped = false;
       });
@@ -215,6 +272,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       AudioService().stopAudio();
       _studyStopwatch.stop();
       setState(() {
+        _activeStudyDeck = updatedDeck;
+        _studyQueue = nextQueue;
         _isSessionFinished = true;
       });
     }
@@ -225,6 +284,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     _studyStopwatch.stop();
     setState(() {
       _activeStudyDeck = null;
+      _studyQueue = [];
+      _requeuedCardIds.clear();
     });
     _loadDecks();
   }
@@ -234,7 +295,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       final clean = hex.replaceAll('#', '');
       return Color(int.parse('FF$clean', radix: 16));
     } catch (_) {
-      return AsterConstants.lavanda;
+      return AsterTheme.primary(context);
     }
   }
 
@@ -249,13 +310,18 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   List<FlashcardDeck> get _filteredDecks {
     return _decks.where((deck) {
       final matchesSubject = _selectedSubjectFilter == 'Todos' || deck.subject == _selectedSubjectFilter;
+      final matchesStatus = switch (_statusFilter) {
+        _DeckStatusFilter.all => true,
+        _DeckStatusFilter.toReview => deck.pendingReviewCount() > 0,
+        _DeckStatusFilter.completed => deck.isCompleted(),
+      };
       final query = _searchQuery.toLowerCase().trim();
       final matchesSearch = query.isEmpty ||
           deck.title.toLowerCase().contains(query) ||
           deck.description.toLowerCase().contains(query) ||
           deck.subject.toLowerCase().contains(query) ||
           deck.cards.any((c) => c.front.toLowerCase().contains(query) || c.back.toLowerCase().contains(query));
-      return matchesSubject && matchesSearch;
+      return matchesSubject && matchesStatus && matchesSearch;
     }).toList();
   }
 
@@ -363,10 +429,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: const Icon(Icons.style_rounded, color: AsterConstants.lavanda, size: 22),
+                            child: Icon(Icons.style_rounded, color: AsterTheme.primary(context), size: 22),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -406,13 +472,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AsterConstants.lavanda.withValues(alpha: 0.14),
+                                AsterTheme.primary(context).withValues(alpha: 0.14),
                                 AsterConstants.menta.withValues(alpha: 0.08),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             border: Border.all(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
                             ),
                           ),
                           child: Row(
@@ -421,10 +487,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 width: 38,
                                 height: 38,
                                 decoration: BoxDecoration(
-                                  color: AsterConstants.lavanda.withValues(alpha: 0.2),
+                                  color: AsterTheme.primary(context).withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.auto_awesome_rounded, color: AsterConstants.lavanda, size: 20),
+                                child: Icon(Icons.auto_awesome_rounded, color: AsterTheme.primary(context), size: 20),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -492,8 +558,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 icon: const Icon(Icons.splitscreen_rounded, size: 16),
                                 label: const Text('Separar com IA ✨'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AsterConstants.lavanda,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: AsterTheme.primary(context),
+                                  foregroundColor: AsterTheme.onPrimary(context),
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                                   elevation: 2,
@@ -662,7 +728,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                               ),
                                               child: Text(
@@ -670,7 +736,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
-                                                  color: AsterConstants.lavanda,
+                                                  color: AsterTheme.primary(context),
                                                 ),
                                               ),
                                             ),
@@ -699,7 +765,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     child: Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                       decoration: BoxDecoration(
-                                                        color: isPlaying ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                        color: isPlaying ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.15),
                                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                       ),
                                                       child: Row(
@@ -708,7 +774,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                           Icon(
                                                             isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded,
                                                             size: 13,
-                                                            color: isPlaying ? Colors.white : AsterConstants.lavanda,
+                                                            color: isPlaying ? Colors.white : AsterTheme.primary(context),
                                                           ),
                                                           const SizedBox(width: 4),
                                                           Text(
@@ -716,7 +782,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                             style: GoogleFonts.manrope(
                                                               fontSize: 10.5,
                                                               fontWeight: FontWeight.w700,
-                                                              color: isPlaying ? Colors.white : AsterConstants.lavanda,
+                                                              color: isPlaying ? Colors.white : AsterTheme.primary(context),
                                                             ),
                                                           ),
                                                         ],
@@ -773,20 +839,20 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 child: Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                    color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                   ),
                                                   child: Row(
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      const Icon(Icons.audio_file_rounded, size: 12, color: AsterConstants.lavanda),
+                                                      Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                       const SizedBox(width: 4),
                                                       Text(
                                                         'Anexar MP3',
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
-                                                          color: AsterConstants.lavanda,
+                                                          color: AsterTheme.primary(context),
                                                         ),
                                                       ),
                                                     ],
@@ -964,17 +1030,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               const SizedBox(width: 12),
                               if (editableCards.length > 20) ...[
                                 OutlinedButton.icon(
-                                  icon: const Icon(Icons.splitscreen_rounded, size: 16, color: AsterConstants.lavanda),
+                                  icon: Icon(Icons.splitscreen_rounded, size: 16, color: AsterTheme.primary(context)),
                                   label: Text(
                                     'Separar com IA ✨',
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
-                                      color: AsterConstants.lavanda,
+                                      color: AsterTheme.primary(context),
                                     ),
                                   ),
                                   style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: AsterConstants.lavanda),
+                                    side: BorderSide(color: AsterTheme.primary(context)),
                                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                                   ),
@@ -1031,7 +1097,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                               title: Row(
                                                 children: [
-                                                  const Icon(Icons.auto_awesome_rounded, color: AsterConstants.lavanda, size: 22),
+                                                  Icon(Icons.auto_awesome_rounded, color: AsterTheme.primary(context), size: 22),
                                                   const SizedBox(width: 10),
                                                   Text(
                                                     'Separar Baralho com IA?',
@@ -1050,8 +1116,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 ),
                                                 ElevatedButton.icon(
                                                   style: ElevatedButton.styleFrom(
-                                                    backgroundColor: AsterConstants.lavanda,
-                                                    foregroundColor: Colors.white,
+                                                    backgroundColor: AsterTheme.primary(context),
+                                                    foregroundColor: AsterTheme.onPrimary(context),
                                                   ),
                                                   onPressed: () => Navigator.pop(askCtx, true),
                                                   icon: const Icon(Icons.splitscreen_rounded, size: 16),
@@ -1147,12 +1213,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 42,
                   height: 42,
                   child: CircularProgressIndicator(
                     strokeWidth: 3.5,
-                    valueColor: AlwaysStoppedAnimation(AsterConstants.lavanda),
+                    valueColor: AlwaysStoppedAnimation(AsterTheme.primary(context)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -1269,10 +1335,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: const Icon(Icons.auto_awesome_motion_rounded, color: AsterConstants.lavanda, size: 24),
+                            child: Icon(Icons.auto_awesome_motion_rounded, color: AsterTheme.primary(context), size: 24),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -1385,12 +1451,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                           border: Border.all(
-                            color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                            color: AsterTheme.primary(context).withValues(alpha: 0.35),
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.tune_rounded, size: 18, color: AsterConstants.lavanda),
+                            Icon(Icons.tune_rounded, size: 18, color: AsterTheme.primary(context)),
                             const SizedBox(width: 8),
                             Text(
                               'Tamanho por baralho:',
@@ -1411,11 +1477,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                      color: isSelected ? Colors.white : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                      color: isSelected ? AsterTheme.onPrimary(context) : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
                                     ),
                                   ),
                                   selected: isSelected,
-                                  selectedColor: AsterConstants.lavanda,
+                                  selectedColor: AsterTheme.primary(context),
                                   backgroundColor: isDark ? AsterConstants.surfaceCardDark : Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   visualDensity: VisualDensity.compact,
@@ -1457,15 +1523,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ),
                             const Spacer(),
                             if (isReorganizing) ...[
-                              const SizedBox(
+                              SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context)),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Reorganizando...',
-                                style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                                style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.primary(context), fontWeight: FontWeight.w700),
                               ),
                             ],
                           ],
@@ -1617,7 +1683,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                         ),
                                                       ),
                                                       const SizedBox(width: 4),
-                                                      const Icon(Icons.edit_rounded, size: 12, color: AsterConstants.lavanda),
+                                                      Icon(Icons.edit_rounded, size: 12, color: AsterTheme.primary(context)),
                                                     ],
                                                   ),
                                                   const SizedBox(height: 6),
@@ -1734,7 +1800,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w800,
-                                                          color: AsterConstants.lavanda,
+                                                          color: AsterTheme.primary(context),
                                                         ),
                                                       ),
                                                       const SizedBox(width: 8),
@@ -1951,10 +2017,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: const Icon(Icons.auto_awesome_rounded, color: AsterConstants.lavanda, size: 22),
+                            child: Icon(Icons.auto_awesome_rounded, color: AsterTheme.primary(context), size: 22),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -1991,9 +2057,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                          color: AsterTheme.primary(context).withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                          border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.2)),
+                          border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.2)),
                         ),
                         child: Text(
                           'Detectamos notas/resumos no arquivo. A IA lerá o texto para formular os cartões técnicos, e você poderá revisar e editar cada um antes de salvar.',
@@ -2103,10 +2169,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const SizedBox(
+                              SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2.5, color: AsterConstants.lavanda),
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: AsterTheme.primary(context)),
                               ),
                               const SizedBox(width: 14),
                               Text(
@@ -2114,7 +2180,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: AsterConstants.lavanda,
+                                  color: AsterTheme.primary(context),
                                 ),
                               ),
                             ],
@@ -2227,10 +2293,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                               ),
-                              child: const Icon(Icons.auto_awesome_rounded, color: AsterConstants.lavanda, size: 22),
+                              child: Icon(Icons.auto_awesome_rounded, color: AsterTheme.primary(context), size: 22),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -2378,7 +2444,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             return ChoiceChip(
                               label: Text(level),
                               selected: isSel,
-                              selectedColor: AsterConstants.lavanda,
+                              selectedColor: AsterTheme.primary(context),
                               labelStyle: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
@@ -2419,10 +2485,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const SizedBox(
+                                SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: AsterConstants.lavanda),
+                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: AsterTheme.primary(context)),
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
@@ -2430,7 +2496,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   style: GoogleFonts.manrope(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: AsterConstants.lavanda,
+                                    color: AsterTheme.primary(context),
                                   ),
                                 ),
                               ],
@@ -2692,7 +2758,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             style: GoogleFonts.manrope(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
-                                              color: AsterConstants.lavanda,
+                                              color: AsterTheme.primary(context),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -2708,17 +2774,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                     decoration: BoxDecoration(
-                                                      color: isPlaying ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                      color: isPlaying ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.15),
                                                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                     ),
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        Icon(isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded, size: 12, color: isPlaying ? Colors.white : AsterConstants.lavanda),
+                                                        Icon(isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded, size: 12, color: isPlaying ? Colors.white : AsterTheme.primary(context)),
                                                         const SizedBox(width: 4),
                                                         Text(
                                                           isPlaying ? 'Tocando' : 'Áudio Anexado',
-                                                          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: isPlaying ? Colors.white : AsterConstants.lavanda),
+                                                          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: isPlaying ? Colors.white : AsterTheme.primary(context)),
                                                         ),
                                                       ],
                                                     ),
@@ -2768,17 +2834,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                  color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                 ),
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    const Icon(Icons.audio_file_rounded, size: 12, color: AsterConstants.lavanda),
+                                                    Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       'Anexar MP3',
-                                                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                     ),
                                                   ],
                                                 ),
@@ -3015,7 +3081,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             Icon(
                               newAudioUrl != null ? Icons.audiotrack_rounded : Icons.mic_none_rounded,
                               size: 18,
-                              color: newAudioUrl != null ? AsterConstants.lavanda : AsterConstants.textMuted,
+                              color: newAudioUrl != null ? AsterTheme.primary(context) : AsterConstants.textMuted,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -3075,8 +3141,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     : const Icon(Icons.auto_awesome_rounded, size: 12),
                                 label: Text(isGeneratingAudio ? 'Gerando...' : 'Gerar IA ✨'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AsterConstants.lavanda,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: AsterTheme.primary(context),
+                                  foregroundColor: AsterTheme.onPrimary(context),
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   visualDensity: VisualDensity.compact,
                                 ),
@@ -3216,10 +3282,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: const Icon(Icons.edit_note_rounded, color: AsterConstants.lavanda, size: 24),
+                            child: Icon(Icons.edit_note_rounded, color: AsterTheme.primary(context), size: 24),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -3371,8 +3437,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             label: const Text('Novo Cartão'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              side: const BorderSide(color: AsterConstants.lavanda),
-                              foregroundColor: AsterConstants.lavanda,
+                              side: BorderSide(color: AsterTheme.primary(context)),
+                              foregroundColor: AsterTheme.primary(context),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                             ),
                             onPressed: isSaving
@@ -3433,7 +3499,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                               decoration: BoxDecoration(
-                                                color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                               ),
                                               child: Text(
@@ -3441,7 +3507,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
-                                                  color: AsterConstants.lavanda,
+                                                  color: AsterTheme.primary(context),
                                                 ),
                                               ),
                                             ),
@@ -3460,7 +3526,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     child: Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                       decoration: BoxDecoration(
-                                                        color: isPlaying ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                        color: isPlaying ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.15),
                                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                       ),
                                                       child: Row(
@@ -3469,7 +3535,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                           Icon(
                                                             isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded,
                                                             size: 12,
-                                                            color: isPlaying ? Colors.white : AsterConstants.lavanda,
+                                                            color: isPlaying ? Colors.white : AsterTheme.primary(context),
                                                           ),
                                                           const SizedBox(width: 4),
                                                           Text(
@@ -3477,7 +3543,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                             style: GoogleFonts.manrope(
                                                               fontSize: 10.5,
                                                               fontWeight: FontWeight.w700,
-                                                              color: isPlaying ? Colors.white : AsterConstants.lavanda,
+                                                              color: isPlaying ? Colors.white : AsterTheme.primary(context),
                                                             ),
                                                           ),
                                                         ],
@@ -3534,20 +3600,20 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 child: Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
-                                                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                    color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                   ),
                                                   child: Row(
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      const Icon(Icons.audio_file_rounded, size: 12, color: AsterConstants.lavanda),
+                                                      Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                       const SizedBox(width: 4),
                                                       Text(
                                                         'Anexar MP3',
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
-                                                          color: AsterConstants.lavanda,
+                                                          color: AsterTheme.primary(context),
                                                         ),
                                                       ),
                                                     ],
@@ -3729,8 +3795,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     : const Icon(Icons.save_rounded, size: 18),
                                 label: Text(isSaving ? 'Salvando...' : 'Salvar Baralho 💾'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AsterConstants.lavanda,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: AsterTheme.primary(context),
+                                  foregroundColor: AsterTheme.onPrimary(context),
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                                 ),
@@ -3848,6 +3914,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     final filtered = _filteredDecks;
     final totalCards = _decks.fold<int>(0, (sum, d) => sum + d.cardCount);
     final masteredCards = _decks.fold<int>(0, (sum, d) => sum + d.masteredCount);
+    final totalPendingCards = _decks.fold<int>(0, (sum, d) => sum + d.pendingReviewCount());
+    final toReviewDecksCount = _decks.where((d) => d.pendingReviewCount() > 0).length;
+    final completedDecksCount = _decks.where((d) => d.isCompleted()).length;
     final avgRetention = _decks.isEmpty ? 0 : (_decks.fold<double>(0.0, (sum, d) => sum + d.progressPercentage) / _decks.length * 100).toInt();
 
     return SoftClayBackground(
@@ -3855,21 +3924,22 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AsterConstants.lavanda),
+              ? Center(
+                  child: CircularProgressIndicator(color: AsterTheme.primary(context)),
                 )
               : CustomScrollView(
                   slivers: [
                     // Header e Ações
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 28, 28, 16),
+                        padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const NoesisCollapsedMenuSpacer(width: 82),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3879,7 +3949,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                             ),
                                             child: Text(
@@ -3888,7 +3958,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w800,
                                                 letterSpacing: 1.0,
-                                                color: AsterConstants.lavanda,
+                                                color: AsterTheme.primary(context),
                                               ),
                                             ),
                                           ),
@@ -3965,68 +4035,225 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
-                                  _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterConstants.lavanda, isDark),
+                                  _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
                                   _buildDivider(isDark),
                                   _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
                                   _buildDivider(isDark),
-                                  _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                  InkWell(
+                                    key: const Key('flashcards_review_queue_stat'),
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                    onTap: _openReviewQueueDialog,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      child: _buildStatItem(
+                                        'Para Revisar',
+                                        '$totalPendingCards',
+                                        totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
+                                        isDark,
+                                      ),
+                                    ),
+                                  ),
                                   _buildDivider(isDark),
-                                  _buildStatItem('Retenção Média', '$avgRetention%', AsterConstants.coral, isDark),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                    onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                    ),
+                                  ),
+                                  _buildDivider(isDark),
+                                  _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 20),
 
-                            // Barra de Busca e Filtro por Disciplina
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchController,
-                                    onChanged: (val) => setState(() => _searchQuery = val),
-                                    decoration: InputDecoration(
-                                      hintText: 'Buscar por título, conceito ou pergunta...',
-                                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                                      suffixIcon: _searchQuery.isNotEmpty
-                                          ? IconButton(
-                                              icon: const Icon(Icons.clear_rounded, size: 18),
-                                              onPressed: () {
-                                                _searchController.clear();
-                                                setState(() => _searchQuery = '');
-                                              },
-                                            )
-                                          : null,
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            // Painel Soft Clay de Busca, Revisão e Filtros
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                                border: Border.all(
+                                  color: isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.85),
+                                ),
+                                boxShadow: AsterConstants.claySubtleShadow,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _searchController,
+                                          onChanged: (val) => setState(() => _searchQuery = val),
+                                          decoration: InputDecoration(
+                                            hintText: 'Buscar por título, conceito ou pergunta...',
+                                            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                                            filled: true,
+                                            fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              borderSide: BorderSide(color: AsterTheme.primary(context), width: 1.4),
+                                            ),
+                                            suffixIcon: _searchQuery.isNotEmpty
+                                                ? IconButton(
+                                                    icon: const Icon(Icons.clear_rounded, size: 18),
+                                                    onPressed: () {
+                                                      _searchController.clear();
+                                                      setState(() => _searchQuery = '');
+                                                    },
+                                                  )
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      InkWell(
+                                        key: const Key('open_review_queue_button'),
+                                        onTap: _openReviewQueueDialog,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: totalPendingCards > 0
+                                                ? AsterConstants.coral.withValues(alpha: 0.12)
+                                                : AsterConstants.menta.withValues(alpha: 0.14),
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                            border: Border.all(
+                                              color: (totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta)
+                                                  .withValues(alpha: 0.35),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                totalPendingCards > 0
+                                                    ? Icons.pending_actions_rounded
+                                                    : Icons.verified_rounded,
+                                                size: 16,
+                                                color: totalPendingCards > 0
+                                                    ? AsterConstants.coral
+                                                    : AsterConstants.menta,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                totalPendingCards > 0
+                                                    ? 'O que revisar ($totalPendingCards)'
+                                                    : 'Tudo em dia ✓',
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: totalPendingCards > 0
+                                                      ? AsterConstants.coral
+                                                      : AsterConstants.menta,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 14),
+
+                                  // Filtro por Status de Aprendizado / Domínio
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      _buildStatusFilterPill(
+                                        key: const Key('filter_status_all'),
+                                        label: 'Todos (${_decks.length})',
+                                        icon: Icons.layers_rounded,
+                                        selected: _statusFilter == _DeckStatusFilter.all,
+                                        activeColor: AsterTheme.primary(context),
+                                        isDark: isDark,
+                                        onTap: () => setState(() => _statusFilter = _DeckStatusFilter.all),
+                                      ),
+                                      _buildStatusFilterPill(
+                                        key: const Key('filter_status_to_review'),
+                                        label: 'Para Revisar ($toReviewDecksCount)',
+                                        icon: Icons.bolt_rounded,
+                                        selected: _statusFilter == _DeckStatusFilter.toReview,
+                                        activeColor: AsterConstants.coral,
+                                        isDark: isDark,
+                                        onTap: () => setState(() => _statusFilter = _DeckStatusFilter.toReview),
+                                      ),
+                                      _buildStatusFilterPill(
+                                        key: const Key('filter_status_completed'),
+                                        label: 'Completos / Dominados ($completedDecksCount)',
+                                        icon: Icons.check_circle_rounded,
+                                        selected: _statusFilter == _DeckStatusFilter.completed,
+                                        activeColor: AsterConstants.menta,
+                                        isDark: isDark,
+                                        onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Chips Soft Clay de Matéria
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: _uniqueSubjects.map((sub) {
+                                        final isSel = _selectedSubjectFilter == sub;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(right: 8),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                            onTap: () => setState(() => _selectedSubjectFilter = sub),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(milliseconds: 180),
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: isSel
+                                                    ? AsterTheme.primary(context)
+                                                    : AsterTheme.surfaceAlt(context),
+                                                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                boxShadow: isSel ? AsterTheme.primaryShadow(context) : null,
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (isSel) ...[
+                                                    Icon(Icons.check_rounded, size: 14, color: AsterTheme.onPrimary(context)),
+                                                    const SizedBox(width: 5),
+                                                  ],
+                                                  Text(
+                                                    sub,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 12,
+                                                      fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                                                      color: isSel
+                                                          ? AsterTheme.onPrimary(context)
+                                                          : AsterTheme.text(context),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Chips de Matéria
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _uniqueSubjects.map((sub) {
-                                  final isSel = _selectedSubjectFilter == sub;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      label: Text(sub),
-                                      selected: isSel,
-                                      selectedColor: AsterConstants.lavanda,
-                                      labelStyle: GoogleFonts.manrope(
-                                        fontSize: 12,
-                                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                        color: isSel ? Colors.white : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-                                      ),
-                                      onSelected: (selected) {
-                                        if (selected) setState(() => _selectedSubjectFilter = sub);
-                                      },
-                                    ),
-                                  );
-                                }).toList(),
+                                ],
                               ),
                             ),
                           ],
@@ -4048,7 +4275,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 Text(
                                   _searchQuery.isNotEmpty
                                       ? 'Nenhum baralho encontrado para "$_searchQuery".'
-                                      : 'Nenhum baralho nesta matéria.',
+                                      : (_statusFilter == _DeckStatusFilter.completed
+                                          ? 'Nenhum baralho completo ou dominado ainda.'
+                                          : (_statusFilter == _DeckStatusFilter.toReview
+                                              ? 'Nenhum baralho pendente de revisão no momento! 🎉'
+                                              : 'Nenhum baralho nesta matéria.')),
+                                  textAlign: TextAlign.center,
                                   style: GoogleFonts.manrope(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -4057,8 +4289,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 ),
                                 const SizedBox(height: 16),
                                 SoftClayPillButton(
-                                  text: 'Gerar com IA ✨',
-                                  onPressed: _openGenerateAiFlashcardsDialog,
+                                  text: _statusFilter != _DeckStatusFilter.all
+                                      ? 'Mostrar Todos os Baralhos'
+                                      : 'Gerar com IA ✨',
+                                  onPressed: _statusFilter != _DeckStatusFilter.all
+                                      ? () => setState(() {
+                                            _statusFilter = _DeckStatusFilter.all;
+                                            _selectedSubjectFilter = 'Todos';
+                                          })
+                                      : _openGenerateAiFlashcardsDialog,
                                 ),
                               ],
                             ),
@@ -4071,7 +4310,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         sliver: SliverGrid(
                           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                             maxCrossAxisExtent: 440,
-                            mainAxisExtent: 260,
+                            mainAxisExtent: 284,
                             crossAxisSpacing: 18,
                             mainAxisSpacing: 18,
                           ),
@@ -4126,6 +4365,271 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     );
   }
 
+  Widget _buildStatusFilterPill({
+    required Key key,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required Color activeColor,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? activeColor.withValues(alpha: 0.16)
+              : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          border: Border.all(
+            color: selected
+                ? activeColor.withValues(alpha: 0.55)
+                : Colors.transparent,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: selected
+                  ? activeColor
+                  : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected
+                    ? activeColor
+                    : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openReviewQueueDialog({FlashcardDeck? focusDeck}) {
+    final now = DateTime.now();
+    final decksWithPending = (focusDeck != null ? [focusDeck] : _decks)
+        .map((d) => (deck: d, pending: d.cardsToReview(referenceDate: now)))
+        .where((entry) => entry.pending.isNotEmpty)
+        .toList()
+      ..sort((a, b) => b.pending.length.compareTo(a.pending.length));
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AsterConstants.coral.withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.pending_actions_rounded, size: 20, color: AsterConstants.coral),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              focusDeck != null
+                                  ? 'Pendências · ${focusDeck.title}'
+                                  : 'Central de Revisão Inteligente',
+                              style: GoogleFonts.manrope(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                              ),
+                            ),
+                            Text(
+                              'Cartões já aprendidos (Fácil) não entram na fila automática.',
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (decksWithPending.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: AsterConstants.menta.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.verified_rounded, size: 36, color: AsterConstants.menta),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Tudo em dia! Nenhum cartão pendente para aprender.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: decksWithPending.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (_, idx) {
+                          final item = decksWithPending[idx];
+                          final deck = item.deck;
+                          final pending = item.pending;
+                          final hardCount = pending.where((c) => c.difficulty == 'hard').length;
+                          final newCount = pending.where((c) => c.difficulty == 'unreviewed').length;
+                          final dueGoodCount = pending.length - hardCount - newCount;
+
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            deck.title,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${pending.length} pendente${pending.length == 1 ? '' : 's'} · '
+                                            '$hardCount difíceis · $newCount novos · $dueGoodCount revisão 24h+',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    SoftClayPillButton(
+                                      text: 'Estudar (${pending.length})',
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      onPressed: () {
+                                        Navigator.pop(dialogCtx);
+                                        _startStudySession(deck);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ...pending.take(3).map((card) {
+                                  final reason = card.reviewReason(referenceDate: now);
+                                  final badgeColor = card.difficulty == 'hard'
+                                      ? AsterConstants.coral
+                                      : (card.difficulty == 'unreviewed'
+                                          ? AsterTheme.primary(context)
+                                          : AsterConstants.ambar);
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withValues(alpha: 0.14),
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                          ),
+                                          child: Text(
+                                            reason,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: badgeColor,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            card.front,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 12,
+                                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ----------------------------------------------------
   // MODAL: SEPARAR BARALHO EXISTENTE EM BARALHOS MENORES
   // ----------------------------------------------------
@@ -4159,10 +4663,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                             ),
-                            child: const Icon(Icons.splitscreen_rounded, color: AsterConstants.lavanda, size: 24),
+                            child: Icon(Icons.splitscreen_rounded, color: AsterTheme.primary(context), size: 24),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -4227,11 +4731,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                color: isSelected ? Colors.white : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                color: isSelected ? AsterTheme.onPrimary(context) : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
                               ),
                             ),
                             selected: isSelected,
-                            selectedColor: AsterConstants.lavanda,
+                            selectedColor: AsterTheme.primary(context),
                             backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                             onSelected: (sel) {
                               if (sel) {
@@ -4272,7 +4776,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         value: replaceOriginal,
                         contentPadding: EdgeInsets.zero,
                         dense: true,
-                        activeColor: AsterConstants.lavanda,
+                        activeColor: AsterTheme.primary(context),
                         title: Text(
                           'Substituir baralho original pelos novos baralhos menores',
                           style: GoogleFonts.manrope(
@@ -4338,6 +4842,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   Widget _buildDeckCard(FlashcardDeck deck, bool isDark) {
     final color = _parseColor(deck.colorHex);
     final progress = deck.progressPercentage;
+    final pendingCount = deck.pendingReviewCount();
+    final isCompleted = deck.isCompleted();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -4345,14 +4851,16 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
         borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
         border: Border.all(
-          color: isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.8),
+          color: isCompleted
+              ? AsterConstants.menta.withValues(alpha: 0.45)
+              : (isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.8)),
         ),
         boxShadow: AsterConstants.clayShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Subject chip & Options
+          // Top Row: Subject chip, Pending/Complete badge & Options
           Row(
             children: [
               Container(
@@ -4371,17 +4879,62 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (deck.cards.isNotEmpty)
+                GestureDetector(
+                  onTap: pendingCount > 0 ? () => _openReviewQueueDialog(focusDeck: deck) : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (isCompleted ? AsterConstants.menta : AsterConstants.coral)
+                          .withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    ),
+                    child: Text(
+                      isCompleted ? 'Completo ✓' : '$pendingCount p/ revisar',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: isCompleted ? AsterConstants.menta : AsterConstants.coral,
+                      ),
+                    ),
+                  ),
+                ),
               const Spacer(),
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_horiz_rounded, size: 20, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium)),
                 onSelected: (val) {
+                  if (val == 'review_all') _startStudySession(deck, reviewAll: true);
+                  if (val == 'check_pending') _openReviewQueueDialog(focusDeck: deck);
                   if (val == 'edit') _openEditDeckDialog(deck);
                   if (val == 'add') _openAddCardDialog(deck);
                   if (val == 'split') _openSplitExistingDeckDialog(deck);
                   if (val == 'delete') _confirmDeleteDeck(deck);
                 },
                 itemBuilder: (ctx) => [
+                  if (pendingCount > 0)
+                    const PopupMenuItem(
+                      value: 'check_pending',
+                      child: Row(
+                        children: [
+                          Icon(Icons.pending_actions_rounded, size: 18, color: AsterConstants.coral),
+                          SizedBox(width: 8),
+                          Text('Ver O Que Falta Revisar'),
+                        ],
+                      ),
+                    ),
+                  if (deck.cards.isNotEmpty)
+                    PopupMenuItem(
+                      value: 'review_all',
+                      child: Row(
+                        children: [
+                          Icon(Icons.replay_rounded, size: 18, color: AsterTheme.primary(context)),
+                          const SizedBox(width: 8),
+                          const Text('Revisar Todos os Cartões'),
+                        ],
+                      ),
+                    ),
                   const PopupMenuItem(
                     value: 'edit',
                     child: Row(
@@ -4403,13 +4956,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     ),
                   ),
                   if (deck.cards.length >= 10)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'split',
                       child: Row(
                         children: [
-                          Icon(Icons.splitscreen_rounded, size: 18, color: AsterConstants.lavanda),
-                          SizedBox(width: 8),
-                          Text('Dividir em Baralhos Menores ✨'),
+                          Icon(Icons.splitscreen_rounded, size: 18, color: AsterTheme.primary(context)),
+                          const SizedBox(width: 8),
+                          const Text('Dividir em Baralhos Menores ✨'),
                         ],
                       ),
                     ),
@@ -4462,7 +5015,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
               Row(
                 children: [
                   Text(
-                    '${deck.cardCount} cartões',
+                    '${deck.cardCount} cartões · ${deck.masteredCount} dominados',
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -4477,20 +5030,20 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                          color: AsterTheme.primary(context).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.splitscreen_rounded, size: 10, color: AsterConstants.lavanda),
+                            Icon(Icons.splitscreen_rounded, size: 10, color: AsterTheme.primary(context)),
                             const SizedBox(width: 3),
                             Text(
                               'Dividir IA ✨',
                               style: GoogleFonts.manrope(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
-                                color: AsterConstants.lavanda,
+                                color: AsterTheme.primary(context),
                               ),
                             ),
                           ],
@@ -4511,30 +5064,34 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             ],
           ),
           const SizedBox(height: 6),
-          ClipRRect(
+          LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceInset,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
+            backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceInset,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
           const SizedBox(height: 14),
 
-          // Bottom Action: Estudar Agora
+          // Bottom Action: Estudar Somente Pendentes (ou Revisar Tudo quando completo)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: Text(deck.cards.isEmpty ? 'Sem cartões' : 'Estudar Agora 🚀'),
+              icon: Icon(isCompleted ? Icons.replay_rounded : Icons.play_arrow_rounded, size: 18),
+              label: Text(
+                deck.cards.isEmpty
+                    ? 'Sem cartões'
+                    : (isCompleted ? 'Revisar Tudo 🔄' : 'Estudar Agora 🚀'),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: color,
+                backgroundColor: isCompleted ? AsterConstants.menta : color,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
               ),
-              onPressed: deck.cards.isEmpty ? null : () => _startStudySession(deck),
+              onPressed: deck.cards.isEmpty
+                  ? null
+                  : () => _startStudySession(deck, reviewAll: isCompleted),
             ),
           ),
         ],
@@ -4581,10 +5138,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                               ),
-                              child: const Icon(Icons.edit_note_rounded, color: AsterConstants.lavanda, size: 24),
+                              child: Icon(Icons.edit_note_rounded, color: AsterTheme.primary(context), size: 24),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -4693,7 +5250,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: audioTab == 0 ? AsterConstants.lavanda : Colors.transparent,
+                                        color: audioTab == 0 ? AsterTheme.primary(context) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                       ),
                                       child: Row(
@@ -4719,7 +5276,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: audioTab == 1 ? AsterConstants.lavanda : Colors.transparent,
+                                        color: audioTab == 1 ? AsterTheme.primary(context) : Colors.transparent,
                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                       ),
                                       child: Row(
@@ -4769,10 +5326,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           width: 36,
                                           height: 36,
                                           decoration: BoxDecoration(
-                                            color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                            color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(Icons.audiotrack_rounded, color: AsterConstants.lavanda, size: 20),
+                                          child: Icon(Icons.audiotrack_rounded, color: AsterTheme.primary(context), size: 20),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
@@ -4836,8 +5393,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         ),
                                         IconButton(
                                           icon: isGeneratingAudio
-                                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda))
-                                              : const Icon(Icons.auto_awesome_rounded, size: 18, color: AsterConstants.lavanda),
+                                              ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context)))
+                                              : Icon(Icons.auto_awesome_rounded, size: 18, color: AsterTheme.primary(context)),
                                           tooltip: 'Regerar áudio com IA ✨',
                                           onPressed: (isSaving || isGeneratingAudio)
                                               ? null
@@ -4979,7 +5536,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               : const Icon(Icons.auto_awesome_rounded, size: 14),
                                           label: Text(isGeneratingAudio ? 'Gerando...' : 'Gerar com IA ✨'),
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: AsterConstants.lavanda,
+                                            backgroundColor: AsterTheme.primary(context),
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
@@ -5033,9 +5590,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         clearBackAudio: backAudioUrl == null,
                                       );
 
-                                      // Atualizar no baralho ativo
+                                      // Atualizar no baralho ativo e na fila de estudo
                                       final updatedCards = List<Flashcard>.from(_activeStudyDeck!.cards);
-                                      updatedCards[_activeCardIndex] = updatedCard;
+                                      final targetIdx = updatedCards.indexWhere((c) => c.id == card.id);
+                                      if (targetIdx != -1) {
+                                        updatedCards[targetIdx] = updatedCard;
+                                      }
+                                      if (_activeCardIndex < _studyQueue.length) {
+                                        _studyQueue[_activeCardIndex] = updatedCard;
+                                      }
 
                                       final updatedDeck = FlashcardDeck(
                                         id: _activeStudyDeck!.id,
@@ -5085,56 +5648,69 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   // ----------------------------------------------------
   Widget _buildStudyView(bool isDark) {
     final deck = _activeStudyDeck!;
-    final card = deck.cards[_activeCardIndex];
-    final color = _parseColor(deck.colorHex);
-    final total = deck.cards.length;
-    final progress = (_activeCardIndex + 1) / total;
-
-    if (_isSessionFinished) {
+    if (_isSessionFinished || _studyQueue.isEmpty) {
       return _buildFinishedSessionView(isDark);
     }
+
+    final card = _studyQueue[_activeCardIndex];
+    final color = _parseColor(deck.colorHex);
+    final total = _studyQueue.length;
+    final progress = (_activeCardIndex + 1) / total;
+    final isRequeued = _requeuedCardIds.contains(card.id);
+
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return SoftClayBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: _exitStudySession,
-          ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                deck.title,
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: AsterTheme.sidebarCollapsedNotifier,
+            builder: (context, isCollapsed, _) {
+              final shiftLeft = isDesktop && isCollapsed;
+              return AppBar(
+                leadingWidth: shiftLeft ? 138 : null,
+                leading: Padding(
+                  padding: EdgeInsets.only(left: shiftLeft ? 84 : 0),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: _exitStudySession,
+                  ),
                 ),
-              ),
-              Text(
-                'Cartão ${_activeCardIndex + 1} de $total',
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deck.title,
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
+                    ),
+                    Text(
+                      'Cartão ${_activeCardIndex + 1} de $total · ${_studyPendingOnly ? 'Somente pendentes' : 'Revisão completa'}',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.edit_outlined, size: 15, color: AsterConstants.lavanda),
+                actions: [
+                  OutlinedButton.icon(
+                    icon: Icon(Icons.edit_outlined, size: 15, color: AsterTheme.primary(context)),
               label: Text(
                 'Editar Cartão',
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AsterConstants.lavanda,
+                  color: AsterTheme.primary(context),
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AsterConstants.lavanda.withValues(alpha: 0.3)),
+                side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -5142,17 +5718,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              icon: const Icon(Icons.edit_note_rounded, size: 17, color: AsterConstants.lavanda),
+              icon: Icon(Icons.edit_note_rounded, size: 17, color: AsterTheme.primary(context)),
               label: Text(
                 'Editar Baralho',
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AsterConstants.lavanda,
+                  color: AsterTheme.primary(context),
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AsterConstants.lavanda.withValues(alpha: 0.3)),
+                side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -5160,16 +5736,19 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             ),
             const SizedBox(width: 14),
           ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceInset,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceInset,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+            );
+          },
         ),
-        body: Center(
+      ),
+      body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Padding(
@@ -5186,11 +5765,19 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.touch_app_rounded, size: 14, color: AsterConstants.lavanda),
+                        Icon(Icons.touch_app_rounded, size: 14, color: AsterTheme.primary(context)),
                         const SizedBox(width: 6),
                         Text(
-                          'Toque no cartão para virar e conferir a resposta',
-                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                          isRequeued
+                              ? 'Cartão difícil voltou na fila para reforço'
+                              : 'Toque no cartão para virar e conferir a resposta',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isRequeued
+                                ? AsterConstants.coral
+                                : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                          ),
                         ),
                       ],
                     ),
@@ -5310,14 +5897,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.flip_camera_android_rounded, size: 16, color: AsterConstants.lavanda),
+                                  Icon(Icons.flip_camera_android_rounded, size: 16, color: AsterTheme.primary(context)),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Ver Resposta (Virar Cartão) 👆',
                                     style: GoogleFonts.manrope(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
-                                      color: AsterConstants.lavanda,
+                                      color: AsterTheme.primary(context),
                                     ),
                                   ),
                                 ],
@@ -5364,7 +5951,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isFront ? AsterConstants.lavanda : color).withValues(alpha: 0.15),
+                  color: (isFront ? AsterTheme.primary(context) : color).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: Text(
@@ -5373,7 +5960,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
-                    color: isFront ? AsterConstants.lavanda : color,
+                    color: isFront ? AsterTheme.primary(context) : color,
                   ),
                 ),
               ),
@@ -5392,7 +5979,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.edit_outlined, size: 13, color: AsterConstants.lavanda),
+                      Icon(Icons.edit_outlined, size: 13, color: AsterTheme.primary(context)),
                       const SizedBox(width: 4),
                       Text(
                         'Editar',
@@ -5454,19 +6041,19 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: isPlaying
-                                        ? AsterConstants.lavanda
+                                        ? AsterTheme.primary(context)
                                         : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                     border: Border.all(
                                       color: isPlaying
-                                          ? AsterConstants.lavanda
+                                          ? AsterTheme.primary(context)
                                           : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
                                       width: 1.5,
                                     ),
                                     boxShadow: isPlaying
                                         ? [
                                             BoxShadow(
-                                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
                                               blurRadius: 10,
                                               offset: const Offset(0, 3),
                                             ),
@@ -5479,7 +6066,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       Icon(
                                         isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded,
                                         size: 16,
-                                        color: isPlaying ? Colors.white : AsterConstants.lavanda,
+                                        color: isPlaying ? Colors.white : AsterTheme.primary(context),
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
@@ -5498,7 +6085,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           ),
                           const SizedBox(width: 6),
                           IconButton(
-                            icon: const Icon(Icons.auto_awesome_rounded, size: 16, color: AsterConstants.lavanda),
+                            icon: Icon(Icons.auto_awesome_rounded, size: 16, color: AsterTheme.primary(context)),
                             tooltip: isFront ? 'Regerar áudio da Pergunta com IA ✨' : 'Regerar áudio da Resposta com IA ✨',
                             onPressed: () async {
                               await _generateAndAttachStudySideAudio(card: card, isFront: isFront);
@@ -5524,7 +6111,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.auto_awesome_rounded, size: 13, color: AsterConstants.lavanda),
+                              Icon(Icons.auto_awesome_rounded, size: 13, color: AsterTheme.primary(context)),
                               const SizedBox(width: 6),
                               Text(
                                 'Gerar Áudio com IA ✨',
@@ -5613,7 +6200,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   // ----------------------------------------------------
   Widget _buildFinishedSessionView(bool isDark) {
     final deck = _activeStudyDeck!;
-    final total = deck.cards.length;
+    final totalStudied = _studyQueue.length;
+    final remainingPending = deck.cardsToReview();
     final minutesSpent = (_studyStopwatch.elapsedMilliseconds / 60000).ceil();
 
     return SoftClayBackground(
@@ -5646,7 +6234,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Sessão Concluída! 🎉',
+                      remainingPending.isEmpty ? 'Baralho Completo! 🎉' : 'Sessão Concluída! 🎉',
                       style: GoogleFonts.manrope(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -5655,7 +6243,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Você revisou todos os $total cartões de "${deck.title}".',
+                      remainingPending.isEmpty
+                          ? 'Todos os cartões de "${deck.title}" foram aprendidos ou revisados. Cartões dominados não voltarão até vencer o intervalo.'
+                          : 'Você concluiu esta rodada em "${deck.title}". Ainda faltam ${remainingPending.length} cartões pendentes.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.manrope(
                         fontSize: 13,
@@ -5698,7 +6288,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             topic: 'Revisão de Flashcards: ${deck.title}',
                             durationMinutes: minutesSpent > 0 ? minutesSpent : 15,
                             studyDate: DateTime.now(),
-                            notes: 'Revisão de $total cartões via repetição espaçada no Noesis.',
+                            notes: 'Revisão de $totalStudied cartões via repetição espaçada no Noesis.',
                           );
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -5713,8 +6303,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       children: [
                         Expanded(
                           child: TextButton(
-                            onPressed: () => _startStudySession(deck),
-                            child: const Text('Revisar Novamente'),
+                            onPressed: () => _startStudySession(
+                              deck,
+                              reviewAll: remainingPending.isEmpty,
+                            ),
+                            child: Text(
+                              remainingPending.isEmpty
+                                  ? 'Revisar Tudo Novamente'
+                                  : 'Continuar Pendentes (${remainingPending.length})',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -5778,6 +6375,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
       if (mounted) {
         setState(() {
+          if (_activeCardIndex < _studyQueue.length &&
+              _studyQueue[_activeCardIndex].id == card.id) {
+            _studyQueue[_activeCardIndex] = updatedCard;
+          }
           _activeStudyDeck = updatedDeck;
           final dIdx = _decks.indexWhere((d) => d.id == updatedDeck.id);
           if (dIdx != -1) _decks[dIdx] = updatedDeck;

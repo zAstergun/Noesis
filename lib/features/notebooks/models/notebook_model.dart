@@ -80,6 +80,9 @@ class StudyNote {
   final String content;
   final List<StudyLink> links;
   final List<String> tags;
+  final bool needsReview;
+  final DateTime? lastReviewedAt;
+  final int reviewCount;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -90,6 +93,9 @@ class StudyNote {
     required this.content,
     List<StudyLink>? links,
     List<String>? tags,
+    this.needsReview = false,
+    this.lastReviewedAt,
+    this.reviewCount = 0,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : links = links ?? [],
@@ -126,6 +132,33 @@ class StudyNote {
     return links.where((l) => !l.isImage).toList();
   }
 
+  /// Tempo estimado de leitura/revisão desta anotação em minutos.
+  int get estimatedReviewMinutes {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return 1;
+    final words = trimmed.split(RegExp(r'\s+')).length;
+    return (words / 180).ceil().clamp(1, 120);
+  }
+
+  bool isStaleForReview({DateTime? referenceDate, int staleDays = 7}) {
+    final now = referenceDate ?? DateTime.now();
+    final baseline = lastReviewedAt ?? updatedAt;
+    return now.difference(baseline).inDays >= staleDays;
+  }
+
+  bool shouldReview({DateTime? referenceDate, int staleDays = 7}) {
+    return needsReview || isStaleForReview(referenceDate: referenceDate, staleDays: staleDays);
+  }
+
+  String reviewStatusReason({DateTime? referenceDate, int staleDays = 7}) {
+    if (needsReview) return 'Marcada para revisão';
+    final now = referenceDate ?? DateTime.now();
+    final baseline = lastReviewedAt ?? updatedAt;
+    final days = now.difference(baseline).inDays;
+    if (days >= staleDays) return 'Sem revisar há ${days}d';
+    return 'Em dia';
+  }
+
   StudyNote copyWith({
     String? id,
     String? notebookId,
@@ -133,6 +166,10 @@ class StudyNote {
     String? content,
     List<StudyLink>? links,
     List<String>? tags,
+    bool? needsReview,
+    DateTime? lastReviewedAt,
+    bool clearLastReviewedAt = false,
+    int? reviewCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -143,6 +180,9 @@ class StudyNote {
       content: content ?? this.content,
       links: links ?? this.links,
       tags: tags ?? this.tags,
+      needsReview: needsReview ?? this.needsReview,
+      lastReviewedAt: clearLastReviewedAt ? null : (lastReviewedAt ?? this.lastReviewedAt),
+      reviewCount: reviewCount ?? this.reviewCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );
@@ -156,6 +196,9 @@ class StudyNote {
       'content': content,
       'links': links.map((x) => x.toMap()).toList(),
       'tags': tags,
+      'needs_review': needsReview,
+      'last_reviewed_at': lastReviewedAt?.toIso8601String(),
+      'review_count': reviewCount,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -171,6 +214,11 @@ class StudyNote {
           ? (map['links'] as List).map((x) => StudyLink.fromMap(Map<String, dynamic>.from(x))).toList()
           : [],
       tags: map['tags'] is List ? List<String>.from(map['tags']) : [],
+      needsReview: map['needs_review'] == true,
+      lastReviewedAt: map['last_reviewed_at'] != null
+          ? DateTime.tryParse(map['last_reviewed_at'].toString())
+          : null,
+      reviewCount: (map['review_count'] as num?)?.toInt() ?? 0,
       createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'].toString()) ?? DateTime.now() : DateTime.now(),
     );
@@ -206,6 +254,28 @@ class StudyNotebook {
         updatedAt = updatedAt ?? DateTime.now();
 
   int get noteCount => notes.length;
+
+  int get markedForReviewCount => notes.where((n) => n.needsReview).length;
+
+  List<StudyNote> notesToReview({DateTime? referenceDate, int staleDays = 7}) {
+    final due = notes
+        .where((n) => n.shouldReview(referenceDate: referenceDate, staleDays: staleDays))
+        .toList();
+    due.sort((a, b) {
+      if (a.needsReview != b.needsReview) return a.needsReview ? -1 : 1;
+      final dateA = a.lastReviewedAt ?? a.updatedAt;
+      final dateB = b.lastReviewedAt ?? b.updatedAt;
+      return dateA.compareTo(dateB);
+    });
+    return due;
+  }
+
+  int pendingReviewCount({DateTime? referenceDate, int staleDays = 7}) =>
+      notesToReview(referenceDate: referenceDate, staleDays: staleDays).length;
+
+  bool isUpToDate({DateTime? referenceDate, int staleDays = 7}) =>
+      notes.isNotEmpty &&
+      pendingReviewCount(referenceDate: referenceDate, staleDays: staleDays) == 0;
 
   int get totalLinksCount {
     int count = 0;

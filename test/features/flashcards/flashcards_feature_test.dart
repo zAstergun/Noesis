@@ -1014,5 +1014,188 @@ void main() {
 
       await TestAppHarness.drainAsync(tester);
     });
+
+    test('22. Flashcard.needsReview and FlashcardDeck.cardsToReview skip already learned cards and prioritize unlearned ones', () {
+      final now = DateTime(2026, 11, 24, 18, 0);
+      final learnedEasy = Flashcard(
+        id: 'learned-easy',
+        front: 'Já dominado',
+        back: 'Resposta dominada',
+        difficulty: 'easy',
+        reviewCount: 3,
+        lastReviewed: now.subtract(const Duration(days: 5)),
+      );
+      final studiedGoodToday = Flashcard(
+        id: 'studied-good-today',
+        front: 'Estudado hoje com Bom',
+        back: 'Em consolidação',
+        difficulty: 'good',
+        reviewCount: 1,
+        lastReviewed: now.subtract(const Duration(hours: 2)),
+      );
+      final dueGood = Flashcard(
+        id: 'due-good',
+        front: 'Revisão espaçada vencida',
+        back: 'Revisar após 24h',
+        difficulty: 'good',
+        reviewCount: 1,
+        lastReviewed: now.subtract(const Duration(hours: 30)),
+      );
+      final hardCard = Flashcard(
+        id: 'hard-card',
+        front: 'Cartão difícil',
+        back: 'Precisa aprender',
+        difficulty: 'hard',
+        reviewCount: 1,
+        lastReviewed: now.subtract(const Duration(minutes: 10)),
+      );
+      final unreviewedCard = Flashcard(
+        id: 'new-card',
+        front: 'Cartão novo',
+        back: 'Nunca estudado',
+        difficulty: 'unreviewed',
+      );
+
+      expect(learnedEasy.needsReview(referenceDate: now), isFalse);
+      expect(studiedGoodToday.needsReview(referenceDate: now), isFalse);
+      expect(dueGood.needsReview(referenceDate: now), isTrue);
+      expect(hardCard.needsReview(referenceDate: now), isTrue);
+      expect(unreviewedCard.needsReview(referenceDate: now), isTrue);
+
+      final deck = FlashcardDeck(
+        id: 'priority-deck',
+        title: 'Baralho Prioridade',
+        subject: 'Teste',
+        description: 'Teste de fila',
+        cards: [learnedEasy, studiedGoodToday, dueGood, unreviewedCard, hardCard],
+        createdAt: now,
+      );
+
+      final queue = deck.cardsToReview(referenceDate: now);
+      expect(queue.map((c) => c.id).toList(), equals(['hard-card', 'new-card', 'due-good']));
+      expect(deck.pendingReviewCount(referenceDate: now), equals(3));
+      expect(deck.isCompleted(referenceDate: now), isFalse);
+
+      final masteredDeck = FlashcardDeck(
+        id: 'done-deck',
+        title: 'Baralho Concluído',
+        subject: 'Teste',
+        description: 'Tudo dominado',
+        cards: [learnedEasy, studiedGoodToday],
+        createdAt: now,
+      );
+      expect(masteredDeck.isCompleted(referenceDate: now), isTrue);
+    });
+
+    testWidgets('23. FlashcardsScreen filters completed decks, opens review queue, skips mastered cards, and requeues hard cards only',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 960);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final completedDeck = FlashcardDeck(
+        id: 'completed-deck-test',
+        title: 'Redes TCP/IP Completo',
+        subject: 'Redes',
+        description: 'Baralho totalmente dominado.',
+        cards: [
+          Flashcard(
+            id: 'net-1',
+            front: 'Qual camada trata roteamento IP?',
+            back: 'Camada 3 (Rede)',
+            difficulty: 'easy',
+            reviewCount: 2,
+            lastReviewed: DateTime.now(),
+          ),
+        ],
+        createdAt: DateTime.now(),
+      );
+
+      final mixedDeck = FlashcardDeck(
+        id: 'mixed-deck-test',
+        title: 'Banco de Dados SQL',
+        subject: 'Dados',
+        description: 'Mistura dominados e pendentes.',
+        cards: [
+          Flashcard(
+            id: 'sql-easy',
+            front: 'Cartão Já Dominado SQL',
+            back: 'Não deve aparecer',
+            difficulty: 'easy',
+            reviewCount: 2,
+            lastReviewed: DateTime.now(),
+          ),
+          Flashcard(
+            id: 'sql-pending',
+            front: 'O que é ACID em transações?',
+            back: 'Atomicidade, Consistência, Isolamento e Durabilidade.',
+            difficulty: 'unreviewed',
+          ),
+        ],
+        createdAt: DateTime.now(),
+      );
+
+      await SupabaseService.saveFlashcardDeck(completedDeck);
+      await SupabaseService.saveFlashcardDeck(mixedDeck);
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const FlashcardsScreen(),
+        screenSize: const Size(1440, 960),
+      );
+      await tester.pumpAndSettle();
+
+      // Filtra apenas por Completos / Dominados
+      await tester.tap(find.byKey(const Key('filter_status_completed')));
+      await tester.pumpAndSettle();
+      expect(find.text('Redes TCP/IP Completo'), findsOneWidget);
+      expect(find.text('Banco de Dados SQL'), findsNothing);
+      expect(find.text('Completo ✓'), findsOneWidget);
+
+      // Volta para Todos e abre a Central de Revisão Inteligente
+      await tester.tap(find.byKey(const Key('filter_status_all')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('open_review_queue_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Central de Revisão Inteligente'), findsOneWidget);
+      expect(find.text('Banco de Dados SQL'), findsOneWidget);
+
+      // Fecha modal e estuda o baralho misto: deve pular 'Cartão Já Dominado SQL' e mostrar apenas 'O que é ACID em transações?'
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pumpAndSettle();
+
+      // Busca especificamente por 'ACID' para isolar o baralho misto e iniciar estudo
+      await tester.enterText(find.byType(TextField).first, 'Banco de Dados SQL');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Estudar Agora 🚀').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('O que é ACID em transações?'), findsOneWidget);
+      expect(find.text('Cartão Já Dominado SQL'), findsNothing);
+      expect(find.textContaining('Cartão 1 de 1'), findsOneWidget);
+
+      // Vira e marca como Difícil -> cartão volta para a fila!
+      await tester.tap(find.text('Ver Resposta (Virar Cartão) 👆'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Difícil 🔴'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('O que é ACID em transações?'), findsOneWidget);
+      expect(find.textContaining('Cartão difícil voltou na fila'), findsOneWidget);
+
+      // Agora marca como Fácil -> conclui o baralho e não volta mais!
+      await tester.tap(find.text('Ver Resposta (Virar Cartão) 👆'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fácil 🟢'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Baralho Completo! 🎉'), findsOneWidget);
+      await TestAppHarness.drainAsync(tester);
+    });
   });
 }

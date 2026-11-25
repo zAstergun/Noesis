@@ -7,7 +7,10 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
 import '../../core/supabase_service.dart';
+import '../../core/theme.dart';
 import 'models/notebook_model.dart';
+
+enum _NotebookReviewFilter { all, toReview, upToDate }
 
 class NotebooksScreen extends StatefulWidget {
   const NotebooksScreen({super.key});
@@ -21,6 +24,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedSubjectFilter = 'Todos';
+  _NotebookReviewFilter _notebookReviewFilter = _NotebookReviewFilter.all;
 
   // Caderno atualmente aberto (null = lista geral de cadernos)
   StudyNotebook? _selectedNotebook;
@@ -36,6 +40,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   String _selectedTagFilter = 'Todas';
   DateTime? _selectedDateFilter;
   String _noteSortOrder = 'recent'; // 'recent' | 'oldest'
+  bool _onlyNotesToReview = false;
 
   @override
   void initState() {
@@ -78,10 +83,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
   Color _parseColor(String hex) {
     try {
-      final clean = hex.replaceAll('#', '').trim();
+      final clean = hex.replaceAll('#', '').trim().toUpperCase();
+      if (clean == '7C6CF0') return AsterTheme.primary(context);
       return Color(int.parse('FF$clean', radix: 16));
     } catch (_) {
-      return AsterConstants.lavanda;
+      return AsterTheme.primary(context);
     }
   }
 
@@ -410,6 +416,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
     final tagsCtrl = TextEditingController(text: note?.tags.join(', ') ?? notebook.subject);
 
     final List<StudyLink> draftLinks = List.from(note?.links ?? []);
+    bool draftNeedsReview = note?.needsReview ?? false;
     bool isSaving = false;
     bool isFormattingWithAi = false;
     String? previousNoteText;
@@ -642,23 +649,23 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                           child: Container(
                                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                                             decoration: BoxDecoration(
-                                                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                               border: Border.all(
-                                                                color: AsterConstants.lavanda.withValues(alpha: 0.4),
+                                                                color: AsterTheme.primary(context).withValues(alpha: 0.4),
                                                               ),
                                                             ),
                                                             child: Row(
                                                               mainAxisSize: MainAxisSize.min,
                                                               children: [
-                                                                const Icon(Icons.undo_rounded, size: 12, color: AsterConstants.lavanda),
+                                                                Icon(Icons.undo_rounded, size: 12, color: AsterTheme.primary(context)),
                                                                 const SizedBox(width: 3),
                                                                 Text(
                                                                   'Retornar',
                                                                   style: GoogleFonts.manrope(
                                                                     fontSize: 10.5,
                                                                     fontWeight: FontWeight.w800,
-                                                                    color: AsterConstants.lavanda,
+                                                                    color: AsterTheme.primary(context),
                                                                   ),
                                                                 ),
                                                               ],
@@ -719,15 +726,15 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                                         decoration: BoxDecoration(
                                                           color: isFormattingWithAi
-                                                              ? AsterConstants.lavanda.withValues(alpha: 0.2)
+                                                              ? AsterTheme.primary(context).withValues(alpha: 0.2)
                                                               : (isDark ? const Color(0xFF26204E) : const Color(0xFFF3F0FF)),
                                                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                           border: Border.all(
-                                                            color: isDark ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.7),
+                                                            color: isDark ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.7),
                                                           ),
                                                           boxShadow: [
                                                             BoxShadow(
-                                                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                                               blurRadius: 4,
                                                               offset: const Offset(0, 1),
                                                             ),
@@ -737,22 +744,22 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
                                                             if (isFormattingWithAi) ...[
-                                                              const SizedBox(
+                                                              SizedBox(
                                                                 width: 12,
                                                                 height: 12,
-                                                                child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda),
+                                                                child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context)),
                                                               ),
                                                               const SizedBox(width: 6),
                                                               Text(
                                                                 'Formatando...',
-                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                               ),
                                                             ] else ...[
-                                                              const Icon(Icons.auto_awesome_rounded, size: 12, color: AsterConstants.lavanda),
+                                                              Icon(Icons.auto_awesome_rounded, size: 12, color: AsterTheme.primary(context)),
                                                               const SizedBox(width: 5),
                                                               Text(
                                                                 'Corrigir Formatação com IA ✨',
-                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                                style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                               ),
                                                             ],
                                                           ],
@@ -878,7 +885,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               label: Text(isImageToggle ? 'Adicionar Imagem' : 'Adicionar Link'),
                                               style: ElevatedButton.styleFrom(
                                                 padding: const EdgeInsets.symmetric(vertical: 8),
-                                                backgroundColor: AsterConstants.lavanda,
+                                                backgroundColor: AsterTheme.primary(context),
                                                 foregroundColor: Colors.white,
                                               ),
                                               onPressed: () {
@@ -945,7 +952,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                       Icon(
                                                         link.isImage ? Icons.image_rounded : Icons.link_rounded,
                                                         size: 16,
-                                                        color: link.isImage ? AsterConstants.menta : AsterConstants.lavanda,
+                                                        color: link.isImage ? AsterConstants.menta : AsterTheme.primary(context),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Expanded(
@@ -999,8 +1006,48 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
                       // Rodapé do Modal
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          InkWell(
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                            onTap: () => setModalState(() => draftNeedsReview = !draftNeedsReview),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: draftNeedsReview
+                                    ? AsterConstants.ambar.withValues(alpha: 0.16)
+                                    : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+                                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                border: Border.all(
+                                  color: draftNeedsReview
+                                      ? AsterConstants.ambar
+                                      : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    draftNeedsReview ? Icons.bookmark_rounded : Icons.bookmark_add_outlined,
+                                    size: 16,
+                                    color: draftNeedsReview ? AsterConstants.ambar : AsterTheme.primary(context),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    draftNeedsReview ? 'Marcada para revisão' : 'Marcar para revisar',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: draftNeedsReview
+                                          ? AsterConstants.ambar
+                                          : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
                           TextButton(
                             onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                             child: const Text('Cancelar'),
@@ -1012,8 +1059,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 : const Icon(Icons.save_rounded, size: 18),
                             label: Text(isSaving ? 'Salvando...' : 'Salvar Anotação 💾'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AsterConstants.lavanda,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AsterTheme.primary(context),
+                              foregroundColor: AsterTheme.onPrimary(context),
                               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                             ),
                             onPressed: isSaving
@@ -1043,6 +1090,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       content: content,
                                       links: draftLinks,
                                       tags: parsedTags.isNotEmpty ? parsedTags : [notebook.subject],
+                                      needsReview: draftNeedsReview,
+                                      lastReviewedAt: note?.lastReviewedAt,
+                                      reviewCount: note?.reviewCount ?? 0,
                                       createdAt: note?.createdAt ?? DateTime.now(),
                                     );
 
@@ -1130,7 +1180,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AsterConstants.lavanda));
+      return Center(child: CircularProgressIndicator(color: AsterTheme.primary(context)));
     }
 
     if (_selectedNotebook != null) {
@@ -1168,17 +1218,38 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
           });
 
       final matchesSubject = _selectedSubjectFilter == 'Todos' || nb.subject == _selectedSubjectFilter;
-      return matchesQuery && matchesSubject;
+      final matchesReviewFilter = switch (_notebookReviewFilter) {
+        _NotebookReviewFilter.all => true,
+        _NotebookReviewFilter.toReview => nb.pendingReviewCount() > 0,
+        _NotebookReviewFilter.upToDate => nb.isUpToDate(),
+      };
+      return matchesQuery && matchesSubject && matchesReviewFilter;
     }).toList();
 
     int totalNotes = 0;
-    int totalLinks = 0;
-    int totalImages = 0;
+    int recentNotes7d = 0;
+    int totalWords = 0;
+    int totalNotesToReview = 0;
+    int notebooksToReviewCount = 0;
+    int notebooksUpToDateCount = 0;
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
     for (final nb in _notebooks) {
       totalNotes += nb.noteCount;
-      totalLinks += nb.totalLinksCount;
-      totalImages += nb.totalImagesCount;
+      final pendingNb = nb.pendingReviewCount();
+      totalNotesToReview += pendingNb;
+      if (pendingNb > 0) notebooksToReviewCount++;
+      if (nb.isUpToDate()) notebooksUpToDateCount++;
+      for (final note in nb.notes) {
+        if (!note.updatedAt.isBefore(sevenDaysAgo)) {
+          recentNotes7d++;
+        }
+        final trimmed = note.content.trim();
+        if (trimmed.isNotEmpty) {
+          totalWords += trimmed.split(RegExp(r'\s+')).length;
+        }
+      }
     }
+    final estimatedReviewMinutes = totalNotes == 0 ? 0 : (totalWords / 180).ceil().clamp(1, 9999);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1191,6 +1262,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                const NoesisCollapsedMenuSpacer(width: 82),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1210,7 +1282,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                             ),
                             child: Text(
@@ -1218,7 +1290,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               style: GoogleFonts.manrope(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: AsterConstants.lavanda,
+                                color: AsterTheme.primary(context),
                               ),
                             ),
                           ),
@@ -1239,8 +1311,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   icon: const Icon(Icons.add_rounded, size: 20),
                   label: const Text('Novo Caderno'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AsterConstants.lavanda,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AsterTheme.primary(context),
+                    foregroundColor: AsterTheme.onPrimary(context),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                   ),
@@ -1266,7 +1338,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       title: 'Cadernos Ativos',
                       value: '${_notebooks.length}',
                       icon: Icons.menu_book_rounded,
-                      color: AsterConstants.lavanda,
+                      color: AsterTheme.primary(context),
                       isDark: isDark,
                     ),
                     _buildMetricCard(
@@ -1277,16 +1349,16 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       isDark: isDark,
                     ),
                     _buildMetricCard(
-                      title: 'Links de Estudo',
-                      value: '$totalLinks',
-                      icon: Icons.link_rounded,
+                      title: 'Atualizadas (7d)',
+                      value: '$recentNotes7d',
+                      icon: Icons.update_rounded,
                       color: AsterConstants.ambar,
                       isDark: isDark,
                     ),
                     _buildMetricCard(
-                      title: 'Imagens Anexadas',
-                      value: '$totalImages',
-                      icon: Icons.image_rounded,
+                      title: 'Tempo de Revisão',
+                      value: estimatedReviewMinutes > 0 ? '~$estimatedReviewMinutes min' : '0 min',
+                      icon: Icons.schedule_rounded,
                       color: AsterConstants.coral,
                       isDark: isDark,
                     ),
@@ -1296,55 +1368,186 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             ),
             const SizedBox(height: 26),
 
-            // Barra de Busca e Filtros por Disciplina
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Pesquisar cadernos, anotações ou termos-chave...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                      filled: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                  ),
+            // Barra de Busca, Central de Revisão e Filtros Soft Clay
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                border: Border.all(
+                  color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Chips de Disciplina
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: subjects.map((sub) {
-                  final isSelected = _selectedSubjectFilter == sub;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(sub),
-                      selected: isSelected,
-                      onSelected: (val) => setState(() => _selectedSubjectFilter = sub),
-                      backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                      selectedColor: AsterConstants.lavanda.withValues(alpha: 0.2),
-                      checkmarkColor: AsterConstants.lavanda,
-                      labelStyle: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                        side: BorderSide(
-                          color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                boxShadow: isDark ? AsterConstants.clayDarkShadow : AsterConstants.claySubtleShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Pesquisar cadernos, anotações ou termos-chave...',
+                            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                            fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                              borderSide: BorderSide(color: AsterTheme.primary(context), width: 1.4),
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18),
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      InkWell(
+                        key: const Key('notebooks_review_queue_button'),
+                        onTap: () => _openNotebooksReviewDialog(),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: totalNotesToReview > 0
+                                ? AsterConstants.ambar.withValues(alpha: 0.14)
+                                : AsterConstants.menta.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                            border: Border.all(
+                              color: (totalNotesToReview > 0 ? AsterConstants.ambar : AsterConstants.menta)
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                totalNotesToReview > 0
+                                    ? Icons.bookmark_added_rounded
+                                    : Icons.verified_rounded,
+                                size: 16,
+                                color: totalNotesToReview > 0 ? AsterConstants.ambar : AsterConstants.menta,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                totalNotesToReview > 0
+                                    ? 'Revisar e Marcar ($totalNotesToReview)'
+                                    : 'Revisar e Marcar ✓',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: totalNotesToReview > 0 ? AsterConstants.ambar : AsterConstants.menta,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Filtros por Status de Revisão
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildNotebookFilterChip(
+                        key: const Key('notebooks_filter_all'),
+                        label: 'Todos (${_notebooks.length})',
+                        icon: Icons.menu_book_rounded,
+                        selected: _notebookReviewFilter == _NotebookReviewFilter.all,
+                        activeColor: AsterTheme.primary(context),
+                        isDark: isDark,
+                        onTap: () => setState(() => _notebookReviewFilter = _NotebookReviewFilter.all),
+                      ),
+                      _buildNotebookFilterChip(
+                        key: const Key('notebooks_filter_to_review'),
+                        label: 'Para Revisar ($notebooksToReviewCount)',
+                        icon: Icons.bookmark_rounded,
+                        selected: _notebookReviewFilter == _NotebookReviewFilter.toReview,
+                        activeColor: AsterConstants.ambar,
+                        isDark: isDark,
+                        onTap: () => setState(() => _notebookReviewFilter = _NotebookReviewFilter.toReview),
+                      ),
+                      _buildNotebookFilterChip(
+                        key: const Key('notebooks_filter_up_to_date'),
+                        label: 'Em Dia ($notebooksUpToDateCount)',
+                        icon: Icons.check_circle_rounded,
+                        selected: _notebookReviewFilter == _NotebookReviewFilter.upToDate,
+                        activeColor: AsterConstants.menta,
+                        isDark: isDark,
+                        onTap: () => setState(() => _notebookReviewFilter = _NotebookReviewFilter.upToDate),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Chips de Disciplina Soft Clay
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: subjects.map((sub) {
+                        final isSelected = _selectedSubjectFilter == sub;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                            onTap: () => setState(() => _selectedSubjectFilter = sub),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AsterTheme.primary(context)
+                                    : AsterTheme.surfaceAlt(context),
+                                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                boxShadow: isSelected ? AsterTheme.primaryShadow(context) : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isSelected) ...[
+                                    Icon(Icons.check_rounded, size: 14, color: AsterTheme.onPrimary(context)),
+                                    const SizedBox(width: 5),
+                                  ],
+                                  Text(
+                                    sub,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      color: isSelected
+                                          ? AsterTheme.onPrimary(context)
+                                          : AsterTheme.text(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 22),
@@ -1378,7 +1581,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add_rounded),
                         label: const Text('Criar Primeiro Caderno'),
-                        style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.lavanda, foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(backgroundColor: AsterTheme.primary(context), foregroundColor: Colors.white),
                         onPressed: () => _openNotebookModal(),
                       ),
                     ],
@@ -1436,15 +1639,57 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                if (nb.noteCount > 0) ...[
+                                  Builder(
+                                    builder: (_) {
+                                      final pendingCount = nb.pendingReviewCount();
+                                      final isUpToDate = pendingCount == 0;
+                                      return InkWell(
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        onTap: () => _openNotebooksReviewDialog(focusNotebook: nb),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: (isUpToDate ? AsterConstants.menta : AsterConstants.ambar)
+                                                .withValues(alpha: 0.14),
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                          ),
+                                          child: Text(
+                                            isUpToDate ? 'Em dia ✓' : '$pendingCount p/ revisar',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: isUpToDate ? AsterConstants.menta : AsterConstants.ambar,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                                 const Spacer(),
                                 PopupMenuButton<String>(
                                   icon: Icon(Icons.more_horiz_rounded, size: 20, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium)),
                                   onSelected: (val) {
+                                    if (val == 'review_manage') {
+                                      _openNotebooksReviewDialog(focusNotebook: nb, startInMarkMode: true);
+                                    }
                                     if (val == 'edit') _openNotebookModal(notebook: nb);
                                     if (val == 'delete') _confirmDeleteNotebook(nb);
                                   },
                                   itemBuilder: (popCtx) => [
+                                    const PopupMenuItem(
+                                      value: 'review_manage',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.bookmark_added_rounded, size: 18, color: AsterConstants.ambar),
+                                          SizedBox(width: 8),
+                                          Text('Marcar o que revisar'),
+                                        ],
+                                      ),
+                                    ),
                                     const PopupMenuItem(
                                       value: 'edit',
                                       child: Row(
@@ -1495,15 +1740,28 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                             ),
                             const Spacer(),
 
-                            // Estatísticas (Anotações, Links, Imagens)
-                            Row(
-                              children: [
-                                _buildBadge(Icons.note_alt_outlined, '${nb.noteCount} notas', isDark),
-                                const SizedBox(width: 10),
-                                _buildBadge(Icons.link_rounded, '${nb.totalLinksCount} links', isDark),
-                                const SizedBox(width: 10),
-                                _buildBadge(Icons.image_outlined, '${nb.totalImagesCount} imagens', isDark),
-                              ],
+                            // Estatísticas úteis (Anotações, Tópicos e Última Revisão)
+                            Builder(
+                              builder: (_) {
+                                final uniqueTags = <String>{};
+                                var lastEdit = nb.updatedAt;
+                                for (final note in nb.notes) {
+                                  uniqueTags.addAll(note.tags);
+                                  if (note.updatedAt.isAfter(lastEdit)) {
+                                    lastEdit = note.updatedAt;
+                                  }
+                                }
+                                final updatedStr = DateFormat('dd/MM').format(lastEdit);
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    _buildBadge(Icons.note_alt_outlined, '${nb.noteCount} notas', isDark),
+                                    _buildBadge(Icons.tag_rounded, '${uniqueTags.length} tópicos', isDark),
+                                    _buildBadge(Icons.update_rounded, 'Atual. $updatedStr', isDark),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 14),
 
@@ -1515,7 +1773,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 label: const Text('Abrir Caderno 📖'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: nbColor,
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
+                                      ? const Color(0xFF111111)
+                                      : Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                                 ),
@@ -1602,6 +1862,490 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
     );
   }
 
+  Widget _buildNotebookFilterChip({
+    required Key key,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required Color activeColor,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? activeColor.withValues(alpha: 0.16)
+              : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          border: Border.all(
+            color: selected ? activeColor.withValues(alpha: 0.5) : Colors.transparent,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: selected
+                  ? activeColor
+                  : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected
+                    ? activeColor
+                    : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleNoteReviewMark(StudyNotebook notebook, StudyNote note) async {
+    final updated = note.copyWith(
+      needsReview: !note.needsReview,
+      updatedAt: note.updatedAt,
+    );
+    await SupabaseService.saveNote(notebook.id, updated);
+    await _loadNotebooks();
+    if (!mounted) return;
+    setState(() {
+      if (_selectedNote?.id == note.id) {
+        _selectedNote = updated;
+      }
+    });
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          backgroundColor: updated.needsReview ? AsterConstants.ambar : AsterTheme.primary(context),
+          content: Text(
+            updated.needsReview
+                ? '"${note.title}" marcada para revisão!'
+                : 'Marcação de revisão removida de "${note.title}".',
+          ),
+        ),
+      );
+  }
+
+  Future<void> _completeNoteReview(StudyNotebook notebook, StudyNote note) async {
+    final now = DateTime.now();
+    final updated = note.copyWith(
+      needsReview: false,
+      lastReviewedAt: now,
+      reviewCount: note.reviewCount + 1,
+      updatedAt: note.updatedAt,
+    );
+    await SupabaseService.saveNote(notebook.id, updated);
+    await _loadNotebooks();
+    if (!mounted) return;
+    setState(() {
+      if (_selectedNote?.id == note.id) {
+        _selectedNote = updated;
+      }
+    });
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          backgroundColor: AsterConstants.menta,
+          content: Text('Revisão de "${note.title}" concluída! ✓'),
+        ),
+      );
+  }
+
+  void _openNotebooksReviewDialog({
+    StudyNotebook? focusNotebook,
+    bool startInMarkMode = false,
+  }) {
+    bool isMarkMode = startInMarkMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final now = DateTime.now();
+            final sourceNotebooks = focusNotebook != null
+                ? _notebooks.where((n) => n.id == focusNotebook.id).toList()
+                : _notebooks;
+
+            final dueEntries = <({StudyNotebook notebook, StudyNote note})>[];
+            final allEntries = <({StudyNotebook notebook, StudyNote note})>[];
+
+            for (final nb in sourceNotebooks) {
+              for (final n in nb.notesToReview(referenceDate: now)) {
+                dueEntries.add((notebook: nb, note: n));
+              }
+              for (final n in nb.notes) {
+                allEntries.add((notebook: nb, note: n));
+              }
+            }
+
+            dueEntries.sort((a, b) {
+              if (a.note.needsReview != b.note.needsReview) {
+                return a.note.needsReview ? -1 : 1;
+              }
+              return (a.note.lastReviewedAt ?? a.note.updatedAt)
+                  .compareTo(b.note.lastReviewedAt ?? b.note.updatedAt);
+            });
+
+            return Dialog(
+              backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680, maxHeight: 700),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: AsterConstants.ambar.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.bookmark_added_rounded, size: 20, color: AsterConstants.ambar),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  focusNotebook != null
+                                      ? 'Revisão · ${focusNotebook.title}'
+                                      : 'Revisão dos Cadernos de Estudo',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                  ),
+                                ),
+                                Text(
+                                  'Veja o que precisa ser revisado e marque ou conclua revisões rapidamente.',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Alternador: O que revisar vs Marcar anotações
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setDialogState(() => isMarkMode = false),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: !isMarkMode ? AsterTheme.primary(context) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Para Revisar (${dueEntries.length})',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: !isMarkMode
+                                            ? AsterTheme.onPrimary(context)
+                                            : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                key: const Key('notebooks_dialog_mark_tab'),
+                                onTap: () => setDialogState(() => isMarkMode = true),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: isMarkMode ? AsterTheme.primary(context) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Marcar o que revisar (${allEntries.length})',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: isMarkMode
+                                            ? AsterTheme.onPrimary(context)
+                                            : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      if (!isMarkMode && dueEntries.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: AsterConstants.menta.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.verified_rounded, size: 36, color: AsterConstants.menta),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Nenhuma anotação pendente de revisão!',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Use a aba "Marcar o que revisar" para escolher tópicos que deseja revisar.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: isMarkMode ? allEntries.length : dueEntries.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            itemBuilder: (_, idx) {
+                              final entry = isMarkMode ? allEntries[idx] : dueEntries[idx];
+                              final nb = entry.notebook;
+                              final n = entry.note;
+                              final nbColor = _parseColor(nb.colorHex);
+                              final reason = n.reviewStatusReason(referenceDate: now);
+
+                              if (isMarkMode) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                    border: Border.all(
+                                      color: n.needsReview
+                                          ? AsterConstants.ambar.withValues(alpha: 0.5)
+                                          : Colors.transparent,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Checkbox(
+                                        key: Key('mark_review_checkbox_${n.id}'),
+                                        value: n.needsReview,
+                                        activeColor: AsterConstants.ambar,
+                                        onChanged: (_) async {
+                                          await _toggleNoteReviewMark(nb, n);
+                                          if (dialogCtx.mounted) {
+                                            setDialogState(() {});
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              n.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${nb.title} · ~${n.estimatedReviewMinutes} min · $reason',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11,
+                                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              return Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: nbColor.withValues(alpha: 0.14),
+                                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                ),
+                                                child: Text(
+                                                  nb.title,
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: nbColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: (n.needsReview ? AsterConstants.ambar : AsterConstants.coral)
+                                                      .withValues(alpha: 0.14),
+                                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                                ),
+                                                child: Text(
+                                                  reason,
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: n.needsReview ? AsterConstants.ambar : AsterConstants.coral,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            n.title,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Leitura ~${n.estimatedReviewMinutes} min · Revisada ${n.reviewCount}x',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      tooltip: 'Marcar como revisada agora',
+                                      icon: const Icon(Icons.check_circle_outline_rounded, color: AsterConstants.menta),
+                                      onPressed: () async {
+                                        await _completeNoteReview(nb, n);
+                                        if (dialogCtx.mounted) {
+                                          setDialogState(() {});
+                                        }
+                                      },
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AsterTheme.primary(context),
+                                        foregroundColor: AsterTheme.onPrimary(context),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pop(dialogCtx);
+                                        setState(() {
+                                          _selectedNotebook = nb;
+                                          _selectedNote = n;
+                                          _notesSearchQuery = '';
+                                          _notesSearchCtrl.clear();
+                                          _selectedTagFilter = 'Todas';
+                                          _selectedDateFilter = null;
+                                          _onlyNotesToReview = false;
+                                        });
+                                      },
+                                      child: const Text('Revisar'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildBadge(IconData icon, String text, bool isDark) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1674,6 +2418,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
         if (!matchesDate) return false;
       }
 
+      // 4. Filtro rápido: somente notas que devem ser revisadas
+      if (_onlyNotesToReview && !n.shouldReview()) {
+        return false;
+      }
+
       return true;
     }).toList();
 
@@ -1688,80 +2437,97 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
     final currentReadingNote = _selectedNote ?? (filteredNotes.isNotEmpty ? filteredNotes.first : null);
 
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Voltar à lista de cadernos',
-          onPressed: () {
-            setState(() {
-              _selectedNotebook = null;
-              _selectedNote = null;
-              _notesSearchQuery = '';
-              _notesSearchCtrl.clear();
-              _selectedTagFilter = 'Todas';
-              _selectedDateFilter = null;
-              _noteSortOrder = 'recent';
-            });
-          },
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  notebook.title,
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: ValueListenableBuilder<bool>(
+          valueListenable: AsterTheme.sidebarCollapsedNotifier,
+          builder: (context, isCollapsed, _) {
+            final shiftLeft = isDesktop && isCollapsed;
+            return AppBar(
+              leadingWidth: shiftLeft ? 138 : null,
+              leading: Padding(
+                padding: EdgeInsets.only(left: shiftLeft ? 84 : 0),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Voltar à lista de cadernos',
+                  onPressed: () {
+                    setState(() {
+                      _selectedNotebook = null;
+                      _selectedNote = null;
+                      _notesSearchQuery = '';
+                      _notesSearchCtrl.clear();
+                      _selectedTagFilter = 'Todas';
+                      _selectedDateFilter = null;
+                      _noteSortOrder = 'recent';
+                    });
+                  },
+                ),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        notebook.title,
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: nbColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        ),
+                        child: Text(
+                          notebook.subject,
+                          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: nbColor),
+                        ),
+                      ),
+                    ],
                   ),
+                  Text(
+                    '${notebook.notes.length} anotações · ${notebook.totalLinksCount} links · ${notebook.totalImagesCount} imagens',
+                    style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                  ),
+                ],
+              ),
+              actions: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_note_rounded, size: 16),
+                  label: const Text('Editar Caderno'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onPressed: () => _openNotebookModal(notebook: notebook),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: nbColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Nova Anotação 📝'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: nbColor,
+                    foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
+                        ? const Color(0xFF111111)
+                        : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                   ),
-                  child: Text(
-                    notebook.subject,
-                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: nbColor),
-                  ),
+                  onPressed: () => _openNoteEditorModal(),
                 ),
+                const SizedBox(width: 16),
               ],
-            ),
-            Text(
-              '${notebook.notes.length} anotações · ${notebook.totalLinksCount} links · ${notebook.totalImagesCount} imagens',
-              style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-            ),
-          ],
+            );
+          },
         ),
-        actions: [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.edit_note_rounded, size: 16),
-            label: const Text('Editar Caderno'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            onPressed: () => _openNotebookModal(notebook: notebook),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Nova Anotação 📝'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: nbColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-            ),
-            onPressed: () => _openNoteEditorModal(),
-          ),
-          const SizedBox(width: 16),
-        ],
       ),
       body: notebook.notes.isEmpty
           ? Center(
@@ -1855,8 +2621,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           ),
                                           focusedBorder: OutlineInputBorder(
                                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                            borderSide: const BorderSide(
-                                              color: AsterConstants.lavanda,
+                                            borderSide: BorderSide(
+                                              color: AsterTheme.primary(context),
                                               width: 1.5,
                                             ),
                                           ),
@@ -1874,12 +2640,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       height: 38,
                                       decoration: BoxDecoration(
                                         color: _selectedDateFilter != null || _noteSortOrder != 'recent'
-                                            ? AsterConstants.lavanda.withValues(alpha: 0.15)
+                                            ? AsterTheme.primary(context).withValues(alpha: 0.15)
                                             : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                         border: Border.all(
                                           color: _selectedDateFilter != null || _noteSortOrder != 'recent'
-                                              ? AsterConstants.lavanda
+                                              ? AsterTheme.primary(context)
                                               : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
                                         ),
                                       ),
@@ -1887,7 +2653,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         Icons.calendar_month_rounded,
                                         size: 18,
                                         color: _selectedDateFilter != null || _noteSortOrder != 'recent'
-                                            ? AsterConstants.lavanda
+                                            ? AsterTheme.primary(context)
                                             : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                       ),
                                     ),
@@ -1906,17 +2672,17 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             return Theme(
                                               data: isDark
                                                   ? ThemeData.dark().copyWith(
-                                                      colorScheme: const ColorScheme.dark(
-                                                        primary: AsterConstants.lavanda,
-                                                        onPrimary: Colors.white,
+                                                      colorScheme: ColorScheme.dark(
+                                                        primary: AsterTheme.primary(context),
+                                                        onPrimary: AsterTheme.onPrimary(context),
                                                         surface: AsterConstants.surfaceCardDark,
                                                         onSurface: AsterConstants.textLight,
                                                       ),
                                                     )
                                                   : ThemeData.light().copyWith(
-                                                      colorScheme: const ColorScheme.light(
-                                                        primary: AsterConstants.lavanda,
-                                                        onPrimary: Colors.white,
+                                                      colorScheme: ColorScheme.light(
+                                                        primary: AsterTheme.primary(context),
+                                                        onPrimary: AsterTheme.onPrimary(context),
                                                         surface: AsterConstants.surfaceCard,
                                                         onSurface: AsterConstants.textDark,
                                                       ),
@@ -1939,7 +2705,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         value: 'pick_date',
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.event_rounded, size: 18, color: AsterConstants.lavanda),
+                                            Icon(Icons.event_rounded, size: 18, color: AsterTheme.primary(context)),
                                             const SizedBox(width: 8),
                                             Text(
                                               _selectedDateFilter == null
@@ -1969,7 +2735,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             Icon(
                                               Icons.arrow_downward_rounded,
                                               size: 16,
-                                              color: _noteSortOrder == 'recent' ? AsterConstants.lavanda : null,
+                                              color: _noteSortOrder == 'recent' ? AsterTheme.primary(context) : null,
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
@@ -1977,7 +2743,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'recent' ? FontWeight.w700 : FontWeight.w500,
-                                                color: _noteSortOrder == 'recent' ? AsterConstants.lavanda : null,
+                                                color: _noteSortOrder == 'recent' ? AsterTheme.primary(context) : null,
                                               ),
                                             ),
                                           ],
@@ -1990,7 +2756,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             Icon(
                                               Icons.arrow_upward_rounded,
                                               size: 16,
-                                              color: _noteSortOrder == 'oldest' ? AsterConstants.lavanda : null,
+                                              color: _noteSortOrder == 'oldest' ? AsterTheme.primary(context) : null,
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
@@ -1998,7 +2764,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'oldest' ? FontWeight.w700 : FontWeight.w500,
-                                                color: _noteSortOrder == 'oldest' ? AsterConstants.lavanda : null,
+                                                color: _noteSortOrder == 'oldest' ? AsterTheme.primary(context) : null,
                                               ),
                                             ),
                                           ],
@@ -2011,7 +2777,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             Icon(
                                               Icons.sort_by_alpha_rounded,
                                               size: 16,
-                                              color: _noteSortOrder == 'az' ? AsterConstants.lavanda : null,
+                                              color: _noteSortOrder == 'az' ? AsterTheme.primary(context) : null,
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
@@ -2019,13 +2785,60 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'az' ? FontWeight.w700 : FontWeight.w500,
-                                                color: _noteSortOrder == 'az' ? AsterConstants.lavanda : null,
+                                                color: _noteSortOrder == 'az' ? AsterTheme.primary(context) : null,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
                                     ],
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  InkWell(
+                                    key: const Key('notebook_detail_only_review_toggle'),
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    onTap: () => setState(() => _onlyNotesToReview = !_onlyNotesToReview),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 160),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                      decoration: BoxDecoration(
+                                        color: _onlyNotesToReview
+                                            ? AsterConstants.ambar.withValues(alpha: 0.16)
+                                            : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        border: Border.all(
+                                          color: _onlyNotesToReview
+                                              ? AsterConstants.ambar
+                                              : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.bookmark_rounded,
+                                            size: 13,
+                                            color: _onlyNotesToReview ? AsterConstants.ambar : AsterTheme.primary(context),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Só p/ revisar (${notebook.pendingReviewCount()})',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: _onlyNotesToReview
+                                                  ? AsterConstants.ambar
+                                                  : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -2069,12 +2882,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                                 decoration: BoxDecoration(
                                                   color: isSelected
-                                                      ? AsterConstants.lavanda.withValues(alpha: 0.18)
+                                                      ? AsterTheme.primary(context).withValues(alpha: 0.18)
                                                       : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
                                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                   border: Border.all(
                                                     color: isSelected
-                                                        ? AsterConstants.lavanda
+                                                        ? AsterTheme.primary(context)
                                                         : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
                                                     width: isSelected ? 1.5 : 1,
                                                   ),
@@ -2086,7 +2899,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                       fontSize: 11,
                                                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                                                       color: isSelected
-                                                          ? AsterConstants.lavanda
+                                                          ? AsterTheme.primary(context)
                                                           : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                                     ),
                                                   ),
@@ -2110,26 +2923,26 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                                          color: AsterTheme.primary(context).withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(Icons.calendar_today_rounded, size: 10, color: AsterConstants.lavanda),
+                                            Icon(Icons.calendar_today_rounded, size: 10, color: AsterTheme.primary(context)),
                                             const SizedBox(width: 4),
                                             Text(
                                               DateFormat('dd/MM/yyyy').format(_selectedDateFilter!),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w700,
-                                                color: AsterConstants.lavanda,
+                                                color: AsterTheme.primary(context),
                                               ),
                                             ),
                                             const SizedBox(width: 4),
                                             GestureDetector(
                                               onTap: () => setState(() => _selectedDateFilter = null),
-                                              child: const Icon(Icons.close_rounded, size: 12, color: AsterConstants.lavanda),
+                                              child: Icon(Icons.close_rounded, size: 12, color: AsterTheme.primary(context)),
                                             ),
                                           ],
                                         ),
@@ -2158,7 +2971,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
-                                          color: AsterConstants.lavanda,
+                                          color: AsterTheme.primary(context),
                                         ),
                                       ),
                                     ),
@@ -2213,7 +3026,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           icon: const Icon(Icons.refresh_rounded, size: 14),
                                           label: const Text('Limpar filtros'),
                                           style: TextButton.styleFrom(
-                                            foregroundColor: AsterConstants.lavanda,
+                                            foregroundColor: AsterTheme.primary(context),
                                             textStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
                                           ),
                                           onPressed: () {
@@ -2243,31 +3056,51 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? (isDark ? AsterConstants.lavanda.withValues(alpha: 0.15) : AsterConstants.lavanda.withValues(alpha: 0.12))
+                                              ? (isDark ? AsterTheme.primary(context).withValues(alpha: 0.15) : AsterTheme.primary(context).withValues(alpha: 0.12))
                                               : (isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard),
                                           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                                           border: Border.all(
                                             color: isSelected
-                                                ? AsterConstants.lavanda
+                                                ? AsterTheme.primary(context)
                                                 : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
                                             width: isSelected ? 1.5 : 1,
                                           ),
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              n.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: GoogleFonts.manrope(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w700,
-                                                color: isSelected
-                                                    ? AsterConstants.lavanda
-                                                    : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      n.title,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: isSelected
+                                                            ? AsterTheme.primary(context)
+                                                            : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  GestureDetector(
+                                                    key: Key('note_list_mark_${n.id}'),
+                                                    onTap: () => _toggleNoteReviewMark(notebook, n),
+                                                    child: Icon(
+                                                      n.needsReview
+                                                          ? Icons.bookmark_rounded
+                                                          : Icons.bookmark_add_outlined,
+                                                      size: 18,
+                                                      color: n.needsReview
+                                                          ? AsterConstants.ambar
+                                                          : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
                                             const SizedBox(height: 4),
                                             Text(
                                               n.content.isNotEmpty ? n.content.replaceAll(RegExp(r'[#*`\n]'), ' ').trim() : 'Sem texto.',
@@ -2317,11 +3150,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                   const SizedBox(width: 8),
                                                 ],
                                                 if (n.generalLinks.isNotEmpty) ...[
-                                                  const Icon(Icons.link_rounded, size: 12, color: AsterConstants.lavanda),
+                                                  Icon(Icons.link_rounded, size: 12, color: AsterTheme.primary(context)),
                                                   const SizedBox(width: 3),
                                                   Text(
                                                     '${n.generalLinks.length}',
-                                                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                                    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                   ),
                                                   const SizedBox(width: 8),
                                                 ],
@@ -2416,7 +3249,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     ),
                                     child: Text(
                                       '#$t',
-                                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                      style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                     ),
                                   ),
                                 ),
@@ -2429,6 +3262,40 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                key: const Key('note_toggle_review_button'),
+                icon: Icon(
+                  note.needsReview ? Icons.bookmark_rounded : Icons.bookmark_add_outlined,
+                  size: 16,
+                  color: note.needsReview ? AsterConstants.ambar : AsterTheme.primary(context),
+                ),
+                label: Text(note.needsReview ? 'Marcada p/ revisar' : 'Marcar p/ revisar'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: note.needsReview ? AsterConstants.ambar : null,
+                  side: BorderSide(
+                    color: note.needsReview
+                        ? AsterConstants.ambar.withValues(alpha: 0.6)
+                        : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                  ),
+                ),
+                onPressed: _selectedNotebook == null
+                    ? null
+                    : () => _toggleNoteReviewMark(_selectedNotebook!, note),
+              ),
+              if (note.shouldReview() && _selectedNotebook != null) ...[
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  key: const Key('note_complete_review_button'),
+                  icon: const Icon(Icons.check_circle_rounded, size: 16),
+                  label: const Text('Concluir Revisão'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AsterConstants.menta,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => _completeNoteReview(_selectedNotebook!, note),
+                ),
+              ],
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 icon: const Icon(Icons.edit_outlined, size: 16),
@@ -2525,7 +3392,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       value: loadingProgress.expectedTotalBytes != null
                                           ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                                           : null,
-                                      color: AsterConstants.lavanda,
+                                      color: AsterTheme.primary(context),
                                     ),
                                   );
                                 },
@@ -2646,8 +3513,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       code: GoogleFonts.jetBrainsMono(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
-                        color: AsterConstants.lavanda,
-                        backgroundColor: AsterConstants.lavanda.withValues(alpha: 0.12),
+                        color: AsterTheme.primary(context),
+                        backgroundColor: AsterTheme.primary(context).withValues(alpha: 0.12),
                       ),
                       codeblockPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       codeblockDecoration: BoxDecoration(
@@ -2658,11 +3525,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         ),
                       ),
                       blockquoteDecoration: BoxDecoration(
-                        color: AsterConstants.lavanda.withValues(alpha: 0.1),
+                        color: AsterTheme.primary(context).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: const Border(
+                        border: Border(
                           left: BorderSide(
-                            color: AsterConstants.lavanda,
+                            color: AsterTheme.primary(context),
                             width: 4,
                           ),
                         ),
@@ -2671,7 +3538,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       listBullet: GoogleFonts.manrope(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
-                        color: AsterConstants.lavanda,
+                        color: AsterTheme.primary(context),
                       ),
                     ),
                   ),
@@ -2698,10 +3565,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                          color: AsterTheme.primary(context).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.link_rounded, size: 18, color: AsterConstants.lavanda),
+                        child: Icon(Icons.link_rounded, size: 18, color: AsterTheme.primary(context)),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -2728,7 +3595,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.language_rounded, size: 18, color: AsterConstants.lavanda),
+                          Icon(Icons.language_rounded, size: 18, color: AsterTheme.primary(context)),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -2750,7 +3617,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
-                                    color: AsterConstants.lavanda,
+                                    color: AsterTheme.primary(context),
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
@@ -2762,8 +3629,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                             icon: const Icon(Icons.open_in_new_rounded, size: 14),
                             label: const Text('Visitar'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AsterConstants.lavanda,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AsterTheme.primary(context),
+                              foregroundColor: AsterTheme.onPrimary(context),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               visualDensity: VisualDensity.compact,
                             ),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants.dart';
+import '../../core/noesis_agent_tools.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
 
@@ -58,6 +59,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   bool _aiSuggestionDismissed = false;
   bool _aiSuggestionScheduled = false;
+  String? _scheduledRecommendationTitle;
+  List<CalendarAiRecommendation> _aiRecommendations = [];
+  int _aiRecommendationIndex = 0;
+  String _lastEventsSignature = '';
 
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
@@ -109,11 +114,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   late final Stream<List<Map<String, dynamic>>> _eventsStream;
   final Map<String, DateTime> _parsedDateCache = {};
+  late final ScrollController _weekScrollController;
 
   @override
   void initState() {
     super.initState();
     _dialogDate = _selectedDay;
+    _weekScrollController = ScrollController(initialScrollOffset: 7 * 58.0);
     _selectedDayNotifier = ValueNotifier<DateTime>(_selectedDay);
     _activeViewModeNotifier = ValueNotifier<String>(_activeViewMode);
     _selectedCategoryFilterNotifier = ValueNotifier<String?>(_selectedCategoryFilter);
@@ -124,10 +131,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
       }
       return true;
     });
+    _refreshAiRecommendations();
+  }
+
+  Future<void> _refreshAiRecommendations([List<Map<String, dynamic>>? currentEvents]) async {
+    try {
+      final recs = await NoesisAgentTools.buildCalendarRecommendations(
+        calendarEvents: currentEvents,
+      );
+      if (!mounted || recs.isEmpty) return;
+      setState(() {
+        _aiRecommendations = recs;
+        if (_aiRecommendationIndex >= recs.length) {
+          _aiRecommendationIndex = 0;
+        }
+      });
+    } catch (_) {}
+  }
+
+  void _syncRecommendationsIfEventsChanged(List<Map<String, dynamic>> rawEvents) {
+    final sig = '${rawEvents.length}:${rawEvents.map((e) => '${e['id']}_${e['start_time']}').take(12).join('|')}';
+    if (sig != _lastEventsSignature) {
+      _lastEventsSignature = sig;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _refreshAiRecommendations(rawEvents);
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _weekScrollController.dispose();
     _selectedDayNotifier.dispose();
     _activeViewModeNotifier.dispose();
     _selectedCategoryFilterNotifier.dispose();
@@ -136,7 +172,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.dispose();
   }
 
-  Color _getCategoryColor(String? cat) => _categoryInfo[cat]?.color ?? AsterConstants.lavanda;
+  Color _resolveCalendarColor(Color raw) =>
+      raw == AsterConstants.lavanda ? AsterTheme.primary(context) : raw;
+
+  Color _onColor(Color bg) =>
+      ThemeData.estimateBrightnessForColor(bg) == Brightness.light
+          ? const Color(0xFF111111)
+          : Colors.white;
+
+  Color _getCategoryColor(String? cat) =>
+      _resolveCalendarColor(_categoryInfo[cat]?.color ?? AsterConstants.lavanda);
   String _getCategoryLabel(String? cat) => _categoryInfo[cat]?.label ?? 'Estudo';
   IconData _getCategoryIcon(String? cat) => _categoryInfo[cat]?.icon ?? Icons.menu_book_rounded;
 
@@ -144,12 +189,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (event['color'] != null) {
       final cStr = event['color'].toString();
       if (cStr.startsWith('#')) {
-        final hex = cStr.replaceAll('#', '');
+        final hex = cStr.replaceAll('#', '').toUpperCase();
+        if (hex == '7C6CF0') return AsterTheme.primary(context);
         try {
-          return Color(int.parse(hex.length == 6 ? 'FF$hex' : hex, radix: 16));
+          final parsed = Color(int.parse(hex.length == 6 ? 'FF$hex' : hex, radix: 16));
+          return _resolveCalendarColor(parsed);
         } catch (_) {}
       } else if (int.tryParse(cStr) != null) {
-        return Color(int.parse(cStr));
+        return _resolveCalendarColor(Color(int.parse(cStr)));
       }
     }
     return _getCategoryColor(event['category']);
@@ -191,9 +238,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          backgroundColor: AsterTheme.card(context),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
           title: Row(
             children: [
@@ -210,7 +256,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 'Excluir Bloco',
                 style: GoogleFonts.manrope(
                   fontWeight: FontWeight.w800,
-                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                  color: AsterTheme.text(context),
                 ),
               ),
             ],
@@ -220,7 +266,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             style: GoogleFonts.manrope(
               fontSize: 13,
               height: 1.4,
-              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+              color: AsterTheme.textMuted(context),
             ),
           ),
           actions: [
@@ -228,7 +274,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancelar',
-                style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                style: GoogleFonts.manrope(color: AsterTheme.textMuted(context)),
               ),
             ),
             ElevatedButton(
@@ -260,26 +306,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
     SupabaseService.deleteCalendarEvent(id);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AsterConstants.surfaceDark,
-          content: Text('Bloco "$title" excluído com sucesso.'),
-          action: SnackBarAction(
-            label: 'Desfazer',
-            textColor: AsterConstants.ambar,
-            onPressed: () {
-              SupabaseService.addCalendarEvent(
-                title: event['title'] ?? '',
-                description: event['description'],
-                category: event['category'] ?? 'study',
-                color: event['color'],
-                startTime: _parseDateTime(event['start_time']),
-                endTime: _parseDateTime(event['end_time']),
-              );
-            },
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            persist: false,
+            duration: const Duration(seconds: 4),
+            backgroundColor: AsterConstants.surfaceDark,
+            content: Text('Bloco "$title" excluído com sucesso.'),
+            action: SnackBarAction(
+              label: 'Desfazer',
+              textColor: AsterConstants.ambar,
+              onPressed: () {
+                SupabaseService.addCalendarEvent(
+                  title: event['title'] ?? '',
+                  description: event['description'],
+                  category: event['category'] ?? 'study',
+                  color: event['color'],
+                  startTime: _parseDateTime(event['start_time']),
+                  endTime: _parseDateTime(event['end_time']),
+                );
+              },
+            ),
           ),
-        ),
-      );
+        );
     }
   }
 
@@ -300,15 +350,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+            backgroundColor: AsterTheme.card(context),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Text(
               'Novo Bloco / Agendamento',
               style: GoogleFonts.manrope(
                 fontWeight: FontWeight.w800,
-                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                color: AsterTheme.text(context),
               ),
             ),
           content: SingleChildScrollView(
@@ -349,11 +398,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       value: '__add_category__',
                       child: Row(
                         children: [
-                          const Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterConstants.lavanda),
+                          Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterTheme.primary(context)),
                           const SizedBox(width: 8),
                           Text(
                             '+ Nova Categoria...',
-                            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                           ),
                         ],
                       ),
@@ -382,7 +431,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 // ─── Seletor de Cores Personalizadas ───
                 Text(
                   'Cor do Bloco',
-                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -439,7 +488,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AsterConstants.surfaceAlt,
+                      color: AsterTheme.surfaceAlt(context),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     ),
                     child: Row(
@@ -447,15 +496,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today_rounded, size: 16, color: AsterConstants.lavanda),
+                            Icon(Icons.calendar_today_rounded, size: 16, color: AsterTheme.primary(context)),
                             const SizedBox(width: 8),
                             Text(
                               DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_dialogDate),
-                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AsterConstants.textDark),
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AsterTheme.text(context)),
                             ),
                           ],
                         ),
-                        const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.textMuted),
+                        Icon(Icons.edit_calendar_rounded, size: 16, color: AsterTheme.textMuted(context)),
                       ],
                     ),
                   ),
@@ -470,7 +519,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: DropdownButtonFormField<int>(
                         value: _dialogStartHour,
                         decoration: const InputDecoration(labelText: 'Horário de Início'),
-                        items: List.generate(16, (i) => i + 7).map((h) {
+                        items: List.generate(24, (i) => i).map((h) {
                           final hStr = '${h.toString().padLeft(2, '0')}:00';
                           return DropdownMenuItem(value: h, child: Text(hStr, style: GoogleFonts.manrope(fontSize: 13)));
                         }).toList(),
@@ -515,7 +564,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+              child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
             ),
             SoftClayPillButton(
               text: 'Agendar Bloco',
@@ -556,7 +605,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    backgroundColor: AsterConstants.lavanda,
+                    backgroundColor: AsterTheme.primary(context),
                     content: Text('Bloco "$title" agendado com sucesso!'),
                   ),
                 );
@@ -589,9 +638,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+          backgroundColor: AsterTheme.card(context),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
           title: Row(
             children: [
@@ -610,7 +658,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                        color: AsterTheme.text(context),
                       ),
                     ),
                     Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
@@ -633,13 +681,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                    border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.25), width: 1.2),
+                    border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.25), width: 1.2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.access_time_rounded, size: 18, color: AsterConstants.lavanda),
+                      Icon(Icons.access_time_rounded, size: 18, color: AsterTheme.primary(context)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -650,18 +698,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                color: AsterTheme.text(context),
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Toque para remarcar data ou horário ✏️',
-                              style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                              style: GoogleFonts.manrope(fontSize: 10.5, color: AsterTheme.primary(context), fontWeight: FontWeight.w700),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.edit_calendar_rounded, size: 16, color: AsterConstants.lavanda),
+                      Icon(Icons.edit_calendar_rounded, size: 16, color: AsterTheme.primary(context)),
                     ],
                   ),
                 ),
@@ -672,7 +720,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                    color: AsterTheme.surfaceAlt(context),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                   ),
                   child: Text(
@@ -680,7 +728,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       height: 1.4,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      color: AsterTheme.text(context),
                     ),
                   ),
                 ),
@@ -692,7 +740,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     'Status:',
                     style: GoogleFonts.manrope(
                       fontSize: 12,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      color: AsterTheme.textMuted(context),
                     ),
                   ),
                 const SizedBox(width: 8),
@@ -736,8 +784,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AsterConstants.lavanda,
-                  side: const BorderSide(color: AsterConstants.lavanda, width: 1.2),
+                  foregroundColor: AsterTheme.primary(context),
+                  side: BorderSide(color: AsterTheme.primary(context), width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 ),
@@ -759,7 +807,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 },
                 child: Text(
                   isCompleted ? 'Marcar Pendente' : 'Marcar Concluído',
-                  style: GoogleFonts.manrope(color: AsterConstants.lavanda, fontWeight: FontWeight.w700, fontSize: 12),
+                  style: GoogleFonts.manrope(color: AsterTheme.primary(context), fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
               const SizedBox(width: 6),
@@ -805,20 +853,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final computedEnd = computedStart.add(Duration(minutes: editDurationMinutes));
           final durH = editDurationMinutes / 60.0;
           final durStr = durH == durH.truncateToDouble() ? '${durH.toInt()}h' : '${durH.toStringAsFixed(1)}h';
-
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+            backgroundColor: AsterTheme.card(context),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.edit_calendar_rounded, size: 20, color: AsterConstants.lavanda),
+                  child: Icon(Icons.edit_calendar_rounded, size: 20, color: AsterTheme.primary(context)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -830,14 +876,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         style: GoogleFonts.manrope(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
-                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          color: AsterTheme.text(context),
                         ),
                       ),
                       Text(
                         'Altere o dia, horário ou tempo estimado',
                         style: GoogleFonts.manrope(
                           fontSize: 11,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          color: AsterTheme.textMuted(context),
                         ),
                       ),
                     ],
@@ -862,7 +908,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // ─── 1. Seletor de Data Interativo ───
                   Text(
                     'DATA DA TAREFA',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                   ),
                   const SizedBox(height: 6),
                   InkWell(
@@ -882,37 +928,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: AsterConstants.surfaceAlt,
+                        color: AsterTheme.surfaceAlt(context),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                        border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.35), width: 1.2),
+                        border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.35), width: 1.2),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_rounded, size: 16, color: AsterConstants.lavanda),
+                              Icon(Icons.calendar_today_rounded, size: 16, color: AsterTheme.primary(context)),
                               const SizedBox(width: 10),
                               Text(
                                 DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(editDate),
-                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
                               ),
                             ],
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.edit_rounded, size: 12, color: AsterConstants.lavanda),
+                                Icon(Icons.edit_rounded, size: 12, color: AsterTheme.primary(context)),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Trocar Data',
-                                  style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                                  style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                 ),
                               ],
                             ),
@@ -933,13 +979,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             Text(
                               'HORÁRIO DE INÍCIO',
-                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                             ),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<int>(
                               value: editStartHour,
                               decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                              items: List.generate(18, (i) => i + 6).map((h) {
+                              items: List.generate(24, (i) => i).map((h) {
                                 final hStr = '${h.toString().padLeft(2, '0')}:${editStartMinute.toString().padLeft(2, '0')}';
                                 return DropdownMenuItem(
                                   value: h,
@@ -961,7 +1007,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             Text(
                               'DURAÇÃO',
-                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                              style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                             ),
                             const SizedBox(height: 6),
                             DropdownButtonFormField<int>(
@@ -993,16 +1039,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AsterConstants.lavanda.withValues(alpha: 0.08),
+                      color: AsterTheme.primary(context).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.schedule_rounded, size: 15, color: AsterConstants.lavanda),
+                        Icon(Icons.schedule_rounded, size: 15, color: AsterTheme.primary(context)),
                         const SizedBox(width: 8),
                         Text(
                           'Horário final: ${DateFormat('HH:mm').format(computedStart)} às ${DateFormat('HH:mm').format(computedEnd)} ($durStr)',
-                          style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                          style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
                         ),
                       ],
                     ),
@@ -1033,11 +1079,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         value: '__add_category__',
                         child: Row(
                           children: [
-                            const Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterConstants.lavanda),
+                            Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterTheme.primary(context)),
                             const SizedBox(width: 8),
                             Text(
                               '+ Nova Categoria...',
-                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                             ),
                           ],
                         ),
@@ -1066,7 +1112,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // Seletor de Cor
                   Text(
                     'Cor do Bloco',
-                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -1124,7 +1170,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   descEditController.dispose();
                   Navigator.pop(ctx);
                 },
-                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
               ),
               SoftClayPillButton(
                 text: 'Salvar Alterações',
@@ -1167,7 +1213,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      backgroundColor: AsterConstants.lavanda,
+                      backgroundColor: AsterTheme.primary(context),
                       content: Text('Bloco "$newTitle" remarcado para ${DateFormat("d 'de' MMMM", 'pt_BR').format(editDate)} às ${DateFormat('HH:mm').format(newStart)}!'),
                     ),
                   );
@@ -1186,19 +1232,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+            backgroundColor: AsterTheme.card(context),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.tune_rounded, size: 20, color: AsterConstants.lavanda),
+                  child: Icon(Icons.tune_rounded, size: 20, color: AsterTheme.primary(context)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1210,14 +1255,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         style: GoogleFonts.manrope(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
-                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          color: AsterTheme.text(context),
                         ),
                       ),
                       Text(
                         'Crie, edite ou remova categorias do seu calendário',
                         style: GoogleFonts.manrope(
                           fontSize: 11,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          color: AsterTheme.textMuted(context),
                         ),
                       ),
                     ],
@@ -1245,21 +1290,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: AsterConstants.lavanda.withValues(alpha: 0.10),
+                        color: AsterTheme.primary(context).withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                        border: Border.all(color: AsterConstants.lavanda.withValues(alpha: 0.35), width: 1.2),
+                        border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.35), width: 1.2),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.add_rounded, size: 18, color: AsterConstants.lavanda),
+                          Icon(Icons.add_rounded, size: 18, color: AsterTheme.primary(context)),
                           const SizedBox(width: 8),
                           Text(
                             'Criar Nova Categoria',
                             style: GoogleFonts.manrope(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: AsterConstants.lavanda,
+                              color: AsterTheme.primary(context),
                             ),
                           ),
                         ],
@@ -1270,7 +1315,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                   Text(
                     'CATEGORIAS EXISTENTES (${_categoryInfo.length})',
-                    style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                    style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                   ),
                   const SizedBox(height: 8),
 
@@ -1283,9 +1328,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: AsterConstants.surfaceAlt,
+                            color: AsterTheme.surfaceAlt(context),
                             borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                            border: Border.all(color: AsterConstants.surfaceInset, width: 1),
+                            border: Border.all(color: AsterTheme.surfaceInset(context), width: 1),
                           ),
                           child: Row(
                             children: [
@@ -1308,21 +1353,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                       style: GoogleFonts.manrope(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: AsterConstants.textDark,
+                                        color: AsterTheme.text(context),
                                       ),
                                     ),
                                     Text(
                                       cat.hex,
                                       style: GoogleFonts.jetBrainsMono(
                                         fontSize: 10,
-                                        color: AsterConstants.textMuted,
+                                        color: AsterTheme.textMuted(context),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.edit_rounded, size: 18, color: AsterConstants.lavanda),
+                                icon: Icon(Icons.edit_rounded, size: 18, color: AsterTheme.primary(context)),
                                 tooltip: 'Editar Categoria',
                                 onPressed: () {
                                   _openAddEditCategoryDialog(
@@ -1348,21 +1393,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   showDialog(
                                     context: context,
                                     builder: (deleteCtx) {
-                                      final isDark = Theme.of(deleteCtx).brightness == Brightness.dark;
                                       return AlertDialog(
-                                        backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                        backgroundColor: AsterTheme.card(context),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
                                         title: Text(
                                           'Excluir categoria "${cat.label}"?',
                                           style: GoogleFonts.manrope(
                                             fontWeight: FontWeight.w800,
-                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            color: AsterTheme.text(context),
                                           ),
                                         ),
                                         content: Text(
                                           'Tem certeza que deseja remover esta categoria? Os blocos já agendados continuarão salvos com suas cores.',
                                           style: GoogleFonts.manrope(
-                                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                            color: AsterTheme.textMuted(context),
                                           ),
                                         ),
                                         actions: [
@@ -1370,7 +1414,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                             onPressed: () => Navigator.pop(deleteCtx),
                                             child: Text(
                                               'Cancelar',
-                                              style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                              style: GoogleFonts.manrope(color: AsterTheme.textMuted(context)),
                                             ),
                                           ),
                                         SoftClayPillButton(
@@ -1429,9 +1473,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           return AlertDialog(
-            backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+            backgroundColor: AsterTheme.card(context),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
             title: Row(
               children: [
@@ -1450,7 +1493,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      color: AsterTheme.text(context),
                     ),
                   ),
                 ),
@@ -1476,7 +1519,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // ─── 1. Escolher Cor ───
                     Text(
                       'COR DA CATEGORIA',
-                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -1523,7 +1566,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // ─── 2. Escolher Ícone ───
                     Text(
                       'ÍCONE DA CATEGORIA',
-                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterConstants.textMuted),
+                      style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -1541,17 +1584,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? selectedColor.withValues(alpha: 0.2)
-                                  : AsterConstants.surfaceAlt,
+                                  : AsterTheme.surfaceAlt(context),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isSelected ? selectedColor : AsterConstants.surfaceInset,
+                                color: isSelected ? selectedColor : AsterTheme.surfaceInset(context),
                                 width: isSelected ? 1.8 : 1,
                               ),
                             ),
                             child: Icon(
                               item.icon,
                               size: 19,
-                              color: isSelected ? selectedColor : AsterConstants.textDark,
+                              color: isSelected ? selectedColor : AsterTheme.text(context),
                             ),
                           ),
                         );
@@ -1567,7 +1610,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   nameController.dispose();
                   Navigator.pop(ctx);
                 },
-                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
               ),
               SoftClayPillButton(
                 text: isEditing ? 'Salvar Alterações' : 'Criar Categoria',
@@ -1600,7 +1643,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      backgroundColor: AsterConstants.lavanda,
+                      backgroundColor: AsterTheme.primary(context),
                       content: Text('Categoria "$label" ${isEditing ? "atualizada" : "criada"} com sucesso!'),
                     ),
                   );
@@ -1614,31 +1657,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _scheduleAiRecommendation() async {
-    final now = DateTime.now();
-    final daysUntilThu = (DateTime.thursday - now.weekday + 7) % 7;
-    final nextThu = now.add(Duration(days: daysUntilThu == 0 ? 7 : daysUntilThu));
-    final start = DateTime(nextThu.year, nextThu.month, nextThu.day, 15, 0);
-    final end = DateTime(nextThu.year, nextThu.month, nextThu.day, 17, 0);
+    final rec = _aiRecommendations.isNotEmpty
+        ? _aiRecommendations[_aiRecommendationIndex % _aiRecommendations.length]
+        : null;
+    if (rec == null) return;
 
     await SupabaseService.addCalendarEvent(
-      title: 'Redes & Protocolos (Sugerido pela AI)',
-      description: 'Sessão intensiva de 2h de revisão focada em Topologias, OSI e TCP/IP sugerida pelo Noesis AI.',
-      category: 'study',
-      color: '#7C6CF0',
-      startTime: start,
-      endTime: end,
+      title: rec.eventTitle,
+      description: rec.eventDescription,
+      category: rec.category,
+      color: rec.colorHex,
+      startTime: rec.startTime,
+      endTime: rec.endTime,
     );
 
     if (mounted) {
       setState(() {
         _aiSuggestionScheduled = true;
-        _focusedDay = start;
-        _selectedDay = start;
+        _scheduledRecommendationTitle = rec.eventTitle;
+        _focusedDay = rec.startTime;
+        _selectedDay = rec.startTime;
+        _selectedDayNotifier.value = rec.startTime;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AsterConstants.lavanda,
-          content: Text('Bloco de 2h de Redes agendado para ${DateFormat("EEEE, d 'de' MMMM 'às' 15:00", 'pt_BR').format(start)}!'),
+          backgroundColor: AsterTheme.primary(context),
+          content: Text(
+            '${rec.eventTitle} agendado para ${DateFormat("EEEE, d 'de' MMMM 'às' HH:mm", 'pt_BR').format(rec.startTime)}!',
+          ),
         ),
       );
     }
@@ -1652,6 +1698,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       stream: _eventsStream,
       builder: (context, snapshot) {
         final rawEvents = snapshot.data ?? [];
+        _syncRecommendationsIfEventsChanged(rawEvents);
 
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -1742,6 +1789,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       children: [
         Row(
           children: [
+            const NoesisCollapsedMenuSpacer(width: 82),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1750,12 +1798,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: GoogleFonts.manrope(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    color: AsterConstants.textDark,
+                    color: AsterTheme.text(context),
                   ),
                 ),
                 Text(
                   'Semana $weekNumber · $hoursStr planejadas${examSummary.isNotEmpty ? examSummary : ' · ${weekEvents.length} blocos'}',
-                  style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                 ),
               ],
             ),
@@ -1765,7 +1813,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AsterConstants.surfaceCard,
+                color: AsterTheme.card(context),
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 boxShadow: AsterConstants.claySubtleShadow,
               ),
@@ -1775,6 +1823,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   return Row(
                     children: ['Dia', 'Semana', 'Mês', 'Timeline'].map((mode) {
                       final isSelected = activeMode == mode;
+                      final primaryCol = AsterTheme.primary(context);
+                      final onPrimaryCol = AsterTheme.onPrimary(context);
                       return InkWell(
                         onTap: () {
                           _activeViewMode = mode;
@@ -1784,7 +1834,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+                            color: isSelected ? primaryCol : Colors.transparent,
                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                           ),
                           child: Text(
@@ -1792,7 +1842,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                              color: isSelected ? Colors.white : AsterConstants.textDark,
+                              color: isSelected ? onPrimaryCol : AsterTheme.text(context),
                             ),
                           ),
                         ),
@@ -1816,7 +1866,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AsterConstants.surfaceCard,
+                      color: AsterTheme.card(context),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       boxShadow: AsterConstants.claySubtleShadow,
                     ),
@@ -1825,7 +1875,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: AsterConstants.textDark,
+                        color: AsterTheme.text(context),
                       ),
                     ),
                   ),
@@ -1834,7 +1884,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: AsterConstants.surfaceCard,
+                    color: AsterTheme.card(context),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     boxShadow: AsterConstants.claySubtleShadow,
                   ),
@@ -1847,11 +1897,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           width: 28,
                           height: 28,
                           alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: AsterConstants.surfaceAlt,
+                          decoration: BoxDecoration(
+                            color: AsterTheme.surfaceAlt(context),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.chevron_left_rounded, size: 18, color: AsterConstants.textDark),
+                          child: Icon(Icons.chevron_left_rounded, size: 18, color: AsterTheme.text(context)),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -1862,11 +1912,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           width: 28,
                           height: 28,
                           alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: AsterConstants.surfaceAlt,
+                          decoration: BoxDecoration(
+                            color: AsterTheme.surfaceAlt(context),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.chevron_right_rounded, size: 18, color: AsterConstants.textDark),
+                          child: Icon(Icons.chevron_right_rounded, size: 18, color: AsterTheme.text(context)),
                         ),
                       ),
                     ],
@@ -1883,12 +1933,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterPill('Todos', null, AsterConstants.textDark),
+              _buildFilterPill('Todos', null, AsterTheme.text(context)),
               const SizedBox(width: 8),
               ..._categoryInfo.entries.map((e) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: _buildFilterPill(e.value.label, e.key, e.value.color),
+                  child: _buildFilterPill(e.value.label, e.key, _resolveCalendarColor(e.value.color)),
                 );
               }),
               InkWell(
@@ -1897,21 +1947,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AsterConstants.surfaceAlt,
+                    color: AsterTheme.surfaceAlt(context),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                    border: Border.all(color: AsterConstants.surfaceInset, width: 1),
+                    border: Border.all(color: AsterTheme.surfaceInset(context), width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.tune_rounded, size: 14, color: AsterConstants.lavanda),
+                      Icon(Icons.tune_rounded, size: 14, color: AsterTheme.primary(context)),
                       const SizedBox(width: 5),
                       Text(
                         'Categorias',
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: AsterConstants.textDark,
+                          color: AsterTheme.text(context),
                         ),
                       ),
                     ],
@@ -1936,6 +1986,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       valueListenable: _selectedCategoryFilterNotifier,
       builder: (context, activeFilter, _) {
         final isSelected = activeFilter == categoryKey;
+        final resolvedColor = _resolveCalendarColor(color);
+        final onSelected = _onColor(resolvedColor);
 
         return InkWell(
           onTap: () {
@@ -1957,9 +2009,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? color : color.withValues(alpha: 0.12),
+              color: isSelected ? resolvedColor : resolvedColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-              border: isSelected ? null : Border.all(color: color.withValues(alpha: 0.3), width: 1),
+              border: isSelected ? null : Border.all(color: resolvedColor.withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1968,7 +2020,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : color,
+                    color: isSelected ? onSelected : resolvedColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1978,7 +2030,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: GoogleFonts.manrope(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : AsterConstants.textDark,
+                    color: isSelected ? onSelected : AsterTheme.text(context),
                   ),
                 ),
               ],
@@ -2047,10 +2099,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final weekDays = List.generate(7, (i) => monday.add(Duration(days: i)));
     final dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-    // 07:00 até 22:00 (15 horas)
-    const startHour = 7;
-    const endHour = 22;
-    const totalHours = endHour - startHour; // 15
+    // Dia completo: 00:00 até 23:59 (24 horas)
+    const startHour = 0;
+    const endHour = 24;
+    const totalHours = endHour - startHour; // 24
     const double hourHeight = 58.0;
     const double totalGridHeight = totalHours * hourHeight;
 
@@ -2081,7 +2133,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSelected && !isToday ? AsterConstants.lavanda.withValues(alpha: 0.1) : Colors.transparent,
+                        color: isSelected && !isToday ? AsterTheme.primary(context).withValues(alpha: 0.1) : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -2091,7 +2143,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: isToday ? AsterConstants.lavanda : AsterConstants.textMuted,
+                              color: isToday ? AsterTheme.primary(context) : AsterTheme.textMuted(context),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -2100,11 +2152,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             height: 26,
                             decoration: BoxDecoration(
                               color: isToday
-                                  ? AsterConstants.lavanda
-                                  : (isSelected ? AsterConstants.lavanda.withValues(alpha: 0.20) : Colors.transparent),
+                                  ? AsterTheme.primary(context)
+                                  : (isSelected ? AsterTheme.primary(context).withValues(alpha: 0.20) : Colors.transparent),
                               borderRadius: BorderRadius.circular(8),
                               border: isSelected && !isToday
-                                  ? Border.all(color: AsterConstants.lavanda, width: 1.5)
+                                  ? Border.all(color: AsterTheme.primary(context), width: 1.5)
                                   : null,
                             ),
                             child: Center(
@@ -2114,8 +2166,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: isToday
-                                      ? Colors.white
-                                      : (isSelected ? AsterConstants.lavanda : AsterConstants.textDark),
+                                      ? AsterTheme.onPrimary(context)
+                                      : (isSelected ? AsterTheme.primary(context) : AsterTheme.text(context)),
                                 ),
                               ),
                             ),
@@ -2131,13 +2183,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(height: 12),
           const Divider(),
 
-          // Grade Contínua de Horários com Scroll
+          // Grade Contínua de Horários com Scroll (00h às 23h)
           SizedBox(
             height: 520,
-            child: SingleChildScrollView(
-              child: SizedBox(
-                height: totalGridHeight,
-                child: Row(
+            child: Scrollbar(
+              controller: _weekScrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _weekScrollController,
+                child: SizedBox(
+                  height: totalGridHeight,
+                  child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Coluna de Rótulos de Horas
@@ -2152,7 +2208,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               '${h.toString().padLeft(2, '0')}h',
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 10,
-                                color: AsterConstants.textMuted,
+                                color: AsterTheme.textMuted(context),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -2173,10 +2229,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         child: RepaintBoundary(
                           child: Container(
                             decoration: BoxDecoration(
-                            color: isToday ? AsterConstants.lavanda.withValues(alpha: 0.03) : Colors.transparent,
+                            color: isToday ? AsterTheme.primary(context).withValues(alpha: 0.03) : Colors.transparent,
                             border: Border(
                               right: BorderSide(
-                                color: AsterConstants.surfaceInset.withValues(alpha: 0.6),
+                                color: AsterTheme.surfaceInset(context).withValues(alpha: 0.6),
                                 width: 0.5,
                               ),
                             ),
@@ -2194,9 +2250,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   child: InkWell(
                                     onTap: () => _openAddEventDialog(prefilledDate: cellDate, prefilledHour: currentH),
                                     child: Container(
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         border: Border(
-                                          bottom: BorderSide(color: AsterConstants.surfaceInset, width: 0.5),
+                                          bottom: BorderSide(color: AsterTheme.surfaceInset(context), width: 0.5),
                                         ),
                                       ),
                                     ),
@@ -2291,7 +2347,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                       fontSize: 10,
                                                       fontWeight: FontWeight.w800,
                                                       decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                                      color: isCompleted ? AsterConstants.textMuted : AsterConstants.textDark,
+                                                      color: isCompleted ? AsterTheme.textMuted(context) : AsterTheme.text(context),
                                                     ),
                                                   ),
                                                   if (height > 44)
@@ -2302,7 +2358,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 8.5,
                                                         fontWeight: FontWeight.w600,
-                                                        color: AsterConstants.textMuted,
+                                                        color: AsterTheme.textMuted(context),
                                                       ),
                                                     ),
                                                 ],
@@ -2320,7 +2376,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                   width: 18,
                                                   height: 18,
                                                   decoration: BoxDecoration(
-                                                    color: AsterConstants.surfaceCard.withValues(alpha: 0.85),
+                                                    color: AsterTheme.card(context).withValues(alpha: 0.85),
                                                     shape: BoxShape.circle,
                                                     boxShadow: [
                                                       BoxShadow(
@@ -2355,6 +2411,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
             ),
           ),
+        ),
         ],
       ),
     ),
@@ -2364,7 +2421,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // ─── 2. Visão Diária Detalhada ───
   Widget _buildDayView(List<Map<String, dynamic>> allEvents) {
     final dayEvents = _getEventsForDay(allEvents, _selectedDay);
-    final hours = List.generate(16, (i) => i + 7);
+    final hours = List.generate(24, (i) => i);
 
     return SoftClayCard(
       padding: const EdgeInsets.all(24),
@@ -2379,11 +2436,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   Text(
                     DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(_selectedDay),
-                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
                   ),
                   Text(
                     '${dayEvents.length} bloco(s) agendados para este dia',
-                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                    style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                   ),
                 ],
               ),
@@ -2408,8 +2465,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                 return Container(
                   padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AsterConstants.surfaceInset, width: 0.5)),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: AsterTheme.surfaceInset(context), width: 0.5)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2418,7 +2475,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         width: 52,
                         child: Text(
                           '${h.toString().padLeft(2, '0')}:00',
-                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterConstants.textMuted),
+                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterTheme.textMuted(context)),
                         ),
                       ),
                       Expanded(
@@ -2450,7 +2507,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
                                                     decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                                    color: AsterConstants.textDark,
+                                                    color: AsterTheme.text(context),
                                                   ),
                                                 ),
                                                 if ((evt['description'] ?? '').isNotEmpty)
@@ -2458,7 +2515,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                     evt['description'],
                                                     maxLines: 1,
                                                     overflow: TextOverflow.ellipsis,
-                                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
                                                   ),
                                               ],
                                             ),
@@ -2468,7 +2525,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           icon: Icon(
                                             isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                                             size: 20,
-                                            color: isCompleted ? AsterConstants.menta : AsterConstants.textMuted,
+                                            color: isCompleted ? AsterConstants.menta : AsterTheme.textMuted(context),
                                           ),
                                           onPressed: () {
                                             final id = evt['id']?.toString() ?? '';
@@ -2495,7 +2552,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   padding: const EdgeInsets.only(left: 8),
                                   child: Text(
                                     '+ toque para agendar às ${h.toString().padLeft(2, '0')}:00',
-                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textFaint),
+                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context).withValues(alpha: 0.65)),
                                   ),
                                 ),
                               ),
@@ -2545,44 +2602,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
                 return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
               },
-              titleTextStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-              leftChevronIcon: const Icon(Icons.chevron_left_rounded, size: 20, color: AsterConstants.textDark),
-              rightChevronIcon: const Icon(Icons.chevron_right_rounded, size: 20, color: AsterConstants.textDark),
+              titleTextStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
+              leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 20, color: AsterTheme.text(context)),
+              rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 20, color: AsterTheme.text(context)),
             ),
             daysOfWeekStyle: DaysOfWeekStyle(
               dowTextFormatter: (date, locale) {
                 final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
                 return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
               },
-              weekdayStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
-              weekendStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
+              weekdayStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+              weekendStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
             ),
             calendarStyle: CalendarStyle(
               cellMargin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
               todayDecoration: BoxDecoration(
-                color: AsterConstants.lavanda,
+                color: AsterTheme.primary(context),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.35),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
               selectedDecoration: BoxDecoration(
-                color: AsterConstants.lavanda.withValues(alpha: 0.20),
+                color: AsterTheme.primary(context).withValues(alpha: 0.20),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AsterConstants.lavanda, width: 1.8),
+                border: Border.all(color: AsterTheme.primary(context), width: 1.8),
               ),
-              todayTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
-              selectedTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+              todayTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterTheme.onPrimary(context)),
+              selectedTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterTheme.primary(context)),
               markerDecoration: BoxDecoration(
                 color: AsterConstants.coral,
                 borderRadius: BorderRadius.circular(3),
               ),
-              defaultTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textDark),
-              weekendTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textMuted),
+              defaultTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.text(context)),
+              weekendTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context)),
+              outsideTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context).withValues(alpha: 0.45)),
             ),
             calendarBuilders: CalendarBuilders(
               selectedBuilder: (context, day, focusedDay) {
@@ -2590,16 +2648,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isToday ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.20),
+                    color: isToday ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
                       width: 1.8,
                     ),
                     boxShadow: isToday
                         ? [
                             BoxShadow(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -2612,7 +2670,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
                     ),
                   ),
                 );
@@ -2621,11 +2679,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda,
+                    color: AsterTheme.primary(context),
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
-                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        color: AsterTheme.primary(context).withValues(alpha: 0.35),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -2637,7 +2695,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: AsterTheme.onPrimary(context),
                     ),
                   ),
                 );
@@ -2654,7 +2712,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               Text(
                 'Blocos em ${DateFormat("d 'de' MMMM", 'pt_BR').format(_selectedDay)} (${selectedEvents.length})',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
               ),
               SoftClayPillButton(
                 text: '+ Adicionar',
@@ -2671,7 +2729,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               child: Center(
                 child: Text(
                   'Nenhum bloco agendado para este dia.',
-                  style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                 ),
               ),
             )
@@ -2701,7 +2759,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       Expanded(
                         child: Text(
                           evt['title'] ?? '',
-                          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
                         ),
                       ),
                       IconButton(
@@ -2727,11 +2785,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: Center(
           child: Column(
             children: [
-              const Icon(Icons.event_note_rounded, size: 40, color: AsterConstants.textMuted),
+              Icon(Icons.event_note_rounded, size: 40, color: AsterTheme.textMuted(context)),
               const SizedBox(height: 12),
               Text(
                 'Nenhum evento agendado.',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 12),
               SoftClayPillButton(
@@ -2757,7 +2815,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               Text(
                 'Linha do Tempo Cronológica (${sorted.length} blocos)',
-                style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
               ),
               SoftClayPillButton(
                 text: '+ Novo bloco',
@@ -2813,7 +2871,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               const SizedBox(width: 8),
                               Text(
                                 '${DateFormat("d 'de' MMM", 'pt_BR').format(st)} · ${DateFormat('HH:mm').format(st)} às ${DateFormat('HH:mm').format(et)} ($durStr)',
-                                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterConstants.textMuted),
+                                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterTheme.textMuted(context)),
                               ),
                             ],
                           ),
@@ -2824,7 +2882,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                               decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              color: AsterConstants.textDark,
+                              color: AsterTheme.text(context),
                             ),
                           ),
                           if ((evt['description'] ?? '').isNotEmpty)
@@ -2834,7 +2892,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 evt['description'],
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                                style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
                               ),
                             ),
                         ],
@@ -2844,7 +2902,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   IconButton(
                     icon: Icon(
                       isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                      color: isCompleted ? AsterConstants.menta : AsterConstants.textMuted,
+                      color: isCompleted ? AsterConstants.menta : AsterTheme.textMuted(context),
                       size: 20,
                     ),
                     onPressed: () {
@@ -2910,44 +2968,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
                 return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
               },
-              titleTextStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
-              leftChevronIcon: const Icon(Icons.chevron_left_rounded, size: 18, color: AsterConstants.textDark),
-              rightChevronIcon: const Icon(Icons.chevron_right_rounded, size: 18, color: AsterConstants.textDark),
+              titleTextStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
+              leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 18, color: AsterTheme.text(context)),
+              rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 18, color: AsterTheme.text(context)),
             ),
             daysOfWeekStyle: DaysOfWeekStyle(
               dowTextFormatter: (date, locale) {
                 final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
                 return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
               },
-              weekdayStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
-              weekendStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
+              weekdayStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+              weekendStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
             ),
             calendarStyle: CalendarStyle(
               cellMargin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
               todayDecoration: BoxDecoration(
-                color: AsterConstants.lavanda,
+                color: AsterTheme.primary(context),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.35),
                     blurRadius: 5,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
               selectedDecoration: BoxDecoration(
-                color: AsterConstants.lavanda.withValues(alpha: 0.20),
+                color: AsterTheme.primary(context).withValues(alpha: 0.20),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AsterConstants.lavanda, width: 1.8),
+                border: Border.all(color: AsterTheme.primary(context), width: 1.8),
               ),
-              todayTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
-              selectedTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+              todayTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterTheme.onPrimary(context)),
+              selectedTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterTheme.primary(context)),
               markerDecoration: BoxDecoration(
                 color: AsterConstants.coral,
                 borderRadius: BorderRadius.circular(2),
               ),
-              defaultTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textDark),
-              weekendTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+              defaultTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.text(context)),
+              weekendTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
+              outsideTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context).withValues(alpha: 0.45)),
             ),
             calendarBuilders: CalendarBuilders(
               selectedBuilder: (context, day, focusedDay) {
@@ -2955,16 +3014,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
                   decoration: BoxDecoration(
-                    color: isToday ? AsterConstants.lavanda : AsterConstants.lavanda.withValues(alpha: 0.20),
+                    color: isToday ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
                       width: 1.6,
                     ),
                     boxShadow: isToday
                         ? [
                             BoxShadow(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
@@ -2977,7 +3036,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: isToday ? Colors.white : AsterConstants.lavanda,
+                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
                     ),
                   ),
                 );
@@ -2986,11 +3045,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda,
+                    color: AsterTheme.primary(context),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        color: AsterTheme.primary(context).withValues(alpha: 0.35),
                         blurRadius: 5,
                         offset: const Offset(0, 2),
                       ),
@@ -3002,7 +3061,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: AsterTheme.onPrimary(context),
                     ),
                   ),
                 );
@@ -3023,14 +3082,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               Text(
                 'Próximos marcos',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 14),
 
               if (upcomingMilestones.isEmpty)
                 Text(
                   'Nenhum marco futuro registrado.',
-                  style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
+                  style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
                 )
               else
                 ...upcomingMilestones.take(4).map((m) {
@@ -3063,58 +3122,83 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Sugestão Proativa do Noesis AI (Agendamento Real)
+        // Sugestão Proativa do Noesis AI (Agendamento Real Contextualizado)
         if (!_aiSuggestionDismissed)
-          SoftClayCard.list(
-            padding: const EdgeInsets.all(20),
-            color: AsterConstants.surfaceAlt,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Builder(
+            builder: (context) {
+              final rec = _aiRecommendations.isNotEmpty
+                  ? _aiRecommendations[_aiRecommendationIndex % _aiRecommendations.length]
+                  : null;
+              final primaryCol = AsterTheme.primary(context);
+              return SoftClayCard.list(
+                key: const Key('calendar_ai_suggestion_card'),
+                padding: const EdgeInsets.all(20),
+                color: AsterTheme.surfaceAlt(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.auto_awesome, size: 14, color: AsterConstants.lavanda),
-                    const SizedBox(width: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome, size: 14, color: primaryCol),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Noesis AI',
+                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: primaryCol),
+                        ),
+                        const Spacer(),
+                        if (!_aiSuggestionScheduled && _aiRecommendations.length > 1) ...[
+                          IconButton(
+                            key: const Key('calendar_ai_next_suggestion'),
+                            tooltip: 'Ver outra sugestão',
+                            icon: Icon(Icons.refresh_rounded, size: 15, color: primaryCol),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() {
+                                _aiRecommendationIndex =
+                                    (_aiRecommendationIndex + 1) % _aiRecommendations.length;
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, size: 14, color: AsterTheme.textMuted(context)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setState(() => _aiSuggestionDismissed = true),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Noesis AI',
-                      style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterConstants.lavanda),
+                      _aiSuggestionScheduled
+                          ? '✅ ${_scheduledRecommendationTitle ?? "Bloco"} adicionado ao seu calendário com sucesso!'
+                          : (rec?.message ?? 'Analisando sua agenda e prioridades de estudo...'),
+                      style: GoogleFonts.manrope(fontSize: 12, height: 1.45, color: AsterTheme.text(context)),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 14, color: AsterConstants.textMuted),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => setState(() => _aiSuggestionDismissed = true),
-                    ),
+                    const SizedBox(height: 14),
+                    if (!_aiSuggestionScheduled && rec != null)
+                      Row(
+                        children: [
+                          SoftClayPillButton(
+                            text: 'Sim, agendar',
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            onPressed: _scheduleAiRecommendation,
+                          ),
+                          const SizedBox(width: 8),
+                          SoftClayPillButton(
+                            text: 'Agora não',
+                            isSecondary: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            onPressed: () => setState(() => _aiSuggestionDismissed = true),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _aiSuggestionScheduled
-                      ? '✅ Sessão de 2h de Redes adicionada ao seu cronograma com sucesso!'
-                      : 'Quinta está livre das 15h às 18h. Quer um bloco de 2h de Redes antes da prova?',
-                  style: GoogleFonts.manrope(fontSize: 12, height: 1.45, color: AsterConstants.textDark),
-                ),
-                const SizedBox(height: 14),
-                if (!_aiSuggestionScheduled)
-                  Row(
-                    children: [
-                      SoftClayPillButton(
-                        text: 'Sim, agendar',
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        onPressed: _scheduleAiRecommendation,
-                      ),
-                      const SizedBox(width: 8),
-                      SoftClayPillButton(
-                        text: 'Agora não',
-                        isSecondary: true,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        onPressed: () => setState(() => _aiSuggestionDismissed = true),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+              );
+            },
           ),
       ],
     );
@@ -3145,13 +3229,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterConstants.textDark),
+                style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
               ),
               Text(
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.textMuted),
+                style: GoogleFonts.manrope(fontSize: 10, color: AsterTheme.textMuted(context)),
               ),
             ],
           ),

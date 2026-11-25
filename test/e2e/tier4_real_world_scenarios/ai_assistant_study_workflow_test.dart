@@ -23,20 +23,22 @@ void main() {
       // Verify real AiAssistantScreen mounts
       expect(find.byType(AiAssistantScreen), findsOneWidget);
 
-      // Verify conversation history messages from initState
-      expect(find.textContaining('Sessão de 1h30 salva em Criptografia'), findsOneWidget);
+      // Verify initial capabilities showcase instead of fake chat history
+      expect(find.text('O que o Noesis AI pode fazer por você'), findsOneWidget);
+      expect(find.text('Calendário & Agenda'), findsOneWidget);
+      expect(find.textContaining('Sessão de 1h30 salva em Criptografia'), findsNothing);
 
-      // Verify quick action chips
-      expect(find.text('✨ Criar simulado sobre OWASP'), findsOneWidget);
-      expect(find.text('✨ Agendar revisão sexta às 14h'), findsOneWidget);
-      expect(find.text('✨ Resumo de Criptografia'), findsOneWidget);
+      // Verify contextual quick action chips generated from user's Noesis data
+      expect(find.textContaining('🎴 Revisar'), findsOneWidget);
+      expect(find.textContaining('🎯 Bater meta'), findsOneWidget);
 
-      // Tap quick action chip to send message
-      await tester.tap(find.text('✨ Resumo de Criptografia'));
+      // Tap contextual quick action chip to send message
+      final flashcardChip = find.textContaining('🎴 Revisar').first;
+      await tester.tap(flashcardChip);
       await tester.pumpAndSettle();
 
-      // Verify user message is rendered in the real conversation
-      expect(find.text('Faça um resumo dos principais conceitos de Criptografia'), findsOneWidget);
+      // Verify contextual user message is rendered in the real conversation
+      expect(find.textContaining('cartões pendentes'), findsOneWidget);
 
       // Verify text input bar and send button are present and accessible
       expect(find.byType(TextField), findsOneWidget);

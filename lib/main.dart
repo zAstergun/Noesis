@@ -16,7 +16,11 @@ import 'features/ai_agent/ai_assistant_screen.dart';
 import 'features/quizzes/quiz_screen.dart';
 import 'features/flashcards/flashcards_screen.dart';
 import 'features/notebooks/notebooks_screen.dart';
+import 'features/roadmaps/roadmaps_screen.dart';
+import 'features/study_log/study_log_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'widgets/noesis_logo.dart';
+import 'widgets/weekly_goal_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,15 +62,19 @@ class NoesisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AsterTheme.themeModeNotifier,
-      builder: (context, themeMode, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        AsterTheme.themeModeNotifier,
+        AsterTheme.activeThemeIdNotifier,
+      ]),
+      builder: (context, _) {
+        final themeMode = AsterTheme.themeModeNotifier.value;
         return MaterialApp(
           title: AsterConstants.appName,
           debugShowCheckedModeBanner: false,
           scrollBehavior: const AsterScrollBehavior(),
-          theme: AsterTheme.softClayTheme,
-          darkTheme: AsterTheme.darkTheme,
+          theme: AsterTheme.activeLightThemeData(),
+          darkTheme: AsterTheme.activeDarkThemeData(),
           themeMode: themeMode,
           locale: const Locale('pt', 'BR'),
           supportedLocales: const [
@@ -78,8 +86,14 @@ class NoesisApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          themeAnimationDuration: const Duration(milliseconds: 280),
-          themeAnimationCurve: Curves.easeInOutCubic,
+          // Troca o ThemeData em 1 frame sem lerp pesado de TextTheme; a fluidez visual
+          // é feita pelo NoesisThemeTransitionOverlay diretamente na GPU.
+          themeAnimationDuration: Duration.zero,
+          builder: (context, child) {
+            return NoesisThemeTransitionOverlay(
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: const RootScreen(),
         );
       },
@@ -113,20 +127,31 @@ class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
   static late ValueNotifier<int> activeTabNotifier;
+  static ValueNotifier<int>? activeTabListenable;
   static void switchTab(int index) {
-    activeTabNotifier.value = index;
+    final notifier = activeTabListenable;
+    if (notifier != null) {
+      notifier.value = index;
+    }
   }
 
   @override
   State<RootScreen> createState() => _RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> {
+class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateMixin {
   late final ValueNotifier<int> _activeTabNotifier;
   Map<String, dynamic>? _userProfile;
   bool _isGuestMode = false;
+  bool _isSidebarCollapsed = false;
+  late final AnimationController _sidebarController;
+  late final Animation<Offset> _sidebarOffset;
+  late final Animation<double> _sidebarOpacity;
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _studySessionsSubscription;
   Session? _session;
+  int _weeklyStudiedMinutes = 0;
+  int _currentStreakDays = 0;
 
   final List<_NotificationItem> _notifications = [
     _NotificationItem(
@@ -188,6 +213,10 @@ class _RootScreenState extends State<RootScreen> {
         return const CalendarScreen();
       case 6:
         return const SettingsScreen();
+      case 7:
+        return const StudyLogScreen();
+      case 8:
+        return const RoadmapsScreen();
       default:
         return const TrackerScreen();
     }
@@ -196,8 +225,25 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
+    _sidebarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+      value: 1.0,
+    );
+    final sidebarCurve = CurvedAnimation(
+      parent: _sidebarController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _sidebarOffset = Tween<Offset>(
+      begin: const Offset(-1.0, 0.0),
+      end: Offset.zero,
+    ).animate(sidebarCurve);
+    _sidebarOpacity = sidebarCurve;
+    AsterTheme.sidebarCollapsedNotifier.value = _isSidebarCollapsed;
     _activeTabNotifier = ValueNotifier<int>(0);
     RootScreen.activeTabNotifier = _activeTabNotifier;
+    RootScreen.activeTabListenable = _activeTabNotifier;
     _activeTabNotifier.addListener(() {
       if (mounted) {
         setState(() {
@@ -214,17 +260,62 @@ class _RootScreenState extends State<RootScreen> {
             _session = newSession;
           });
           _loadProfile();
+          _loadWeeklyGoalAndSessions();
         }
       }
     });
     _loadProfile();
+    _loadWeeklyGoalAndSessions();
+  }
+
+  void _toggleSidebar() {
+    setState(() {
+      _isSidebarCollapsed = !_isSidebarCollapsed;
+    });
+    AsterTheme.sidebarCollapsedNotifier.value = _isSidebarCollapsed;
+    if (_isSidebarCollapsed) {
+      _sidebarController.reverse();
+    } else {
+      _sidebarController.forward();
+    }
   }
 
   @override
   void dispose() {
+    AsterTheme.sidebarCollapsedNotifier.value = false;
+    _sidebarController.dispose();
     _authSubscription?.cancel();
+    _studySessionsSubscription?.cancel();
+    if (identical(RootScreen.activeTabListenable, _activeTabNotifier)) {
+      RootScreen.activeTabListenable = null;
+    }
     _activeTabNotifier.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWeeklyGoalAndSessions() async {
+    await SupabaseService.loadWeeklyGoalMinutes();
+    _studySessionsSubscription?.cancel();
+    _studySessionsSubscription = SupabaseService.studySessionsStream().listen((sessions) {
+      if (!mounted) return;
+      final mins = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+      final streak = SupabaseService.computeCurrentStreakDays(sessions);
+      if (mins != _weeklyStudiedMinutes || streak != _currentStreakDays) {
+        setState(() {
+          _weeklyStudiedMinutes = mins;
+          _currentStreakDays = streak;
+        });
+      }
+    });
+    final initialSessions = await SupabaseService.getStudySessions(limit: 200);
+    if (mounted) {
+      setState(() {
+        _weeklyStudiedMinutes =
+            SupabaseService.computeCurrentWeekStudiedMinutes(initialSessions);
+        _currentStreakDays =
+            SupabaseService.computeCurrentStreakDays(initialSessions);
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -363,13 +454,13 @@ class _RootScreenState extends State<RootScreen> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                    color: AsterTheme.primary(context).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.notifications_active_rounded,
                     size: 16,
-                    color: AsterConstants.lavanda,
+                    color: AsterTheme.primary(context),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -419,7 +510,7 @@ class _RootScreenState extends State<RootScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AsterConstants.lavanda,
+                        color: AsterTheme.primary(context),
                       ),
                     ),
                   ),
@@ -487,6 +578,7 @@ class _RootScreenState extends State<RootScreen> {
                     ),
                     itemBuilder: (context, index) {
                       final item = _notifications[index];
+                      final itemColor = item.id == '4' ? AsterTheme.primary(context) : item.color;
                       return Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -509,10 +601,10 @@ class _RootScreenState extends State<RootScreen> {
                                   width: 36,
                                   height: 36,
                                   decoration: BoxDecoration(
-                                    color: item.color.withValues(alpha: 0.12),
+                                    color: itemColor.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(item.icon, size: 18, color: item.color),
+                                  child: Icon(item.icon, size: 18, color: itemColor),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -631,6 +723,7 @@ class _RootScreenState extends State<RootScreen> {
             _session = SupabaseService.client.auth.currentSession;
           });
           _loadProfile();
+          _loadWeeklyGoalAndSessions();
         },
         onContinueAsGuest: () {
           setState(() {
@@ -650,274 +743,50 @@ class _RootScreenState extends State<RootScreen> {
 
         return Scaffold(
           body: SoftClayBackground(
-            child: Row(
+            child: Stack(
               children: [
-                // ─── Sidebar Oficial Soft Clay (Desktop / Tablet) ───
-                if (isWideScreen)
-                  RepaintBoundary(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeInOutCubic,
-                      width: 240,
-                      decoration: BoxDecoration(
-                        color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark ? Colors.black.withValues(alpha: 0.3) : const Color.fromRGBO(60, 60, 120, 0.05),
-                            blurRadius: 20,
-                            offset: const Offset(4, 0),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Logo Noesis Soft Clay
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: const BoxDecoration(
-                                  color: AsterConstants.lavanda,
-                                  shape: BoxShape.circle,
-                                  boxShadow: AsterConstants.primaryButtonShadow,
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'N',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Noesis',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 36),
-
-                          // Itens de Menu Soft Clay
-                          _buildNavItem(
-                            index: 0,
-                            title: 'Dashboard',
-                            icon: Icons.home_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 1,
-                            title: 'Simulados',
-                            icon: Icons.assignment_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 2,
-                            title: 'Flashcards',
-                            icon: Icons.style_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 3,
-                            title: 'Cadernos',
-                            icon: Icons.menu_book_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 4,
-                            title: 'Noesis AI',
-                            icon: Icons.smart_toy_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 5,
-                            title: 'Calendário',
-                            icon: Icons.calendar_today_rounded,
-                          ),
-                          const SizedBox(height: 8),
-                          _buildNavItem(
-                            index: 6,
-                            title: 'Configurações',
-                            icon: Icons.settings_rounded,
-                          ),
-
-                          const Spacer(),
-
-                          // Widget: Meta Semanal
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 280),
-                            curve: Curves.easeInOutCubic,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'META SEMANAL',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
-                                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '18h / 25h',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                      ),
-                                    ),
-                                    Text(
-                                      '72%',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: AsterConstants.menta,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                LinearProgressIndicator(
-                                  value: 0.72,
-                                  minHeight: 6,
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                  backgroundColor: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
-                                  valueColor: const AlwaysStoppedAnimation(AsterConstants.menta),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Perfil do Usuário
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: AsterConstants.lavanda.withValues(alpha: 0.15),
-                                  backgroundImage: _userProfile?['avatar_url'] != null
-                                      ? ResizeImage(
-                                          NetworkImage(_userProfile!['avatar_url']),
-                                          width: 72,
-                                          height: 72,
-                                        )
-                                      : null,
-                                  child: _userProfile?['avatar_url'] == null
-                                      ? Text(
-                                          initials,
-                                          style: GoogleFonts.manrope(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 12,
-                                            color: AsterConstants.lavanda,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        userName,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                        ),
-                                      ),
-                                      Text(
-                                        _isGuestMode ? 'Modo de Teste' : 'Pro · Streak 42d',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 11,
-                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.logout_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                                  tooltip: _isGuestMode ? 'Voltar para o Login' : 'Sair',
-                                  onPressed: () {
-                                    if (_isGuestMode) {
-                                      setState(() {
-                                        _isGuestMode = false;
-                                      });
-                                    } else {
-                                      SupabaseService.signOut();
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ─── Área Principal de Conteúdo ───
-                Expanded(
+                // ─── Área Principal de Conteúdo (layout único sem reflow por frame) ───
+                Positioned.fill(
+                  left: isWideScreen ? (_isSidebarCollapsed ? 0.0 : 240.0) : 0.0,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header Top Bar (Visível apenas na tela inicial / Dashboard)
+                      // Header Top Bar (somente na tela inicial / Dashboard; nas demais telas o botão fica ao lado no topo)
                       ValueListenableBuilder<int>(
                         valueListenable: _activeTabNotifier,
                         builder: (context, activeIndex, _) {
-                          if (activeIndex != 0) return const SizedBox.shrink();
+                          if (activeIndex != 0) {
+                            return const SizedBox.shrink();
+                          }
                           return RepaintBoundary(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
                               child: Row(
                                 children: [
                                   if (!isWideScreen) ...[
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: const BoxDecoration(
-                                        color: AsterConstants.lavanda,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Center(
-                                        child: Text('N', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ),
+                                    const NoesisLogo(size: 32, withShadow: true),
                                     const SizedBox(width: 10),
-                                    Text(
-                                      'Noesis',
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                      ),
-                                    ),
+                                    const NoesisWordmark(fontSize: 19),
                                   ] else ...[
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 160),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, anim) => FadeTransition(
+                                        opacity: anim,
+                                        child: ScaleTransition(
+                                          scale: Tween<double>(begin: 0.9, end: 1.0).animate(anim),
+                                          child: child,
+                                        ),
+                                      ),
+                                      child: _isSidebarCollapsed
+                                          ? Padding(
+                                              key: const ValueKey('dashboard_collapsed_pill'),
+                                              padding: const EdgeInsets.only(right: 16),
+                                              child: _buildCollapsedLogoPill(),
+                                            )
+                                          : const SizedBox.shrink(key: ValueKey('dashboard_expanded_empty')),
+                                    ),
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
@@ -926,7 +795,7 @@ class _RootScreenState extends State<RootScreen> {
                                           style: GoogleFonts.manrope(
                                             fontSize: 22,
                                             fontWeight: FontWeight.w800,
-                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            color: AsterTheme.text(context),
                                             letterSpacing: -0.5,
                                           ),
                                         ),
@@ -934,10 +803,10 @@ class _RootScreenState extends State<RootScreen> {
                                         Row(
                                           children: [
                                             Text(
-                                              '${_formatTodayDate()} · 42 dias de streak ',
+                                              '${_formatTodayDate()} · $_currentStreakDays ${_currentStreakDays == 1 ? 'dia' : 'dias'} de streak ',
                                               style: GoogleFonts.manrope(
                                                 fontSize: 13,
-                                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                                color: AsterTheme.textMuted(context),
                                               ),
                                             ),
                                             const Text('🔥', style: TextStyle(fontSize: 13)),
@@ -1011,20 +880,27 @@ class _RootScreenState extends State<RootScreen> {
                         },
                       ),
 
-                      // Telas do App com Carregamento Sob Demanda (Lazy Cache)
+                      // Telas do App com Offstage (apenas a aba ativa executa layout/paint)
                       Expanded(
                         child: ValueListenableBuilder<int>(
                           valueListenable: _activeTabNotifier,
                           builder: (context, activeIndex, _) {
                             _loadedTabs.add(activeIndex);
-                            return IndexedStack(
-                              index: activeIndex,
-                              children: List.generate(7, (index) {
-                                if (_loadedTabs.contains(index)) {
-                                  return RepaintBoundary(child: _buildScreen(index));
-                                }
-                                return const SizedBox.shrink();
-                              }),
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                for (int index = 0; index < 9; index++)
+                                  if (_loadedTabs.contains(index))
+                                    Positioned.fill(
+                                      child: Offstage(
+                                        offstage: index != activeIndex,
+                                        child: TickerMode(
+                                          enabled: index == activeIndex,
+                                          child: RepaintBoundary(child: _buildScreen(index)),
+                                        ),
+                                      ),
+                                    ),
+                              ],
                             );
                           },
                         ),
@@ -1032,6 +908,356 @@ class _RootScreenState extends State<RootScreen> {
                     ],
                   ),
                 ),
+
+                // ─── Botão Flutuante de Reabrir Menu (alinhado ao lado do botão voltar e topo) ───
+                if (isWideScreen)
+                  ValueListenableBuilder<int>(
+                    valueListenable: _activeTabNotifier,
+                    builder: (context, activeIndex, _) {
+                      if (activeIndex == 0) {
+                        return const SizedBox.shrink();
+                      }
+                      return Positioned(
+                        top: 8,
+                        left: 20,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.9, end: 1.0).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: _isSidebarCollapsed
+                              ? _buildCollapsedLogoPill()
+                              : const SizedBox.shrink(),
+                        ),
+                      );
+                    },
+                  ),
+
+                // ─── Sidebar Oficial Soft Clay (GPU SlideTransition + FadeTransition sem lag) ───
+                if (isWideScreen)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: 240,
+                    child: AnimatedBuilder(
+                      animation: _sidebarController,
+                      builder: (context, child) {
+                        if (_sidebarController.value == 0.0) {
+                          return const SizedBox.shrink();
+                        }
+                        return IgnorePointer(
+                          ignoring: _isSidebarCollapsed,
+                          child: SlideTransition(
+                            position: _sidebarOffset,
+                            child: FadeTransition(
+                              opacity: _sidebarOpacity,
+                              child: child,
+                            ),
+                          ),
+                        );
+                      },
+                      child: RepaintBoundary(
+                        child: Container(
+                          width: 240,
+                          decoration: BoxDecoration(
+                            color: AsterTheme.card(context),
+                            boxShadow: [
+                              BoxShadow(
+                                color: isDark ? Colors.black.withValues(alpha: 0.3) : const Color.fromRGBO(60, 60, 120, 0.05),
+                                blurRadius: 20,
+                                offset: const Offset(4, 0),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Logo Noesis Oficial (clique para ocultar o menu lateral)
+                              Tooltip(
+                                message: 'Ocultar menu lateral',
+                                child: InkWell(
+                                  key: const Key('sidebar_logo_toggle'),
+                                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                  onTap: _toggleSidebar,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        const NoesisLogo(size: 38, withShadow: true),
+                                        const SizedBox(width: 12),
+                                        const NoesisWordmark(fontSize: 21),
+                                        const Spacer(),
+                                        Icon(
+                                          Icons.menu_open_rounded,
+                                          size: 18,
+                                          color: AsterTheme.textMuted(context),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 36),
+
+                              // Itens de Menu Soft Clay
+                              _buildNavItem(
+                                index: 0,
+                                title: 'Dashboard',
+                                icon: Icons.home_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 1,
+                                title: 'Simulados',
+                                icon: Icons.assignment_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 2,
+                                title: 'Flashcards',
+                                icon: Icons.style_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 3,
+                                title: 'Cadernos',
+                                icon: Icons.menu_book_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 7,
+                                title: 'Diário de Estudos',
+                                icon: Icons.auto_stories_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 8,
+                                title: 'Trilhas',
+                                icon: Icons.route_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 4,
+                                title: 'Noesis AI',
+                                icon: Icons.smart_toy_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 5,
+                                title: 'Calendário',
+                                icon: Icons.calendar_today_rounded,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildNavItem(
+                                index: 6,
+                                title: 'Configurações',
+                                icon: Icons.settings_rounded,
+                              ),
+
+                              const Spacer(),
+
+                              // Widget: Meta Semanal (interativo e editável)
+                              ValueListenableBuilder<int>(
+                                valueListenable: SupabaseService.weeklyGoalMinutesNotifier,
+                                builder: (context, goalMinutes, _) {
+                                  final safeGoal = goalMinutes > 0 ? goalMinutes : 1;
+                                  final progress = (_weeklyStudiedMinutes / safeGoal).clamp(0.0, 1.0);
+                                  final pct = ((_weeklyStudiedMinutes / safeGoal) * 100)
+                                      .round()
+                                      .clamp(0, 999);
+                                  final goalReached = _weeklyStudiedMinutes >= safeGoal;
+
+                                  return Tooltip(
+                                    message: 'Clique para editar a meta semanal',
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 280),
+                                      curve: Curves.easeInOutCubic,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? AsterConstants.surfaceAltDark
+                                            : AsterConstants.surfaceAlt,
+                                        borderRadius:
+                                            BorderRadius.circular(AsterConstants.radiusMedium),
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          key: const Key('sidebar_weekly_goal_card'),
+                                          borderRadius:
+                                              BorderRadius.circular(AsterConstants.radiusMedium),
+                                          onTap: () => showWeeklyGoalEditorDialog(
+                                            context,
+                                            currentWeekStudiedMinutes: _weeklyStudiedMinutes,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'META SEMANAL',
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w800,
+                                                        letterSpacing: 0.8,
+                                                        color: isDark
+                                                            ? AsterConstants.textMutedDark
+                                                            : AsterConstants.textMuted,
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      padding: const EdgeInsets.all(4),
+                                                      decoration: BoxDecoration(
+                                                        color: AsterTheme.primary(context)
+                                                            .withValues(alpha: 0.12),
+                                                        borderRadius: BorderRadius.circular(
+                                                            AsterConstants.radiusPill),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.edit_rounded,
+                                                        size: 12,
+                                                        color: AsterTheme.primary(context),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        '${SupabaseService.formatGoalDuration(_weeklyStudiedMinutes)} / ${SupabaseService.formatGoalDuration(goalMinutes)}',
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: GoogleFonts.manrope(
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w800,
+                                                          color: isDark
+                                                              ? AsterConstants.textLight
+                                                              : AsterConstants.textDark,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      '$pct%',
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: goalReached
+                                                            ? AsterTheme.secondary(context)
+                                                            : AsterTheme.primary(context),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                LinearProgressIndicator(
+                                                  value: progress,
+                                                  minHeight: 6,
+                                                  borderRadius: BorderRadius.circular(
+                                                      AsterConstants.radiusPill),
+                                                  backgroundColor: AsterTheme.surfaceInset(context),
+                                                  valueColor: AlwaysStoppedAnimation(
+                                                    AsterTheme.secondary(context),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Perfil do Usuário
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: AsterTheme.primary(context).withValues(alpha: 0.15),
+                                      backgroundImage: _userProfile?['avatar_url'] != null
+                                          ? ResizeImage(
+                                              NetworkImage(_userProfile!['avatar_url']),
+                                              width: 72,
+                                              height: 72,
+                                            )
+                                          : null,
+                                      child: _userProfile?['avatar_url'] == null
+                                          ? Text(
+                                              initials,
+                                              style: GoogleFonts.manrope(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 12,
+                                                color: AsterTheme.primary(context),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            userName,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                            ),
+                                          ),
+                                          Text(
+                                            _isGuestMode
+                                                ? 'Modo de Teste · ${_currentStreakDays}d'
+                                                : 'Pro · Streak ${_currentStreakDays}d',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.logout_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                      tooltip: _isGuestMode ? 'Voltar para o Login' : 'Sair',
+                                      onPressed: () {
+                                        if (_isGuestMode) {
+                                          setState(() {
+                                            _isGuestMode = false;
+                                          });
+                                        } else {
+                                          SupabaseService.signOut();
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1055,22 +1281,63 @@ class _RootScreenState extends State<RootScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildMobileNavItem(0, Icons.home_rounded, 'Dashboard'),
-                        _buildMobileNavItem(1, Icons.assignment_rounded, 'Simulados'),
-                        _buildMobileNavItem(2, Icons.style_rounded, 'Flashcards'),
-                        _buildMobileNavItem(3, Icons.menu_book_rounded, 'Cadernos'),
-                        _buildMobileNavItem(4, Icons.smart_toy_rounded, 'Noesis AI'),
-                        _buildMobileNavItem(5, Icons.calendar_today_rounded, 'Calendário'),
-                        _buildMobileNavItem(6, Icons.settings_rounded, 'Config'),
-                      ],
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildMobileNavItem(0, Icons.home_rounded, 'Dashboard'),
+                          _buildMobileNavItem(1, Icons.assignment_rounded, 'Simulados'),
+                          _buildMobileNavItem(2, Icons.style_rounded, 'Flashcards'),
+                          _buildMobileNavItem(3, Icons.menu_book_rounded, 'Cadernos'),
+                          _buildMobileNavItem(7, Icons.auto_stories_rounded, 'Diário'),
+                          _buildMobileNavItem(8, Icons.route_rounded, 'Trilhas'),
+                          _buildMobileNavItem(4, Icons.smart_toy_rounded, 'Noesis AI'),
+                          _buildMobileNavItem(5, Icons.calendar_today_rounded, 'Calendário'),
+                          _buildMobileNavItem(6, Icons.settings_rounded, 'Config'),
+                        ],
+                      ),
                     ),
                   ),
                 )
               : null,
         );
+  }
+
+  Widget _buildCollapsedLogoPill() {
+    return Tooltip(
+      message: 'Mostrar menu lateral',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const Key('collapsed_logo_toggle'),
+          onTap: _toggleSidebar,
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AsterTheme.card(context),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+              boxShadow: AsterTheme.isDarkMode
+                  ? AsterConstants.claySubtleDarkShadow
+                  : AsterConstants.claySubtleShadow,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const NoesisLogo(size: 28, withShadow: true),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: AsterTheme.textMuted(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildNavItem({
@@ -1081,14 +1348,14 @@ class _RootScreenState extends State<RootScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: _activeTabNotifier,
       builder: (context, activeIndex, _) {
+        final cs = Theme.of(context).colorScheme;
         final isSelected = activeIndex == index;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Container(
           decoration: BoxDecoration(
-            color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+            color: isSelected ? cs.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-            boxShadow: isSelected ? AsterConstants.primaryButtonShadow : null,
+            boxShadow: isSelected ? AsterTheme.primaryShadow(context) : null,
           ),
           child: Material(
             color: Colors.transparent,
@@ -1105,7 +1372,7 @@ class _RootScreenState extends State<RootScreen> {
                     Icon(
                       icon,
                       size: 20,
-                      color: isSelected ? Colors.white : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                      color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -1113,11 +1380,7 @@ class _RootScreenState extends State<RootScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 14,
                         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        color: isSelected
-                            ? Colors.white
-                            : (isDark
-                                ? AsterConstants.textLight
-                                : AsterConstants.textDark),
+                        color: isSelected ? cs.onPrimary : cs.onSurface,
                       ),
                     ),
                   ],
@@ -1134,8 +1397,8 @@ class _RootScreenState extends State<RootScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: _activeTabNotifier,
       builder: (context, activeIndex, _) {
+        final cs = Theme.of(context).colorScheme;
         final isSelected = activeIndex == index;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return GestureDetector(
           onTap: () {
@@ -1146,7 +1409,7 @@ class _RootScreenState extends State<RootScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? AsterConstants.lavanda.withValues(alpha: 0.12) : Colors.transparent,
+              color: isSelected ? cs.primary.withValues(alpha: 0.12) : Colors.transparent,
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
             ),
             child: Column(
@@ -1155,7 +1418,7 @@ class _RootScreenState extends State<RootScreen> {
                 Icon(
                   icon,
                   size: 22,
-                  color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                  color: isSelected ? cs.primary : cs.onSurfaceVariant,
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1163,7 +1426,7 @@ class _RootScreenState extends State<RootScreen> {
                   style: GoogleFonts.manrope(
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                    color: isSelected ? cs.primary : cs.onSurfaceVariant,
                   ),
                 ),
               ],

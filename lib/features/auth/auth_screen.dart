@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
+import '../../widgets/noesis_logo.dart';
 
 class AuthScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
@@ -154,11 +155,11 @@ class _AuthScreenState extends State<AuthScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.key_rounded,
-                                size: 20, color: AsterConstants.lavanda),
+                            child: Icon(Icons.key_rounded,
+                                size: 20, color: AsterTheme.primary(context)),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -267,7 +268,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AsterConstants.lavanda,
+                            backgroundColor: AsterTheme.primary(context),
                             shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(AsterConstants.radiusPill),
@@ -351,7 +352,7 @@ class _AuthScreenState extends State<AuthScreen> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide:
-                    const BorderSide(color: AsterConstants.lavanda, width: 1.5),
+                    BorderSide(color: AsterTheme.primary(context), width: 1.5),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -421,7 +422,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: !_isSignUp ? FontWeight.w800 : FontWeight.w600,
-                            color: !_isSignUp ? AsterConstants.lavanda : AsterConstants.textMuted,
+                            color: !_isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted,
                           ),
                           child: const Text('Entrar'),
                         ),
@@ -446,7 +447,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: _isSignUp ? FontWeight.w800 : FontWeight.w600,
-                            color: _isSignUp ? AsterConstants.lavanda : AsterConstants.textMuted,
+                            color: _isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted,
                           ),
                           child: const Text('Criar Conta'),
                         ),
@@ -463,20 +464,19 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _buildPrimaryButton() {
+    final primaryCol = AsterTheme.primary(context);
+    final lighter = Color.lerp(primaryCol, Colors.white, 0.12) ?? primaryCol;
+    final darker = Color.lerp(primaryCol, Colors.black, 0.14) ?? primaryCol;
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF8877F8),
-            AsterConstants.lavanda,
-            Color(0xFF6A5AE0),
-          ],
+          colors: [lighter, primaryCol, darker],
         ),
         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-        boxShadow: AsterConstants.primaryButtonShadow,
+        boxShadow: AsterTheme.primaryShadow(context, primaryCol),
       ),
       child: Material(
         color: Colors.transparent,
@@ -572,10 +572,10 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.auto_awesome_rounded,
                   size: 16,
-                  color: AsterConstants.lavanda,
+                  color: AsterTheme.primary(context),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -632,12 +632,12 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (isLoading)
-                    const SizedBox(
+                    SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AsterConstants.lavanda),
+                        valueColor: AlwaysStoppedAnimation<Color>(AsterTheme.primary(context)),
                       ),
                     )
                   else ...[
@@ -693,53 +693,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Insígnia Flutuante Concentric Soft Clay
-                        Center(
-                          child: Container(
-                            width: 76,
-                            height: 76,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AsterConstants.lavanda.withValues(alpha: 0.08),
-                              border: Border.all(
-                                color: AsterConstants.lavanda.withValues(alpha: 0.18),
-                                width: 1.5,
-                              ),
-                            ),
-                            padding: const EdgeInsets.all(7),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF9485FF),
-                                    AsterConstants.lavanda,
-                                    Color(0xFF6756DC),
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Color.fromRGBO(124, 108, 240, 0.40),
-                                    blurRadius: 16,
-                                    offset: Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'N',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        // Logo Oficial Noesis
+                        const Center(
+                          child: NoesisLogo(size: 68, withShadow: true),
                         ),
                         const SizedBox(height: 16),
 
@@ -749,7 +705,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AsterConstants.lavanda.withValues(alpha: 0.10),
+                              color: AsterTheme.primary(context).withValues(alpha: 0.10),
                               borderRadius:
                                   BorderRadius.circular(AsterConstants.radiusPill),
                             ),
@@ -759,8 +715,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 Container(
                                   width: 6,
                                   height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: AsterConstants.lavanda,
+                                  decoration: BoxDecoration(
+                                    color: AsterTheme.primary(context),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -771,7 +727,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.8,
-                                    color: AsterConstants.lavanda,
+                                    color: AsterTheme.primary(context),
                                   ),
                                 ),
                               ],
@@ -780,15 +736,10 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        Text(
-                          'Noesis',
+                        const NoesisWordmark(
+                          fontSize: 28,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.manrope(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.8,
-                            color: AsterConstants.textDark,
-                          ),
+                          color: AsterConstants.textDark,
                         ),
                         const SizedBox(height: 4),
                         AnimatedSwitcher(
@@ -975,12 +926,12 @@ class _AuthScreenState extends State<AuthScreen> {
                                                   height: 18,
                                                   decoration: BoxDecoration(
                                                     color: _rememberMe
-                                                        ? AsterConstants.lavanda
+                                                        ? AsterTheme.primary(context)
                                                         : AsterConstants.surfaceAlt,
                                                     borderRadius: BorderRadius.circular(5),
                                                     border: Border.all(
                                                       color: _rememberMe
-                                                          ? AsterConstants.lavanda
+                                                          ? AsterTheme.primary(context)
                                                           : AsterConstants.surfaceInset,
                                                       width: 1.5,
                                                     ),
@@ -1014,7 +965,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                           child: Text(
                                             'Esqueceu a senha?',
                                             style: GoogleFonts.manrope(
-                                              color: AsterConstants.lavanda,
+                                              color: AsterTheme.primary(context),
                                               fontWeight: FontWeight.w700,
                                               fontSize: 12,
                                             ),

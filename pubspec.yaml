@@ -76,6 +76,45 @@ flutter:
 
   assets:
     - assets/fonts/
+    - assets/images/
+    - exemplos_simulados/vestibulares_brasil/enem/
+    - exemplos_simulados/vestibulares_brasil/fuvest/
+    - exemplos_simulados/vestibulares_brasil/unicamp/
+    - exemplos_simulados/vestibulares_brasil/unesp/
+    - exemplos_simulados/vestibulares_brasil/ita/
+    - exemplos_simulados/vestibulares_brasil/encceja/
+    - exemplos_simulados/internacionais/sat/
+    - exemplos_simulados/internacionais/act/
+    - exemplos_simulados/internacionais/gre/
+    - exemplos_simulados/internacionais/gmat/
+    - exemplos_simulados/internacionais/lsat/
+    - exemplos_simulados/idiomas/ielts/
+    - exemplos_simulados/idiomas/toefl/
+    - exemplos_simulados/idiomas/cambridge_english/
+    - exemplos_simulados/idiomas/dele/
+    - exemplos_simulados/idiomas/delf_dalf/
+    - exemplos_simulados/idiomas/goethe_zertifikat/
+    - exemplos_simulados/idiomas/jlpt/
+    - exemplos_simulados/idiomas/hsk/
+    - exemplos_simulados/idiomas/celpe_bras/
+    - exemplos_simulados/tecnologia_e_certificacoes/comptia_security_plus/
+    - exemplos_simulados/tecnologia_e_certificacoes/cloud_e_certificacoes/
+    - exemplos_simulados/tecnologia_e_certificacoes/kubernetes_cncf/
+    - exemplos_simulados/tecnologia_e_certificacoes/microsoft_azure/
+    - exemplos_simulados/tecnologia_e_certificacoes/google_cloud/
+    - exemplos_simulados/tecnologia_e_certificacoes/cisco_ccna/
+    - exemplos_simulados/tecnologia_e_certificacoes/poscomp/
+    - exemplos_simulados/tecnologia_e_certificacoes/enade_computacao/
+    - exemplos_simulados/tecnologia_e_certificacoes/obi/
+    - exemplos_simulados/juridico_e_concursos/oab/
+    - exemplos_simulados/juridico_e_concursos/concursos_publicos/
+    - exemplos_simulados/juridico_e_concursos/enam/
+    - exemplos_simulados/juridico_e_concursos/enade_direito/
+    - exemplos_simulados/saude_e_medicina/revalida/
+    - exemplos_simulados/saude_e_medicina/enare/
+    - exemplos_simulados/saude_e_medicina/usmle/
+    - exemplos_simulados/negocios_financas_e_economia/anbima_e_cfa/
+    - exemplos_simulados/negocios_financas_e_economia/anpec/
 
   fonts:
     - family: Manrope
@@ -100,3 +139,7 @@ flutter:
           weight: 700
         - asset: assets/fonts/JetBrainsMono-ExtraBold.ttf
           weight: 800
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Bold.ttf
+          weight: 700

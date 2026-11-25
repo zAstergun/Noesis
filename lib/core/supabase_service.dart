@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/flashcards/models/flashcard_model.dart';
 import '../features/notebooks/models/notebook_model.dart';
+import '../features/quizzes/data/saved_exams_store_stub.dart'
+    if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
+    if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
 
 class SupabaseService {
   static final SupabaseClient client = Supabase.instance.client;
@@ -66,6 +70,161 @@ class SupabaseService {
   }
 
   // ----------------------------------------------------
+  // WEEKLY STUDY GOAL (local cache + profiles.stats)
+  // ----------------------------------------------------
+  static const int defaultWeeklyGoalMinutes = 25 * 60; // 25h padrão
+  static const int minWeeklyGoalMinutes = 30; // 30m mínimo
+  static const int maxWeeklyGoalMinutes = 168 * 60; // 168h máximo (semana inteira)
+  static final ValueNotifier<int> weeklyGoalMinutesNotifier =
+      ValueNotifier<int>(defaultWeeklyGoalMinutes);
+
+  static String formatGoalDuration(int totalMinutes) {
+    if (totalMinutes <= 0) return '0h';
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+    if (mins == 0) return '${hours}h';
+    if (hours == 0) return '${mins}m';
+    return '${hours}h ${mins}m';
+  }
+
+  static int computeCurrentWeekStudiedMinutes(
+    List<Map<String, dynamic>> sessions, {
+    DateTime? referenceDate,
+  }) {
+    final now = referenceDate ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final sundayEnd = monday.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+
+    int total = 0;
+    for (final session in sessions) {
+      final mins = (session['duration_minutes'] as num?)?.toInt() ?? 0;
+      if (mins <= 0) continue;
+      final rawDate = (session['study_date'] ?? session['created_at'] ?? '').toString().trim();
+      if (rawDate.isEmpty) continue;
+      final parsed = DateTime.tryParse(rawDate);
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (!day.isBefore(monday) && !day.isAfter(sundayEnd)) {
+        total += mins;
+      }
+    }
+    return total;
+  }
+
+  static int computeCurrentStreakDays(
+    List<Map<String, dynamic>> sessions, {
+    DateTime? referenceDate,
+  }) {
+    final activeDays = <DateTime>{};
+    for (final session in sessions) {
+      final mins = (session['duration_minutes'] as num?)?.toInt() ?? 0;
+      if (mins <= 0) continue;
+      final rawDate = (session['study_date'] ?? session['created_at'] ?? '').toString().trim();
+      if (rawDate.isEmpty) continue;
+      final parsed = DateTime.tryParse(rawDate);
+      if (parsed == null) continue;
+      activeDays.add(DateTime(parsed.year, parsed.month, parsed.day));
+    }
+    if (activeDays.isEmpty) return 0;
+
+    final now = referenceDate ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    DateTime cursor;
+    if (activeDays.contains(today)) {
+      cursor = today;
+    } else if (activeDays.contains(yesterday)) {
+      cursor = yesterday;
+    } else {
+      return 0;
+    }
+
+    int streak = 0;
+    while (activeDays.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  static Future<int> loadWeeklyGoalMinutes() async {
+    int? resolved;
+    try {
+      final raw = await local_store.readSavedExamsRaw('noesis_weekly_goal_v1');
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map && decoded['weekly_goal_minutes'] is num) {
+          final parsed = (decoded['weekly_goal_minutes'] as num).toInt();
+          if (parsed >= minWeeklyGoalMinutes && parsed <= maxWeeklyGoalMinutes) {
+            resolved = parsed;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (currentUser != null) {
+      try {
+        final profile = await getProfile();
+        final stats = profile?['stats'];
+        if (stats is Map && stats['noesis_weekly_goal_minutes'] is num) {
+          final remote = (stats['noesis_weekly_goal_minutes'] as num).toInt();
+          if (remote >= minWeeklyGoalMinutes && remote <= maxWeeklyGoalMinutes) {
+            resolved = remote;
+            unawaited(
+              local_store.writeSavedExamsRaw(
+                'noesis_weekly_goal_v1',
+                jsonEncode({'weekly_goal_minutes': remote}),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Erro ao carregar meta semanal do Supabase: $e');
+      }
+    }
+
+    final finalMinutes = resolved ?? defaultWeeklyGoalMinutes;
+    weeklyGoalMinutesNotifier.value = finalMinutes;
+    return finalMinutes;
+  }
+
+  static Future<void> saveWeeklyGoalMinutes(int minutes) async {
+    final clamped = minutes.clamp(minWeeklyGoalMinutes, maxWeeklyGoalMinutes);
+    weeklyGoalMinutesNotifier.value = clamped;
+
+    try {
+      await local_store.writeSavedExamsRaw(
+        'noesis_weekly_goal_v1',
+        jsonEncode({
+          'weekly_goal_minutes': clamped,
+          'updated_at': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
+
+    if (currentUser != null) {
+      try {
+        final profile = await getProfile();
+        final currentStats = profile?['stats'] is Map
+            ? Map<String, dynamic>.from(profile!['stats'] as Map)
+            : <String, dynamic>{};
+        currentStats['noesis_weekly_goal_minutes'] = clamped;
+        await client
+            .from('profiles')
+            .update({
+              'stats': currentStats,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', currentUser!.id);
+      } catch (e) {
+        debugPrint('Erro ao salvar meta semanal no Supabase: $e');
+      }
+    }
+  }
+
+  // ----------------------------------------------------
   // STUDY SESSIONS (noesis_sessions)
   // ----------------------------------------------------
   static final StreamController<List<Map<String, dynamic>>> _studySessionsStreamController =
@@ -117,9 +276,36 @@ class SupabaseService {
     ];
   }
 
-  static Future<List<Map<String, dynamic>>> getStudySessions({int limit = 50}) async {
-    _seedInitialStudySessions();
+  static Future<void> _hydrateLocalStudySessions() async {
     if (currentUser == null) {
+      _seedInitialStudySessions();
+    }
+    try {
+      final raw = await local_store.readSavedExamsRaw('noesis_study_sessions_v1');
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List && decoded.isNotEmpty) {
+          _inMemoryStudySessions = decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _persistLocalStudySessions() async {
+    try {
+      await local_store.writeSavedExamsRaw(
+        'noesis_study_sessions_v1',
+        jsonEncode(_inMemoryStudySessions),
+      );
+    } catch (_) {}
+  }
+
+  static Future<List<Map<String, dynamic>>> getStudySessions({int limit = 50}) async {
+    if (currentUser == null) {
+      await _hydrateLocalStudySessions();
       return List<Map<String, dynamic>>.from(_inMemoryStudySessions);
     }
     try {
@@ -131,9 +317,8 @@ class SupabaseService {
           .order('created_at', ascending: false)
           .limit(limit);
       final list = List<Map<String, dynamic>>.from(res);
-      if (list.isEmpty) {
-        return List<Map<String, dynamic>>.from(_inMemoryStudySessions);
-      }
+      _inMemoryStudySessions = list;
+      unawaited(_persistLocalStudySessions());
       return list;
     } catch (_) {
       return List<Map<String, dynamic>>.from(_inMemoryStudySessions);
@@ -141,8 +326,8 @@ class SupabaseService {
   }
 
   static Stream<List<Map<String, dynamic>>> studySessionsStream() {
-    _seedInitialStudySessions();
     if (currentUser == null) {
+      _seedInitialStudySessions();
       return Stream<List<Map<String, dynamic>>>.multi((controller) {
         controller.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
         final sub = _studySessionsStreamController.stream.listen((sessions) {
@@ -157,12 +342,7 @@ class SupabaseService {
         .stream(primaryKey: ['id'])
         .eq('user_id', currentUser!.id)
         .order('study_date', ascending: false)
-        .map((sessions) {
-          if (sessions.isEmpty && _inMemoryStudySessions.isNotEmpty) {
-            return List<Map<String, dynamic>>.from(_inMemoryStudySessions);
-          }
-          return sessions;
-        });
+        .map((sessions) => List<Map<String, dynamic>>.from(sessions));
   }
 
   static Future<void> addStudySession({
@@ -172,45 +352,106 @@ class SupabaseService {
     required DateTime studyDate,
     String? notes,
   }) async {
-    _seedInitialStudySessions();
+    await _hydrateLocalStudySessions();
+    final tempId = 'sess-${DateTime.now().millisecondsSinceEpoch}';
+    final dateOnly = studyDate.toIso8601String().split('T').first;
     final newSession = {
-      'id': 'sess-${DateTime.now().millisecondsSinceEpoch}',
+      'id': tempId,
       'user_id': currentUser?.id,
       'subject': subject,
       'topic': topic,
       'duration_minutes': durationMinutes,
-      'study_date': studyDate.toIso8601String().split('T').first,
+      'study_date': dateOnly,
       'notes': notes,
       'created_at': DateTime.now().toIso8601String(),
     };
 
     _inMemoryStudySessions.insert(0, newSession);
     _studySessionsStreamController.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+    await _persistLocalStudySessions();
 
     if (currentUser != null) {
       try {
-        await client.from('noesis_sessions').insert({
-          'user_id': currentUser!.id,
-          'subject': subject,
-          'topic': topic,
-          'duration_minutes': durationMinutes,
-          'study_date': studyDate.toIso8601String().split('T').first,
-          'notes': notes,
-        });
+        final inserted = await client
+            .from('noesis_sessions')
+            .insert({
+              'user_id': currentUser!.id,
+              'subject': subject,
+              'topic': topic,
+              'duration_minutes': durationMinutes,
+              'study_date': dateOnly,
+              'notes': notes,
+            })
+            .select()
+            .single();
+        final idx = _inMemoryStudySessions.indexWhere((s) => s['id'] == tempId);
+        if (idx != -1) {
+          _inMemoryStudySessions[idx] = Map<String, dynamic>.from(inserted);
+          _studySessionsStreamController.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+          await _persistLocalStudySessions();
+        }
       } catch (e) {
         debugPrint('Erro ao persistir sessão no Supabase: $e');
       }
     }
   }
 
+  static Future<void> updateStudySession({
+    required String id,
+    required String subject,
+    required String topic,
+    required int durationMinutes,
+    required DateTime studyDate,
+    String? notes,
+  }) async {
+    await _hydrateLocalStudySessions();
+    final dateOnly = studyDate.toIso8601String().split('T').first;
+    final idx = _inMemoryStudySessions.indexWhere((s) => s['id'] == id);
+    if (idx != -1) {
+      _inMemoryStudySessions[idx] = {
+        ..._inMemoryStudySessions[idx],
+        'subject': subject,
+        'topic': topic,
+        'duration_minutes': durationMinutes,
+        'study_date': dateOnly,
+        'notes': notes,
+      };
+      _studySessionsStreamController.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+      await _persistLocalStudySessions();
+    }
+
+    if (currentUser != null && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id)) {
+      try {
+        await client
+            .from('noesis_sessions')
+            .update({
+              'subject': subject,
+              'topic': topic,
+              'duration_minutes': durationMinutes,
+              'study_date': dateOnly,
+              'notes': notes,
+            })
+            .eq('id', id)
+            .eq('user_id', currentUser!.id);
+      } catch (e) {
+        debugPrint('Erro ao atualizar sessão no Supabase: $e');
+      }
+    }
+  }
+
   static Future<void> deleteStudySession(String id) async {
-    _seedInitialStudySessions();
+    await _hydrateLocalStudySessions();
     _inMemoryStudySessions.removeWhere((s) => s['id'] == id);
     _studySessionsStreamController.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+    await _persistLocalStudySessions();
 
-    if (currentUser != null) {
+    if (currentUser != null && RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id)) {
       try {
-        await client.from('noesis_sessions').delete().eq('id', id);
+        await client
+            .from('noesis_sessions')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', currentUser!.id);
       } catch (e) {
         debugPrint('Erro ao deletar sessão no Supabase: $e');
       }
@@ -545,6 +786,21 @@ class SupabaseService {
     return quizRecord;
   }
 
+  static Future<void> deleteQuiz(String quizId) async {
+    _inMemoryQuizzes.removeWhere((q) => q['id']?.toString() == quizId);
+    if (currentUser != null) {
+      try {
+        await client
+            .from('noesis_quizzes')
+            .delete()
+            .eq('id', quizId)
+            .eq('user_id', currentUser!.id);
+      } catch (e) {
+        debugPrint('Erro ao excluir simulado no Supabase: $e');
+      }
+    }
+  }
+
   static Future<void> saveQuizResult({
     required String title,
     required String subject,
@@ -581,6 +837,142 @@ class SupabaseService {
       } catch (e) {
         debugPrint('Erro ao persistir resultado do simulado no Supabase: $e');
       }
+    }
+  }
+
+  /// Salva ou atualiza um simulado completo na tabela `noesis_quizzes` (incluindo respostas e review da IA).
+  static Future<void> upsertSavedExamAttempt(Map<String, dynamic> attemptJson) async {
+    final attemptKey = (attemptJson['id'] ?? '').toString().trim();
+    if (attemptKey.isEmpty) return;
+
+    final existingMemIdx = _inMemoryQuizzes.indexWhere(
+      (q) => q['attempt_key'] == attemptKey || q['id'] == attemptKey,
+    );
+    final memRecord = {
+      'id': attemptKey,
+      'attempt_key': attemptKey,
+      'user_id': currentUser?.id,
+      'group_key': attemptJson['groupKey'],
+      'exam_model_id': attemptJson['examModelId'],
+      'exam_model_name': attemptJson['examModelName'],
+      'title': attemptJson['title'] ?? 'Simulado',
+      'subject': attemptJson['subject'] ?? 'Geral',
+      'topic': attemptJson['topic'] ?? '',
+      'difficulty': attemptJson['difficulty'] ?? 'Médio / Prático',
+      'target_total_count': attemptJson['targetTotalCount'],
+      'questions_data': attemptJson['questions'] ?? const [],
+      'user_answers': attemptJson['userAnswers'] ?? const <String, dynamic>{},
+      'correct_count': attemptJson['correctCount'] ?? 0,
+      'wrong_count': attemptJson['wrongCount'] ?? 0,
+      'blank_count': attemptJson['blankCount'] ?? 0,
+      'score_percentage': attemptJson['scorePercentage'] ?? 0.0,
+      'time_spent_seconds': attemptJson['elapsedSeconds'] ?? 0,
+      'time_expired': attemptJson['timeExpired'] == true,
+      'ai_review_markdown': attemptJson['aiReviewMarkdown'],
+      'completed_at': attemptJson['createdAt'] ?? DateTime.now().toIso8601String(),
+    };
+    if (existingMemIdx != -1) {
+      _inMemoryQuizzes[existingMemIdx] = memRecord;
+    } else {
+      _inMemoryQuizzes.insert(0, memRecord);
+    }
+
+    if (currentUser == null) return;
+
+    try {
+      final uid = currentUser!.id;
+      final existing = await client
+          .from('noesis_quizzes')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('attempt_key', attemptKey)
+          .maybeSingle();
+
+      final payload = {
+        'user_id': uid,
+        'attempt_key': attemptKey,
+        'group_key': attemptJson['groupKey'],
+        'exam_model_id': attemptJson['examModelId'],
+        'exam_model_name': attemptJson['examModelName'],
+        'title': attemptJson['title'] ?? 'Simulado',
+        'subject': attemptJson['subject'] ?? 'Geral',
+        'topic': attemptJson['topic'] ?? '',
+        'difficulty': attemptJson['difficulty'] ?? 'Médio / Prático',
+        'target_total_count': attemptJson['targetTotalCount'],
+        'questions_data': attemptJson['questions'] ?? const [],
+        'user_answers': attemptJson['userAnswers'] ?? const <String, dynamic>{},
+        'correct_count': attemptJson['correctCount'] ?? 0,
+        'wrong_count': attemptJson['wrongCount'] ?? 0,
+        'blank_count': attemptJson['blankCount'] ?? 0,
+        'score_percentage': attemptJson['scorePercentage'] ?? 0.0,
+        'time_spent_seconds': attemptJson['elapsedSeconds'] ?? 0,
+        'time_expired': attemptJson['timeExpired'] == true,
+        if (attemptJson['aiReviewMarkdown'] != null)
+          'ai_review_markdown': attemptJson['aiReviewMarkdown'],
+        'completed_at': attemptJson['createdAt'] ?? DateTime.now().toIso8601String(),
+      };
+
+      if (existing != null && existing['id'] != null) {
+        await client
+            .from('noesis_quizzes')
+            .update(payload)
+            .eq('id', existing['id'])
+            .eq('user_id', uid);
+      } else {
+        await client.from('noesis_quizzes').insert(payload);
+      }
+    } catch (e) {
+      debugPrint('Erro ao sincronizar simulado salvo no Supabase: $e');
+    }
+  }
+
+  /// Atualiza o markdown da análise da IA para um simulado já salvo no Supabase.
+  static Future<void> updateSavedExamAiReview(String attemptKey, String reviewMarkdown) async {
+    final memIdx = _inMemoryQuizzes.indexWhere(
+      (q) => q['attempt_key'] == attemptKey || q['id'] == attemptKey,
+    );
+    if (memIdx != -1) {
+      _inMemoryQuizzes[memIdx]['ai_review_markdown'] = reviewMarkdown;
+    }
+
+    if (currentUser == null) return;
+    try {
+      final uid = currentUser!.id;
+      await client
+          .from('noesis_quizzes')
+          .update({'ai_review_markdown': reviewMarkdown})
+          .eq('user_id', uid)
+          .eq('attempt_key', attemptKey);
+    } catch (e) {
+      debugPrint('Erro ao atualizar review IA do simulado no Supabase: $e');
+    }
+  }
+
+  /// Remove um simulado salvo do Supabase.
+  static Future<void> deleteSavedExamAttempt(String attemptKey) async {
+    _inMemoryQuizzes.removeWhere(
+      (q) => q['attempt_key'] == attemptKey || q['id'] == attemptKey,
+    );
+
+    if (currentUser == null) return;
+    try {
+      final uid = currentUser!.id;
+      final deletedByKey = await client
+          .from('noesis_quizzes')
+          .delete()
+          .eq('user_id', uid)
+          .eq('attempt_key', attemptKey)
+          .select('id');
+      if ((deletedByKey as List).isEmpty &&
+          RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(attemptKey)) {
+        await client
+            .from('noesis_quizzes')
+            .delete()
+            .eq('user_id', uid)
+            .eq('id', attemptKey);
+      }
+    } catch (e) {
+      debugPrint('Erro ao excluir simulado salvo no Supabase: $e');
     }
   }
 
@@ -1028,6 +1420,115 @@ class SupabaseService {
       if (currentUser != null) {
         await saveNotebook(updatedNb);
       }
+    }
+  }
+
+  // ----------------------------------------------------
+  // TRILHAS DE ESTUDO / ROADMAPS (noesis_roadmaps)
+  // ----------------------------------------------------
+  static final List<Map<String, dynamic>> _inMemoryRoadmaps = [];
+
+  static Future<List<Map<String, dynamic>>> getRoadmaps() async {
+    if (currentUser == null) {
+      return List<Map<String, dynamic>>.from(_inMemoryRoadmaps);
+    }
+    try {
+      final res = await client
+          .from('noesis_roadmaps')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .order('updated_at', ascending: false);
+      final list = List<Map<String, dynamic>>.from(res);
+      _inMemoryRoadmaps
+        ..clear()
+        ..addAll(list);
+      return list;
+    } catch (e) {
+      debugPrint('Erro ao buscar trilhas no Supabase: $e');
+      return List<Map<String, dynamic>>.from(_inMemoryRoadmaps);
+    }
+  }
+
+  static Future<void> upsertRoadmap(Map<String, dynamic> roadmapJson) async {
+    final roadmapKey = (roadmapJson['id'] ?? '').toString().trim();
+    if (roadmapKey.isEmpty) return;
+
+    final idx = _inMemoryRoadmaps.indexWhere(
+      (r) => r['roadmap_key'] == roadmapKey || r['id'] == roadmapKey,
+    );
+    final memRecord = {
+      ...roadmapJson,
+      'roadmap_key': roadmapKey,
+      'user_id': currentUser?.id,
+    };
+    if (idx != -1) {
+      _inMemoryRoadmaps[idx] = memRecord;
+    } else {
+      _inMemoryRoadmaps.insert(0, memRecord);
+    }
+
+    if (currentUser == null) return;
+    try {
+      final uid = currentUser!.id;
+      final existing = await client
+          .from('noesis_roadmaps')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('roadmap_key', roadmapKey)
+          .maybeSingle();
+
+      final payload = {
+        'user_id': uid,
+        'roadmap_key': roadmapKey,
+        'title': roadmapJson['title'] ?? 'Trilha de Estudos',
+        'goal': roadmapJson['goal'] ?? '',
+        'subject': roadmapJson['subject'] ?? 'Geral',
+        'level': roadmapJson['level'] ?? 'Intermediário',
+        'estimated_weeks': roadmapJson['estimated_weeks'] ?? 4,
+        'steps': roadmapJson['steps'] ?? const [],
+        'updated_at': roadmapJson['updated_at'] ?? DateTime.now().toIso8601String(),
+      };
+
+      if (existing != null && existing['id'] != null) {
+        await client
+            .from('noesis_roadmaps')
+            .update(payload)
+            .eq('id', existing['id'])
+            .eq('user_id', uid);
+      } else {
+        await client.from('noesis_roadmaps').insert({
+          ...payload,
+          'created_at': roadmapJson['created_at'] ?? DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao sincronizar trilha no Supabase: $e');
+    }
+  }
+
+  static Future<void> deleteRoadmap(String roadmapKey) async {
+    _inMemoryRoadmaps.removeWhere(
+      (r) => r['roadmap_key'] == roadmapKey || r['id'] == roadmapKey,
+    );
+    if (currentUser == null) return;
+    try {
+      final uid = currentUser!.id;
+      final deletedByKey = await client
+          .from('noesis_roadmaps')
+          .delete()
+          .eq('user_id', uid)
+          .eq('roadmap_key', roadmapKey)
+          .select('id');
+      if ((deletedByKey as List).isEmpty &&
+          RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(roadmapKey)) {
+        await client
+            .from('noesis_roadmaps')
+            .delete()
+            .eq('user_id', uid)
+            .eq('id', roadmapKey);
+      }
+    } catch (e) {
+      debugPrint('Erro ao excluir trilha no Supabase: $e');
     }
   }
 }

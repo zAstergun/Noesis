@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
+import '../../core/supabase_service.dart';
+import '../../widgets/weekly_goal_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,7 +17,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedProviderId = 'google';
-  String _selectedModel = 'gemini-1.5-flash';
+  String _selectedModel = 'gemini-flash-lite-latest';
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
   final _baseUrlController = TextEditingController();
@@ -24,7 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _testResult;
   bool? _testSuccess;
   bool _isManualModelMode = false;
-  List<String> _dynamicGoogleModels = [];
+  List<String> _dynamicGoogleModels = List<String>.from(GeminiService.operationalGoogleModels);
   bool _isCheckingOperationalModels = false;
   Timer? _debounceTimer;
 
@@ -60,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (GeminiService.apiKey != null && GeminiService.apiKey!.isNotEmpty) {
       _apiKeyController.text = GeminiService.apiKey!;
     }
+    SupabaseService.loadWeeklyGoalMinutes();
     final prov = GeminiService.providers.firstWhere(
       (p) => p.id == _selectedProviderId,
       orElse: () => GeminiService.providers.first,
@@ -151,6 +154,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _testResult = null;
       _testSuccess = null;
     });
+    GeminiService.configure(
+      providerId: _selectedProviderId,
+      modelName: modelName,
+      key: _apiKeyController.text.trim(),
+      customBaseUrl: _baseUrlController.text.trim(),
+    );
   }
 
   Future<void> _testAiConnection() async {
@@ -233,8 +242,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (showSuccessSnackbar) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${result.models.length} modelo(s) operacionais prontos: ${result.models.join(", ")}'),
-              backgroundColor: AsterConstants.lavanda,
+              content: Text(
+                '${result.models.length} modelo(s) operacionais prontos: ${result.models.join(", ")}',
+                style: TextStyle(color: AsterTheme.onPrimary(context)),
+              ),
+              backgroundColor: AsterTheme.primary(context),
             ),
           );
         }
@@ -269,9 +281,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AsterConstants.lavanda,
-        content: Text('Configurações de IA salvas com sucesso!'),
+      SnackBar(
+        backgroundColor: AsterTheme.primary(context),
+        content: Text(
+          'Configurações de IA salvas com sucesso!',
+          style: TextStyle(color: AsterTheme.onPrimary(context)),
+        ),
       ),
     );
   }
@@ -293,27 +308,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ─── Título da Página ───
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Configurações',
-                    style: GoogleFonts.manrope(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Preferências de tema, chave de IA, idiomas do ecossistema e perfil',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                    ),
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final screenW = MediaQuery.sizeOf(context).width;
+                  final contentLeft =
+                      ((screenW - 960).clamp(0.0, double.infinity) / 2) + (isDesktop ? 36.0 : 16.0);
+                  final neededGap = (108.0 - contentLeft).clamp(0.0, 82.0);
+                  return Row(
+                    children: [
+                      NoesisCollapsedMenuSpacer(width: neededGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Configurações',
+                              style: GoogleFonts.manrope(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Preferências de tema, chave de IA, idiomas do ecossistema e perfil',
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -321,11 +351,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildThemeSection(isDark),
               const SizedBox(height: 20),
 
-              // ─── Card 2: Chave de IA (Google Gemini API Key) ───
+              // ─── Card 2: Meta Semanal de Estudos ───
+              _buildWeeklyGoalSection(isDark),
+              const SizedBox(height: 20),
+
+              // ─── Card 3: Chave de IA (Google Gemini API Key) ───
               _buildAiKeySection(isDark),
               const SizedBox(height: 20),
 
-              // ─── Card 3: Seleção de Idiomas do Portfólio ───
+              // ─── Card 4: Seleção de Idiomas do Portfólio ───
               _buildLanguageSection(isDark),
               const SizedBox(height: 30),
             ],
@@ -336,10 +370,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─── 1. Seção de Aparência e Tema ───
+  Widget _buildWeeklyGoalSection(bool isDark) {
+    return ValueListenableBuilder<int>(
+      valueListenable: SupabaseService.weeklyGoalMinutesNotifier,
+      builder: (context, goalMinutes, _) {
+        final dailyAvg = (goalMinutes / 7).round();
+        return SoftClayCard(
+          padding: const EdgeInsets.all(24),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AsterTheme.secondary(context).withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.track_changes_rounded,
+                  size: 20,
+                  color: AsterTheme.secondary(context),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Meta Semanal de Estudos',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Meta atual: ${SupabaseService.formatGoalDuration(goalMinutes)}/semana · média ~${SupabaseService.formatGoalDuration(dailyAvg)}/dia',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SoftClayPillButton(
+                key: const Key('settings_edit_weekly_goal_button'),
+                text: 'Editar Meta',
+                onPressed: () async {
+                  final sessions = await SupabaseService.getStudySessions(limit: 200);
+                  final studied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+                  if (!context.mounted) return;
+                  await showWeeklyGoalEditorDialog(
+                    context,
+                    currentWeekStudiedMinutes: studied,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildThemeSection(bool isDark) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: AsterTheme.themeModeNotifier,
-      builder: (context, currentMode, _) {
+    return ValueListenableBuilder<String>(
+      valueListenable: AsterTheme.activeThemeIdNotifier,
+      builder: (context, activeThemeId, _) {
         return SoftClayCard(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -351,10 +452,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                      color: AsterTheme.primary(context).withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.palette_rounded, size: 20, color: AsterConstants.lavanda),
+                    child: Icon(Icons.palette_rounded, size: 20, color: AsterTheme.primary(context)),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -369,7 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       Text(
-                        'Escolha o modo de exibição ideal para o seu ambiente de estudos',
+                        'Escolha o tema visual para o seu ambiente de estudos',
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -381,41 +482,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 20),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildThemeModeOption(
-                      title: 'Modo Claro',
-                      subtitle: 'Soft Clay Névoa',
-                      icon: Icons.light_mode_rounded,
-                      mode: ThemeMode.light,
-                      isSelected: currentMode == ThemeMode.light,
-                      isDark: isDark,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: AsterTheme.availableThemes.map((themeOption) {
+                  return SizedBox(
+                    width: 210,
+                    child: _buildThemeOptionCard(
+                      option: themeOption,
+                      isSelected: activeThemeId == themeOption.id,
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildThemeModeOption(
-                      title: 'Modo Escuro',
-                      subtitle: 'Soft Clay Noturno',
-                      icon: Icons.dark_mode_rounded,
-                      mode: ThemeMode.dark,
-                      isSelected: currentMode == ThemeMode.dark,
-                      isDark: isDark,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildThemeModeOption(
-                      title: 'Sistema',
-                      subtitle: 'Automático',
-                      icon: Icons.brightness_auto_rounded,
-                      mode: ThemeMode.system,
-                      isSelected: currentMode == ThemeMode.system,
-                      isDark: isDark,
-                    ),
-                  ),
-                ],
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -424,55 +502,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildThemeModeOption({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required ThemeMode mode,
+  Widget _buildThemeOptionCard({
+    required NoesisThemeOption option,
     required bool isSelected,
-    required bool isDark,
   }) {
+    final accent = option.primary;
+    final paletteSwatches = <Color>[
+      option.bg,
+      option.surface,
+      option.primary,
+      ...option.accents.take(3),
+    ];
+
     return InkWell(
-      onTap: () => AsterTheme.setThemeMode(mode),
+      key: Key('theme_option_${option.id}'),
+      onTap: () => AsterTheme.selectThemeOption(option.id),
       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeInOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? AsterConstants.lavanda.withValues(alpha: 0.12)
-              : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+              ? accent.withValues(alpha: 0.12)
+              : AsterTheme.surfaceAlt(context),
           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
           border: Border.all(
-            color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+            color: isSelected ? accent : Colors.transparent,
             width: 2,
           ),
-          boxShadow: isSelected ? AsterConstants.primaryButtonShadow : null,
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              size: 26,
-              color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: option.bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: option.primary.withValues(alpha: 0.45)),
+                  ),
+                  child: Icon(option.icon, size: 15, color: option.primary),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        option.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12.5,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                          color: isSelected ? accent : AsterTheme.text(context),
+                        ),
+                      ),
+                      Text(
+                        option.tag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AsterTheme.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Icon(Icons.check_circle_rounded, size: 16, color: option.primary),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: GoogleFonts.manrope(
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? AsterConstants.lavanda : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: GoogleFonts.manrope(
-                fontSize: 10.5,
-                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-              ),
+            const SizedBox(height: 8),
+            Row(
+              children: paletteSwatches
+                  .map(
+                    (c) => Container(
+                      width: 14,
+                      height: 14,
+                      margin: const EdgeInsets.only(right: 5),
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.12),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ],
         ),
@@ -500,10 +624,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                  color: AsterTheme.primary(context).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.psychology_rounded, size: 20, color: AsterConstants.lavanda),
+                child: Icon(Icons.psychology_rounded, size: 20, color: AsterTheme.primary(context)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -588,24 +712,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 runSpacing: spacing,
                 children: GeminiService.providers.map((p) {
                   final isSelected = _selectedProviderId == p.id;
+                  final primaryCol = AsterTheme.primary(context);
 
                   return InkWell(
                     onTap: () => _onSelectProvider(p.id),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeInOutCubic,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
                       width: itemWidth,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AsterConstants.lavanda.withValues(alpha: 0.12)
-                            : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+                            ? primaryCol.withValues(alpha: 0.12)
+                            : AsterTheme.surfaceAlt(context),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                         border: Border.all(
                           color: isSelected
-                              ? AsterConstants.lavanda
-                              : (isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                              ? primaryCol
+                              : AsterTheme.surfaceInset(context),
                           width: isSelected ? 1.8 : 1,
                         ),
                       ),
@@ -621,8 +746,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     fontSize: 13,
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                                     color: isSelected
-                                        ? AsterConstants.lavanda
-                                        : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                        ? primaryCol
+                                        : AsterTheme.text(context),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -635,8 +760,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     color: (p.id == 'google' && _dynamicGoogleModels.isNotEmpty)
-                                        ? AsterConstants.menta
-                                        : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                                        ? AsterTheme.secondary(context)
+                                        : AsterTheme.textMuted(context),
                                     fontWeight: (p.id == 'google' && _dynamicGoogleModels.isNotEmpty)
                                         ? FontWeight.w700
                                         : FontWeight.normal,
@@ -646,7 +771,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                           if (isSelected)
-                            const Icon(Icons.check_circle_rounded, size: 16, color: AsterConstants.lavanda),
+                            Icon(Icons.check_circle_rounded, size: 16, color: primaryCol),
                         ],
                       ),
                     ),
@@ -671,16 +796,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 6),
             TextField(
               controller: _baseUrlController,
-              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
-              decoration: const InputDecoration(
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: AsterTheme.text(context)),
+              decoration: InputDecoration(
                 hintText: 'https://api.exemplo.com/v1',
-                prefixIcon: Icon(Icons.link_rounded, size: 18, color: AsterConstants.lavanda),
+                prefixIcon: Icon(Icons.link_rounded, size: 18, color: AsterTheme.primary(context)),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               '💡 A URL deve aceitar o formato de chat completions. O Noesis acrescenta /chat/completions se necessário.',
-              style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+              style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
             ),
             const SizedBox(height: 16),
           ],
@@ -692,7 +817,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
-              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+              color: AsterTheme.textMuted(context),
             ),
           ),
           const SizedBox(height: 6),
@@ -704,17 +829,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _checkAndSyncOperationalModels(val.trim(), showSuccessSnackbar: true);
               }
             },
-            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
+            style: GoogleFonts.jetBrainsMono(fontSize: 13, color: AsterTheme.text(context)),
             decoration: InputDecoration(
               hintText: _selectedProviderId == 'custom'
                   ? 'Opcional para provedores locais (ex: Ollama/LM Studio)'
                   : 'sk-... ou AIzaSy...',
-              prefixIcon: const Icon(Icons.vpn_key_rounded, size: 18, color: AsterConstants.lavanda),
+              prefixIcon: Icon(Icons.vpn_key_rounded, size: 18, color: AsterTheme.primary(context)),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscureApiKey ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                   size: 20,
-                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                  color: AsterTheme.textMuted(context),
                 ),
                 onPressed: () => setState(() => _obscureApiKey = !_obscureApiKey),
               ),
@@ -733,28 +858,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AsterConstants.lavanda.withValues(alpha: 0.12),
+                      color: AsterTheme.primary(context).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       border: Border.all(
-                        color: AsterConstants.lavanda.withValues(alpha: 0.35),
+                        color: AsterTheme.primary(context).withValues(alpha: 0.35),
                         width: 1.2,
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.key_rounded, size: 15, color: AsterConstants.lavanda),
+                        Icon(Icons.key_rounded, size: 15, color: AsterTheme.primary(context)),
                         const SizedBox(width: 8),
                         Text(
                           'Obter Chave da API (${currentProv.label})',
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: AsterConstants.lavanda,
+                            color: AsterTheme.primary(context),
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(Icons.open_in_new_rounded, size: 14, color: AsterConstants.lavanda),
+                        Icon(Icons.open_in_new_rounded, size: 14, color: AsterTheme.primary(context)),
                       ],
                     ),
                   ),
@@ -763,7 +888,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Abre o console de credenciais oficial em nova aba',
                   style: GoogleFonts.manrope(
                     fontSize: 11.5,
-                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    color: AsterTheme.textMuted(context),
                   ),
                 ),
               ],
@@ -780,20 +905,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.8,
-                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                  color: AsterTheme.textMuted(context),
                 ),
               ),
               if (_selectedProviderId == 'google' && _isCheckingOperationalModels) ...[
                 const SizedBox(width: 8),
-                const SizedBox(
+                SizedBox(
                   width: 12,
                   height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.8, color: AsterConstants.lavanda),
+                  child: CircularProgressIndicator(strokeWidth: 1.8, color: AsterTheme.primary(context)),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Validando modelos em tempo real...',
-                  style: GoogleFonts.manrope(fontSize: 10.5, color: AsterConstants.lavanda, fontWeight: FontWeight.w700),
+                  style: GoogleFonts.manrope(fontSize: 10.5, color: AsterTheme.primary(context), fontWeight: FontWeight.w700),
                 ),
               ],
               const Spacer(),
@@ -808,14 +933,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.sync_rounded, size: 14, color: AsterConstants.lavanda),
+                        Icon(Icons.sync_rounded, size: 14, color: AsterTheme.primary(context)),
                         const SizedBox(width: 4),
                         Text(
                           'Sincronizar da Conta',
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: AsterConstants.lavanda,
+                            color: AsterTheme.primary(context),
                           ),
                         ),
                       ],
@@ -829,10 +954,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (currentProv.models.isNotEmpty && !_isManualModelMode) ...[
             Container(
               decoration: BoxDecoration(
-                color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                color: AsterTheme.surfaceAlt(context),
                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                 border: Border.all(
-                  color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                  color: AsterTheme.surfaceInset(context),
                   width: 1,
                 ),
               ),
@@ -854,9 +979,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return DropdownButton<String>(
                       value: selectedVal,
                       isExpanded: true,
-                      dropdownColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                      dropdownColor: AsterTheme.card(context),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AsterConstants.lavanda),
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, color: AsterTheme.primary(context)),
                       items: [
                         ...allModels.map((mod) {
                           final isDefault = mod == currentProv.defaultModel;
@@ -864,7 +989,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             value: mod,
                             child: Row(
                               children: [
-                                const Icon(Icons.smart_toy_outlined, size: 18, color: AsterConstants.lavanda),
+                                Icon(Icons.smart_toy_outlined, size: 18, color: AsterTheme.primary(context)),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
@@ -872,7 +997,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     style: GoogleFonts.jetBrainsMono(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
-                                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                      color: AsterTheme.text(context),
                                     ),
                                   ),
                                 ),
@@ -880,7 +1005,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AsterConstants.menta.withValues(alpha: 0.15),
+                                      color: AsterTheme.secondary(context).withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                     ),
                                     child: Text(
@@ -888,7 +1013,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       style: GoogleFonts.manrope(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
-                                        color: AsterConstants.menta,
+                                        color: AsterTheme.secondary(context),
                                       ),
                                     ),
                                   ),
@@ -901,14 +1026,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: '__custom__',
                           child: Row(
                             children: [
-                              Icon(Icons.edit_note_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                              Icon(Icons.edit_note_rounded, size: 18, color: AsterTheme.textMuted(context)),
                               const SizedBox(width: 10),
                               Text(
                                 'Personalizado (digitar outro modelo...)',
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AsterConstants.lavanda,
+                                  color: AsterTheme.primary(context),
                                 ),
                               ),
                             ],
@@ -937,7 +1062,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Modelo ativo: ',
                   style: GoogleFonts.manrope(
                     fontSize: 11,
-                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    color: AsterTheme.textMuted(context),
                   ),
                 ),
                 Text(
@@ -945,7 +1070,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: AsterConstants.lavanda,
+                    color: AsterTheme.primary(context),
                   ),
                 ),
                 const Spacer(),
@@ -955,13 +1080,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _isManualModelMode = true;
                     });
                   },
-                  icon: const Icon(Icons.edit_rounded, size: 13, color: AsterConstants.lavanda),
+                  icon: Icon(Icons.edit_rounded, size: 13, color: AsterTheme.primary(context)),
                   label: Text(
                     'Digitar ID manualmente',
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: AsterConstants.lavanda,
+                      color: AsterTheme.primary(context),
                     ),
                   ),
                   style: TextButton.styleFrom(
@@ -975,15 +1100,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ] else ...[
             TextField(
               controller: _modelController,
-              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: isDark ? AsterConstants.textLight : AsterConstants.textDark),
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, color: AsterTheme.text(context)),
               decoration: InputDecoration(
                 hintText: currentProv.models.isNotEmpty
                     ? 'Digite o ID do modelo (ex: ${currentProv.defaultModel})'
                     : 'ID exato do modelo (ex: llama3:8b, mistral, qwen2.5)',
-                prefixIcon: const Icon(Icons.memory_rounded, size: 18, color: AsterConstants.lavanda),
+                prefixIcon: Icon(Icons.memory_rounded, size: 18, color: AsterTheme.primary(context)),
                 suffixIcon: currentProv.models.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18, color: AsterConstants.lavanda),
+                        icon: Icon(Icons.arrow_drop_down_circle_outlined, size: 18, color: AsterTheme.primary(context)),
                         tooltip: 'Voltar ao menu dropdown',
                         onPressed: () {
                           setState(() {
@@ -1011,10 +1136,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.list_rounded, size: 14, color: AsterConstants.lavanda),
+                  icon: Icon(Icons.list_rounded, size: 14, color: AsterTheme.primary(context)),
                   label: Text(
                     'Selecionar da lista dropdown',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterConstants.lavanda),
+                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                   ),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1072,13 +1197,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AsterConstants.lavanda,
-                  side: const BorderSide(color: AsterConstants.lavanda, width: 1.2),
+                  foregroundColor: AsterTheme.primary(context),
+                  side: BorderSide(color: AsterTheme.primary(context), width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 ),
                 icon: _isTestingKey
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterConstants.lavanda))
+                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context)))
                     : const Icon(Icons.flash_on_rounded, size: 16),
                 label: Text(
                   _isTestingKey ? 'Testando...' : 'Testar Conexão',
@@ -1130,10 +1255,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AsterConstants.lavanda.withValues(alpha: 0.15),
+                  color: AsterTheme.primary(context).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.language_rounded, size: 20, color: AsterConstants.lavanda),
+                child: Icon(Icons.language_rounded, size: 20, color: AsterTheme.primary(context)),
               ),
               const SizedBox(width: 12),
               Column(
@@ -1163,17 +1288,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: AsterConstants.lavanda.withValues(alpha: 0.08),
+              color: AsterTheme.primary(context).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: AsterConstants.lavanda),
+                Icon(Icons.info_outline_rounded, size: 16, color: AsterTheme.primary(context)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'As traduções completas estão em desenvolvimento. Sua seleção fica registrada no perfil.',
-                    style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w600, color: AsterConstants.lavanda),
+                    style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w600, color: AsterTheme.primary(context)),
                   ),
                 ),
               ],
@@ -1197,6 +1322,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 runSpacing: spacing,
                 children: _languages.map((lang) {
                   final isSelected = _selectedLangCode == lang.code;
+                  final primaryCol = AsterTheme.primary(context);
 
                   return InkWell(
                     onTap: () {
@@ -1204,7 +1330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           duration: const Duration(seconds: 2),
-                          backgroundColor: AsterConstants.lavanda,
+                          backgroundColor: primaryCol,
                           content: Text(
                               'Idioma selecionado: ${lang.flag} ${lang.name} (${lang.region})'),
                         ),
@@ -1212,17 +1338,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeInOutCubic,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
                       width: itemWidth,
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AsterConstants.lavanda.withValues(alpha: 0.12)
-                            : (isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt),
+                            ? primaryCol.withValues(alpha: 0.12)
+                            : AsterTheme.surfaceAlt(context),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                         border: Border.all(
-                          color: isSelected ? AsterConstants.lavanda : Colors.transparent,
+                          color: isSelected ? primaryCol : Colors.transparent,
                           width: 1.5,
                         ),
                       ),
@@ -1240,8 +1366,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     fontSize: 13,
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                                     color: isSelected
-                                        ? AsterConstants.lavanda
-                                        : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
+                                        ? primaryCol
+                                        : AsterTheme.text(context),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -1251,17 +1377,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
-                                    color: isDark
-                                        ? AsterConstants.textMutedDark
-                                        : AsterConstants.textMuted,
+                                    color: AsterTheme.textMuted(context),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           if (isSelected)
-                            const Icon(Icons.check_circle_rounded,
-                                size: 16, color: AsterConstants.lavanda),
+                            Icon(Icons.check_circle_rounded,
+                                size: 16, color: primaryCol),
                         ],
                       ),
                     ),

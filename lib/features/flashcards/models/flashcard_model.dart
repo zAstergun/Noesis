@@ -40,6 +40,54 @@ class Flashcard {
   String? audioForSide(bool isFront) => isFront ? effectiveFrontAudio : effectiveBackAudio;
   bool hasAudioForSide(bool isFront) => isFront ? hasFrontAudio : hasBackAudio;
 
+  /// Cartão já dominado pelo usuário (não retorna automaticamente para estudo de pendentes).
+  bool get isLearned => difficulty == 'easy';
+
+  /// Verifica se este cartão deve ser revisado/aprendido agora.
+  /// - 'unreviewed': nunca estudado -> precisa aprender
+  /// - 'hard': marcado como difícil -> precisa revisar até consolidar
+  /// - 'good': em consolidação -> só volta se já passaram >= 24h desde a última revisão
+  /// - 'easy': já dominado/aprendido -> não retorna na fila automática
+  bool needsReview({DateTime? referenceDate}) {
+    switch (difficulty) {
+      case 'easy':
+        return false;
+      case 'good':
+        if (lastReviewed == null) return true;
+        final now = referenceDate ?? DateTime.now();
+        return now.difference(lastReviewed!).inHours >= 24;
+      case 'hard':
+      case 'unreviewed':
+      default:
+        return true;
+    }
+  }
+
+  /// Prioridade na fila de revisão (menor = mais urgente).
+  int reviewPriority({DateTime? referenceDate}) {
+    if (difficulty == 'hard') return 0;
+    if (difficulty == 'unreviewed') return 1;
+    if (needsReview(referenceDate: referenceDate)) return 2;
+    return 3;
+  }
+
+  String reviewReason({DateTime? referenceDate}) {
+    switch (difficulty) {
+      case 'hard':
+        return 'Difícil · reforçar';
+      case 'unreviewed':
+        return 'Nunca estudado';
+      case 'good':
+        return needsReview(referenceDate: referenceDate)
+            ? 'Revisão espaçada (24h+)'
+            : 'Estudado hoje';
+      case 'easy':
+        return 'Dominado';
+      default:
+        return 'Pendente';
+    }
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -132,6 +180,25 @@ class FlashcardDeck {
   int get goodCount => cards.where((c) => c.difficulty == 'good').length;
   int get hardCount => cards.where((c) => c.difficulty == 'hard').length;
   int get unreviewedCount => cards.where((c) => c.difficulty == 'unreviewed').length;
+
+  /// Retorna apenas os cartões que ainda faltam aprender/revisar, em ordem de prioridade.
+  List<Flashcard> cardsToReview({DateTime? referenceDate}) {
+    final pending = cards.where((c) => c.needsReview(referenceDate: referenceDate)).toList();
+    pending.sort(
+      (a, b) => a.reviewPriority(referenceDate: referenceDate).compareTo(
+            b.reviewPriority(referenceDate: referenceDate),
+          ),
+    );
+    return pending;
+  }
+
+  int pendingReviewCount({DateTime? referenceDate}) =>
+      cardsToReview(referenceDate: referenceDate).length;
+
+  bool isCompleted({DateTime? referenceDate}) =>
+      cards.isNotEmpty && pendingReviewCount(referenceDate: referenceDate) == 0;
+
+  bool get isFullyMastered => cards.isNotEmpty && masteredCount == cards.length;
 
   double get progressPercentage {
     if (cards.isEmpty) return 0.0;
