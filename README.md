@@ -9,7 +9,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.50+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.14+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20RLS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![Platforms](https://img.shields.io/badge/Plataformas-Windows%20%7C%20Android%20%7C%20Web-7C6CF0)](#downloads-oficiais)
+[![Platforms](https://img.shields.io/badge/Plataformas-Windows%20%7C%20Android%20%7C%20Web-7C6CF0)](#-downloads-oficiais)
 
 [Downloads](#-downloads-oficiais) • [Fotos do Software](#-fotos-do-software) • [Funcionalidades](#-principais-funcionalidades) • [Estrutura](#-estrutura-do-repositório) • [Como Executar](#-como-executar-e-compilar) • [Documentação](#-documentação-técnica)
 
@@ -136,7 +136,7 @@ flutter build windows --release
 flutter build web --release --wasm
 
 # Atualizar os pacotes em releases/
-pwsh -File scripts/package_releases.ps1 -Version "1.0.0"
+.\scripts\package_releases.ps1 -Version "1.0.0"
 ```
 
 ### Testes
