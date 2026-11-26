@@ -37,34 +37,43 @@ Os instaladores/pacotes oficiais estão disponíveis na aba [**GitHub Releases**
 
 ## 📸 Fotos do Software
 
-Interface construída sobre o Design System **Aster Soft Clay**, com **Modo Claro** (`Soft Clay Névoa`), **Dark Mode**, **10 temas desbloqueáveis** na Loja e **Tema VIP customizável (RGB)**, totalmente responsiva para Desktop, Web e Mobile.
+Capturas reais da versão atual do **Noesis** sobre o Design System **Aster Soft Clay** (suporte nativo a **Modo Claro**, **Dark Mode**, **10 temas desbloqueáveis** na Loja e **Tema VIP customizável RGB**).
 
-### Dashboard & Tracker de Estudos (Desktop + Mobile)
+### Dashboard & Tracker de Estudos (Desktop)
 Cronômetro dual (Stopwatch / Pomodoro), metas diária e semanal, gráficos analíticos (`fl_chart`), heatmap de consistência (`CustomPainter`) e insights do agente.
 
-![Noesis Dashboard Desktop e Mobile](docs/screenshots/clay-02-dashboard-combined.png)
+![Noesis Dashboard Desktop](docs/screenshots/01-dashboard-desktop.png)
 
-### Motor de Simulados com RAG & Gabarito Comentado
-Geração e resolução de provas por catálogo de bancas ou documentos anexados (`.pdf`, `.txt`, `.md`, `.json`), com snippets de código, cronômetro, marcação para revisão e fontes RAG.
+### Motor de Simulados com RAG & 39 Modelos Oficiais
+Geração e resolução de provas por catálogo oficial de bancas (ENEM, FUVEST, OAB, CompTIA Security+, AWS, etc.) ou documentos anexados (`.pdf`, `.txt`, `.md`, `.json`).
 
-![Noesis Simulador RAG](docs/screenshots/clay-05-quiz-simulador.png)
+![Noesis Simulados RAG](docs/screenshots/02-simulados-rag.png)
 
-### Agente Cognitivo `Noesis AI` com Tool Calling
-Assistente multi-provedor capaz de inspecionar sua conta e executar ações reais no calendário, sessões, simulados, flashcards, cadernos e trilhas.
+### Agente Cognitivo `Noesis AI` com 20 Ferramentas
+Assistente multi-provedor conectado a todas as abas da conta para criar simulados, baralhos, trilhas, cadernos, sessões e agendamentos via Function Calling.
 
-![Noesis AI Agent](docs/screenshots/clay-06-agent-noesis-ai.png)
+![Noesis AI Agent](docs/screenshots/04-noesis-ai.png)
 
 ### Calendário & Timeline Cognitiva
-Quatro modos de visualização (Dia, Semana, Mês e Timeline), categorias com cores personalizadas e recomendações proativas de estudo geradas pela IA.
+Quatro modos de visualização (Dia, Semana, Mês e Timeline), categorias semânticas personalizadas e recomendações proativas de blocos pela IA.
 
-![Noesis Calendário e Timeline](docs/screenshots/clay-07-calendar-timeline.png)
+![Noesis Calendário e Timeline](docs/screenshots/05-calendario.png)
+
+### Ranking Semanal (8 Elos) & Loja de Insights (`✦`)
+| Ranking & Ligas Semanais | Loja de Temas & Arsenal |
+| :---: | :---: |
+| ![Ranking e Elos](docs/screenshots/06-ranking-elos.png) | ![Loja de Insights](docs/screenshots/07-loja-insights.png) |
 
 <details>
-<summary>🎨 Ver tokens visuais e capturas individuais (Desktop e Mobile)</summary>
+<summary>📱 Ver mais telas reais (Login SSO, Flashcards 3D, Desempenho e Mobile)</summary>
 
-| Tokens Aster Soft Clay | Dashboard Desktop | Dashboard Mobile |
-| :---: | :---: | :---: |
-| ![Tokens](docs/screenshots/clay-01-tokens-showcase.png) | ![Desktop](docs/screenshots/clay-03-dashboard-desktop.png) | ![Mobile](docs/screenshots/clay-04-dashboard-mobile.png) |
+| Flashcards Cognitivos 3D | Desempenho & Analytics |
+| :---: | :---: |
+| ![Flashcards](docs/screenshots/03-flashcards-3d.png) | ![Desempenho](docs/screenshots/08-desempenho.png) |
+
+| Aster Account SSO (Login) | Dashboard Mobile (`390×844`) |
+| :---: | :---: |
+| ![Login SSO](docs/screenshots/00-auth-sso.png) | ![Dashboard Mobile](docs/screenshots/09-dashboard-mobile.png) |
 
 </details>
 
