@@ -2,80 +2,69 @@
 
 > **Documento Oficial de Contexto Completo para Inteligências Artificiais e Desenvolvedores**  
 > **Projeto**: Noesis (Cognitive OS & AI Study Engine)  
-> **Ecossistema**: Aster (`asterdev.me`) | **Status**: Implementado & Operacional  
-> **Repositório**: `C:\Users\User\Desktop\Project\Noesis`  
-> **Stack Principal**: Flutter 3.50+ (Dart 3.14+), Supabase BaaS (PostgreSQL + RLS + Realtime), Multi-Provider AI (Google Gemini, OpenAI, Anthropic, DeepSeek, xAI, OpenRouter, Custom REST)
+> **Ecossistema**: Aster (`asterdev.me`) | **Status**: Implementado & Operacional (`v1.0.0+1`)  
+> **Repositório**: `C:\Users\User\Desktop\Project\Noesis` (`https://github.com/zAstergun/Noesis`)  
+> **Stack Principal**: Flutter 3.50+ (Dart 3.14+), Supabase BaaS (PostgreSQL + RLS + Realtime + Storage), Multi-Provider AI (Google Gemini, OpenAI, Anthropic, xAI Grok, DeepSeek, OpenRouter, Custom REST)
 
 ---
 
 ## 1. Visão Geral e Propósito
 
-O **Noesis** é o sistema operacional cognitivo, assistente pessoal e motor de estudos de alta performance do ecossistema **Aster**. Ele foi concebido para resolver de forma unificada os principais pilares da rotina de estudantes, engenheiros de software e candidatos a certificações técnicas de alto nível (como CompTIA Security+, AWS Solutions Architect, Kubernetes CKA e OWASP Top 10):
+O **Noesis** é o sistema operacional cognitivo, assistente pessoal e motor de estudos de alta performance do ecossistema **Aster**. Ele unifica em um único frontend multiplataforma (**Windows Desktop `.exe` com janela customizada**, **Android `.apk`**, **Web JS/CanvasKit & WasmGC** e **iOS**) os seguintes pilares:
 
-1. **Tracker de Estudos & Métricas em Tempo Real**:
-   - Cronômetro ativo dual (Stopwatch contínuo e bloco Pomodoro).
-   - Agregação automática de horas estudadas por disciplina e tópicos.
-   - Gráficos analíticos (`fl_chart`) com distribuição percentual por matéria, metas semanais e heatmap de consistência diária (estilo GitHub/Obsidian).
-2. **Calendário Integrado & Agenda Cognitiva**:
-   - Planejamento de blocos de foco, revisões espaçadas, laboratórios e provas oficiais.
-   - Quatro modos de visualização: **Dia**, **Semana**, **Mês** e **Timeline**.
-   - Categorias personalizáveis com paleta semântica e ícones dinâmicos.
-   - Sugestões inteligentes da IA (com agendamento em 1 clique) e exclusão com feedback otimista e botão "Desfazer".
-3. **Agente Cognitivo Autônomo com Tool Calling**:
-   - Assistente inteligente conversacional integrado com capacidade de executar ações reais no banco de dados.
-   - Ferramentas ativas (_Function Calling_): registrar sessões de estudo (`log_study_session`) e agendar eventos no calendário (`schedule_calendar_event`).
-   - Chips com atalhos de ações rápidas e barra de comando de texto.
-4. **Motor de Simulados com RAG (Retrieval-Augmented Generation)**:
-   - Geração de questões inéditas de múltipla escolha com base em temas livres, presets de bancas examinadoras ou **documentos e provas anteriores anexados** (`.pdf`, `.txt`, `.md`, `.json`).
-   - Interface de prova completa: contagem regressiva, snippets de código formatados com fonte monoespaçada, marcação de questões para revisão (_flag_), gabarito interativo com justificativas detalhadas e citação das fontes RAG.
-   - Persistência automática do score, tempo gasto e histórico na nuvem.
-5. **Flashcards Cognitivos & Repetição Espaçada (Active Recall)**:
-   - Baralhos técnicos organizados por disciplina e temas específicos.
-   - Gerador inteligente por IA com suporte a Active Recall e anotações de referência.
-   - Modo de Estudo 3D com rotação interativa de cartão (*card flip*) e avaliação de retenção (Difícil 🔴, Bom 🟡, Fácil 🟢).
-   - Integração direta com o Tracker de Estudos (salva tempo de revisão no Dashboard com 1 clique).
-6. **Autenticação Unificada (Aster Account / SSO Global)**:
-   - Login e cadastro via email/senha, suporte a OAuth (Discord, Google, GitHub, Apple).
-   - Perfil dinâmico sincronizado com a rede Aster (`public.profiles`).
-   - Modo Visitante / Demonstração (_Guest Mode_) totalmente funcional para testes offline ou sem login imediato.
-7. **Central de Configurações Multi-Provedor**:
-   - Suporte nativo a múltiplos provedores de IA: Google Gemini, OpenAI, Anthropic, xAI (Grok), DeepSeek, OpenRouter e Endpoints personalizados (OpenAI-compatible).
-   - Ferramenta de benchmark de latência da chave de API em milissegundos.
-   - Alternância de tema entre **Aster Soft Clay (Light)** e **Dark Mode**.
-   - Seletor de 15 idiomas do ecossistema internacional.
+1. **Tracker de Estudos & Métricas em Tempo Real (`Dashboard`)**:
+   - Cronômetro ativo dual (Stopwatch contínuo e bloco Pomodoro) com `ValueNotifier<int>`.
+   - Agregação de horas estudadas por disciplina, metas diária e semanal, gráficos analíticos (`fl_chart`) e heatmap de consistência diária (`CustomPainter`).
+2. **Análise de Desempenho (`Desempenho`)**:
+   - Diagnóstico detalhado de acurácia, volume de estudos, evolução temporal e recomendações analíticas (`PerformanceAnalyticsService`).
+3. **Motor de Simulados com RAG (`Simulados`)**:
+   - Geração de questões inéditas de múltipla escolha a partir de temas livres, catálogo integrado (`ExamModelsCatalog` + `exemplos_simulados/`) ou documentos anexados (`.pdf`, `.txt`, `.md`, `.json`).
+   - Persistência local cross-platform (`saved_exams_store_*`) e sincronização com a nuvem (`noesis_quizzes`).
+4. **Flashcards Cognitivos 3D & Importação (`Flashcards`)**:
+   - Baralhos técnicos organizados por disciplina, gerador por IA, importação de arquivos (`DeckFileImporter`) e modo de estudo com *card flip* 3D e revisão espaçada (Difícil 🔴, Bom 🟡, Fácil 🟢).
+5. **Cadernos de Estudo (`Cadernos`) & Trilhas (`Trilhas`)**:
+   - Cadernos ricos com resumos e anotações (`noesis_study_notebooks`) e trilhas/roadmaps de aprendizado por etapas (`noesis_roadmaps`).
+6. **Diário de Estudos (`Diário`) & Calendário Integrado (`Calendário`)**:
+   - Histórico detalhado e registro de sessões (`StudyLogScreen`) + agenda cognitiva em 4 visões (**Dia**, **Semana**, **Mês**, **Timeline**) com categorias personalizadas e recomendações proativas da IA (`CalendarAiRecommendation`).
+7. **Agente Cognitivo Autônomo com Tool Calling (`Noesis AI`)**:
+   - Assistente conversacional multi-provedor com **20 ferramentas** (`NoesisAgentTools`) para ler e operar diretamente calendário, diário de estudos, metas, simulados, flashcards, cadernos e trilhas, além de suportar anexos (`NoesisAttachment`).
+8. **Comunidade & Gamificação (`Grupos`, `Ranking`, `Perfil`, `Loja`)**:
+   - Grupos de estudo (`noesis_study_groups`), ligas semanais com 8 Elos (`Faísca` → `Noesis`), perfil social com conquistas e cosméticos, e **Economia de Insights (`✦`)** com loja de temas, Protetores de Ofensiva e privilégios VIP (incluindo Editor RGB customizado).
+9. **Autenticação Unificada (Aster Account / SSO Global) & Modo Visitante**:
+   - Login/cadastro via email/senha e OAuth (Google, GitHub, Discord, Apple com loopback IO/Web), perfil compartilhado (`public.profiles`) e **Modo Visitante (`Guest Mode`)** totalmente funcional offline.
+10. **Central de Configurações Multi-Provedor (`Configurações`)**:
+    - Configuração de 7 provedores de IA, benchmark de latência em milissegundos, alternância entre **Aster Soft Clay (Light)**, **Dark Mode** e temas da loja, além de seletor de 15 idiomas.
 
 ---
 
 ## 2. Topologia do Ecossistema Aster e Diretrizes Mandatórias
 
-O projeto Noesis opera como uma das aplicações centrais da rede **Aster** (`asterdev.me`), coexistindo no mesmo banco de dados com outras soluções do ecossistema (_StudioOS_, _Soul Fighter_, _IdealCalc_, _Aster CRM_).
+O Noesis opera como uma das aplicações centrais da rede **Aster** (`asterdev.me`), compartilhando autenticação e perfis globais com outras soluções do ecossistema (_StudioOS_, _Soul Fighter_, _IdealCalc_, _Aster CRM_).
 
 ```mermaid
 flowchart TD
     subgraph Clients["Frontend Unificado (Flutter 3.50+ / Dart 3.14+)"]
-        Desktop["💻 Windows Desktop (.exe nativo)"]
-        Web["🌐 Web (Chrome / Edge / CanvasKit)"]
-        Mobile["📱 Mobile (Android & iOS)"]
+        Desktop["💻 Windows Desktop (.exe + Barra Nativa)"]
+        Web["🌐 Web (Chrome / Edge / CanvasKit & WasmGC)"]
+        Mobile["📱 Mobile (Android APK & iOS)"]
     end
 
     subgraph BackendAster["Infraestrutura Central Supabase (Aster)"]
         Auth["Aster Account (auth.users)"]
-        Profiles["public.profiles (Identidade Global)"]
+        Profiles["public.profiles (Identidade, VIP, Stats)"]
+        Storage["Storage (avatars)"]
         CRM["public.crm_apps (Catálogo Oficial)"]
-        T_Sessions[("public.noesis_sessions")]
-        T_Events[("public.noesis_calendar_events")]
-        T_Docs[("public.noesis_documents")]
-        T_Quizzes[("public.noesis_quizzes")]
+        Tables[("Tabelas noesis_* (9 tabelas com RLS)")]
         Realtime["Realtime Engine (WebSockets)"]
     end
 
     subgraph AI_Engine["Motor Cognitivo Multi-Provedor"]
-        Router{"AI Router / Config"}
-        Google["Google Gemini (SDK Oficial & REST)"]
-        OpenAI["OpenAI (GPT-4o, o4-mini)"]
-        Anthropic["Anthropic (Claude Sonnet 4, Haiku)"]
-        OtherAI["DeepSeek, xAI Grok, OpenRouter, Custom"]
-        Tools["Tool Calling (log_study, schedule_event)"]
+        Router{"GeminiService / AI Router"}
+        Google["Google Gemini (REST v1beta & SDK)"]
+        OpenAI["OpenAI (GPT-4o, o3-mini, o1)"]
+        Anthropic["Anthropic (Claude Sonnet / Haiku)"]
+        OtherAI["xAI Grok, DeepSeek, OpenRouter, Custom"]
+        Tools["NoesisAgentTools (20 Function Calls)"]
         RAG["RAG Ingestion (File Ingestion Engine)"]
     end
 
@@ -85,29 +74,43 @@ flowchart TD
     Router --> OpenAI
     Router --> Anthropic
     Router --> OtherAI
-    Google <--> Tools
-    Tools <-->|Mutações e Consultas| BackendAster
+    Router <--> Tools
+    Tools <-->|Leitura & Mutações| BackendAster
     RAG --> AI_Engine
 ```
 
 ### 👑 Regras de Ouro Obrigatórias para Qualquer IA ou Desenvolvedor:
 
-1. **Regra de Prefixagem Estrita**: O banco PostgreSQL do Supabase é compartilhado por toda a rede Aster. **NENHUMA tabela, view, trigger ou função criada para este projeto pode ter nome genérico.** Toda tabela do Noesis DEVE obrigatoriamente iniciar com o prefixo: **`noesis_`** (ex: `noesis_sessions`, `noesis_calendar_events`, `noesis_quizzes`).
-2. **Identidade Global Aster**: Não criar tabelas separadas de usuários ou perfis no Noesis. O usuário é identificado por `auth.users(id)` e seus dados visuais públicos (`full_name`, `channel`, `avatar_url`, `is_vip`) residem na tabela compartilhada `public.profiles`.
-3. **Catálogo CRM Aster**: O aplicativo está registrado em `public.crm_apps` com a chave `id: noesis`, prefixo `noesis_` e cor primária `#6c63ff`.
-4. **Respeito ao Design System Aster Soft Clay**: Não utilizar botões quadrados, bordas duras sólidas de alto contraste (`border: 1px solid black`), sombras secas ou paletas fora dos tokens semânticos definidos em `lib/core/constants.dart`.
-5. **Tolerância a Falhas / Modo Offline**: Qualquer tela do sistema deve possuir fallback in-memory ou mock de visualização limpo para que o aplicativo possa ser demonstrado e utilizado perfeitamente mesmo sem conexão ativa ou em modo convidado (`_isGuestMode`).
+1. **Regra de Prefixagem Estrita**: O banco PostgreSQL do Supabase é compartilhado por toda a rede Aster. **NENHUMA tabela, view, trigger ou função criada para este projeto pode ter nome genérico.** Toda tabela do Noesis DEVE obrigatoriamente iniciar com o prefixo **`noesis_`** (ex: `noesis_sessions`, `noesis_calendar_events`, `noesis_quizzes`).
+2. **Identidade Global Aster**: Não criar tabelas separadas de usuários. O usuário é identificado por `auth.users(id)` e seus dados públicos/estatísticas residem na tabela compartilhada `public.profiles` (incluindo chaves `noesis_*` no JSON de estatísticas e bucket `avatars`).
+3. **Catálogo CRM Aster**: O aplicativo está registrado em `public.crm_apps` com `id: noesis`, prefixo `noesis_` e cor primária `#6c63ff` / `#7C6CF0`.
+4. **Respeito ao Design System Aster Soft Clay**: Não utilizar bordas duras sólidas de alto contraste (`border: 1px solid black`), sombras secas ou paletas fora dos tokens em `lib/core/constants.dart` e `lib/core/theme.dart`.
+5. **Tolerância a Falhas / Modo Offline (`Modo Visitante`)**: Qualquer tela ou repositório deve possuir fallback in-memory / store local limpo para funcionar perfeitamente sem conexão ativa ou sem login (`currentUser == null`).
 
 ---
 
 ## 3. Esquema do Banco de Dados (PostgreSQL / Supabase)
 
-O banco de dados é hospedado no Supabase oficial da Aster. Abaixo está a definição completa das tabelas locais com suas restrições e políticas de segurança:
+Todas as tabelas locais são protegidas com **Row Level Security (RLS)** vinculadas a `auth.uid() = user_id` (ou políticas de grupo em `noesis_study_groups`).
+
+### Tabelas Ativas no Projeto (`noesis_*`):
+
+| Tabela | Responsabilidade | Módulo Principal |
+| :--- | :--- | :--- |
+| **`public.noesis_sessions`** | Sessões de estudo cronometradas e manuais | `tracker`, `study_log`, `supabase_service.dart` |
+| **`public.noesis_calendar_events`** | Blocos de foco, revisões, labs e provas | `calendar`, `supabase_service.dart` |
+| **`public.noesis_documents`** | Documentos e provas anteriores ingeridos para RAG | `quizzes`, `supabase_service.dart` |
+| **`public.noesis_quizzes`** | Simulados gerados, questões JSONB, acurácia e tempo | `quizzes`, `saved_exams_repository.dart` |
+| **`public.noesis_flashcard_decks`** | Baralhos e cartões de revisão espaçada 3D | `flashcards`, `supabase_service.dart` |
+| **`public.noesis_study_notebooks`** | Cadernos e anotações de estudo | `notebooks`, `supabase_service.dart` |
+| **`public.noesis_roadmaps`** | Trilhas de aprendizado e etapas | `roadmaps`, `roadmaps_repository.dart` |
+| **`public.noesis_study_groups`** | Grupos colaborativos de estudo | `study_groups`, `study_groups_service.dart` |
+| **`public.noesis_insight_ledger`** | Razão contábil da Economia de Insights (`✦`) | `shop`, `shop_service.dart` |
+
+### Definição Base das 4 Tabelas Centrais:
 
 ```sql
--- =============================================================================
 -- 1. SESSÕES DE ESTUDO & MÉTRICAS (noesis_sessions)
--- =============================================================================
 create table public.noesis_sessions (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -119,17 +122,7 @@ create table public.noesis_sessions (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Políticas RLS
-alter table public.noesis_sessions enable row level security;
-create policy "Usuários podem gerenciar suas próprias sessões"
-    on public.noesis_sessions
-    for all
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-
--- =============================================================================
 -- 2. CALENDÁRIO, BLOCOS DE FOCO E AGENDAMENTOS (noesis_calendar_events)
--- =============================================================================
 create table public.noesis_calendar_events (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -143,17 +136,7 @@ create table public.noesis_calendar_events (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Políticas RLS
-alter table public.noesis_calendar_events enable row level security;
-create policy "Usuários podem gerenciar seus próprios eventos de calendário"
-    on public.noesis_calendar_events
-    for all
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-
--- =============================================================================
 -- 3. DOCUMENTOS E PROVAS ANTERIORES PARA RAG (noesis_documents)
--- =============================================================================
 create table public.noesis_documents (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
@@ -165,70 +148,28 @@ create table public.noesis_documents (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Políticas RLS
-alter table public.noesis_documents enable row level security;
-create policy "Usuários podem gerenciar seus próprios documentos RAG"
-    on public.noesis_documents
-    for all
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-
--- =============================================================================
 -- 4. SIMULADOS GERADOS E RESULTADOS (noesis_quizzes)
--- =============================================================================
 create table public.noesis_quizzes (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references auth.users(id) on delete cascade,
     document_id uuid references public.noesis_documents(id) on delete set null,
     title text not null,
     subject text not null,
-    questions_data jsonb not null, -- Array de objetos JSON com question, options, correct_index, explanation, code_snippet, rag_sources
+    questions_data jsonb not null,
     score_percentage numeric(5,2),
     time_spent_seconds integer,
     completed_at timestamp with time zone,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
-
--- Políticas RLS
-alter table public.noesis_quizzes enable row level security;
-create policy "Usuários podem gerenciar seus próprios simulados"
-    on public.noesis_quizzes
-    for all
-    using (auth.uid() = user_id)
-    with check (auth.uid() = user_id);
-```
-
-### Estrutura do JSON Armazenado em `questions_data`
-
-```json
-[
-  {
-    "question": "Enunciado técnico com contextualização de cenário...",
-    "code_snippet": "Linhas de código opcionais para análise sintática ou vulnerabilidade",
-    "options": [
-      "Alternativa A",
-      "Alternativa B",
-      "Alternativa C",
-      "Alternativa D"
-    ],
-    "correct_index": 1,
-    "explanation": "Explicação pedagógica e técnica fundamentando o gabarito e desmontando os distratores.",
-    "rag_sources": [
-      "OWASP Top 10 2021",
-      "NIST SP 800-63B",
-      "Material da Aula 04"
-    ]
-  }
-]
 ```
 
 ---
 
-## 4. Design System Oficial: Aster Soft Clay & Dark Mode
+## 4. Design System Oficial: Aster Soft Clay, Dark Mode & Temas
 
-O Noesis implementa com fidelidade a especificação visual do ecossistema Aster, baseada no estilo **Soft Clay** (argila suave), combinando superfícies com cantos curvos orgânicos, zero bordas secas, sombras difusas em múltiplas camadas e zoneamento quadricromático semântico.
+O Noesis segue o estilo **Aster Soft Clay** (argila suave), com cantos orgânicos amplos, zero bordas secas, sombras difusas multicamada e zoneamento quadricromático semântico.
 
-### Tokens de Cor e Semântica (`AsterConstants`):
+### Tokens de Cor e Semântica (`AsterConstants` em `lib/core/constants.dart`):
 
 | Token                      | Hex / Valor | Função Semântica                  | Aplicação no Sistema                                                |
 | :------------------------- | :---------- | :-------------------------------- | :------------------------------------------------------------------ |
@@ -244,88 +185,80 @@ O Noesis implementa com fidelidade a especificação visual do ecossistema Aster
 | **`textMuted`**            | `#6F7190`   | Tipografia secundária             | Metadados, descrições auxiliares e rótulos de métricas.             |
 | **`textFaint`**            | `#A7A9C2`   | Elementos inativos e placeholders | Dicas em campos de texto e ícones secundários passivos.             |
 
-### Paleta Canônica Dark Mode (Aster Soft Clay Noturno):
+### Dark Mode & Temas Desbloqueáveis (`AsterTheme` + `ShopService`):
 
-| Token                   | Hex / Valor | Função Semântica                  | Aplicação no Modo Escuro                                           |
-| :---------------------- | :---------- | :-------------------------------- | :----------------------------------------------------------------- |
-| **`bgDark`**            | `#11121C`   | Névoa Noturna profunda            | Fundo geral com iluminação radial suave lavanda/menta.            |
-| **`surfaceCardDark`**   | `#1B1C2A`   | Cartões elevados soft clay        | Cards e modais com sombra profunda e zero bordas secas.           |
-| **`surfaceAltDark`**    | `#24263A`   | Superfície alternativa escurecida | Chips de disciplina, botões secundários e campos de input.         |
-| **`surfaceInsetDark`**  | `#2E3149`   | Superfície rebaixada escura       | Trilhas de progresso e pontos vazios do Consistency Heatmap.       |
-| **`textLight`**         | `#F4F5FB`   | Tipografia clara de alto contraste| Títulos, números do timer e leitura profunda com contraste WCAG AAA.|
-| **`textMutedDark`**     | `#989BB8`   | Tipografia secundária escurecida  | Subtítulos, metadados e rótulos auxiliares.                        |
-| **`textFaintDark`**     | `#656888`   | Elementos inativos escuros        | Dicas, ícones passivos e divisores secundários.                    |
-
-### Regras Visuais e Construtores:
-
-- **Zero Bordas Rígidas**: Elementos são delimitados por contraste e pelas sombras multicamadas Soft Clay:
-  ```dart
-  static const List<BoxShadow> clayShadow = [
-    BoxShadow(
-      color: Color.fromRGBO(60, 60, 120, 0.08),
-      blurRadius: 18,
-      offset: Offset(0, 8),
-      spreadRadius: -4,
-    ),
-    BoxShadow(
-      color: Color.fromRGBO(60, 60, 120, 0.03),
-      blurRadius: 6,
-      offset: Offset(0, 2),
-      spreadRadius: 0,
-    ),
-  ];
-  ```
-- **Raios de Curvatura**: `radiusLarge = 28.0` (cards), `radiusMedium = 16.0` (inputs/diálogos), `radiusPill = 999.0` (botões e badges).
-- **Tipografia**: `GoogleFonts.manrope` para interface, cabeçalhos e leitura; `GoogleFonts.jetbrainsMono` para contadores de timer e snippets de código.
-- **Suporte Completo a Dark Mode & Transição Fluida**: Alternância controlada por `AsterTheme.themeModeNotifier`, com instâncias imutáveis pré-compiladas em memória (`softClayTheme` e `darkTheme`) e animação calibrada em `280ms` com curva `Curves.easeInOutCubic` configurada no `MaterialApp`. Zero recalculação de fontes em runtime e zero lag visual na transição.
+- **Dark Mode Canônico**: `bgDark` (`#11121C`), `surfaceCardDark` (`#1B1C2A`), `surfaceAltDark` (`#24263A`), `surfaceInsetDark` (`#2E3149`), `textLight` (`#F4F5FB`), `textMutedDark` (`#989BB8`), `textFaintDark` (`#656888`), controlado por `AsterTheme.themeModeNotifier` com transição de `280ms` (`Curves.easeInOutCubic`).
+- **Temas da Loja (`InsightsEconomyConfig.themePrices`)**: `soft_clay_nevoa` (grátis), `aurora`, `floresta`, `oceano` (300 ✦), `brasa`, `lagoa`, `sakura`, `nordico` (600 ✦), `grafite`, `esmeralda`, `crepusculo` (1000 ✦), além do **Tema VIP Customizável** com editor RGB em tempo real (`VipRgbThemeEditor`).
+- **Raios & Sombras**: `radiusLarge = 28.0`, `radiusMedium = 16.0`, `radiusPill = 999.0`; sombras `clayShadow`, `claySubtleShadow`, `clayListShadow`, `clayDarkShadow`, `clayListDarkShadow`, `claySubtleDarkShadow`, `primaryButtonShadow`.
+- **Tipografia Local Offline (`assets/fonts/`)**: 10 arquivos `.ttf` empacotados localmente (`Manrope` 5 pesos, `JetBrainsMono` 4 pesos e `SpaceGrotesk-Bold.ttf`) com `GoogleFonts.config.allowRuntimeFetching = false`.
 
 ---
 
 ## 5. Estrutura do Código e Arquitetura de Pastas
 
-O projeto adota uma arquitetura modular orientada a funcionalidades (_feature-first_), separando regras essenciais de infraestrutura no diretório `core/`:
+O projeto adota arquitetura modular orientada a funcionalidades (_feature-first_), com infraestrutura compartilhada em `lib/core/` e componentes visuais em `lib/widgets/`:
 
-```
+```text
 c:\Users\User\Desktop\Project\Noesis\
 ├── .vscode/                      # Configurações de IDE e ambiente
 ├── assets/
-│   ├── fonts/                    # Tipografias locais (Manrope, JetBrainsMono, SpaceGrotesk)
-│   └── images/                   # Logotipos e ícones SVG do aplicativo
+│   ├── fonts/                    # 10 fontes locais TTF (Manrope, JetBrainsMono, SpaceGrotesk)
+│   └── images/                   # Logotipo SVG e ícone de Insights (logo.svg, insight.svg)
 ├── docs/
 │   ├── screenshots/              # Capturas oficiais (Aster Soft Clay Desktop & Mobile)
-│   ├── ARQUITETURA.md            # Documento inicial de arquitetura
-│   └── PERFORMANCE_REPORT.md     # Auditoria de performance Web/WasmGC
+│   ├── ARQUITETURA.md            # Documento inicial de arquitetura e topologia
+│   └── PERFORMANCE_REPORT.md     # Auditoria de performance Web / WasmGC
 ├── exemplos_simulados/           # Catálogo de simulados e exames de referência
-├── releases/                     # Binários oficiais prontos para download (APK & Windows ZIP)
-├── scripts/                      # Utilitários de empacotamento e automação
+├── releases/                     # Binários oficiais versionados (Android APK & Windows ZIP)
+├── scripts/                      # Utilitários de empacotamento (package_releases.ps1)
 ├── lib/
 │   ├── core/
-│   │   ├── constants.dart        # Tokens Aster Soft Clay, chaves e URLs do Supabase
-│   │   ├── theme.dart            # Temas Claro (Soft Clay) e Escuro (Dark Mode)
-│   │   ├── supabase_service.dart # Cliente Supabase, Auth, CRUD e Streams Realtime
-│   │   └── gemini_service.dart   # Motor de IA Multi-Provedor, Tool Calling e Quiz RAG
+│   │   ├── audio_service.dart           # Efeitos sonoros táteis (audioplayers)
+│   │   ├── constants.dart               # Tokens Aster Soft Clay, cores, raios e URLs Supabase
+│   │   ├── desktop_window_service.dart  # Controle da janela nativa Windows (MethodChannel)
+│   │   ├── gemini_service.dart          # Hub multi-IA, fetch de modelos, Tool Calling e RAG
+│   │   ├── insights_economy_config.dart # Regras da moeda Insights (✦), caps, Elos e preços
+│   │   ├── noesis_agent_tools.dart      # 20 declarações de ferramentas, anexos e executor
+│   │   ├── notifications_service.dart   # Central e fila de notificações
+│   │   ├── oauth_loopback_io.dart       # Servidor loopback OAuth para Desktop/Mobile
+│   │   ├── oauth_loopback_stub.dart     # Stub OAuth para Web
+│   │   ├── shop_service.dart            # Economia, temas equipados, Protetores de Ofensiva e VIP
+│   │   ├── supabase_service.dart        # Cliente Supabase, Auth, CRUD e Streams Realtime
+│   │   ├── theme.dart                   # Temas Claro/Escuro e temas desbloqueáveis
+│   │   └── tts/                         # Síntese de voz (tts_helper, tts_stub, tts_web)
 │   │
 │   ├── features/
-│   │   ├── auth/                 # Aster Account SSO, email/senha, OAuth e Modo Visitante
-│   │   ├── tracker/              # Pomodoro/Stopwatch, gráficos analíticos e heatmap
-│   │   ├── calendar/             # Agenda 4 vistas (Dia/Sem/Mês/Timeline), categorias e IA
-│   │   ├── ai_agent/             # Chat com Noesis AI, Tool Calling e chips de ação rápida
-│   │   ├── quizzes/              # Gerador RAG, prova interativa, cronômetro e gabarito
-│   │   ├── flashcards/           # Hub de baralhos, gerador IA e revisor 3D flip
-│   │   ├── notebooks/            # Cadernos e anotações de estudo
-│   │   ├── roadmaps/             # Trilhas de aprendizado
-│   │   ├── performance/          # Análises detalhadas de desempenho
-│   │   ├── ranking/              # Ranking e gamificação
-│   │   ├── study_groups/         # Grupos de estudo colaborativos
-│   │   ├── shop/                 # Loja de insights e recompensas
-│   │   ├── profile/              # Perfil social e conquistas
-│   │   └── settings/             # Configurações multi-IA, benchmark, tema e idiomas
+│   │   ├── ai_agent/                    # Noesis AI + histórico persistente de conversas
+│   │   ├── auth/                        # Aster Account SSO, OAuth e Modo Visitante
+│   │   ├── calendar/                    # Agenda 4 vistas (Dia/Sem/Mês/Timeline) + sugestões IA
+│   │   ├── flashcards/                  # Hub de baralhos, importador de arquivos e flip 3D
+│   │   ├── notebooks/                   # Cadernos de estudo e anotações
+│   │   ├── performance/                 # Análises de desempenho e evolução
+│   │   ├── profile/                     # Perfil social, seguidores, conquistas e cosméticos
+│   │   ├── quizzes/                     # Simulados RAG, ExamModelsCatalog e stores locais
+│   │   ├── ranking/                     # Ranking semanal e sistema de 8 Elos
+│   │   ├── roadmaps/                    # Trilhas de aprendizado estruturadas
+│   │   ├── settings/                    # Provedores IA, benchmark de latência, tema e 15 idiomas
+│   │   ├── shop/                        # Loja de temas, Arsenal de Estudo e privilégios VIP
+│   │   ├── study_groups/                # Grupos de estudo colaborativos e modais
+│   │   ├── study_log/                   # Diário de Estudos detalhado
+│   │   └── tracker/                     # Timer Pomodoro/Stopwatch, analytics e heatmap
 │   │
-│   ├── widgets/                  # Componentes reutilizáveis (Logo, TopBar, VIP, Bandeiras)
-│   └── main.dart                 # Shell adaptativo (Sidebar Desktop / BottomBar Mobile), notificações
+│   ├── widgets/
+│   │   ├── country_flag_icon.dart       # Bandeiras para seletor de idiomas
+│   │   ├── desktop_top_bar.dart         # Barra superior desktop com controles de janela e busca
+│   │   ├── insight_gain_toast_overlay.dart # Toast animado de ganho de Insights
+│   │   ├── insight_icon.dart            # Ícone oficial da moeda Insights
+│   │   ├── noesis_logo.dart             # Marca vetorial do Noesis
+│   │   ├── profile_settings_dialog.dart # Edição de perfil e avatar
+│   │   ├── vip_privileges.dart          # Regras e selos VIP
+│   │   ├── vip_rgb_theme_editor.dart    # Editor de tema customizado RGB para VIP
+│   │   └── weekly_goal_dialog.dart      # Configurador de meta semanal
+│   │
+│   └── main.dart                        # Shell adaptativo (14 abas, Sidebar/DesktopTopBar/BottomBar)
 │
-├── test/                         # Suíte de testes unitários, widgets e E2E
-├── pubspec.yaml                  # Dependências, fontes e assets do Flutter
+├── test/                         # Suíte de testes unitários, widgets e E2E (Tiers 1–4)
+├── pubspec.yaml                  # Dependências, fontes e declaração de assets
 ├── README.md                     # Visão geral, screenshots e downloads oficiais
 └── PROJECT_CONTEXT.md            # Este documento oficial de contexto para IA
 ```
@@ -334,244 +267,145 @@ c:\Users\User\Desktop\Project\Noesis\
 
 ## 6. Módulos e Funcionalidades Detalhadas
 
-### 6.1 Shell Adaptativo & Notificações (`lib/main.dart`)
+### 6.1 Shell Adaptativo & Janela Desktop (`lib/main.dart`, `lib/widgets/desktop_top_bar.dart`)
 
-- **Navegação Responsiva**:
-  - **Desktop / Tablet (>= 900px)**: Sidebar fixa de 240px com logotipo Noesis, pílula de navegação ativa animada, widget de progresso da meta semanal (ex: `18h / 25h · 72%`), card de perfil com avatar e streak (`🔥 42 dias`), e botão de logout.
-  - **Mobile (< 900px)**: Barra de navegação inferior flutuante com ícones táteis e cabeçalho compacto.
-- **Central de Notificações Interativa**:
-  - Painel flutuante em diálogo no Desktop ou _bottom sheet_ no Mobile.
-  - Contador de notificações não lidas em tempo real com indicador visual em `coral`.
-  - Notificações com categorias de estudo, simulados e alertas com ação direta: tocar na notificação marca como lida e redireciona imediatamente para a aba correspondente.
-- **Carregamento Otimizado (Lazy Loading)**:
-  - Abas são mantidas em cache sob demanda (`_loadedTabs`) para transições instantâneas a 60 FPS sem reconstruções desnecessárias.
+O `RootScreen` gerencia **14 abas lazy-loaded** em `Offstage` + `TickerMode` + `RepaintBoundary` via `ValueNotifier<int>` (`_activeTabNotifier`), organizadas em 5 seções na Sidebar Desktop:
+- **Principal**: `Dashboard` (0 - `TrackerScreen`), `Desempenho` (13 - `PerformanceScreen`)
+- **ESTUDO**: `Simulados` (1 - `QuizScreen`), `Flashcards` (2 - `FlashcardsScreen`), `Cadernos` (3 - `NotebooksScreen`), `Trilhas` (8 - `RoadmapsScreen`)
+- **ROTINA & IA**: `Diário de Estudos` (7 - `StudyLogScreen`), `Calendário` (5 - `CalendarScreen`), `Noesis AI` (4 - `AiAssistantScreen`)
+- **COMUNIDADE**: `Grupos` (10 - `StudyGroupsScreen`), `Ranking` (11 - `RankingScreen`)
+- **CONTA**: `Perfil` (12 - `ProfileScreen`), `Loja` (9 - `ShopScreen`), `Configurações` (6 - `SettingsScreen`)
+
+- **Desktop / Windows Nativo**: `DesktopTopBar` integrada com `DesktopWindowService` (`MethodChannel('noesis/window_controls')` para arrasto, minimizar, maximizar/restaurar, fechar e sincronia com modo escuro), carteira de Insights, notificações e avatar.
+- **Mobile (< 900px)**: Barra de navegação inferior fixa com 4 destinos primários (`{0, 1, 2, 4}`: Início, Simulados, Flashcards, Noesis AI) + **Menu Hub** para acessar todas as demais abas.
 
 ### 6.2 Autenticação & Identidade Aster (`lib/features/auth/auth_screen.dart`)
 
-- **Doppelrand (Double-Bezel Architecture)**: Card de login com moldura concêntrica dupla suave e sombra aveludada.
-- **Alternador de Modo Animado**: _Sliding pill_ fluida para alternar entre "Entrar" e "Criar Conta".
-- **Integração Supabase Auth**: Login e cadastro com suporte a `full_name` vinculado ao perfil global.
-- **Recuperação de Senha**: Modal com envio de link de redefinição via email por `resetPasswordForEmail`.
-- **Provedores OAuth**: Botões configurados para Google, GitHub, Discord e Apple com tratamento de redirecionamento.
-- **Modo Visitante (Guest Mode)**: Botão "Entrar sem login · Modo de Teste" que permite ao usuário explorar todas as abas, simulados e timers com dados mockados em memória sem precisar criar conta.
+- Login e cadastro com `auth.users` e `public.profiles`.
+- Recuperação de senha (`resetPasswordForEmail`) e provedores OAuth (Google, GitHub, Discord, Apple) com loopback HTTP em plataformas nativas (`oauth_loopback_io.dart`).
+- **Modo Visitante (`Guest Mode`)**: acesso imediato offline com dados mockados e armazenamento local em memória sem exigir cadastro.
 
-### 6.3 Tracker de Estudos & Métricas (`lib/features/tracker/tracker_screen.dart`)
+### 6.3 Tracker, Diário de Estudos & Desempenho (`tracker/`, `study_log/`, `performance/`)
 
-- **Timer Hero**:
-  - Mostrador de alta precisão (`HH:MM:SS`) renderizado via `ValueNotifier<int>` (evitando reconstruir a árvore inteira a cada segundo).
-  - Ações de Iniciar, Pausar, Resetar e Registrar no banco Supabase.
-- **Métricas e Gráficos Analíticos**:
-  - Card de total de horas estudadas vs meta semanal.
-  - Gráfico de pizza/rosca de distribuição por matéria (`fl_chart`).
-  - Heatmap de consistência diária nos últimos meses com intensidades de cor `menta` estilo contribuições do GitHub.
-- **Histórico de Sessões**:
-  - Lista de sessões recentes vindas do stream Supabase `noesis_sessions` com disciplina, tópico, duração em minutos e notas, acompanhada de exclusão com 1 toque.
-- **Card de Insight Cognitivo**:
-  - Recomendações sintéticas da IA sobre retenção e revisão espaçada.
+- Timer de alta precisão (`HH:MM:SS`) via `ValueNotifier<int>` (Stopwatch e Pomodoro), meta semanal e diária configuráveis (`weekly_goal_dialog.dart`), gráfico de distribuição (`fl_chart`), heatmap `CustomPainter` e histórico sincronizado em `noesis_sessions`.
+- `StudyLogScreen` dedica-se à consulta e manutenção detalhada das sessões; `PerformanceScreen` consolida métricas de evolução e retenção.
 
-### 6.4 Calendário & Planejamento Cognitivo (`lib/features/calendar/calendar_screen.dart`)
+### 6.4 Calendário Cognitivo (`lib/features/calendar/calendar_screen.dart`)
 
-- **Quatro Modos de Visualização**:
-  - **Dia**: Detalhamento horário bloco a bloco.
-  - **Semana**: Grade horizontal com colunas para cada dia da semana e cálculo de horas diárias.
-  - **Mês**: Visão global clássica com marcadores visuais (`table_calendar`).
-  - **Timeline**: Linha do tempo sequencial dos próximos blocos agendados.
-- **Categorização & Cores Personalizadas**:
-  - Categorias padrão: Estudo (`lavanda`), Revisão (`menta`), Lab/Simulado (`ambar`), Prova/Compromisso (`coral`).
-  - Modal para criar categorias personalizadas com 10 opções de cores hexadecimais e 16 ícones temáticos.
-  - Filtro em pílula por categoria na barra de ações.
-- **Sugestão Inteligente da IA**:
-  - Card "Sugerido pela IA: Bloco de Foco" com opção de agendamento imediato na agenda.
-- **Resiliência e UX Otimista**:
-  - Exclusão com confirmação e SnackBar de "Desfazer".
-  - Toggle de conclusão (`is_completed`) instantâneo com reflexo visual em tachado.
-  - Seeding in-memory inteligente de eventos mockados para demonstração imediata caso o banco esteja vazio.
+- 4 modos de visualização (**Dia**, **Semana**, **Mês** com `table_calendar` e **Timeline**), categorias padrão (`study`, `review`, `lab`, `exam`, `personal`) e personalizadas, sugestão inteligente da IA (`CalendarAiRecommendation`) e exclusão otimista com "Desfazer".
 
-### 6.5 Simulados RAG & Exames Técnicos (`lib/features/quizzes/quiz_screen.dart`)
+### 6.5 Simulados RAG & Catálogo de Exames (`lib/features/quizzes/`)
 
-- **Presets de Exames Oficiais Integrados**:
-  - CompTIA Security+ (SY0-701)
-  - AWS Solutions Architect Associate (SAA-C03)
-  - OWASP Top 10 & AppSec
-  - Criptografia & PKI
-  - Flutter Architecture & State Management
-  - Kubernetes & CKA
-- **Configurador de Simulado**:
-  - Seletor de quantidade de questões (2 a 20).
-  - 3 Níveis de dificuldade: _Iniciante / Fundamentos_, _Médio / Prático_, _Avançado / Nível Certificação_.
-  - Alternador de ingestão de documentos para RAG (`file_picker`), aceitando `.txt`, `.md`, `.json` e `.pdf`.
-- **Interface Interativa de Prova**:
-  - Cronômetro regressivo de tempo de prova.
-  - Suporte a exibição de snippets de código (`code_snippet`) com visual escuro e numeração de linhas.
-  - Botão de bandeira (_flag_) para marcar questões com dúvida para revisão posterior.
-  - Feedback imediato ou pós-exame com explicação aprofundada da alternativa correta e lista de fontes RAG citadas.
-  - Modo Demo Mock instantâneo carregado com 1 clique caso a chave de IA não esteja configurada no momento.
-  - Salvamento automático de resultados no Supabase `noesis_quizzes`.
+- Catálogo oficial `ExamModelsCatalog` + arquivos de referência em `exemplos_simulados/` (vestibulares Brasil, internacionais, idiomas, tecnologia/certificações, jurídico/concursos, saúde/medicina, negócios/economia).
+- Ingestão de documentos para RAG (`.pdf`, `.txt`, `.md`, `.json`), snippets de código, marcação para revisão (_flag_), cronômetro regressivo, gabarito comentado com fontes RAG e armazenamento local (`saved_exams_store_*`) + nuvem (`noesis_quizzes`).
 
-### 6.6 Agente Cognitivo Noesis AI (`lib/features/ai_agent/ai_assistant_screen.dart`)
+### 6.6 Flashcards 3D, Cadernos & Trilhas (`flashcards/`, `notebooks/`, `roadmaps/`)
 
-- **Interface Conversacional**:
-  - Renderização completa de Markdown (`flutter_markdown`) com tabelas, listas e blocos de código.
-  - Histórico de diálogo contínuo (`_conversationHistory`).
-  - Botão de cópia rápida para a área de transferência em cada resposta do assistente.
-- **Function Calling / Execução de Ações Reais no Noesis**:
-  - **Registrar Sessão de Estudo (`log_study_session`)**: Persiste no banco Supabase / Tracker com atalho "Ver no Dashboard".
-  - **Agendar Evento no Calendário (`schedule_calendar_event`)**: Cria blocos na agenda cognitiva com atalho "Ver no Calendário".
-  - **Criar Simulado Técnico (`create_quiz`)**: Gera 5 questões completas com gabarito e explicação, salvando em `noesis_quizzes` com botão interativo direto: "Iniciar Simulado Agora 🚀" (que carrega o exame instantaneamente na aba Simulados).
-  - **Criar Baralho de Flashcards (`create_flashcards`)**: Gera conjunto de cartões cognitivos com Active Recall e salva no Noesis com botão interativo: "Praticar Flashcards Agora 🎴".
+- **Flashcards**: geração via IA, importação de baralhos (`DeckFileImporter`), revisão 3D com `Transform`/`Matrix4` e avaliação espaçada, integrando recompensas de Insights quando revisados no prazo.
+- **Cadernos**: editor e organização de anotações persistidas em `noesis_study_notebooks`.
+- **Trilhas**: roadmaps de aprendizado por objetivo e semanas estimadas em `noesis_roadmaps`.
 
-### 6.7 Flashcards Cognitivos (`lib/features/flashcards/flashcards_screen.dart`)
+### 6.7 Agente Cognitivo Noesis AI (`lib/features/ai_agent/`)
 
-- **Hub de Baralhos & Métricas**:
-  - Estatísticas de retenção (Total de Baralhos, Total de Cartões, Dominados 🟢, Média de Retenção %).
-  - Filtro ágil por disciplina e busca full-text por conceito ou enunciado.
-  - Cartões com visual Aster Soft Clay, barra de progresso percentual e menu contextual.
-- **Gerador Inteligente por IA (Temas Específicos)**:
-  - Criação rápida orientada a temas específicos digitados pelo usuário (ex: TLS 1.3, Kubernetes Pods, OWASP Injection).
-  - Seleção de profundidade (Iniciante, Prático, Técnico/Certificação) e quantidade (5, 8, 12, 16 cartões).
-  - Campo opcional para anexar anotações e resumos como contexto para geração.
-- **Criação Manual Flexível**:
-  - Modal dinâmico para criar baralhos personalizados e adicionar cartões ilimitados (frente e verso).
-- **Modo de Estudo 3D (Active Recall)**:
-  - Animação tátil de rotação tridimensional de 180° (`Transform` com `Matrix4` e perspectiva).
-  - Classificação cognitiva espaçada: **Difícil 🔴** (Revisar logo), **Bom 🟡** (Lembrei com esforço), **Fácil 🟢** (Dominei!).
-  - Resumo de conclusão com taxa de acertos e botão de 1 clique para persistir o tempo estudado no Tracker do Dashboard.
+- Chat com renderização Markdown (`flutter_markdown`), histórico persistido (`AiChatHistoryRepository`), chips de sugestão rápida (`NoesisQuickSuggestion`), suporte a anexos (`NoesisAttachment`: arquivo, simulado, caderno, baralho, trilha, diário, calendário) e execução autônoma de **20 ferramentas** em `NoesisAgentTools`.
 
-### 6.8 Central de Configurações (`lib/features/settings/settings_screen.dart`)
+### 6.8 Comunidade, Ranking, Perfil & Economia de Insights (`study_groups/`, `ranking/`, `profile/`, `shop/`)
 
-- **Aparência e Tema**: Alternador entre Modo Claro (Aster Soft Clay) e Modo Escuro.
-- **Multi-Provedor de IA**:
-  - Provedores disponíveis: Google Gemini, OpenAI, Anthropic, xAI Grok, DeepSeek, OpenRouter, Custom REST.
-  - Entrada de chave de API protegida com visualização opcional.
-  - Seletor de modelos oficiais ou inserção manual de identificador de modelo.
-  - Botão **Testar Conexão** com medição em tempo real de latência (ms) e retorno visual de status.
-- **Seletor de Idiomas**: Catálogo de 15 idiomas com bandeira e região (Português BR, English, Español, 日本語, 中文, 한국어, Tiếng Việt, Bahasa Indonesia, Français, Deutsch, Italiano, Nederlands, Русский, العربية, Português PT).
-- **Gerenciamento de Conta**: Visualização de status da conta Aster e botão de encerramento de sessão.
+- **Ranking**: Ligas semanais com 8 Elos progressivos (`Faísca`, `Vigília`, `Logos`, `Síntese`, `Episteme`, `Ápice`, `Sophia`, `Noesis`), conferindo +10% de ganho de Insights e +20 no teto diário por Elo.
+- **Perfil Social**: conexões (`SocialConnectionsService`), conquistas (`profile_achievements.dart`), cosméticos (`profile_cosmetics.dart`) e modal de perfil público.
+- **Loja & Economia (`InsightsEconomyConfig` + `ShopService`)**: moeda **Insights (`✦`)** ganha por esforço real (questões ≥ 3s, revisões devidas, simulados, metas e marcos de streak), regras anti-abuso, teto diário suave (`150` base), multiplicador VIP `2×`, Protetores de Ofensiva (máx. `5` padrão / `10` VIP) e 10 temas desbloqueáveis + editor RGB VIP.
+
+### 6.9 Central de Configurações (`lib/features/settings/settings_screen.dart`)
+
+- Alternância entre Modo Claro (*Aster Soft Clay*), Modo Escuro e temas equipados.
+- Seleção de provedor e modelo de IA, teste de conexão com **benchmark de latência** em milissegundos e seletor de **15 idiomas** com bandeiras (`CountryFlagIcon`).
 
 ---
 
-## 7. Motor de Inteligência Artificial & Tool Calling (`lib/core/gemini_service.dart`)
+## 7. Motor de Inteligência Artificial & Tool Calling (`gemini_service.dart` & `noesis_agent_tools.dart`)
 
-O `GeminiService` atua como um hub agnóstico de IA. Ele opera prioritariamente com o SDK nativo do Google Gemini quando configurado no provedor Google, e faz roteamento automático via REST para provedores compatíveis com OpenAI ou Anthropic.
+O `GeminiService` roteia chamadas entre o endpoint REST `v1beta` do Google Gemini (incluindo descoberta dinâmica de modelos operacionais via `fetchOperationalGoogleModels`) e endpoints compatíveis com OpenAI/Anthropic.
 
-### 7.1 Catálogo de Provedores e Modelos Pré-Configurados:
+### 7.1 Catálogo de Provedores e Modelos Configurados (`GeminiService.providers`):
 
-1. **Google**: Modelos `gemini-2.0-flash`, `gemini-2.5-flash`, `gemini-2.0-flash-lite`, `gemini-1.5-flash`, `gemini-1.5-pro`.
-2. **OpenAI**: Modelos `gpt-4o`, `gpt-4o-mini`, `o4-mini`.
-3. **Anthropic**: Modelos `claude-sonnet-4`, `claude-haiku-4`.
-4. **xAI (Grok)**: Modelo `grok-4.7`.
-5. **DeepSeek**: Modelos `deepseek-v4-pro`, `deepseek-v4-flash`.
-6. **OpenRouter**: Modelos `auto`, `deepseek-v3`.
-7. **Personalizado (Custom)**: URL base configurável compatível com o endpoint `/chat/completions`.
+1. **Google Gemini (`google`)**: `gemini-flash-lite-latest` (padrão), `gemini-3-flash-preview`, `gemini-3.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.0-flash`.
+2. **OpenAI (`openai`)**: `gpt-4o`, `gpt-4o-mini` (padrão), `o3-mini`, `o1`.
+3. **Anthropic (`anthropic`)**: `claude-3-7-sonnet` (padrão), `claude-3-5-haiku`, `claude-3-5-sonnet`.
+4. **xAI · Grok (`xai`)**: `grok-2-1212` (padrão), `grok-2-vision-1212`, `grok-beta`.
+5. **DeepSeek (`deepseek`)**: `deepseek-chat` (padrão), `deepseek-reasoner`.
+6. **OpenRouter (`openrouter`)**: `auto` (padrão), `google/gemini-1.5-flash`, `deepseek/deepseek-chat`, `anthropic/claude-3.7-sonnet`.
+7. **Personalizado (`custom`)**: URL base configurável compatível com `/chat/completions`.
 
-### 7.2 Definição das Ferramentas (Tool Calling):
+### 7.2 Ferramentas Declaradas (`NoesisAgentTools.googleRestFunctionDeclarations`):
 
-```dart
-// 1. Ferramenta de registro de estudos
-FunctionDeclaration(
-  'log_study_session',
-  'Registra uma sessão de estudo realizada pelo usuário no banco de dados.',
-  Schema(
-    SchemaType.object,
-    properties: {
-      'subject': Schema(SchemaType.string, description: 'Matéria ou disciplina estudada.'),
-      'topic': Schema(SchemaType.string, description: 'Tópico específico estudado.'),
-      'duration_minutes': Schema(SchemaType.integer, description: 'Tempo total estudado em minutos.'),
-      'notes': Schema(SchemaType.string, description: 'Anotações do que foi estudado.'),
-    },
-    requiredProperties: ['subject', 'topic', 'duration_minutes'],
-  ),
-);
+1. **Leitura / Inspeção**: `inspect_account_data` (`all`, `calendar`, `sessions`, `quizzes`, `flashcards`, `notebooks`, `roadmaps`, `weekly_goal`).
+2. **Calendário**: `schedule_calendar_event`, `update_calendar_event`, `delete_calendar_event`.
+3. **Diário & Metas**: `log_study_session`, `update_study_session`, `delete_study_session`, `set_weekly_goal`, `set_daily_goal`.
+4. **Simulados & Flashcards**: `create_quiz`, `delete_quiz`, `create_flashcards`, `update_flashcard_deck`, `delete_flashcard_deck`.
+5. **Cadernos & Trilhas**: `create_notebook_or_note`, `update_notebook_or_note`, `delete_notebook_or_note`, `create_roadmap`, `update_roadmap`, `delete_roadmap`.
 
-// 2. Ferramenta de agendamento de eventos
-FunctionDeclaration(
-  'schedule_calendar_event',
-  'Agenda um compromisso, prova ou bloco de estudos no calendário.',
-  Schema(
-    SchemaType.object,
-    properties: {
-      'title': Schema(SchemaType.string, description: 'Título do compromisso.'),
-      'start_time_iso': Schema(SchemaType.string, description: 'Data e hora de início no formato ISO 8601.'),
-      'duration_minutes': Schema(SchemaType.integer, description: 'Duração estimada em minutos.'),
-      'category': Schema(SchemaType.string, description: 'Categoria: study, exam, work, personal.'),
-    },
-    requiredProperties: ['title', 'start_time_iso'],
-  ),
-);
-```
+Provedores sem Function Calling nativo também contam com parser de fallback para blocos `<noesis_action>...</noesis_action>`.
 
 ---
 
-## 8. Como Rodar, Compilar e Desenvolver
+## 8. Como Rodar, Compilar, Empacotar e Testar
 
 ### Pré-requisitos
 
-- **Flutter SDK**: 3.50+ (localizado em `C:\src\flutter\bin` no ambiente padrão).
-- **Dart SDK**: 3.14+ (incluso com o Flutter).
-- **Navegador**: Google Chrome ou Edge para execução Web.
-- **Visual Studio C++ Desktop Tools**: Para compilação do executável nativo do Windows.
+- **Flutter SDK**: `3.50+`
+- **Dart SDK**: `3.14+`
+- **Visual Studio C++ Desktop Tools** (para build nativo Windows) e **Android SDK** (para build APK).
 
-### Comandos de Execução (PowerShell):
+### Comandos Principais (PowerShell):
 
 ```powershell
-# 1. Navegar até o diretório do projeto
-cd "C:\Users\User\Desktop\Project\Noesis"
-
-# 2. Obter dependências do pubspec.yaml
+# 1. Instalar dependências
 flutter pub get
 
-# 3. Executar na Web (Google Chrome)
+# 2. Executar em desenvolvimento (Web / Windows / Android)
 flutter run -d chrome
-
-# 4. Executar como aplicativo nativo Windows Desktop (.exe)
 flutter run -d windows
+flutter run -d android
 
-# 5. Compilar release para Windows Desktop (.exe)
+# 3. Análise estática e testes
+flutter analyze
+flutter test
+
+# 4. Compilar builds de produção
+flutter build apk --release
 flutter build windows --release
-
-# 6. Compilar release para Web (Padrão JS / CanvasKit)
 flutter build web --release
-
-# 7. Compilar release para Web com WebAssembly (Alta Performance / WasmGC + SkWasm)
 flutter build web --release --wasm
+
+# 5. Atualizar pacotes oficiais na pasta releases/
+.\scripts\package_releases.ps1 -Version "1.0.0"
 ```
 
-### Nota de Performance Web (Otimizações Implementadas)
+### Performance Web & Otimizações Implementadas
 
-A versão Web do Noesis passou por uma auditoria completa de latência de clique e renderização, atingindo feedback visual < 16 ms e eliminação total de travamentos:
+A versão Web (JS/CanvasKit e **WasmGC** / SkWasm) passou por auditoria completa documentada em `docs/PERFORMANCE_REPORT.md`:
 
-1. **Fontes 100% Locais Offline**: 9 variantes canônicas de Manrope e JetBrains Mono em `assets/fonts/` com `allowRuntimeFetching = false`, eliminando round-trips de rede HTTP ao desenhar tipografia.
-2. **Sombras Soft Clay Otimizadas (`clayListShadow`)**: Redução de camadas de blur na GPU para listas e grids repetitivos, preservando o toque de argila suave.
-3. **Heatmap de Consistência com `CustomPainter`**: Substituição de mais de 240 widgets e 600 RenderObjects por um único canvas desenhado em menos de 0,05 ms.
-4. **Isolamento de Pintura (`RepaintBoundary`)**: Encapsulamento de `fl_chart`, `TableCalendar`, contadores e timers contínuos para evitar invalidação em cascata da árvore de renderização.
-5. **Reatividade Granular com `ValueNotifier`**: Eliminação de rebuilds de tela inteira (`setState` na raiz) ao alternar abas, pausar/iniciar timers ou selecionar dias.
-6. **Atualizações Otimistas e Streams `.distinct()`**: Feedback imediato nas mutações locais (sessões, calendário, simulados) com sincronização transparente em background no Supabase.
-7. **Processamento em Background via `compute`**: Parsing de arquivos RAG (`utf8.decode`) e payloads de IA desacoplados da thread principal de interface.
-8. **Modo Visitante com Latência Zero**: Repositório in-memory completo para sessões, calendário e IA, garantindo funcionamento ágil e sem exceções mesmo sem login.
+1. **Fontes 100% Locais Offline**: arquivos `.ttf` em `assets/fonts/` com `allowRuntimeFetching = false`.
+2. **Sombras Soft Clay Otimizadas (`clayListShadow`)**: redução de camadas de blur na GPU em listas densas.
+3. **Heatmap com `CustomPainter`**: canvas único de alta performance sem centenas de `RenderObject`s.
+4. **Isolamento com `RepaintBoundary`, `Offstage` e `TickerMode`**: evita rebuilds/repaints em cascata entre as 14 abas e gráficos (`fl_chart`, `TableCalendar`).
+5. **Reatividade Granular com `ValueNotifier` & Streams `.distinct()`**: elimina `setState()` na raiz durante cronômetros e trocas de aba.
+6. **Background Isolates (`compute`) & Modo Visitante In-Memory**: parsing RAG/JSON fora da thread principal e operação fluida sem rede ou login.
 
 ---
 
 ## 9. Guia Prático para IAs: Como Estender ou Modificar o Projeto
 
-Ao receber instruções para criar novas telas, alterar regras de negócio ou refatorar componentes no Noesis, siga estritamente este checklist:
-
-1. **Adicionar novas tabelas no banco de dados**:
-   - Sempre utilize o prefixo **`noesis_`** (ex: `noesis_flashcards`, `noesis_notes`).
-   - Sempre vincule `user_id uuid references auth.users(id) on delete cascade`.
-   - Habilite RLS e crie políticas restritas a `auth.uid() = user_id`.
-2. **Criar ou modificar serviços Supabase**:
-   - Adicione os métodos estáticos em `lib/core/supabase_service.dart`.
-   - Sempre forneça tratamento de erro gracioso para quando `currentUser == null` (modo visitante) ou em caso de falha de rede.
-3. **Estilizar novos componentes de interface**:
-   - Use as cores semânticas de `AsterConstants` (`lavanda`, `menta`, `ambar`, `coral`, `surfaceCard`, `surfaceAlt`).
-   - Use `AsterConstants.clayShadow` ou `claySubtleShadow` para sombras.
-   - Aplique `BorderRadius.circular(AsterConstants.radiusLarge)` para cards e `radiusPill` para botões.
-   - Não adicione `Border.all(color: Colors.black)` ou bordas duras de espessura grossa.
-4. **Otimização de Desempenho**:
-   - Utilize `ValueNotifier` e `ValueListenableBuilder` para cronômetros, contadores e tickers de alta frequência em vez de chamar `setState()` na raiz da tela a cada segundo.
-   - Empregue `RepaintBoundary` em componentes estáticos que circundam áreas com animações constantes.
-5. **Preservar a Demonstração Offline (Zero-Breakage)**:
-   - Certifique-se de que a funcionalidade possa ser testada mesmo se o usuário estiver usando o "Modo de Teste" sem login. Mantenha dados de demonstração limpos e coerentes.
+1. **Novas tabelas no Supabase**:
+   - Use sempre o prefixo **`noesis_`** e vincule `user_id uuid references auth.users(id) on delete cascade` com RLS ativo (`auth.uid() = user_id`).
+2. **Serviços e Resiliência Offline**:
+   - Centralize chamadas base em `lib/core/supabase_service.dart` (ou serviço da feature) sempre mantendo fallback seguro para `currentUser == null` (Modo Visitante).
+3. **Design System Aster Soft Clay**:
+   - Utilize tokens de `AsterConstants` e `AsterTheme` (`lavanda`, `menta`, `ambar`, `coral`, `surfaceCard`, `surfaceAlt`, `clayShadow`, `radiusLarge`, `radiusPill`), respeitando também os temas desbloqueáveis da loja e Dark Mode.
+4. **Performance & UI**:
+   - Prefira `ValueNotifier`/`ValueListenableBuilder` para timers e estados frequentes, e `RepaintBoundary` ao redor de áreas animadas ou gráficos.
+5. **Sincronia de Documentação e Releases**:
+   - Ao adicionar módulos, ferramentas em `NoesisAgentTools` ou alterar a estrutura de pastas, atualize `PROJECT_CONTEXT.md` e `README.md`; ao gerar novos binários de distribuição, atualize `releases/` via `scripts/package_releases.ps1`.
 
 ---
 
