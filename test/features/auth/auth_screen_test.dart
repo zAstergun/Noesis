@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noesis/core/supabase_service.dart';
@@ -100,6 +101,31 @@ void main() {
         find.text('Autorização cancelada. Você pode tentar novamente quando quiser.'),
         findsOneWidget,
       );
+    });
+
+    test('AndroidManifest declares INTERNET permission and Noesis OAuth callback intent-filter', () {
+      final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+      expect(manifest, contains('android.permission.INTERNET'));
+      expect(manifest, contains('android:scheme="io.supabase.noesis"'));
+      expect(manifest, contains('android:host="login-callback"'));
+    });
+
+    testWidgets('AuthScreen renders cleanly on 360x780 mobile viewport without overflow',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 780));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        AuthScreen(onAuthenticated: () {}),
+        screenSize: const Size(360, 780),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discord'), findsOneWidget);
+      expect(find.text('Google'), findsOneWidget);
+      expect(find.text('Entrar na Aster Account'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

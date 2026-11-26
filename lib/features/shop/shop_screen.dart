@@ -10,6 +10,7 @@ import '../../widgets/insight_icon.dart';
 import '../../widgets/vip_privileges.dart';
 import '../../widgets/vip_rgb_theme_editor.dart';
 import '../profile/models/profile_cosmetics.dart';
+import '../ranking/models/ranking_league_model.dart';
 
 enum _ShopSection { all, themes, arsenal, identity }
 
@@ -131,6 +132,7 @@ class _ShopScreenState extends State<ShopScreen> {
         shop.equippedBannerIdNotifier,
         shop.equippedFrameIdNotifier,
         shop.equippedTitleIdNotifier,
+        shop.currentEloIndexNotifier,
         AsterTheme.activeThemeIdNotifier,
         SupabaseService.isVipNotifier,
       ]),
@@ -250,10 +252,17 @@ class _ShopScreenState extends State<ShopScreen> {
                     child: Builder(
                       builder: (context) {
                         final todayEarned = shop.todayEarnedInsights;
-                        const dailyCap = InsightsEconomyConfig.dailySoftCap;
+                        final eloIndex = shop.currentEloIndex;
+                        final eloTier = RankingEloCatalog.tierAt(eloIndex);
+                        final eloPct = InsightsEconomyConfig.eloBonusPercent(eloIndex);
+                        final dailyCap = InsightsEconomyConfig.dailySoftCapForElo(eloIndex);
                         final capProgress = (todayEarned / dailyCap).clamp(0.0, 1.0);
                         final secondaryCol = AsterTheme.secondary(context);
-                        final mult = isVip ? InsightsEconomyConfig.vipGainMultiplier : 1;
+                        String fmt(int base) => InsightsEconomyConfig.formatScaledReward(
+                              base,
+                              eloIndex: eloIndex,
+                              isVip: isVip,
+                            );
 
                         final dailyCounterPill = isVip
                             ? Container(
@@ -287,7 +296,9 @@ class _ShopScreenState extends State<ShopScreen> {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Bônus VIP ativo · 2× Insights',
+                                      eloPct > 0
+                                          ? '2× VIP · +$eloPct% ${eloTier.name} (${InsightsEconomyConfig.totalGainMultiplier(eloIndex: eloIndex, isVip: true).toStringAsFixed(1)}×)'
+                                          : 'Bônus VIP ativo · 2× Insights',
                                       style: GoogleFonts.manrope(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -298,6 +309,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ),
                               )
                             : Container(
+                                key: const Key('shop_elo_cap_pill'),
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: AsterTheme.surfaceAlt(context),
@@ -325,9 +337,22 @@ class _ShopScreenState extends State<ShopScreen> {
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      eloPct > 0
+                                          ? 'Elo ${eloTier.name}: +$eloPct% ganho · +${eloIndex * InsightsEconomyConfig.dailySoftCapBonusPerElo} limite'
+                                          : 'Elo ${eloTier.name}: suba de elo p/ +10% e +20 limite',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 9.8,
+                                        fontWeight: FontWeight.w700,
+                                        color: eloPct > 0
+                                            ? eloTier.accentColor
+                                            : AsterTheme.textMuted(context),
+                                      ),
+                                    ),
                                     const SizedBox(height: 5),
                                     SizedBox(
-                                      width: 118,
+                                      width: 148,
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(4),
                                         child: LinearProgressIndicator(
@@ -414,11 +439,11 @@ class _ShopScreenState extends State<ShopScreen> {
                                   rules: [
                                     (
                                       label: 'Questão (≥ 3s)',
-                                      value: '+${InsightsEconomyConfig.quizQuestionAnswered * mult} · +${(InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus) * mult} acerto',
+                                      value: '+${fmt(InsightsEconomyConfig.quizQuestionAnswered)} · +${fmt(InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus)} acerto',
                                     ),
                                     (
                                       label: 'Concluir prova',
-                                      value: '+${InsightsEconomyConfig.examCompleted * mult} · +${InsightsEconomyConfig.examHighScoreBonus * mult} ≥80%',
+                                      value: '+${fmt(InsightsEconomyConfig.examCompleted)} · +${fmt(InsightsEconomyConfig.examHighScoreBonus)} ≥80%',
                                     ),
                                   ],
                                 );
@@ -433,11 +458,11 @@ class _ShopScreenState extends State<ShopScreen> {
                                   rules: [
                                     (
                                       label: 'Revisão no prazo',
-                                      value: '+${InsightsEconomyConfig.flashcardDueReview * mult} por card',
+                                      value: '+${fmt(InsightsEconomyConfig.flashcardDueReview)} por card',
                                     ),
                                     (
                                       label: 'Difícil superado',
-                                      value: '+${InsightsEconomyConfig.flashcardHardRedeemedBonus * mult} bônus',
+                                      value: '+${fmt(InsightsEconomyConfig.flashcardHardRedeemedBonus)} bônus',
                                     ),
                                   ],
                                 );
@@ -450,11 +475,11 @@ class _ShopScreenState extends State<ShopScreen> {
                                   rules: [
                                     (
                                       label: 'Meta diária / semana',
-                                      value: '+${InsightsEconomyConfig.dailyGoalHit * mult} / +${InsightsEconomyConfig.weeklyGoalHit * mult}',
+                                      value: '+${fmt(InsightsEconomyConfig.dailyGoalHit)} / +${fmt(InsightsEconomyConfig.weeklyGoalHit)}',
                                     ),
                                     (
                                       label: 'Marcos de streak',
-                                      value: '+${20 * mult} a +${300 * mult}',
+                                      value: '+${fmt(20)} a +${fmt(300)}',
                                     ),
                                   ],
                                 );

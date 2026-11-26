@@ -577,7 +577,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                           child: const _VipPerkTile(
                             icon: Icons.bolt_rounded,
                             title: 'Insights em Dobro (2×)',
-                            description: 'Ganhe 2× Insights em simulados, flashcards e metas.',
+                            description: 'Dobra (2×) seus Insights base + bônus de Elo em simulados, flashcards e metas.',
                           ),
                         ),
                         SizedBox(
@@ -585,7 +585,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                           child: const _VipPerkTile(
                             icon: Icons.all_inclusive_rounded,
                             title: 'Ganho Diário Ilimitado',
-                            description: 'Sem limite ou redução após 150 Insights por dia.',
+                            description: 'Sem limite diário ou redução de ganhos em nenhum Elo (dobro sobre todos os bônus).',
                           ),
                         ),
                         SizedBox(

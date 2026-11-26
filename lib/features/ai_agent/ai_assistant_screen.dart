@@ -969,42 +969,50 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 withShadow: true,
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Noesis AI',
-                    style: GoogleFonts.manrope(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Noesis AI',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: _hasConfiguredAiKey ? AsterConstants.menta : AsterConstants.ambar,
-                          shape: BoxShape.circle,
+                    Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: _hasConfiguredAiKey ? AsterConstants.menta : AsterConstants.ambar,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _hasConfiguredAiKey
-                            ? 'Tutor inteligente · conectado aos seus estudos'
-                            : 'Configure sua IA em Configurações',
-                        style: GoogleFonts.manrope(
-                          fontSize: 11,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _hasConfiguredAiKey
+                                ? 'Tutor inteligente · conectado aos seus estudos'
+                                : 'Configure sua IA em Configurações',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               ValueListenableBuilder<bool>(
                 valueListenable: SupabaseService.isVipNotifier,
                 builder: (context, _, _) {

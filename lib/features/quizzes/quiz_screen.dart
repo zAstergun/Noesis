@@ -2679,6 +2679,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   setState(() {
                     _userAnswers[_currentQuestionIndex] = idx;
                   });
+                  SupabaseService.recordConsistencyActivity();
                   if (shouldReward) {
                     final scope = widget.groupScope;
                     if (scope != null) {
@@ -3104,29 +3105,34 @@ class _QuizScreenState extends State<QuizScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   alignment: WrapAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AsterTheme.primary(context),
-                            shape: BoxShape.circle,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 40,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AsterTheme.primary(context),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.history_rounded, color: AsterTheme.onPrimary(context), size: 22),
                           ),
-                          child: Icon(Icons.history_rounded, color: AsterTheme.onPrimary(context), size: 22),
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.groupScope != null
-                                  ? 'SIMULADOS DO GRUPO & EVOLUÇÃO'
-                                  : 'SIMULADOS REALIZADOS & EVOLUÇÃO',
-                              style: GoogleFonts.manrope(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.groupScope != null
+                                      ? 'SIMULADOS DO GRUPO & EVOLUÇÃO'
+                                      : 'SIMULADOS REALIZADOS & EVOLUÇÃO',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
                                 letterSpacing: 0.2,
                                 color: AsterTheme.text(context),
                               ),
@@ -3138,8 +3144,10 @@ class _QuizScreenState extends State<QuizScreen> {
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
+                ),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -3788,41 +3796,48 @@ class _QuizScreenState extends State<QuizScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   alignment: WrapAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AsterTheme.primary(context),
-                            shape: BoxShape.circle,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 40,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AsterTheme.primary(context),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.auto_awesome, color: AsterTheme.onPrimary(context), size: 22),
                           ),
-                          child: Icon(Icons.auto_awesome, color: AsterTheme.onPrimary(context), size: 22),
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.groupScope != null
-                                  ? 'SIMULADOS DO GRUPO COM IA'
-                                  : 'GERAR NOVO SIMULADO COM IA',
-                              style: GoogleFonts.manrope(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.2,
-                                color: AsterTheme.text(context),
-                              ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.groupScope != null
+                                      ? 'SIMULADOS DO GRUPO COM IA'
+                                      : 'GERAR NOVO SIMULADO COM IA',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.2,
+                                    color: AsterTheme.text(context),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Escolha o modelo oficial da prova (38 bancas), defina até ${GeminiService.quizMaxQuestions} questões ou anexe apostilas RAG',
+                                  style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Escolha o modelo oficial da prova (38 bancas), defina até ${GeminiService.quizMaxQuestions} questões ou anexe apostilas RAG',
-                              style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                     Wrap(
                       spacing: 8,

@@ -206,6 +206,7 @@ class RankingService {
     final rank = rankIdx == -1 ? 1 : rankIdx + 1;
     final tier = RankingEloCatalog.tierAt(_currentEloIndex);
     final zone = zoneForRank(rank, total: standings.length, tier: tier);
+    ShopService.instance.setCurrentEloIndex(_currentEloIndex);
 
     boardNotifier.value = RankingBoardState(
       weekId: currentWeekId,
@@ -309,6 +310,7 @@ class RankingService {
     }
 
     _currentEloIndex = nextElo;
+    ShopService.instance.setCurrentEloIndex(_currentEloIndex);
     if (nextElo > _bestEloIndex) {
       _bestEloIndex = nextElo;
     }
@@ -538,6 +540,7 @@ class RankingService {
     _clock = customClock ?? DateTime.now;
     _loaded = true;
     _currentEloIndex = currentEloIndex.clamp(0, RankingEloCatalog.tiers.length - 1);
+    ShopService.instance.setCurrentEloIndex(_currentEloIndex);
     _bestEloIndex = bestEloIndex.clamp(_currentEloIndex, RankingEloCatalog.tiers.length - 1);
     _top3Finishes = top3Finishes;
     _weeksCompeted = weeksCompeted;

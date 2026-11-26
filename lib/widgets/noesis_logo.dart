@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -78,17 +79,30 @@ class NoesisLogo extends StatelessWidget {
     super.key,
     this.size = 36,
     this.withShadow = false,
+    this.sparkProgress = 0.0,
   });
 
   final double size;
   final bool withShadow;
+  final double sparkProgress;
 
   /// Rasteriza o logo vetorial em PNG RGBA (usado para favicons/ícones).
-  static Future<Uint8List?> renderPngBytes(int pixelSize, {NoesisThemeOption? themeOption}) async {
+  static Future<Uint8List?> renderPngBytes(
+    int pixelSize, {
+    NoesisThemeOption? themeOption,
+    bool roundedCorners = true,
+    bool includeBackground = true,
+    double contentScale = 1.0,
+  }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final palette = NoesisLogoPalette.forTheme(themeOption ?? AsterTheme.currentTheme);
-    _NoesisLogoPainter(palette: palette).paint(
+    _NoesisLogoPainter(
+      palette: palette,
+      roundedCorners: roundedCorners,
+      includeBackground: includeBackground,
+      contentScale: contentScale,
+    ).paint(
       canvas,
       Size(pixelSize.toDouble(), pixelSize.toDouble()),
     );
@@ -108,7 +122,10 @@ class NoesisLogo extends StatelessWidget {
 
         final painter = CustomPaint(
           size: Size(size, size),
-          painter: _NoesisLogoPainter(palette: palette),
+          painter: _NoesisLogoPainter(
+            palette: palette,
+            sparkProgress: sparkProgress,
+          ),
         );
 
         if (!withShadow) return painter;
@@ -132,9 +149,25 @@ class NoesisLogo extends StatelessWidget {
 }
 
 class _NoesisLogoPainter extends CustomPainter {
-  const _NoesisLogoPainter({required this.palette});
+  const _NoesisLogoPainter({
+    required this.palette,
+    this.sparkProgress = 0.0,
+    this.roundedCorners = true,
+    this.includeBackground = true,
+    this.contentScale = 1.0,
+  });
 
   final NoesisLogoPalette palette;
+  final double sparkProgress;
+  final bool roundedCorners;
+  final bool includeBackground;
+  final double contentScale;
+
+  double _pulseWindow(double t, double start, double duration) {
+    if (t <= start || t >= start + duration) return 0.0;
+    final local = (t - start) / duration;
+    return math.sin(local * math.pi);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -145,15 +178,38 @@ class _NoesisLogoPainter extends CustomPainter {
     canvas.scale(sx, sy);
 
     // Fundo com gradiente arredondado adaptado ao tema ativo
-    final bgRect = const Rect.fromLTWH(0, 0, 512, 512);
-    final bgRRect = RRect.fromRectAndRadius(bgRect, const Radius.circular(128));
-    final bgPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [palette.bgTopLeft, palette.bgBottomRight],
-      ).createShader(bgRect);
-    canvas.drawRRect(bgRRect, bgPaint);
+    if (includeBackground) {
+      final bgRect = const Rect.fromLTWH(0, 0, 512, 512);
+      final bgPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [palette.bgTopLeft, palette.bgBottomRight],
+        ).createShader(bgRect);
+      if (roundedCorners) {
+        final bgRRect = RRect.fromRectAndRadius(bgRect, const Radius.circular(128));
+        canvas.drawRRect(bgRRect, bgPaint);
+      } else {
+        canvas.drawRect(bgRect, bgPaint);
+      }
+    }
+
+    if (contentScale != 1.0) {
+      canvas.translate(256, 256);
+      canvas.scale(contentScale, contentScale);
+      canvas.translate(-256, -256);
+    }
+
+    // Piscada suave do olho durante a animação
+    final blink = _pulseWindow(sparkProgress, 0.08, 0.30);
+    final eyeOpenY = 1.0 - (0.86 * blink);
+
+    canvas.save();
+    if (blink > 0.001) {
+      canvas.translate(256, 276);
+      canvas.scale(1.0, eyeOpenY);
+      canvas.translate(-256, -276);
+    }
 
     // Contorno estilizado do olho
     final eyePath = Path()
@@ -187,27 +243,39 @@ class _NoesisLogoPainter extends CustomPainter {
       11,
       Paint()..color = palette.foreground,
     );
+    canvas.restore();
 
-    // Raios superiores adaptados às cores de destaque do tema
-    final rayPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 24
-      ..strokeCap = StrokeCap.round;
+    // Raios superiores com onda sequencial de faísca ao clicar
+    void drawAnimatedRay(Offset p1, Offset p2, Color color, double pulse) {
+      final dir = p2 - p1;
+      final len = dir.distance;
+      final unit = len > 0 ? dir / len : Offset.zero;
+      final extendedTip = p2 + unit * (20.0 * pulse);
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 24 + (8.0 * pulse)
+        ..strokeCap = StrokeCap.round
+        ..color = Color.lerp(color, Colors.white, 0.35 * pulse)!;
+      canvas.drawLine(p1, extendedTip, paint);
+    }
 
-    canvas.drawLine(
+    drawAnimatedRay(
       const Offset(166, 132),
       const Offset(146, 98),
-      rayPaint..color = palette.rayLeft,
+      palette.rayLeft,
+      _pulseWindow(sparkProgress, 0.24, 0.40),
     );
-    canvas.drawLine(
+    drawAnimatedRay(
       const Offset(256, 110),
       const Offset(256, 68),
-      rayPaint..color = palette.rayCenter,
+      palette.rayCenter,
+      _pulseWindow(sparkProgress, 0.34, 0.40),
     );
-    canvas.drawLine(
+    drawAnimatedRay(
       const Offset(346, 132),
       const Offset(366, 98),
-      rayPaint..color = palette.rayRight,
+      palette.rayRight,
+      _pulseWindow(sparkProgress, 0.44, 0.40),
     );
 
     canvas.restore();
@@ -215,10 +283,154 @@ class _NoesisLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _NoesisLogoPainter oldDelegate) =>
+      oldDelegate.sparkProgress != sparkProgress ||
       oldDelegate.palette.bgTopLeft != palette.bgTopLeft ||
       oldDelegate.palette.bgBottomRight != palette.bgBottomRight ||
       oldDelegate.palette.foreground != palette.foreground ||
       oldDelegate.palette.rayLeft != palette.rayLeft;
+}
+
+/// Bloco interativo da marca Noesis: ao clicar, dispara efeito de piscada,
+/// onda nos raios, bounce tátil e brilho no wordmark, além de executar [onTap].
+class NoesisInteractiveBrand extends StatefulWidget {
+  const NoesisInteractiveBrand({
+    super.key,
+    required this.onTap,
+    this.logoSize = 30,
+    this.fontSize = 18.5,
+    this.spacing = 10,
+    this.padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+    this.trailing,
+  });
+
+  final VoidCallback? onTap;
+  final double logoSize;
+  final double fontSize;
+  final double spacing;
+  final EdgeInsetsGeometry padding;
+  final Widget? trailing;
+
+  @override
+  State<NoesisInteractiveBrand> createState() => _NoesisInteractiveBrandState();
+}
+
+class _NoesisInteractiveBrandState extends State<NoesisInteractiveBrand>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 680),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _triggerTap() {
+    _controller.forward(from: 0.0);
+    widget.onTap?.call();
+  }
+
+  double _bounceScale(double t) {
+    if (t <= 0.0 || t >= 1.0) return 1.0;
+    if (t < 0.16) {
+      return 1.0 - (0.09 * (t / 0.16));
+    }
+    if (t < 0.38) {
+      final k = (t - 0.16) / 0.22;
+      return 0.91 + (0.18 * math.sin(k * math.pi * 0.5));
+    }
+    if (t < 0.62) {
+      final k = (t - 0.38) / 0.24;
+      return 1.09 - (0.09 * k);
+    }
+    return 1.0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = AsterTheme.primary(context);
+    final hoverBg = primary.withValues(alpha: isDark ? 0.12 : 0.08);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _triggerTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          padding: widget.padding,
+          decoration: BoxDecoration(
+            color: _hovered ? hoverBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = _controller.value;
+              final scale = _bounceScale(t);
+              final shimmerActive = t > 0.12 && t < 0.96;
+              final shimmerPos = ((t - 0.12) / 0.84).clamp(0.0, 1.0);
+
+              Widget wordmark = NoesisWordmark(fontSize: widget.fontSize);
+              if (shimmerActive) {
+                final slide = -0.6 + (shimmerPos * 2.2);
+                wordmark = ShaderMask(
+                  blendMode: BlendMode.srcATop,
+                  shaderCallback: (bounds) {
+                    return LinearGradient(
+                      begin: Alignment(slide - 0.45, -0.3),
+                      end: Alignment(slide + 0.45, 0.3),
+                      colors: [
+                        Colors.transparent,
+                        primary.withValues(alpha: 0.78),
+                        Colors.white.withValues(alpha: 0.85),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.38, 0.54, 1.0],
+                    ).createShader(bounds);
+                  },
+                  child: wordmark,
+                );
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform.scale(
+                    scale: scale,
+                    child: NoesisLogo(
+                      size: widget.logoSize,
+                      withShadow: true,
+                      sparkProgress: t,
+                    ),
+                  ),
+                  SizedBox(width: widget.spacing),
+                  wordmark,
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Wordmark tipográfico oficial do Noesis com Space Grotesk (geométrico e cognitivo).
@@ -239,6 +451,9 @@ class NoesisWordmark extends StatelessWidget {
     return Text(
       'Noesis',
       textAlign: textAlign,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.fade,
       style: GoogleFonts.spaceGrotesk(
         fontSize: fontSize,
         fontWeight: FontWeight.w700,

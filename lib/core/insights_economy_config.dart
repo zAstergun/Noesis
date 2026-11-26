@@ -40,12 +40,58 @@ class InsightsEconomyConfig {
     30: 300,
   };
 
-  // Regras anti-abuso (v1) e multiplicador VIP
+  // Regras anti-abuso (v1), progressão por Elo e multiplicador VIP
   static const Duration minQuizQuestionDuration = Duration(seconds: 3);
   static const List<double> examRepeatMultipliers = [1.0, 0.5, 0.25];
   static const int dailySoftCap = 150;
+  static const int dailySoftCapBonusPerElo = 20;
+  static const int eloGainBonusPercentPerTier = 10;
+  static const int maxEloIndex = 7;
   static const double softCapMultiplier = 0.5;
   static const int vipGainMultiplier = 2;
+
+  /// Limite diário suave escalado pelo Elo atual (+20 por ranking acima de Faísca;
+  /// se [isVip] for consultado como referência de escala, dobra o teto do Elo).
+  static int dailySoftCapForElo(int eloIndex, {bool isVip = false}) {
+    final safeElo = eloIndex.clamp(0, maxEloIndex);
+    final baseWithElo = dailySoftCap + (safeElo * dailySoftCapBonusPerElo);
+    return isVip ? baseWithElo * vipGainMultiplier : baseWithElo;
+  }
+
+  /// Bônus percentual de ganho de Insights conferido pelo Elo (+10% por ranking subido).
+  static int eloBonusPercent(int eloIndex) =>
+      eloIndex.clamp(0, maxEloIndex) * eloGainBonusPercentPerTier;
+
+  /// Multiplicador exato em décimos para evitar perda de frações em ganhos unitários:
+  /// ((10 + eloIndex) * (isVip ? 2 : 1)), onde 10 décimos = 1.0×.
+  static int gainTenthsMultiplier({
+    required int eloIndex,
+    required bool isVip,
+  }) {
+    final safeElo = eloIndex.clamp(0, maxEloIndex);
+    return (10 + safeElo) * (isVip ? vipGainMultiplier : 1);
+  }
+
+  /// Multiplicador total efetivo: (1.0 + 0.10 * eloIndex) × (isVip ? 2 : 1).
+  static double totalGainMultiplier({
+    required int eloIndex,
+    required bool isVip,
+  }) {
+    return gainTenthsMultiplier(eloIndex: eloIndex, isVip: isVip) / 10.0;
+  }
+
+  /// Formata um ganho escalado pelo multiplicador atual (ex.: 1.5 -> "1,5" ou 3.0 -> "3").
+  static String formatScaledReward(
+    int baseAmount, {
+    required int eloIndex,
+    required bool isVip,
+  }) {
+    final totalTenths = baseAmount * gainTenthsMultiplier(eloIndex: eloIndex, isVip: isVip);
+    if (totalTenths % 10 == 0) {
+      return '${totalTenths ~/ 10}';
+    }
+    return (totalTenths / 10.0).toStringAsFixed(1).replaceAll('.', ',');
+  }
 
   // Itens do Arsenal de Estudo
   static const int streakProtectorPrice = 180;

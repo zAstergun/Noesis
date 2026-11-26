@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noesis/core/gemini_service.dart';
+import 'package:noesis/core/shop_service.dart';
 import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/features/flashcards/models/flashcard_model.dart';
 import 'package:noesis/features/notebooks/models/notebook_model.dart';
@@ -168,6 +169,8 @@ void main() {
     expect(find.text('Trilhas & Agenda'), findsOneWidget);
     expect(find.byKey(const Key('dashboard_streak_value')), findsOneWidget);
     expect(find.byKey(const Key('dashboard_best_day_value')), findsOneWidget);
+    expect(find.text('Consistência'), findsOneWidget);
+    expect(find.textContaining('Consistência · '), findsNothing);
 
     // Marca um checkpoint funcional no timer
     final flagBtn = find.byIcon(Icons.flag_outlined);
@@ -225,5 +228,71 @@ void main() {
 
     MockHttpOverrides.reset();
     await TestAppHarness.drainAsync(tester);
+  });
+
+  test('Consistency counts flashcards, quiz questions, study hours, and notebook notes across consecutive days', () async {
+    await SupabaseService.resetConsistencyForTesting();
+    final ref = DateTime(2026, 11, 26, 14, 0);
+
+    // Dia 23/11: criou anotação em caderno (sem horas de estudo no cronômetro)
+    // Dia 24/11: respondeu flashcard
+    // Dia 25/11: respondeu questão de simulado
+    // Dia 26/11: registrou sessão de estudo (30m)
+    final consistency = DashboardAnalytics.computeConsistencyStats(
+      [
+        {'id': 's-today', 'subject': 'Redes', 'duration_minutes': 30, 'study_date': '2026-11-26'},
+      ],
+      decks: [
+        FlashcardDeck(
+          id: 'deck-c',
+          title: 'TCP',
+          subject: 'Redes',
+          description: '',
+          createdAt: DateTime(2026, 11, 20),
+          cards: [
+            Flashcard(
+              id: 'fc-1',
+              front: 'Porta HTTPS?',
+              back: '443',
+              difficulty: 'good',
+              reviewCount: 1,
+              lastReviewed: DateTime(2026, 11, 24, 18, 0),
+            ),
+          ],
+        ),
+      ],
+      notebooks: [
+        StudyNotebook(
+          id: 'nb-c',
+          title: 'Resumo',
+          subject: 'Redes',
+          createdAt: DateTime(2026, 11, 23, 9, 0),
+          notes: [
+            StudyNote(
+              id: 'note-c1',
+              notebookId: 'nb-c',
+              title: 'Camadas OSI',
+              content: 'Sete camadas do modelo OSI.',
+              createdAt: DateTime(2026, 11, 23, 10, 0),
+              updatedAt: DateTime(2026, 11, 23, 10, 0),
+            ),
+          ],
+        ),
+      ],
+      transactions: [
+        ShopTransaction(
+          id: 'q-1',
+          amount: 3,
+          description: 'Questão certa no Simulado',
+          source: 'quiz_question',
+          reference: 'q:1',
+          createdAt: DateTime(2026, 11, 25, 11, 0),
+        ),
+      ],
+      referenceDate: ref,
+    );
+
+    expect(consistency.activeDaysCount, 4);
+    expect(consistency.currentStreakDays, 4);
   });
 }

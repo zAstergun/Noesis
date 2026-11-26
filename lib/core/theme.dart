@@ -6,6 +6,7 @@ import '../features/quizzes/data/saved_exams_store_stub.dart'
     if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
     if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
 import 'constants.dart';
+import 'desktop_window_service.dart';
 
 /// Conjunto das 6 cores personalizáveis via RGB para membros VIP.
 class NoesisCustomThemeColors {
@@ -418,6 +419,7 @@ class AsterTheme {
     if (themeModeNotifier.value != mode) {
       themeModeNotifier.value = mode;
     }
+    DesktopWindowService.setDarkMode(mode == ThemeMode.dark);
   }
 
   static Color lastTransitionBgColor = AsterConstants.bgNevoa;
@@ -1475,8 +1477,8 @@ class _NoesisThemeTransitionOverlayState extends State<NoesisThemeTransitionOver
   }
 }
 
-/// Espaçador horizontal responsivo exibido apenas no topo das telas quando o menu lateral
-/// está recolhido em telas largas, mantendo botões de voltar e títulos alinhados ao lado do ícone.
+/// No layout com barra lateral fixa em trilho (rail), as telas já ficam
+/// enquadradas fora da barra lateral e não precisam de espaçador extra.
 class NoesisCollapsedMenuSpacer extends StatelessWidget {
   const NoesisCollapsedMenuSpacer({super.key, this.width = 84});
 
@@ -1484,13 +1486,6 @@ class NoesisCollapsedMenuSpacer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (width <= 0) return const SizedBox.shrink();
-    return ValueListenableBuilder<bool>(
-      valueListenable: AsterTheme.sidebarCollapsedNotifier,
-      builder: (context, isCollapsed, _) {
-        final isWide = MediaQuery.sizeOf(context).width >= 900;
-        return SizedBox(width: (isWide && isCollapsed) ? width : 0);
-      },
-    );
+    return const SizedBox.shrink();
   }
 }

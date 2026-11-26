@@ -592,6 +592,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
           listenable: Listenable.merge([
             _ecosystemNotifier,
             ShopService.instance.streakProtectorsNotifier,
+            ShopService.instance.transactionsNotifier,
+            SupabaseService.consistencyRevisionNotifier,
             SupabaseService.isVipNotifier,
           ]),
           builder: (context, _) {
@@ -599,6 +601,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
             final consistency = DashboardAnalytics.computeConsistencyStats(
               sessions,
               exams: ecosystem.savedExams,
+              decks: ecosystem.decks,
+              notebooks: ecosystem.notebooks,
+              roadmaps: ecosystem.roadmaps,
+              calendarEvents: ecosystem.calendarEvents,
+              transactions: ShopService.instance.transactionsNotifier.value,
+              recordedActivityCounts: SupabaseService.recordedConsistencyCountsByDay,
               protectedDates: ShopService.instance.protectedStreakDates,
             );
             return _buildHeatmapCard(consistency, isDark);
@@ -762,76 +770,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     currentDayStudiedMinutes: dayStudied,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: AsterTheme.primary(context).withValues(alpha: 0.14),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.today_rounded,
-                            size: 17,
-                            color: AsterTheme.primary(context),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    hasDailyGoal
-                                        ? 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} / ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}'
-                                        : 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} hoje (sem meta fixa)',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                    ),
-                                  ),
-                                  Text(
-                                    hasDailyGoal ? '$dailyPct% hoje' : 'Modo livre',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: !hasDailyGoal
-                                          ? (isDark
-                                              ? AsterConstants.textMutedDark
-                                              : AsterConstants.textMuted)
-                                          : (dailyReached
-                                              ? AsterConstants.menta
-                                              : AsterTheme.primary(context)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (hasDailyGoal) ...[
-                                const SizedBox(height: 6),
-                                LinearProgressIndicator(
-                                  value: dailyProgress,
-                                  minHeight: 5,
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                  backgroundColor: AsterTheme.surfaceInset(context),
-                                  valueColor: AlwaysStoppedAnimation(
-                                    dailyReached
-                                        ? AsterConstants.menta
-                                        : AsterTheme.primary(context),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 18 : 14,
+                      vertical: 12,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompactBanner = constraints.maxWidth < 460;
+                        final editChip = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: AsterTheme.primary(context).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -851,8 +798,99 @@ class _TrackerScreenState extends State<TrackerScreen> {
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        );
+                        final pctBadge = Text(
+                          hasDailyGoal ? '$dailyPct% hoje' : 'Modo livre',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: !hasDailyGoal
+                                ? (isDark
+                                    ? AsterConstants.textMutedDark
+                                    : AsterConstants.textMuted)
+                                : (dailyReached
+                                    ? AsterConstants.menta
+                                    : AsterTheme.primary(context)),
+                          ),
+                        );
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AsterTheme.primary(context).withValues(alpha: 0.14),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.today_rounded,
+                                size: 17,
+                                color: AsterTheme.primary(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          hasDailyGoal
+                                              ? 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} / ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}'
+                                              : 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} hoje',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: isCompactBanner ? 12.5 : 13.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isCompactBanner) ...[
+                                        const SizedBox(width: 8),
+                                        pctBadge,
+                                      ],
+                                    ],
+                                  ),
+                                  if (isCompactBanner) ...[
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        pctBadge,
+                                        editChip,
+                                      ],
+                                    ),
+                                  ],
+                                  if (hasDailyGoal) ...[
+                                    const SizedBox(height: 6),
+                                    LinearProgressIndicator(
+                                      value: dailyProgress,
+                                      minHeight: 5,
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                      backgroundColor: AsterTheme.surfaceInset(context),
+                                      valueColor: AlwaysStoppedAnimation(
+                                        dailyReached
+                                            ? AsterConstants.menta
+                                            : AsterTheme.primary(context),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (!isCompactBanner) ...[
+                              const SizedBox(width: 12),
+                              editChip,
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -872,15 +910,22 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     ],
                   )
                 else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: tiles.map((tile) {
-                      return SizedBox(
-                        width: (MediaQuery.of(context).size.width - 44) / 2,
-                        child: _buildEcosystemKpiCard(tile, isDark),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cols = constraints.maxWidth >= 320 ? 2 : 1;
+                      const spacing = 10.0;
+                      final cardWidth = (constraints.maxWidth - (spacing * (cols - 1))) / cols;
+                      return Wrap(
+                        spacing: spacing,
+                        runSpacing: spacing,
+                        children: tiles.map((tile) {
+                          return SizedBox(
+                            width: cardWidth,
+                            child: _buildEcosystemKpiCard(tile, isDark),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    },
                   ),
                 const SizedBox(height: 12),
                 dailyGoalBanner,
@@ -1019,19 +1064,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
           ),
           const SizedBox(height: 14),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ValueListenableBuilder<int>(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompactTimer = constraints.maxWidth < 430;
+              final timerClock = ValueListenableBuilder<int>(
                 valueListenable: _secondsNotifier,
                 builder: (context, seconds, _) {
+                  final fontSize = isCompactTimer ? 40.0 : 52.0;
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '${_formatHours(seconds)}:${_formatMinutes(seconds)}',
                         style: GoogleFonts.manrope(
-                          fontSize: 52,
+                          fontSize: fontSize,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.5,
                           color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -1040,7 +1086,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       Text(
                         ':${_formatSecs(seconds)}',
                         style: GoogleFonts.manrope(
-                          fontSize: 52,
+                          fontSize: fontSize,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1.5,
                           color: AsterTheme.primary(context).withValues(alpha: 0.65),
@@ -1049,129 +1095,161 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     ],
                   );
                 },
-              ),
-              const Spacer(),
+              );
 
-              // Botão Checkpoint / Volta
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                ),
-                child: IconButton(
-                  tooltip: 'Marcar checkpoint na sessão',
-                  icon: Icon(
-                    Icons.flag_outlined,
-                    size: 19,
-                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                  ),
-                  onPressed: _recordLap,
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Botão Zerar
-              ValueListenableBuilder<int>(
-                valueListenable: _secondsNotifier,
-                builder: (context, seconds, _) {
-                  if (seconds == 0 && _laps.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                      ),
-                      child: IconButton(
-                        tooltip: 'Reiniciar cronômetro',
-                        icon: Icon(
-                          Icons.refresh_rounded,
-                          size: 19,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                        ),
-                        onPressed: _resetTimer,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              // Botão Play / Pausar
-              ValueListenableBuilder<bool>(
-                valueListenable: _isTimerRunningNotifier,
-                builder: (context, isRunning, _) {
-                  final primaryCol = AsterTheme.primary(context);
-                  final onPrimaryCol = AsterTheme.onPrimary(context);
-                  return Container(
+              final timerControls = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.end,
+                children: [
+                  // Botão Checkpoint / Volta
+                  Container(
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: primaryCol,
-                      borderRadius: const BorderRadius.all(Radius.circular(AsterConstants.radiusPill)),
-                      boxShadow: AsterTheme.primaryShadow(context, primaryCol),
+                      color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                        onTap: isRunning ? _pauseTimer : _startTimer,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                color: onPrimaryCol,
-                                size: 20,
+                    child: IconButton(
+                      tooltip: 'Marcar checkpoint na sessão',
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.flag_outlined,
+                        size: 19,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
+                      onPressed: _recordLap,
+                    ),
+                  ),
+
+                  // Botão Zerar
+                  ValueListenableBuilder<int>(
+                    valueListenable: _secondsNotifier,
+                    builder: (context, seconds, _) {
+                      if (seconds == 0 && _laps.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        ),
+                        child: IconButton(
+                          tooltip: 'Reiniciar cronômetro',
+                          padding: EdgeInsets.zero,
+                          icon: Icon(
+                            Icons.refresh_rounded,
+                            size: 19,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
+                          onPressed: _resetTimer,
+                        ),
+                      );
+                    },
+                  ),
+
+                  // Botão Play / Pausar
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _isTimerRunningNotifier,
+                    builder: (context, isRunning, _) {
+                      final primaryCol = AsterTheme.primary(context);
+                      final onPrimaryCol = AsterTheme.onPrimary(context);
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: primaryCol,
+                          borderRadius: const BorderRadius.all(Radius.circular(AsterConstants.radiusPill)),
+                          boxShadow: AsterTheme.primaryShadow(context, primaryCol),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                            onTap: isRunning ? _pauseTimer : _startTimer,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompactTimer ? 16 : 20,
+                                vertical: 11,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                isRunning ? 'Pausar' : 'Iniciar',
-                                style: GoogleFonts.manrope(
-                                  color: onPrimaryCol,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                    color: onPrimaryCol,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isRunning ? 'Pausar' : 'Iniciar',
+                                    style: GoogleFonts.manrope(
+                                      color: onPrimaryCol,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13.5,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
+                      );
+                    },
+                  ),
 
-              // Botão Concluir & Salvar
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AsterTheme.secondary(context).withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.check_rounded, size: 20, color: AsterTheme.secondary(context)),
-                  tooltip: 'Concluir & Registrar no Diário',
-                  onPressed: () {
-                    final mins = (_secondsElapsed / 60).ceil();
-                    _openAddSessionModal(
-                      defaultDurationMinutes: mins > 0 ? mins : _sessionGoalMinutes,
-                      suggestedSubjects: subjects,
-                    );
-                  },
-                ),
-              ),
-            ],
+                  // Botão Concluir & Salvar
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AsterTheme.secondary(context).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(Icons.check_rounded, size: 20, color: AsterTheme.secondary(context)),
+                      tooltip: 'Concluir & Registrar no Diário',
+                      onPressed: () {
+                        final mins = (_secondsElapsed / 60).ceil();
+                        _openAddSessionModal(
+                          defaultDurationMinutes: mins > 0 ? mins : _sessionGoalMinutes,
+                          suggestedSubjects: subjects,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+
+              if (isCompactTimer) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(child: timerClock),
+                    const SizedBox(height: 12),
+                    Center(child: timerControls),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  timerClock,
+                  const Spacer(),
+                  timerControls,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
 
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ValueListenableBuilder<String>(
                 valueListenable: _activeSubjectNotifier,
@@ -1183,7 +1261,6 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   );
                 },
               ),
-              const SizedBox(width: 12),
               ValueListenableBuilder<int>(
                 valueListenable: _sessionGoalMinutesNotifier,
                 builder: (context, goalMins, _) {
@@ -1580,14 +1657,17 @@ class _TrackerScreenState extends State<TrackerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Consistência · ${consistency.totalTrackedDays} dias',
+                    'Consistência',
                     style: GoogleFonts.manrope(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -1599,7 +1679,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     builder: (context, hovered, _) {
                       return Text(
                         hovered ??
-                            '${consistency.activeDaysCount} dia${consistency.activeDaysCount == 1 ? '' : 's'} ativo${consistency.activeDaysCount == 1 ? '' : 's'} · toque/passe o mouse nos pontos',
+                            '${consistency.activeDaysCount} dia${consistency.activeDaysCount == 1 ? '' : 's'} ativo${consistency.activeDaysCount == 1 ? '' : 's'} · toque nos pontos',
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -1613,6 +1693,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 ],
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Menos ',
@@ -1667,6 +1748,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       levels: consistency.levels,
                       datesGrid: consistency.datesGrid,
                       minutesGrid: consistency.minutesGrid,
+                      activitiesGrid: consistency.activitiesGrid,
                       protectedGrid: consistency.protectedGrid,
                       onDayInspected: (label) {
                         _hoveredDayLabel.value = label;
@@ -1820,7 +1902,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Sessões recentes',
@@ -1830,38 +1916,42 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                 ),
               ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => RootScreen.switchTab(7),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Abrir Diário',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                onTap: () => _openAddSessionModal(suggestedSubjects: suggestedSubjects),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Text(
-                    '+ Nova Sessão',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AsterTheme.primary(context),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => RootScreen.switchTab(7),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Abrir Diário',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    onTap: () => _openAddSessionModal(suggestedSubjects: suggestedSubjects),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Text(
+                        '+ Nova Sessão',
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AsterTheme.primary(context),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -2045,8 +2135,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Sugestão do agente',
@@ -2602,6 +2695,7 @@ class ConsistencyHeatmap extends StatelessWidget {
   final List<List<int>>? levels;
   final List<List<DateTime>>? datesGrid;
   final List<List<int>>? minutesGrid;
+  final List<List<int>>? activitiesGrid;
   final List<List<bool>>? protectedGrid;
   final ValueChanged<String?>? onDayInspected;
 
@@ -2612,6 +2706,7 @@ class ConsistencyHeatmap extends StatelessWidget {
     this.levels,
     this.datesGrid,
     this.minutesGrid,
+    this.activitiesGrid,
     this.protectedGrid,
     this.onDayInspected,
   });
@@ -2649,14 +2744,28 @@ class ConsistencyHeatmap extends StatelessWidget {
     if (col >= 0 && col < columns && row >= 0 && row < rows) {
       final date = datesGrid![col][row];
       final mins = minutesGrid![col][row];
+      final acts = activitiesGrid != null &&
+              col < activitiesGrid!.length &&
+              row < activitiesGrid![col].length
+          ? activitiesGrid![col][row]
+          : 0;
       final isProtected = protectedGrid != null &&
           col < protectedGrid!.length &&
           row < protectedGrid![col].length &&
           protectedGrid![col][row];
       final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
-      final durStr = mins > 0
-          ? '${DashboardAnalytics.formatReadableDuration(mins)} estudados'
-          : (isProtected ? 'Dia protegido (Selo de Consistência)' : 'Sem registro');
+      final String durStr;
+      if (mins > 0 && acts > 1) {
+        durStr = '${DashboardAnalytics.formatReadableDuration(mins)} · $acts atividades';
+      } else if (mins > 0) {
+        durStr = '${DashboardAnalytics.formatReadableDuration(mins)} estudados';
+      } else if (acts > 0) {
+        durStr = '$acts ${acts == 1 ? 'atividade registrada' : 'atividades registradas'}';
+      } else if (isProtected) {
+        durStr = 'Dia protegido (Selo de Consistência)';
+      } else {
+        durStr = 'Sem registro';
+      }
       onDayInspected!('$dateStr: $durStr');
     }
   }

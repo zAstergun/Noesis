@@ -8,6 +8,7 @@ import '../../core/gemini_service.dart';
 import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../main.dart';
+import '../../widgets/country_flag_icon.dart';
 import '../../widgets/vip_privileges.dart';
 import '../../widgets/vip_rgb_theme_editor.dart';
 import '../../widgets/weekly_goal_dialog.dart';
@@ -548,8 +549,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final customColors = AsterTheme.customThemeColorsNotifier.value;
         final themes = AsterTheme.availableThemesWithCustom;
 
+        final isDesktop = MediaQuery.sizeOf(context).width >= 900;
         return SoftClayCard(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isDesktop ? 24 : 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -589,21 +591,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: themes.map((themeOption) {
-                  return SizedBox(
-                    width: 210,
-                    child: _buildThemeOptionCard(
-                      option: themeOption,
-                      isSelected: activeThemeId == themeOption.id,
-                      isVip: isVip,
-                    ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final availableWidth = constraints.maxWidth;
+                  final crossAxisCount = availableWidth >= 880
+                      ? 4
+                      : (availableWidth >= 640
+                          ? 3
+                          : (availableWidth >= 290 ? 2 : 1));
+                  const double spacing = 10;
+                  final double itemWidth =
+                      (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: themes.map((themeOption) {
+                      return SizedBox(
+                        width: itemWidth,
+                        child: _buildThemeOptionCard(
+                          option: themeOption,
+                          isSelected: activeThemeId == themeOption.id,
+                          isVip: isVip,
+                        ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
 
               if (isVip && activeThemeId == AsterTheme.customThemeId)
@@ -861,40 +876,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final hasKey = (_selectedProviderId == 'custom' && _baseUrlController.text.trim().isNotEmpty) ||
         _apiKeyController.text.trim().isNotEmpty;
 
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
     return SoftClayCard(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isDesktop ? 24 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AsterTheme.primary(context).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 68,
                 ),
-                child: Icon(Icons.psychology_rounded, size: 20, color: AsterTheme.primary(context)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Inteligência Artificial & Provedores',
-                      style: GoogleFonts.manrope(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AsterTheme.primary(context).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
                       ),
+                      child: Icon(Icons.psychology_rounded, size: 20, color: AsterTheme.primary(context)),
                     ),
-                    Text(
-                      'Escolha o provedor de IA, personalize a URL e selecione modelos recomendados',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Inteligência Artificial & Provedores',
+                            style: GoogleFonts.manrope(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                            ),
+                          ),
+                          Text(
+                            'Escolha o provedor de IA, personalize a URL e selecione modelos recomendados',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -931,7 +961,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           // 1. Provedores de IA
           Text(
@@ -950,7 +980,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final availableWidth = constraints.maxWidth;
               final crossAxisCount = availableWidth > 880
                   ? 4
-                  : (availableWidth > 640 ? 3 : (availableWidth > 420 ? 2 : 1));
+                  : (availableWidth > 640 ? 3 : (availableWidth >= 290 ? 2 : 1));
               const double spacing = 10;
               final double itemWidth =
                   (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
@@ -1242,6 +1272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Expanded(
                                   child: Text(
                                     mod,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.jetBrainsMono(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -1303,25 +1335,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Row(
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(
-                  'Modelo ativo: ',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    color: AsterTheme.textMuted(context),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Modelo ativo: ',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        color: AsterTheme.textMuted(context),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        _modelController.text.isNotEmpty ? _modelController.text : currentProv.defaultModel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AsterTheme.primary(context),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  _modelController.text.isNotEmpty ? _modelController.text : currentProv.defaultModel,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AsterTheme.primary(context),
-                  ),
-                ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
@@ -1436,13 +1480,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
 
           // 6. Botões de Ação
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SoftClayPillButton(
                 text: 'Salvar Configuração',
                 onPressed: _saveAiSettings,
               ),
-              const SizedBox(width: 10),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AsterTheme.primary(context),
@@ -1459,8 +1505,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onPressed: _isTestingKey ? null : _testAiConnection,
               ),
-              if (hasKey) ...[
-                const SizedBox(width: 10),
+              if (hasKey)
                 TextButton(
                   onPressed: () {
                     _apiKeyController.clear();
@@ -1488,7 +1533,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   child: Text('Limpar', style: GoogleFonts.manrope(color: AsterConstants.coral, fontWeight: FontWeight.w700)),
                 ),
-              ],
             ],
           ),
         ],
@@ -1498,8 +1542,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ─── 3. Seção de Idiomas do Ecossistema Aster (15 Idiomas) ───
   Widget _buildLanguageSection(bool isDark) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
     return SoftClayCard(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isDesktop ? 24 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1515,25 +1560,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Icon(Icons.language_rounded, size: 20, color: AsterTheme.primary(context)),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Idioma e Região',
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Idioma e Região',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Todos os 15 idiomas suportados no ecossistema Aster Portfolio',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    Text(
+                      'Todos os 15 idiomas suportados no ecossistema Aster Portfolio',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -1566,7 +1613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final availableWidth = constraints.maxWidth;
               final crossAxisCount = availableWidth > 880
                   ? 4
-                  : (availableWidth > 640 ? 3 : (availableWidth > 420 ? 2 : 1));
+                  : (availableWidth > 640 ? 3 : (availableWidth >= 290 ? 2 : 1));
               const double spacing = 12;
               final double itemWidth =
                   (availableWidth - (crossAxisCount - 1) * spacing) / crossAxisCount;
@@ -1588,9 +1635,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             persist: false,
                             duration: const Duration(seconds: 2),
                             backgroundColor: primaryCol,
-                            content: Text(
-                              'Idioma selecionado: ${lang.flag} ${lang.name} (${lang.region})',
-                              style: TextStyle(color: AsterTheme.onPrimary(context)),
+                            content: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CountryFlagIcon(code: lang.code, width: 20, height: 14),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Idioma selecionado: ${lang.name} (${lang.region})',
+                                    style: TextStyle(color: AsterTheme.onPrimary(context)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -1613,8 +1669,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(lang.flag, style: const TextStyle(fontSize: 22)),
-                          const SizedBox(width: 10),
+                          CountryFlagIcon(code: lang.code, width: 30, height: 21),
+                          const SizedBox(width: 11),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

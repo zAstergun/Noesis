@@ -148,7 +148,7 @@ void main() {
       attemptId: 'ui-rk-1',
       groupKey: 'sec',
       scorePercentage: 85,
-    ); // +50 Insights na semana
+    ); // +50 base +20% (Logos) = +60 Insights na semana
 
     await TestAppHarness.pumpInHarness(
       tester,
@@ -185,7 +185,7 @@ void main() {
     expect(find.byType(NoesisEloBadge), findsAtLeastNWidgets(8));
 
     expect(find.text('Elo atual: Logos'), findsOneWidget);
-    expect(find.text('+50'), findsAtLeastNWidgets(1));
+    expect(find.text('+60'), findsAtLeastNWidgets(1));
     expect(find.byKey(const Key('ranking_leaderboard_list')), findsOneWidget);
     expect(find.text('Você'), findsAtLeastNWidgets(1));
 

@@ -83,6 +83,7 @@ class RoadmapsRepository {
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     _cache = list;
     await _persist(list);
+    SupabaseService.recordConsistencyActivity(date: updated.updatedAt);
 
     if (syncRemote) {
       await SupabaseService.upsertRoadmap(updated.toJson());

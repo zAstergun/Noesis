@@ -7,6 +7,7 @@ import 'package:noesis/core/theme.dart';
 import 'package:noesis/features/flashcards/flashcards_screen.dart';
 import 'package:noesis/features/flashcards/models/flashcard_model.dart';
 import 'package:noesis/features/quizzes/quiz_screen.dart';
+import 'package:noesis/features/ranking/data/ranking_service.dart';
 import 'package:noesis/features/shop/shop_screen.dart';
 import 'package:noesis/main.dart';
 import 'package:noesis/widgets/insight_gain_toast_overlay.dart';
@@ -835,6 +836,85 @@ void main() {
     await tester.pump(const Duration(milliseconds: 3400));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('insight_gain_toast_container')), findsNothing);
+
+    await TestAppHarness.drainAsync(tester);
+  });
+
+  testWidgets('Elo increases daily cap (+20/tier) and Insights gain (+10%/tier), and VIP doubles all bonuses',
+      (WidgetTester tester) async {
+    final shop = ShopService.instance;
+    final fakeNow = DateTime(2026, 11, 25, 11, 0);
+    addTearDown(() => SupabaseService.setVipForTesting(null));
+
+    // Free no Elo 3 (Síntese): +30% ganho e limite diário = 150 + 3*20 = 210
+    SupabaseService.setVipForTesting(false);
+    await shop.resetForTesting(eloIndex: 3, customClock: () => fakeNow);
+    expect(shop.currentDailySoftCap, 210);
+    expect(shop.currentEloBonusPercent, 30);
+
+    // Simulado >=80% (base 50) com +30% = 65 Insights
+    final examFree = shop.awardForExamCompletion(
+      attemptId: 'elo3-free-1',
+      groupKey: 'elo3-g1',
+      scorePercentage: 90,
+    );
+    expect(examFree, 65);
+
+    // Segundo simulado igual em grupo diferente (+65 -> total 130) e meta semanal (+150*1.3 = 195):
+    // Faltam 80 para o teto 210 -> 80 cheios + metade de 115 (57,5 -> 57 com 0.5 carry) = 137!
+    final examFree2 = shop.awardForExamCompletion(
+      attemptId: 'elo3-free-2',
+      groupKey: 'elo3-g2',
+      scorePercentage: 90,
+    );
+    expect(examFree2, 65);
+    expect(shop.todayEarnedInsights, 130);
+
+    final weeklyFree = shop.evaluateStudyProgressRewards(
+      sessions: const [
+        {'id': 'e1', 'duration_minutes': 300, 'study_date': '2026-11-25'},
+      ],
+      weeklyGoalMinutes: 300,
+      dailyGoalMinutes: 0,
+      referenceDate: fakeNow,
+    );
+    // 195 brutos: 80 até 210 + floor(115/2)=57 => 137
+    expect(weeklyFree, 137);
+
+    // Questões unitárias (+1 base) no Elo 1 (+10%) acumulam frações e pagam +11 em 10 questões
+    await shop.resetForTesting(eloIndex: 1, customClock: () => fakeNow);
+    int totalQ = 0;
+    for (int i = 0; i < 10; i++) {
+      totalQ += shop.awardForQuizAnswer(
+        isCorrect: false,
+        elapsedSinceShown: const Duration(seconds: 5),
+      );
+    }
+    expect(totalQ, 11);
+
+    // VIP no Elo 7 (Noesis, +70%) dobra tudo: (50 * 1.7) * 2 = 170, sem teto
+    SupabaseService.setVipForTesting(true);
+    await RankingService.instance.resetForTesting(
+      currentEloIndex: 7,
+      bestEloIndex: 7,
+      customClock: () => fakeNow,
+    );
+    await shop.resetForTesting(eloIndex: 7, customClock: () => fakeNow);
+    final examVip = shop.awardForExamCompletion(
+      attemptId: 'elo7-vip-1',
+      groupKey: 'elo7-g1',
+      scorePercentage: 90,
+    );
+    expect(examVip, 170);
+
+    // ShopScreen exibe corretamente os bônus de Elo + VIP
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const ShopScreen(),
+      screenSize: const Size(1280, 900),
+    );
+    expect(find.byKey(const Key('shop_vip_unlimited_pill')), findsOneWidget);
+    expect(find.textContaining('2× VIP · +70% Noesis'), findsOneWidget);
 
     await TestAppHarness.drainAsync(tester);
   });

@@ -287,9 +287,17 @@ O projeto adota uma arquitetura modular orientada a funcionalidades (_feature-fi
 
 ```
 c:\Users\User\Desktop\Project\Noesis\
-├── .github/ ou .vscode/          # Configurações de IDE e ambiente
+├── .vscode/                      # Configurações de IDE e ambiente
 ├── assets/
-│   └── prints/                   # Evidências visuais, mockups, bento cards e capturas
+│   ├── fonts/                    # Tipografias locais (Manrope, JetBrainsMono, SpaceGrotesk)
+│   └── images/                   # Logotipos e ícones SVG do aplicativo
+├── docs/
+│   ├── screenshots/              # Capturas oficiais (Aster Soft Clay Desktop & Mobile)
+│   ├── ARQUITETURA.md            # Documento inicial de arquitetura
+│   └── PERFORMANCE_REPORT.md     # Auditoria de performance Web/WasmGC
+├── exemplos_simulados/           # Catálogo de simulados e exames de referência
+├── releases/                     # Binários oficiais prontos para download (APK & Windows ZIP)
+├── scripts/                      # Utilitários de empacotamento e automação
 ├── lib/
 │   ├── core/
 │   │   ├── constants.dart        # Tokens Aster Soft Clay, chaves e URLs do Supabase
@@ -298,27 +306,27 @@ c:\Users\User\Desktop\Project\Noesis\
 │   │   └── gemini_service.dart   # Motor de IA Multi-Provedor, Tool Calling e Quiz RAG
 │   │
 │   ├── features/
-│   │   ├── auth/
-│   │   │   └── auth_screen.dart  # Aster Account SSO, email/senha, OAuth e Modo Visitante
-│   │   ├── tracker/
-│   │   │   └── tracker_screen.dart # Pomodoro/Stopwatch, gráficos analíticos e heatmap
-│   │   ├── calendar/
-│   │   │   └── calendar_screen.dart # Agenda 4 vistas (Dia/Sem/Mês/Timeline), categorias e IA
-│   │   ├── ai_agent/
-│   │   │   └── ai_assistant_screen.dart # Chat com Noesis AI, Tool Calling e chips de ação rápida
-│   │   ├── quizzes/
-│   │   │   └── quiz_screen.dart  # Gerador RAG, prova interativa, cronômetro e gabarito
-│   │   ├── flashcards/
-│   │   │   ├── flashcards_screen.dart # Hub de baralhos, gerador IA e revisor 3D flip
-│   │   │   └── models/
-│   │   │       └── flashcard_model.dart # Modelos de cartão e baralho com cálculo de progresso
-│   │   └── settings/
-│   │       └── settings_screen.dart # Configurações multi-IA, benchmark, tema e idiomas
+│   │   ├── auth/                 # Aster Account SSO, email/senha, OAuth e Modo Visitante
+│   │   ├── tracker/              # Pomodoro/Stopwatch, gráficos analíticos e heatmap
+│   │   ├── calendar/             # Agenda 4 vistas (Dia/Sem/Mês/Timeline), categorias e IA
+│   │   ├── ai_agent/             # Chat com Noesis AI, Tool Calling e chips de ação rápida
+│   │   ├── quizzes/              # Gerador RAG, prova interativa, cronômetro e gabarito
+│   │   ├── flashcards/           # Hub de baralhos, gerador IA e revisor 3D flip
+│   │   ├── notebooks/            # Cadernos e anotações de estudo
+│   │   ├── roadmaps/             # Trilhas de aprendizado
+│   │   ├── performance/          # Análises detalhadas de desempenho
+│   │   ├── ranking/              # Ranking e gamificação
+│   │   ├── study_groups/         # Grupos de estudo colaborativos
+│   │   ├── shop/                 # Loja de insights e recompensas
+│   │   ├── profile/              # Perfil social e conquistas
+│   │   └── settings/             # Configurações multi-IA, benchmark, tema e idiomas
 │   │
+│   ├── widgets/                  # Componentes reutilizáveis (Logo, TopBar, VIP, Bandeiras)
 │   └── main.dart                 # Shell adaptativo (Sidebar Desktop / BottomBar Mobile), notificações
 │
+├── test/                         # Suíte de testes unitários, widgets e E2E
 ├── pubspec.yaml                  # Dependências, fontes e assets do Flutter
-├── ARQUITETURA.md                # Documento inicial de arquitetura
+├── README.md                     # Visão geral, screenshots e downloads oficiais
 └── PROJECT_CONTEXT.md            # Este documento oficial de contexto para IA
 ```
 

@@ -147,8 +147,12 @@ Noesis/
 │   │
 │   └── main.dart                  # Entrada principal com navegação adaptativa (Rail / BottomBar)
 │
-├── pubspec.yaml                   # Dependências (supabase, gemini, fl_chart, calendar)
-└── ARQUITETURA.md                 # Este documento
+├── docs/
+│   ├── ARQUITETURA.md             # Este documento
+│   ├── PERFORMANCE_REPORT.md      # Auditoria de performance Web & Wasm
+│   └── screenshots/               # Capturas oficiais do aplicativo
+├── releases/                      # Downloads oficiais (APK Android & Windows x64)
+└── pubspec.yaml                   # Dependências (supabase, gemini, fl_chart, calendar)
 ```
 
 ---

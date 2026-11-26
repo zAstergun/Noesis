@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
+import '../../core/shop_service.dart';
 import '../flashcards/models/flashcard_model.dart';
 import '../notebooks/models/notebook_model.dart';
 import '../quizzes/data/saved_exams_repository.dart';
@@ -46,6 +47,7 @@ class DashboardConsistencyStats {
     required this.levels,
     required this.minutesGrid,
     required this.datesGrid,
+    this.activitiesGrid = const [],
     this.protectedGrid = const [],
     required this.currentStreakDays,
     required this.bestDayMinutes,
@@ -57,6 +59,7 @@ class DashboardConsistencyStats {
   final List<List<int>> levels;
   final List<List<int>> minutesGrid;
   final List<List<DateTime>> datesGrid;
+  final List<List<int>> activitiesGrid;
   final List<List<bool>> protectedGrid;
   final int currentStreakDays;
   final int bestDayMinutes;
@@ -370,13 +373,145 @@ class DashboardAnalytics {
   static DashboardConsistencyStats computeConsistencyStats(
     List<Map<String, dynamic>> sessions, {
     List<SavedExamAttempt> exams = const [],
+    List<FlashcardDeck> decks = const [],
+    List<StudyNotebook> notebooks = const [],
+    List<StudyRoadmap> roadmaps = const [],
+    List<Map<String, dynamic>> calendarEvents = const [],
+    List<ShopTransaction> transactions = const [],
+    Map<DateTime, int> recordedActivityCounts = const {},
     Set<DateTime> protectedDates = const {},
     int columns = 26,
     int rows = 7,
     DateTime? referenceDate,
   }) {
     final today = _dayOnly(referenceDate ?? DateTime.now());
-    final byDay = _groupMinutesByDay(sessions, exams: exams);
+    final byDayMinutes = _groupMinutesByDay(sessions, exams: exams);
+    final byDayScore = Map<DateTime, int>.from(byDayMinutes);
+    final byDayActivities = <DateTime, int>{};
+
+    void addActivity(DateTime rawDate, {int count = 1, int scoreMinutes = 5}) {
+      if (count <= 0) return;
+      final day = _dayOnly(rawDate);
+      byDayActivities[day] = (byDayActivities[day] ?? 0) + count;
+      byDayScore[day] = (byDayScore[day] ?? 0) + scoreMinutes;
+    }
+
+    // 1. Sessões registradas (horas/minutos de estudo)
+    for (final s in sessions) {
+      final id = (s['id'] ?? '').toString();
+      if (id.startsWith('session-mock-')) continue;
+      final mins = (s['duration_minutes'] as num?)?.toInt() ?? 0;
+      if (mins <= 0) continue;
+      final raw = (s['study_date'] ?? s['created_at'] ?? '').toString().trim();
+      final parsed = DateTime.tryParse(raw);
+      if (parsed == null) continue;
+      final day = _dayOnly(parsed);
+      byDayActivities[day] = (byDayActivities[day] ?? 0) + 1;
+    }
+
+    // 2. Simulados concluídos (mesmo com duração curta < 30s contam como atividade)
+    for (final exam in exams) {
+      final day = _dayOnly(exam.createdAt);
+      byDayActivities[day] = (byDayActivities[day] ?? 0) + 1;
+      if ((exam.elapsedSeconds / 60).round() <= 0) {
+        byDayScore[day] = (byDayScore[day] ?? 0) + 5;
+      }
+    }
+
+    // 3. Flashcards revisados
+    final flashcardReviewsByDay = <DateTime, int>{};
+    for (final deck in decks) {
+      for (final card in deck.cards) {
+        final reviewedAt = card.lastReviewed;
+        if (reviewedAt != null) {
+          final day = _dayOnly(reviewedAt);
+          flashcardReviewsByDay[day] = (flashcardReviewsByDay[day] ?? 0) + 1;
+        }
+      }
+    }
+    final ledgerFlashcardsByDay = <DateTime, int>{};
+    for (final tx in transactions) {
+      if (tx.amount <= 0) continue;
+      if (tx.source == 'welcome' ||
+          tx.source == 'ranking_reward' ||
+          tx.source == 'achievement' ||
+          tx.source == 'purchase') {
+        continue;
+      }
+      final day = _dayOnly(tx.createdAt);
+      if (tx.source == 'flashcard_review' || tx.source == 'flashcard_redeem') {
+        ledgerFlashcardsByDay[day] = (ledgerFlashcardsByDay[day] ?? 0) + 1;
+      } else if (tx.source == 'quiz_question') {
+        addActivity(day, count: 1, scoreMinutes: 4);
+      } else if (tx.source != 'exam_complete') {
+        addActivity(day, count: 1, scoreMinutes: 6);
+      }
+    }
+    final allFlashcardDays = <DateTime>{
+      ...flashcardReviewsByDay.keys,
+      ...ledgerFlashcardsByDay.keys,
+    };
+    for (final day in allFlashcardDays) {
+      final count = math.max(
+        flashcardReviewsByDay[day] ?? 0,
+        ledgerFlashcardsByDay[day] ?? 0,
+      );
+      if (count > 0) {
+        addActivity(day, count: count, scoreMinutes: count * 5);
+      }
+    }
+
+    // 4. Cadernos e anotações criadas, editadas ou revisadas
+    for (final nb in notebooks) {
+      if (nb.notes.isEmpty) {
+        addActivity(nb.createdAt, count: 1, scoreMinutes: 6);
+      } else {
+        for (final note in nb.notes) {
+          final noteDays = <DateTime>{
+            _dayOnly(note.createdAt),
+            _dayOnly(note.updatedAt),
+            if (note.lastReviewedAt != null) _dayOnly(note.lastReviewedAt!),
+          };
+          final estMins = math.max(5, note.estimatedReviewMinutes);
+          for (final day in noteDays) {
+            addActivity(day, count: 1, scoreMinutes: estMins);
+          }
+        }
+      }
+    }
+
+    // 5. Trilhas de estudo com progresso/atualização
+    for (final rm in roadmaps) {
+      if (rm.steps.isNotEmpty) {
+        addActivity(rm.updatedAt, count: 1, scoreMinutes: 6);
+      }
+    }
+
+    // 6. Eventos concluídos na agenda
+    for (final evt in calendarEvents) {
+      if (evt['is_completed'] != true) continue;
+      final parsed = DateTime.tryParse(
+        (evt['start_time'] ?? evt['end_time'] ?? '').toString(),
+      );
+      if (parsed != null) {
+        addActivity(parsed, count: 1, scoreMinutes: 6);
+      }
+    }
+
+    // 7. Registro persistido de ações (inclui respostas rápidas < 3s e criações locais)
+    recordedActivityCounts.forEach((rawDay, count) {
+      if (count <= 0) return;
+      final day = _dayOnly(rawDay);
+      final existing = byDayActivities[day] ?? 0;
+      if (count > existing) {
+        final delta = count - existing;
+        byDayActivities[day] = count;
+        byDayScore[day] = (byDayScore[day] ?? 0) + (delta * 5);
+      } else if ((byDayScore[day] ?? 0) <= 0) {
+        byDayScore[day] = count * 5;
+      }
+    });
+
     final normalizedProtected = protectedDates.map(_dayOnly).toSet();
 
     // Alinha colunas em semanas calendário (Seg..Dom), terminando na semana atual.
@@ -385,6 +520,7 @@ class DashboardAnalytics {
 
     final levels = List.generate(columns, (_) => List.filled(rows, 0));
     final minutesGrid = List.generate(columns, (_) => List.filled(rows, 0));
+    final activitiesGrid = List.generate(columns, (_) => List.filled(rows, 0));
     final protectedGrid = List.generate(columns, (_) => List.filled(rows, false));
     final datesGrid = List.generate(
       columns,
@@ -403,29 +539,34 @@ class DashboardAnalytics {
         if (date.isAfter(today)) {
           levels[col][row] = 0;
           minutesGrid[col][row] = 0;
+          activitiesGrid[col][row] = 0;
           protectedGrid[col][row] = false;
           continue;
         }
         trackedDays++;
-        final mins = byDay[date] ?? 0;
+        final mins = byDayMinutes[date] ?? 0;
+        final acts = byDayActivities[date] ?? 0;
+        final score = byDayScore[date] ?? 0;
         minutesGrid[col][row] = mins;
-        levels[col][row] = levelForMinutes(mins);
-        protectedGrid[col][row] = mins <= 0 && normalizedProtected.contains(date);
-        if (mins > 0) activeDays++;
+        activitiesGrid[col][row] = acts;
+        levels[col][row] = levelForMinutes(score);
+        protectedGrid[col][row] = score <= 0 && normalizedProtected.contains(date);
+        if (score > 0 || acts > 0) activeDays++;
       }
     }
 
-    // Streak real considerando sessões + simulados registrados + dias protegidos pelo Selo de Consistência
+    // Streak real considerando todas as atividades de estudo + dias protegidos pelo Selo de Consistência
     int streak = 0;
     final yesterday = today.subtract(const Duration(days: 1));
+    bool isDayActive(DateTime d) => (byDayScore[d] ?? 0) > 0 || (byDayActivities[d] ?? 0) > 0;
     DateTime? cursor;
-    if ((byDay[today] ?? 0) > 0 || normalizedProtected.contains(today)) {
+    if (isDayActive(today) || normalizedProtected.contains(today)) {
       cursor = today;
-    } else if ((byDay[yesterday] ?? 0) > 0 || normalizedProtected.contains(yesterday)) {
+    } else if (isDayActive(yesterday) || normalizedProtected.contains(yesterday)) {
       cursor = yesterday;
     }
     while (cursor != null) {
-      if ((byDay[cursor] ?? 0) > 0) {
+      if (isDayActive(cursor)) {
         streak++;
       } else if (!normalizedProtected.contains(cursor)) {
         break;
@@ -435,7 +576,7 @@ class DashboardAnalytics {
 
     int bestMinutes = 0;
     DateTime? bestDate;
-    byDay.forEach((date, mins) {
+    byDayMinutes.forEach((date, mins) {
       if (mins > bestMinutes) {
         bestMinutes = mins;
         bestDate = date;
@@ -446,6 +587,7 @@ class DashboardAnalytics {
       levels: levels,
       minutesGrid: minutesGrid,
       datesGrid: datesGrid,
+      activitiesGrid: activitiesGrid,
       protectedGrid: protectedGrid,
       currentStreakDays: streak,
       bestDayMinutes: bestMinutes,

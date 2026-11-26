@@ -119,12 +119,14 @@ class ShopService {
       ValueNotifier<Set<String>>(const {});
   final ValueNotifier<InsightGainEvent?> latestGainNotifier =
       ValueNotifier<InsightGainEvent?>(null);
+  final ValueNotifier<int> currentEloIndexNotifier = ValueNotifier<int>(0);
 
   final List<ShopTransaction> _ledger = [];
   final Set<String> _pendingHardCardIds = {};
   final Set<String> _purchasingThemeIds = {};
   final Set<DateTime> _protectedStreakDates = {};
   int _softCapHalfCarry = 0; // resto de 0,5 Insight em unidades inteiras de meios-pontos
+  int _eloBonusTenthCarry = 0; // resto decimal (0..9 décimos) do bônus percentual de Elo
   int _totalQuizQuestionsAnswered = 0;
   bool _loaded = false;
   bool _listeningVip = false;
@@ -146,6 +148,18 @@ class ShopService {
   Set<String> get unlockedThemes => unlockedThemesNotifier.value;
   List<ShopTransaction> get ledger => List<ShopTransaction>.unmodifiable(_ledger);
   int get streakProtectors => streakProtectorsNotifier.value;
+  int get currentEloIndex => currentEloIndexNotifier.value;
+  int get currentDailySoftCap =>
+      InsightsEconomyConfig.dailySoftCapForElo(currentEloIndex);
+  int get currentEloBonusPercent =>
+      InsightsEconomyConfig.eloBonusPercent(currentEloIndex);
+
+  void setCurrentEloIndex(int eloIndex) {
+    final clamped = eloIndex.clamp(0, InsightsEconomyConfig.maxEloIndex);
+    if (currentEloIndexNotifier.value != clamped) {
+      currentEloIndexNotifier.value = clamped;
+    }
+  }
   int get maxStreakProtectors =>
       InsightsEconomyConfig.maxStreakProtectorsForVip(SupabaseService.isCurrentUserVip);
   int get totalQuizQuestionsAnswered => _totalQuizQuestionsAnswered;
@@ -194,6 +208,23 @@ class ShopService {
       }
     }
     return total;
+  }
+
+  /// Dias em que o estudante realizou alguma atividade real premiada no ledger
+  /// (simulados, questões, flashcards, metas, grupos de estudo).
+  Set<DateTime> get studyActivityDates {
+    final dates = <DateTime>{};
+    for (final tx in _ledger) {
+      if (tx.amount <= 0) continue;
+      if (tx.source == 'welcome' ||
+          tx.source == 'ranking_reward' ||
+          tx.source == 'achievement' ||
+          tx.source == 'purchase') {
+        continue;
+      }
+      dates.add(DateTime(tx.createdAt.year, tx.createdAt.month, tx.createdAt.day));
+    }
+    return dates;
   }
 
   /// Soma de Insights conquistados na semana atual (segunda 00:00 até agora),
@@ -337,6 +368,7 @@ class ShopService {
     _pendingHardCardIds.clear();
     _protectedStreakDates.clear();
     _softCapHalfCarry = 0;
+    _eloBonusTenthCarry = 0;
     _totalQuizQuestionsAnswered = 0;
 
     try {
@@ -371,6 +403,7 @@ class ShopService {
             }
           }
           _softCapHalfCarry = (map['soft_cap_half_carry'] as num?)?.toInt() ?? 0;
+          _eloBonusTenthCarry = (map['elo_bonus_tenth_carry'] as num?)?.toInt() ?? 0;
           _totalQuizQuestionsAnswered =
               (map['total_quiz_questions_answered'] as num?)?.toInt() ?? 0;
           final savedBanner = (map['equipped_banner_id'] ?? '').toString().trim();
@@ -492,6 +525,7 @@ class ShopService {
           'protected_streak_dates':
               _protectedStreakDates.map((d) => _isoDate(d)).toList()..sort(),
           'soft_cap_half_carry': _softCapHalfCarry,
+          'elo_bonus_tenth_carry': _eloBonusTenthCarry,
           'total_quiz_questions_answered': _totalQuizQuestionsAnswered,
           'equipped_banner_id': equippedBannerIdNotifier.value,
           'equipped_frame_id': equippedFrameIdNotifier.value,
@@ -501,11 +535,12 @@ class ShopService {
     } catch (_) {}
   }
 
-  /// Aplica o teto diário suave (150 Insights cheios/dia, metade após o teto).
+  /// Aplica o teto diário suave escalado pelo Elo atual (+20 por ranking;
+  /// metade após o teto para contas gratuitas).
   int _applyDailySoftCap(int rawAmount) {
     if (rawAmount <= 0) return 0;
     final earnedToday = todayEarnedInsights;
-    const cap = InsightsEconomyConfig.dailySoftCap;
+    final cap = currentDailySoftCap;
 
     if (earnedToday + rawAmount <= cap) {
       return rawAmount;
@@ -517,7 +552,7 @@ class ShopService {
       return paid;
     }
 
-    // Cruzando exatamente a fronteira dos 150 Insights no dia
+    // Cruzando exatamente a fronteira do limite diário do Elo atual
     final fullPart = cap - earnedToday;
     final overflowPart = rawAmount - fullPart;
     final totalHalfUnits = overflowPart + _softCapHalfCarry;
@@ -539,8 +574,15 @@ class ShopService {
       return 0;
     }
     final isVip = SupabaseService.isCurrentUserVip;
-    final boostedRaw =
-        isVip ? rawAmount * InsightsEconomyConfig.vipGainMultiplier : rawAmount;
+    final eloIndex = currentEloIndex;
+    final eloPct = InsightsEconomyConfig.eloBonusPercent(eloIndex);
+    final tenthsMult = InsightsEconomyConfig.gainTenthsMultiplier(
+      eloIndex: eloIndex,
+      isVip: isVip,
+    );
+    final totalTenths = (rawAmount * tenthsMult) + _eloBonusTenthCarry;
+    final boostedRaw = totalTenths ~/ 10;
+    _eloBonusTenthCarry = totalTenths % 10;
     final amount =
         (!isVip && applySoftCap) ? _applyDailySoftCap(boostedRaw) : boostedRaw;
     if (amount <= 0) {
@@ -548,11 +590,19 @@ class ShopService {
       return 0;
     }
 
+    final bonusLabels = <String>[
+      if (eloPct > 0) '+$eloPct% Elo',
+      if (isVip) '2× VIP',
+    ];
+    final fullDescription = bonusLabels.isEmpty
+        ? description
+        : '$description · ${bonusLabels.join(' · ')}';
+
     final now = _clock();
     final tx = ShopTransaction(
       id: idempotentId ?? '$source-${now.microsecondsSinceEpoch}-${_ledger.length}',
       amount: amount,
-      description: isVip ? '$description · 2× VIP' : description,
+      description: fullDescription,
       source: source,
       reference: reference,
       createdAt: now,
@@ -1050,12 +1100,15 @@ class ShopService {
   Future<int> reconcileStreakProtectors(
     List<Map<String, dynamic>> sessions, {
     DateTime? referenceDate,
+    Set<DateTime> extraActiveDates = const {},
   }) async {
     await init();
     final available = streakProtectors;
     if (available <= 0) return 0;
 
-    final activeDays = <DateTime>{};
+    final activeDays = <DateTime>{
+      for (final d in extraActiveDates) DateTime(d.year, d.month, d.day),
+    };
     for (final s in sessions) {
       final id = (s['id'] ?? '').toString();
       if (id.startsWith('session-mock-')) continue;
@@ -1115,6 +1168,7 @@ class ShopService {
     Set<String>? unlockedThemes,
     int initialStreakProtectors = 0,
     int initialQuizQuestionsAnswered = 0,
+    int eloIndex = 0,
     Set<DateTime>? initialProtectedDates,
     DateTime Function()? customClock,
   }) async {
@@ -1126,6 +1180,8 @@ class ShopService {
     _purchasingThemeIds.clear();
     _protectedStreakDates.clear();
     _softCapHalfCarry = 0;
+    _eloBonusTenthCarry = 0;
+    setCurrentEloIndex(eloIndex);
     _totalQuizQuestionsAnswered = initialQuizQuestionsAnswered;
     equippedBannerIdNotifier.value = ProfileCosmeticsCatalog.defaultBannerId;
     equippedFrameIdNotifier.value = ProfileCosmeticsCatalog.defaultFrameId;

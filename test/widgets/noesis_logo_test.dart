@@ -56,7 +56,7 @@ void main() {
     await TestAppHarness.drainAsync(tester);
   });
 
-  testWidgets('Tapping Noesis logo collapses and expands the desktop sidebar smoothly', (tester) async {
+  testWidgets('Tapping sidebar toggle collapses/expands rail and tapping Noesis brand triggers home spark', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -73,32 +73,32 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // Sidebar aberta inicialmente
-    expect(find.byKey(const Key('sidebar_logo_toggle')), findsOneWidget);
-    expect(find.byKey(const Key('collapsed_logo_toggle')), findsNothing);
+    // Sidebar aberta inicialmente com marca Noesis na barra superior
+    expect(find.byKey(const Key('top_bar_sidebar_toggle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar_expanded_panel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar_collapsed_rail')), findsNothing);
     expect(find.byType(NoesisWordmark), findsOneWidget);
     final wordmarkStyle = tester.widget<Text>(find.text('Noesis')).style;
     expect(wordmarkStyle?.fontFamily, contains('SpaceGrotesk'));
 
-    // Toca no logo da sidebar para ocultar o menu lateral
-    await tester.tap(find.byKey(const Key('sidebar_logo_toggle')));
+    // Toca no logo/marca Noesis na barra superior para recolher o menu lateral em trilho de ícones
+    await tester.tap(find.byKey(const Key('top_bar_sidebar_toggle')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('sidebar_logo_toggle')), findsNothing);
-    expect(find.byKey(const Key('collapsed_logo_toggle')), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar_expanded_panel')), findsNothing);
+    expect(find.byKey(const ValueKey('sidebar_collapsed_rail')), findsOneWidget);
 
-    // Toca no logo recolhido para reabrir o menu lateral
-    await tester.tap(find.byKey(const Key('collapsed_logo_toggle')));
+    // Toca novamente no logo/marca Noesis para reabrir o menu lateral
+    await tester.tap(find.byKey(const Key('top_bar_sidebar_toggle')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('sidebar_logo_toggle')), findsOneWidget);
-    expect(find.byKey(const Key('collapsed_logo_toggle')), findsNothing);
+    expect(find.byKey(const ValueKey('sidebar_expanded_panel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('sidebar_collapsed_rail')), findsNothing);
 
-    // Navega para Cadernos, abre um caderno e recolhe o menu lateral:
-    // o botão de voltar deve ficar ao lado do menu recolhido (mesma linha do topo), e não abaixo dele.
+    // Navega para Cadernos, abre um caderno e recolhe o menu lateral pelo logo na barra superior
     await tester.tap(find.text('Cadernos').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('sidebar_logo_toggle')));
+    await tester.tap(find.byKey(const Key('top_bar_sidebar_toggle')));
     await tester.pumpAndSettle();
 
     final openNotebookBtn = find.textContaining('Abrir Caderno');
@@ -108,10 +108,9 @@ void main() {
 
       final backFinder = find.byIcon(Icons.arrow_back_rounded);
       expect(backFinder, findsOneWidget);
-      final pillRect = tester.getRect(find.byKey(const Key('collapsed_logo_toggle')));
+      final railRect = tester.getRect(find.byKey(const ValueKey('sidebar_collapsed_rail')));
       final backRect = tester.getRect(backFinder);
-      expect(pillRect.right <= backRect.left, isTrue);
-      expect((pillRect.center.dy - backRect.center.dy).abs() < 16, isTrue);
+      expect(railRect.right <= backRect.left, isTrue);
     }
 
     await TestAppHarness.drainAsync(tester);

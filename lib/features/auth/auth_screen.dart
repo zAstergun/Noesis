@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 import '../../core/constants.dart';
+import '../../core/desktop_window_service.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
+import '../../widgets/desktop_top_bar.dart';
 import '../../widgets/noesis_logo.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -50,7 +52,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final launched = await SupabaseService.signInWithOAuth(provider);
       if (!launched && mounted) {
         setState(() {
-          _errorMessage = 'Não foi possível abrir o login externo. Tente novamente.';
+          _errorMessage = 'Login externo cancelado ou não concluído.';
         });
       }
     } catch (e) {
@@ -656,40 +658,45 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AsterConstants.bgNevoa,
-      body: SoftClayBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                // Doppelrand (Double-Bezel Architecture)
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(34),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      width: 2,
-                    ),
-                    boxShadow: AsterConstants.clayShadow,
+    final screenW = MediaQuery.sizeOf(context).width;
+    final isCompactMobile = screenW < 400;
+    final content = SoftClayBackground(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompactMobile ? 16.0 : 20.0,
+              vertical: isCompactMobile ? 16.0 : 24.0,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              // Doppelrand (Double-Bezel Architecture)
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 2,
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32.0, vertical: 36.0),
-                    decoration: BoxDecoration(
-                      color: AsterConstants.surfaceCard,
-                      borderRadius: BorderRadius.circular(32),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Logo Oficial Noesis
-                        const Center(
-                          child: NoesisLogo(size: 68, withShadow: true),
-                        ),
+                  boxShadow: AsterConstants.clayShadow,
+                ),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompactMobile ? 22.0 : 32.0,
+                    vertical: isCompactMobile ? 28.0 : 36.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AsterConstants.surfaceCard,
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Logo Oficial Noesis
+                      const Center(
+                        child: NoesisLogo(size: 68, withShadow: true),
+                      ),
                         const SizedBox(height: 16),
 
                         // Eyebrow Tag Semântica
@@ -1025,6 +1032,22 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ],
                         ),
+                        if (_oauthLoading != null) ...[
+                          const SizedBox(height: 10),
+                          Center(
+                            child: TextButton.icon(
+                              onPressed: () => SupabaseService.cancelPendingOAuth(),
+                              icon: const Icon(Icons.close_rounded, size: 15),
+                              label: Text(
+                                'Cancelar login no navegador',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 20),
 
                         // Selo de Criptografia & Segurança
@@ -1054,6 +1077,48 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ),
+        ),
+    );
+
+    if (!DesktopWindowService.isCustomFrameSupported) {
+      return Scaffold(
+        backgroundColor: AsterConstants.bgNevoa,
+        body: content,
+      );
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shellColor = noesisDesktopShellColor(context);
+    return Scaffold(
+      backgroundColor: shellColor,
+      body: Container(
+        color: shellColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const DesktopTopBar(
+              showWorkspaceControls: false,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AsterTheme.surfaceInset(context).withValues(
+                        alpha: isDark ? 0.72 : 0.9,
+                      ),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: content,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

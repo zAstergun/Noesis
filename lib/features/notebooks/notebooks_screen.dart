@@ -35,6 +35,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   StudyNotebook? _selectedNotebook;
   // Anotação atualmente selecionada para leitura no caderno
   StudyNote? _selectedNote;
+  bool _mobileShowNoteReader = false;
 
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -1318,95 +1319,116 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget.groupScope != null ? 'Cadernos do Grupo 📚' : 'Cadernos de Estudo 📚',
-                            style: GoogleFonts.manrope(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                            ),
-                            child: Text(
-                              '${_notebooks.length} Cadernos',
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: AsterTheme.primary(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.groupScope != null
-                            ? 'Crie cadernos, formate anotações com IA ✨ ou anexe seus próprios cadernos ao grupo.'
-                            : 'Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.',
-                        style: GoogleFonts.manrope(
-                          fontSize: 14,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                        ),
-                      ),
-                    ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompactPage = constraints.maxWidth < 680;
+          final titleBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    widget.groupScope != null ? 'Cadernos do Grupo 📚' : 'Cadernos de Estudo 📚',
+                    style: GoogleFonts.manrope(
+                      fontSize: isCompactPage ? 22 : 26,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      letterSpacing: -0.5,
+                    ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AsterTheme.primary(context).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    ),
+                    child: Text(
+                      '${_notebooks.length} Cadernos',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AsterTheme.primary(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.groupScope != null
+                    ? 'Crie cadernos, formate anotações com IA ✨ ou anexe seus próprios cadernos ao grupo.'
+                    : 'Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.',
+                style: GoogleFonts.manrope(
+                  fontSize: isCompactPage ? 13 : 14,
+                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                 ),
-                if (widget.groupScope == null || widget.groupScope!.canEdit)
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    children: [
-                      if (widget.groupScope?.onAttachExisting != null)
-                        OutlinedButton.icon(
-                          key: const Key('group_attach_notebook_button'),
-                          onPressed: widget.groupScope!.onAttachExisting,
-                          icon: const Icon(Icons.attach_file_rounded, size: 18),
-                          label: const Text('Anexar Meu Caderno'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                          ),
-                        ),
-                      ElevatedButton.icon(
-                        key: widget.groupScope != null ? const Key('group_create_notebook_button') : null,
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: const Text('Novo Caderno'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AsterTheme.primary(context),
-                          foregroundColor: AsterTheme.onPrimary(context),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+            ],
+          );
+
+          final actionButtons = (widget.groupScope == null || widget.groupScope!.canEdit)
+              ? Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    if (widget.groupScope?.onAttachExisting != null)
+                      OutlinedButton.icon(
+                        key: const Key('group_attach_notebook_button'),
+                        onPressed: widget.groupScope!.onAttachExisting,
+                        icon: const Icon(Icons.attach_file_rounded, size: 18),
+                        label: const Text('Anexar Meu Caderno'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                         ),
-                        onPressed: () => _openNotebookModal(),
                       ),
+                    ElevatedButton.icon(
+                      key: widget.groupScope != null ? const Key('group_create_notebook_button') : null,
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: const Text('Novo Caderno'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AsterTheme.primary(context),
+                        foregroundColor: AsterTheme.onPrimary(context),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                      ),
+                      onPressed: () => _openNotebookModal(),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink();
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              isCompactPage ? 16 : 28,
+              isCompactPage ? 12 : 20,
+              isCompactPage ? 16 : 28,
+              40,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                if (isCompactPage) ...[
+                  titleBlock,
+                  if (widget.groupScope == null || widget.groupScope!.canEdit) ...[
+                    const SizedBox(height: 14),
+                    actionButtons,
+                  ],
+                ] else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
+                      Expanded(child: titleBlock),
+                      const SizedBox(width: 16),
+                      actionButtons,
                     ],
                   ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
             // Métricas em Cards Soft Clay
             LayoutBuilder(
@@ -1887,8 +1909,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
               ),
           ],
         ),
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 
   Widget _buildMetricCard({
@@ -2566,6 +2590,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     setState(() {
                       _selectedNotebook = null;
                       _selectedNote = null;
+                      _mobileShowNoteReader = false;
                       _notesSearchQuery = '';
                       _notesSearchCtrl.clear();
                       _selectedTagFilter = 'Todas';
@@ -2580,104 +2605,138 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        notebook.title,
-                        style: GoogleFonts.manrope(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: nbColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                        ),
+                      Flexible(
                         child: Text(
-                          notebook.subject,
-                          style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: nbColor),
+                          notebook.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                            fontSize: isDesktop ? 16 : 15,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          ),
                         ),
                       ),
+                      if (isDesktop) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: nbColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                          ),
+                          child: Text(
+                            notebook.subject,
+                            style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: nbColor),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   Text(
                     '${notebook.notes.length} anotações · ${notebook.totalLinksCount} links · ${notebook.totalImagesCount} imagens',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                   ),
                 ],
               ),
-              actions: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.edit_note_rounded, size: 16),
-                  label: const Text('Editar Caderno'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  onPressed: () => _openNotebookModal(notebook: notebook),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Nova Anotação 📝'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: nbColor,
-                    foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
-                        ? const Color(0xFF111111)
-                        : Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                  ),
-                  onPressed: () => _openNoteEditorModal(),
-                ),
-                const SizedBox(width: 16),
-              ],
+              actions: isDesktop
+                  ? [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.edit_note_rounded, size: 16),
+                        label: const Text('Editar Caderno'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        onPressed: () => _openNotebookModal(notebook: notebook),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Nova Anotação 📝'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: nbColor,
+                          foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
+                              ? const Color(0xFF111111)
+                              : Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                        ),
+                        onPressed: () => _openNoteEditorModal(),
+                      ),
+                      const SizedBox(width: 16),
+                    ]
+                  : [
+                      IconButton(
+                        tooltip: 'Editar Caderno',
+                        icon: const Icon(Icons.edit_note_rounded, size: 22),
+                        onPressed: () => _openNotebookModal(notebook: notebook),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: IconButton.filled(
+                          tooltip: 'Nova Anotação',
+                          style: IconButton.styleFrom(
+                            backgroundColor: nbColor,
+                            foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
+                                ? const Color(0xFF111111)
+                                : Colors.white,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          onPressed: () => _openNoteEditorModal(),
+                        ),
+                      ),
+                    ],
             );
           },
         ),
       ),
       body: notebook.notes.isEmpty
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.edit_note_rounded, size: 58, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Caderno vazio.',
-                    style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Adicione sua primeira anotação para começar a estudar este tema.',
-                    style: GoogleFonts.manrope(fontSize: 13, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Criar Nova Anotação'),
-                    style: ElevatedButton.styleFrom(backgroundColor: nbColor, foregroundColor: Colors.white),
-                    onPressed: () => _openNoteEditorModal(),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.edit_note_rounded, size: 58, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Caderno vazio.',
+                      style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Adicione sua primeira anotação para começar a estudar este tema.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(fontSize: 13, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Criar Nova Anotação'),
+                      style: ElevatedButton.styleFrom(backgroundColor: nbColor, foregroundColor: Colors.white),
+                      onPressed: () => _openNoteEditorModal(),
+                    ),
+                  ],
+                ),
               ),
             )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Coluna Esquerda: Lista de Anotações do Caderno com Busca e Filtros
-                SizedBox(
-                  width: 320,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(
-                          color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
-                        ),
-                      ),
-                    ),
-                    child: Column(
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isSplitPane = constraints.maxWidth >= 760;
+                final notesListPane = Container(
+                  width: isSplitPane ? 320 : double.infinity,
+                  decoration: isSplitPane
+                      ? BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                            ),
+                          ),
+                        )
+                      : null,
+                  child: Column(
                       children: [
                         // Barra de Busca e Menu de Data/Ordenação
                         Padding(
@@ -3159,7 +3218,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     final isSelected = currentReadingNote?.id == n.id;
 
                                     return GestureDetector(
-                                      onTap: () => setState(() => _selectedNote = n),
+                                      onTap: () => setState(() {
+                                        _selectedNote = n;
+                                        _mobileShowNoteReader = true;
+                                      }),
                                       child: Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
@@ -3282,21 +3344,35 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         ),
                       ],
                     ),
-                  ),
-                ),
+                  );
 
-                // Coluna Direita: Leitor e Renderizador Completo da Anotação
-                Expanded(
-                  child: currentReadingNote == null
-                      ? Center(
-                          child: Text(
-                            'Selecione uma anotação à esquerda para visualizar.',
-                            style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                          ),
-                        )
-                      : _buildNoteReaderView(currentReadingNote, isDark),
-                ),
-              ],
+                final readerPane = currentReadingNote == null
+                    ? Center(
+                        child: Text(
+                          'Selecione uma anotação para visualizar.',
+                          style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                        ),
+                      )
+                    : _buildNoteReaderView(
+                        currentReadingNote,
+                        isDark,
+                        showMobileBackButton: !isSplitPane,
+                      );
+
+                if (!isSplitPane) {
+                  return (_mobileShowNoteReader && currentReadingNote != null)
+                      ? readerPane
+                      : notesListPane;
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    notesListPane,
+                    Expanded(child: readerPane),
+                  ],
+                );
+              },
             ),
     );
   }
@@ -3304,15 +3380,54 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   // ----------------------------------------------------
   // 3. LEITOR & RENDERIZADOR DA ANOTAÇÃO (TEXTO, LINKS E IMAGENS)
   // ----------------------------------------------------
-  Widget _buildNoteReaderView(StudyNote note, bool isDark) {
+  Widget _buildNoteReaderView(
+    StudyNote note,
+    bool isDark, {
+    bool showMobileBackButton = false,
+  }) {
     final images = note.allImageUrls;
     final generalLinks = note.generalLinks;
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(36, 24, 36, 48),
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 36 : 16,
+        isDesktop ? 24 : 14,
+        isDesktop ? 36 : 16,
+        40,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (showMobileBackButton) ...[
+            InkWell(
+              onTap: () => setState(() => _mobileShowNoteReader = false),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back_rounded, size: 16, color: AsterTheme.primary(context)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Voltar às anotações',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AsterTheme.primary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           // Barra de Título da Anotação e Ações
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3324,14 +3439,17 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     Text(
                       note.title,
                       style: GoogleFonts.manrope(
-                        fontSize: 24,
+                        fontSize: isDesktop ? 24 : 20,
                         fontWeight: FontWeight.w800,
                         color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                         letterSpacing: -0.4,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           'Atualizado em ${DateFormat("d 'de' MMMM 'às' HH:mm", 'pt_BR').format(note.updatedAt)}',
@@ -3340,10 +3458,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                           ),
                         ),
-                        if (note.tags.isNotEmpty) ...[
-                          const SizedBox(width: 10),
+                        if (note.tags.isNotEmpty)
                           Wrap(
                             spacing: 6,
+                            runSpacing: 4,
                             children: note.tags.map((t) {
                               return GestureDetector(
                                 onTap: () => setState(() => _selectedTagFilter = t),
@@ -3364,7 +3482,6 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               );
                             }).toList(),
                           ),
-                        ],
                       ],
                     ),
                   ],

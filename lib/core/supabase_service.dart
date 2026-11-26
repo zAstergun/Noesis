@@ -93,6 +93,10 @@ class SupabaseService {
     return response;
   }
 
+  static Future<void> cancelPendingOAuth() async {
+    await oauth_loopback.cancelActiveOAuthLoopback();
+  }
+
   static Future<bool> signInWithOAuth(OAuthProvider provider) async {
     final scopes = provider == OAuthProvider.discord ? 'identify email' : null;
     if (oauth_loopback.isDesktopLoopbackPlatform) {
@@ -897,13 +901,91 @@ class SupabaseService {
     return total;
   }
 
+  static const String _consistencyStorageKey = 'noesis_consistency_days_v1';
+  static final ValueNotifier<int> consistencyRevisionNotifier = ValueNotifier<int>(0);
+  static final Map<String, int> _consistencyActivityCountsByIso = {};
+  static bool _consistencyLoaded = false;
+
+  static String _consistencyIso(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+  static Future<void> loadConsistencyActivity() async {
+    if (_consistencyLoaded) return;
+    _consistencyLoaded = true;
+    try {
+      final raw = await local_store.readSavedExamsRaw(_consistencyStorageKey);
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          decoded.forEach((key, val) {
+            final cleanKey = key.toString().trim();
+            final count = (val as num?)?.toInt() ?? 0;
+            if (cleanKey.isNotEmpty && count > 0) {
+              _consistencyActivityCountsByIso[cleanKey] = count;
+            }
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _persistConsistencyActivity() async {
+    try {
+      await local_store.writeSavedExamsRaw(
+        _consistencyStorageKey,
+        jsonEncode(_consistencyActivityCountsByIso),
+      );
+    } catch (_) {}
+  }
+
+  /// Registra qualquer atividade de estudo real (sessões, flashcards, questões de simulado,
+  /// criação/edição de anotações, trilhas) para contabilizar consistência e sequência diária.
+  static void recordConsistencyActivity({DateTime? date, int count = 1}) {
+    if (count <= 0) return;
+    _consistencyLoaded = true;
+    final dt = date ?? DateTime.now();
+    final iso = _consistencyIso(dt);
+    _consistencyActivityCountsByIso[iso] =
+        (_consistencyActivityCountsByIso[iso] ?? 0) + count;
+    consistencyRevisionNotifier.value++;
+    unawaited(_persistConsistencyActivity());
+  }
+
+  static Map<DateTime, int> get recordedConsistencyCountsByDay {
+    final map = <DateTime, int>{};
+    _consistencyActivityCountsByIso.forEach((iso, count) {
+      if (count <= 0) return;
+      final parsed = DateTime.tryParse(iso);
+      if (parsed == null) return;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      map[day] = (map[day] ?? 0) + count;
+    });
+    return map;
+  }
+
+  static Set<DateTime> get recordedConsistencyDates =>
+      recordedConsistencyCountsByDay.keys.toSet();
+
+  @visibleForTesting
+  static Future<void> resetConsistencyForTesting() async {
+    _consistencyLoaded = true;
+    _consistencyActivityCountsByIso.clear();
+    consistencyRevisionNotifier.value++;
+    await _persistConsistencyActivity();
+  }
+
   static int computeCurrentStreakDays(
     List<Map<String, dynamic>> sessions, {
     DateTime? referenceDate,
     Set<DateTime> protectedDates = const {},
+    Set<DateTime> extraActiveDates = const {},
   }) {
-    final activeDays = <DateTime>{};
+    final activeDays = <DateTime>{
+      for (final d in extraActiveDates) DateTime(d.year, d.month, d.day),
+    };
     for (final session in sessions) {
+      final id = (session['id'] ?? '').toString();
+      if (id.startsWith('session-mock-')) continue;
       final mins = (session['duration_minutes'] as num?)?.toInt() ?? 0;
       if (mins <= 0) continue;
       final rawDate = (session['study_date'] ?? session['created_at'] ?? '').toString().trim();
@@ -1202,6 +1284,9 @@ class SupabaseService {
     _inMemoryStudySessions.insert(0, newSession);
     _studySessionsStreamController.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
     await _persistLocalStudySessions();
+    if (durationMinutes > 0) {
+      recordConsistencyActivity(date: studyDate);
+    }
 
     if (currentUser != null) {
       try {
@@ -1907,6 +1992,7 @@ class SupabaseService {
         debugPrint('Erro ao salvar baralho no Supabase: $e');
       }
     }
+    recordConsistencyActivity();
     return deck;
   }
 
@@ -1940,6 +2026,7 @@ class SupabaseService {
         saveFlashcardDeck(_inMemoryFlashcardDecks[deckIndex]);
       }
     }
+    recordConsistencyActivity();
   }
 
   // ----------------------------------------------------
@@ -1993,6 +2080,7 @@ class SupabaseService {
       }
     }
 
+    recordConsistencyActivity();
     return notebook;
   }
 
@@ -2022,6 +2110,8 @@ class SupabaseService {
       _inMemoryNotebooks[nbIndex] = updatedNb;
       if (currentUser != null) {
         await saveNotebook(updatedNb);
+      } else {
+        recordConsistencyActivity();
       }
     }
   }

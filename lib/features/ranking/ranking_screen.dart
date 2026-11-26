@@ -131,14 +131,17 @@ class _RankingScreenState extends State<RankingScreen> {
                                   highlighted: true,
                                 ),
                                 const SizedBox(width: 14),
-                                Flexible(
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: isDesktop ? 460 : MediaQuery.sizeOf(context).width - 130,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Ranking & Ligas Semanais',
                                         style: GoogleFonts.manrope(
-                                          fontSize: 21,
+                                          fontSize: isDesktop ? 21 : 18.5,
                                           fontWeight: FontWeight.w900,
                                           color: AsterTheme.text(context),
                                         ),
@@ -921,6 +924,14 @@ class _RankingScreenState extends State<RankingScreen> {
                 label:
                     'Permanência: +$nextRetentionPts pts e +$nextRetentionInsights Insights (cresce a cada semana)',
                 color: AsterConstants.ambar,
+              ),
+              _rulePill(
+                context,
+                icon: Icons.auto_awesome_rounded,
+                label: tier.index == 0
+                    ? 'Economia: Ganho base (1×) · Limite ${InsightsEconomyConfig.dailySoftCapForElo(0)}/dia'
+                    : 'Bônus do Elo: +${InsightsEconomyConfig.eloBonusPercent(tier.index)}% Insights · Limite ${InsightsEconomyConfig.dailySoftCapForElo(tier.index)}/dia (2× no VIP)',
+                color: tier.accentColor,
               ),
             ],
           ),

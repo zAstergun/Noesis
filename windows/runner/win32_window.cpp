@@ -2,6 +2,7 @@
 
 #include <dwmapi.h>
 #include <flutter_windows.h>
+#include <windowsx.h>
 
 #include "resource.h"
 
@@ -14,6 +15,14 @@ namespace {
 /// See: https://docs.microsoft.com/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
+
+#ifndef DWMWCP_ROUND
+#define DWMWCP_ROUND 2
 #endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
@@ -146,6 +155,15 @@ bool Win32Window::Create(const std::wstring& title,
 
   UpdateTheme(window);
 
+  DWORD corner_pref = DWMWCP_ROUND;
+  DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE, &corner_pref,
+                        sizeof(corner_pref));
+  MARGINS margins = {0, 0, 0, 1};
+  DwmExtendFrameIntoClientArea(window, &margins);
+  SetWindowPos(window, nullptr, 0, 0, 0, 0,
+               SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOACTIVATE);
+
   return OnCreate();
 }
 
@@ -205,6 +223,70 @@ Win32Window::MessageHandler(HWND hwnd,
                    rect.bottom - rect.top, TRUE);
       }
       return 0;
+    }
+
+    case WM_NCCALCSIZE: {
+      if (wparam == TRUE) {
+        auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
+        if (IsZoomed(hwnd)) {
+          HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+          MONITORINFO mi{};
+          mi.cbSize = sizeof(MONITORINFO);
+          if (GetMonitorInfo(monitor, &mi)) {
+            params->rgrc[0] = mi.rcWork;
+          }
+        }
+        return 0;
+      }
+      break;
+    }
+
+    case WM_GETMINMAXINFO: {
+      auto* mmi = reinterpret_cast<MINMAXINFO*>(lparam);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      MONITORINFO mi{};
+      mi.cbSize = sizeof(MONITORINFO);
+      if (GetMonitorInfo(monitor, &mi)) {
+        RECT work = mi.rcWork;
+        RECT mon = mi.rcMonitor;
+        mmi->ptMaxPosition.x = work.left - mon.left;
+        mmi->ptMaxPosition.y = work.top - mon.top;
+        mmi->ptMaxSize.x = work.right - work.left;
+        mmi->ptMaxSize.y = work.bottom - work.top;
+      }
+      UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+      double scale_factor = dpi / 96.0;
+      mmi->ptMinTrackSize.x = Scale(520, scale_factor);
+      mmi->ptMinTrackSize.y = Scale(520, scale_factor);
+      return 0;
+    }
+
+    case WM_NCHITTEST: {
+      if (IsZoomed(hwnd)) {
+        return HTCLIENT;
+      }
+      RECT rect{};
+      GetWindowRect(hwnd, &rect);
+      const LONG x = GET_X_LPARAM(lparam);
+      const LONG y = GET_Y_LPARAM(lparam);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+      const int border = Scale(6, dpi / 96.0);
+
+      const bool left = x >= rect.left && x < rect.left + border;
+      const bool right = x < rect.right && x >= rect.right - border;
+      const bool top = y >= rect.top && y < rect.top + border;
+      const bool bottom = y < rect.bottom && y >= rect.bottom - border;
+
+      if (top && left) return HTTOPLEFT;
+      if (top && right) return HTTOPRIGHT;
+      if (bottom && left) return HTBOTTOMLEFT;
+      if (bottom && right) return HTBOTTOMRIGHT;
+      if (top) return HTTOP;
+      if (bottom) return HTBOTTOM;
+      if (left) return HTLEFT;
+      if (right) return HTRIGHT;
+      return HTCLIENT;
     }
 
     case WM_ACTIVATE:

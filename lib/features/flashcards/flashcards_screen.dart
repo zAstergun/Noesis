@@ -326,6 +326,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         allowReviewBase: allowBase,
       );
     }
+    SupabaseService.recordConsistencyActivity();
     if (allowBase && (wasDueForReview || earned > 0)) {
       _rewardedCardIds.add(currentCard.id);
     }
@@ -4027,137 +4028,205 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                   slivers: [
                     // Header e Ações
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isCompactPage = constraints.maxWidth < 680;
+                          final titleBlock = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.groupScope != null ? 'Flashcards do Grupo' : 'Flashcards Cognitivos',
+                                style: GoogleFonts.manrope(
+                                  fontSize: isCompactPage ? 22 : 26,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.8,
+                                  color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.groupScope != null
+                                    ? 'Crie baralhos, gere com IA ✨, importe ou anexe ao grupo. Seu progresso nos cartões é individual.'
+                                    : 'Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                ),
+                              ),
+                            ],
+                          );
+                          final actionButtons = (widget.groupScope == null || widget.groupScope!.canEdit)
+                              ? Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    if (widget.groupScope?.onAttachExisting != null)
+                                      OutlinedButton.icon(
+                                        key: const Key('group_attach_deck_button'),
+                                        icon: const Icon(Icons.attach_file_rounded, size: 18),
+                                        label: const Text('Anexar Meu Baralho'),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                          side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                        ),
+                                        onPressed: widget.groupScope!.onAttachExisting,
+                                      ),
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.upload_file_rounded, size: 18),
+                                      label: const Text('Importar Arquivo'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                        side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                      ),
+                                      onPressed: _pickAndImportFile,
+                                    ),
+                                    OutlinedButton.icon(
+                                      key: widget.groupScope != null ? const Key('group_create_deck_button') : null,
+                                      icon: const Icon(Icons.add_rounded, size: 18),
+                                      label: const Text('Novo Baralho'),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                        side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                      ),
+                                      onPressed: _openCreateManualDeckDialog,
+                                    ),
+                                    SoftClayPillButton(
+                                      text: 'Gerar com IA ✨',
+                                      icon: Icons.auto_awesome_rounded,
+                                      onPressed: _openGenerateAiFlashcardsDialog,
+                                    ),
+                                  ],
+                                )
+                              : const SizedBox.shrink();
+
+                          return Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              isCompactPage ? 16 : 28,
+                              isCompactPage ? 12 : 20,
+                              isCompactPage ? 16 : 28,
+                              16,
+                            ),
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
-                                Expanded(
-                                  child: Column(
+                                if (isCompactPage) ...[
+                                  titleBlock,
+                                  if (widget.groupScope == null || widget.groupScope!.canEdit) ...[
+                                    const SizedBox(height: 14),
+                                    actionButtons,
+                                  ],
+                                ] else
+                                  Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        widget.groupScope != null ? 'Flashcards do Grupo' : 'Flashcards Cognitivos',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: -0.8,
-                                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        widget.groupScope != null
-                                            ? 'Crie baralhos, gere com IA ✨, importe ou anexe ao grupo. Seu progresso nos cartões é individual.'
-                                            : 'Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 13,
-                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                        ),
-                                      ),
+                                      if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
+                                      Expanded(child: titleBlock),
+                                      const SizedBox(width: 16),
+                                      actionButtons,
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                if (widget.groupScope == null || widget.groupScope!.canEdit)
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      if (widget.groupScope?.onAttachExisting != null)
-                                        OutlinedButton.icon(
-                                          key: const Key('group_attach_deck_button'),
-                                          icon: const Icon(Icons.attach_file_rounded, size: 18),
-                                          label: const Text('Anexar Meu Baralho'),
-                                          style: OutlinedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                            side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                                          ),
-                                          onPressed: widget.groupScope!.onAttachExisting,
-                                        ),
-                                      OutlinedButton.icon(
-                                        icon: const Icon(Icons.upload_file_rounded, size: 18),
-                                        label: const Text('Importar Arquivo'),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                                        ),
-                                        onPressed: _pickAndImportFile,
-                                      ),
-                                      OutlinedButton.icon(
-                                        key: widget.groupScope != null ? const Key('group_create_deck_button') : null,
-                                        icon: const Icon(Icons.add_rounded, size: 18),
-                                        label: const Text('Novo Baralho'),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                                        ),
-                                        onPressed: _openCreateManualDeckDialog,
-                                      ),
-                                      SoftClayPillButton(
-                                        text: 'Gerar com IA ✨',
-                                        icon: Icons.auto_awesome_rounded,
-                                        onPressed: _openGenerateAiFlashcardsDialog,
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
+                                const SizedBox(height: 20),
 
-                            // Barra de Métricas Rápidas
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                              decoration: BoxDecoration(
-                                color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                                borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
-                                border: Border.all(
-                                  color: isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.8),
+                                // Barra de Métricas Rápidas
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isCompactPage ? 14 : 20,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                                    border: Border.all(
+                                      color: isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.8),
+                                    ),
+                                    boxShadow: AsterConstants.clayShadow,
+                                  ),
+                                  child: isCompactPage
+                                      ? Wrap(
+                                          spacing: 12,
+                                          runSpacing: 14,
+                                          alignment: WrapAlignment.spaceAround,
+                                          children: [
+                                            SizedBox(
+                                              width: (constraints.maxWidth - 76) / 2,
+                                              child: _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
+                                            ),
+                                            SizedBox(
+                                              width: (constraints.maxWidth - 76) / 2,
+                                              child: _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
+                                            ),
+                                            SizedBox(
+                                              width: (constraints.maxWidth - 76) / 2,
+                                              child: InkWell(
+                                                key: const Key('flashcards_review_queue_stat'),
+                                                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                                onTap: _openReviewQueueDialog,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                                  child: _buildStatItem(
+                                                    'Para Revisar',
+                                                    '$totalPendingCards',
+                                                    totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
+                                                    isDark,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: (constraints.maxWidth - 76) / 2,
+                                              child: InkWell(
+                                                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                                onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                                  child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
+                                            ),
+                                          ],
+                                        )
+                                      : Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                          children: [
+                                            _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
+                                            _buildDivider(isDark),
+                                            _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
+                                            _buildDivider(isDark),
+                                            InkWell(
+                                              key: const Key('flashcards_review_queue_stat'),
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              onTap: _openReviewQueueDialog,
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                child: _buildStatItem(
+                                                  'Para Revisar',
+                                                  '$totalPendingCards',
+                                                  totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
+                                                  isDark,
+                                                ),
+                                              ),
+                                            ),
+                                            _buildDivider(isDark),
+                                            InkWell(
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                              ),
+                                            ),
+                                            _buildDivider(isDark),
+                                            _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
+                                          ],
+                                        ),
                                 ),
-                                boxShadow: AsterConstants.clayShadow,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
-                                  _buildDivider(isDark),
-                                  _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
-                                  _buildDivider(isDark),
-                                  InkWell(
-                                    key: const Key('flashcards_review_queue_stat'),
-                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                                    onTap: _openReviewQueueDialog,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      child: _buildStatItem(
-                                        'Para Revisar',
-                                        '$totalPendingCards',
-                                        totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
-                                        isDark,
-                                      ),
-                                    ),
-                                  ),
-                                  _buildDivider(isDark),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                                    onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
-                                    ),
-                                  ),
-                                  _buildDivider(isDark),
-                                  _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
-                                ],
-                              ),
-                            ),
                             const SizedBox(height: 20),
 
                             // Painel Soft Clay de Busca, Revisão e Filtros
@@ -4349,8 +4418,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ),
                           ],
                         ),
-                      ),
-                    ),
+                      );
+                    },
+                  ),
+                ),
 
                     // Grid de Baralhos
                     if (filtered.isEmpty)
@@ -5790,59 +5861,77 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                   children: [
                     Text(
                       deck.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
-                        fontSize: 16,
+                        fontSize: isDesktop ? 16 : 15,
                         fontWeight: FontWeight.w800,
                         color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                       ),
                     ),
                     Text(
                       'Cartão ${_activeCardIndex + 1} de $total · ${_studyPendingOnly ? 'Somente pendentes' : 'Revisão completa'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                       ),
                     ),
                   ],
                 ),
-                actions: [
-                  OutlinedButton.icon(
-                    icon: Icon(Icons.edit_outlined, size: 15, color: AsterTheme.primary(context)),
-              label: Text(
-                'Editar Cartão',
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AsterTheme.primary(context),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              onPressed: () => _openEditCurrentCardDialog(card),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              icon: Icon(Icons.edit_note_rounded, size: 17, color: AsterTheme.primary(context)),
-              label: Text(
-                'Editar Baralho',
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AsterTheme.primary(context),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              onPressed: () => _openEditDeckDialog(deck),
-            ),
-            const SizedBox(width: 14),
-          ],
+                actions: isDesktop
+                    ? [
+                        OutlinedButton.icon(
+                          icon: Icon(Icons.edit_outlined, size: 15, color: AsterTheme.primary(context)),
+                          label: Text(
+                            'Editar Cartão',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AsterTheme.primary(context),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onPressed: () => _openEditCurrentCardDialog(card),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          icon: Icon(Icons.edit_note_rounded, size: 17, color: AsterTheme.primary(context)),
+                          label: Text(
+                            'Editar Baralho',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AsterTheme.primary(context),
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AsterTheme.primary(context).withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onPressed: () => _openEditDeckDialog(deck),
+                        ),
+                        const SizedBox(width: 14),
+                      ]
+                    : [
+                        IconButton(
+                          tooltip: 'Editar Cartão',
+                          icon: Icon(Icons.edit_outlined, size: 20, color: AsterTheme.primary(context)),
+                          onPressed: () => _openEditCurrentCardDialog(card),
+                        ),
+                        IconButton(
+                          tooltip: 'Editar Baralho',
+                          icon: Icon(Icons.edit_note_rounded, size: 22, color: AsterTheme.primary(context)),
+                          onPressed: () => _openEditDeckDialog(deck),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(4),
                 child: LinearProgressIndicator(

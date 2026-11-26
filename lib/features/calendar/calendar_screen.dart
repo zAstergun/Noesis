@@ -2069,30 +2069,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const NoesisCollapsedMenuSpacer(width: 82),
-            Column(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompactHeader = constraints.maxWidth < 720;
+            final titleColumn = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   capitalizedMonth,
                   style: GoogleFonts.manrope(
-                    fontSize: 22,
+                    fontSize: isCompactHeader ? 20 : 22,
                     fontWeight: FontWeight.w900,
                     color: AsterTheme.text(context),
                   ),
                 ),
                 Text(
                   'Semana $weekNumber · $hoursStr planejadas${examSummary.isNotEmpty ? examSummary : ' · ${weekEvents.length} blocos'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                 ),
               ],
-            ),
-            const Spacer(),
+            );
 
-            // Seletor de Modo de Exibição
-            Container(
+            final viewSelector = Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AsterTheme.card(context),
@@ -2104,24 +2104,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 valueListenable: _activeViewModeNotifier,
                 builder: (context, activeMode, _) {
                   return Row(
+                    mainAxisSize: isCompactHeader ? MainAxisSize.max : MainAxisSize.min,
                     children: ['Dia', 'Semana', 'Mês', 'Timeline'].map((mode) {
                       final isSelected = activeMode == mode;
                       final primaryCol = AsterTheme.primary(context);
                       final onPrimaryCol = AsterTheme.onPrimary(context);
-                      return InkWell(
+                      final pill = InkWell(
                         onTap: () {
                           _activeViewMode = mode;
                           _activeViewModeNotifier.value = mode;
                         },
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          alignment: isCompactHeader ? Alignment.center : null,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isCompactHeader ? 6 : 14,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected ? primaryCol : Colors.transparent,
                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                           ),
                           child: Text(
                             mode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -2130,15 +2137,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                       );
+                      return isCompactHeader ? Expanded(child: pill) : pill;
                     }).toList(),
                   );
                 },
               ),
-            ),
-            const SizedBox(width: 10),
+            );
 
-            // Navegação Rápida (Hoje independente + Chevrons Circulares com toque suave)
-            Row(
+            final dateNavControls = Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
                   onTap: () => setState(() {
@@ -2149,7 +2156,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   }),
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompactHeader ? 12 : 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: AsterTheme.card(context),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -2212,8 +2222,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
               ],
-            ),
-          ],
+            );
+
+            if (isCompactHeader) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(child: titleColumn),
+                      const SizedBox(width: 10),
+                      dateNavControls,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  viewSelector,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                const NoesisCollapsedMenuSpacer(width: 82),
+                Expanded(child: titleColumn),
+                const SizedBox(width: 12),
+                viewSelector,
+                const SizedBox(width: 10),
+                dateNavControls,
+              ],
+            );
+          },
         ),
         const SizedBox(height: 14),
 
@@ -2413,131 +2452,138 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final hGridLine = _subtleBorderColor(context, isDark ? 0.16 : 0.13);
     final vGridLine = _subtleBorderColor(context, isDark ? 0.11 : 0.09);
 
+    final isMobileWidth = MediaQuery.sizeOf(context).width < 680;
     return RepaintBoundary(
       child: SoftClayCard(
-        padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Cabeçalho dos Dias da Semana
-          Row(
-            children: [
-              const SizedBox(width: 48), // Espaço para as horas
-              ...List.generate(7, (dIdx) {
-                final d = weekDays[dIdx];
-                final isToday = isSameDay(d, now);
-                final isSelected = isSameDay(d, _selectedDayNotifier.value);
+        padding: EdgeInsets.all(isMobileWidth ? 14 : 20),
+        child: LayoutBuilder(
+          builder: (weekCtx, weekConstraints) {
+            final needsHorizontalScroll = weekConstraints.maxWidth < 620;
+            final double dayColWidth = needsHorizontalScroll
+                ? 108.0
+                : ((weekConstraints.maxWidth - 48.0) / 7.0);
+            final double boardWidth = 48.0 + (dayColWidth * 7.0);
 
-                return Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      _selectedDay = d;
-                      _selectedDayNotifier.value = d;
-                      _focusedDay = d;
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected && !isToday ? primaryCol.withValues(alpha: isDark ? 0.14 : 0.10) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            dayNames[dIdx],
-                            style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isToday ? readablePrimary : AsterTheme.text(context).withValues(alpha: 0.78),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            width: 32,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: isToday
-                                  ? primaryCol
-                                  : (isSelected ? primaryCol.withValues(alpha: isDark ? 0.24 : 0.16) : Colors.transparent),
-                              borderRadius: BorderRadius.circular(8),
-                              border: isSelected && !isToday
-                                  ? Border.all(color: readablePrimary, width: 1.5)
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Text(
-                                d.day.toString(),
-                                style: GoogleFonts.manrope(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: isToday
-                                      ? AsterTheme.onPrimary(context)
-                                      : (isSelected ? readablePrimary : AsterTheme.text(context)),
-                                ),
+            final weekContent = SizedBox(
+              width: needsHorizontalScroll ? boardWidth : weekConstraints.maxWidth,
+              child: Column(
+                children: [
+                  // Cabeçalho dos Dias da Semana
+                  Row(
+                    children: [
+                      const SizedBox(width: 48), // Espaço para as horas
+                      ...List.generate(7, (dIdx) {
+                        final d = weekDays[dIdx];
+                        final isToday = isSameDay(d, now);
+                        final isSelected = isSameDay(d, _selectedDayNotifier.value);
+
+                        return SizedBox(
+                          width: dayColWidth,
+                          child: InkWell(
+                            onTap: () {
+                              _selectedDay = d;
+                              _selectedDayNotifier.value = d;
+                              _focusedDay = d;
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected && !isToday ? primaryCol.withValues(alpha: isDark ? 0.14 : 0.10) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    dayNames[dIdx],
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isToday ? readablePrimary : AsterTheme.text(context).withValues(alpha: 0.78),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    width: 32,
+                                    height: 26,
+                                    decoration: BoxDecoration(
+                                      color: isToday
+                                          ? primaryCol
+                                          : (isSelected ? primaryCol.withValues(alpha: isDark ? 0.24 : 0.16) : Colors.transparent),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: isSelected && !isToday
+                                          ? Border.all(color: readablePrimary, width: 1.5)
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        d.day.toString(),
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: isToday
+                                              ? AsterTheme.onPrimary(context)
+                                              : (isSelected ? readablePrimary : AsterTheme.text(context)),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        );
+                      }),
+                    ],
                   ),
-                );
-              }),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Divider(color: hGridLine, height: 1, thickness: 1),
+                  const SizedBox(height: 12),
+                  Divider(color: hGridLine, height: 1, thickness: 1),
 
-          // Grade Contínua de Horários com Scroll (00h às 23h)
-          SizedBox(
-            height: 520,
-            child: Scrollbar(
-              controller: _weekScrollController,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: _weekScrollController,
-                physics: _isDraggingCalendarEvent
-                    ? const NeverScrollableScrollPhysics()
-                    : const ClampingScrollPhysics(),
-                child: LayoutBuilder(
-                  builder: (gridCtx, gridConstraints) {
-                    final colWidth = ((gridConstraints.maxWidth - 48.0) / 7.0).clamp(64.0, 240.0);
-                    return SizedBox(
-                      height: totalGridHeight,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Coluna de Rótulos de Horas
-                          SizedBox(
-                            width: 48,
-                            child: Stack(
-                              children: List.generate(totalHours, (idx) {
-                                final h = startHour + idx;
-                                return Positioned(
-                                  top: idx * hourHeight,
-                                  child: Text(
-                                    '${h.toString().padLeft(2, '0')}h',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      fontSize: 10.5,
-                                      color: AsterTheme.text(context).withValues(alpha: isDark ? 0.74 : 0.68),
-                                      fontWeight: FontWeight.w500,
+                  // Grade Contínua de Horários com Scroll (00h às 23h)
+                  SizedBox(
+                    height: 520,
+                    child: SingleChildScrollView(
+                      controller: _weekScrollController,
+                      physics: _isDraggingCalendarEvent
+                          ? const NeverScrollableScrollPhysics()
+                          : const ClampingScrollPhysics(),
+                      child: SizedBox(
+                        height: totalGridHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Coluna de Rótulos de Horas
+                            SizedBox(
+                              width: 48,
+                              child: Stack(
+                                children: List.generate(totalHours, (idx) {
+                                  final h = startHour + idx;
+                                  return Positioned(
+                                    top: idx * hourHeight,
+                                    child: Text(
+                                      '${h.toString().padLeft(2, '0')}h',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        fontSize: 10.5,
+                                        color: AsterTheme.text(context).withValues(alpha: isDark ? 0.74 : 0.68),
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }),
+                                  );
+                                }),
+                              ),
                             ),
-                          ),
 
-                          // Colunas dos 7 Dias da Semana (com DragTarget para arrastar blocos)
-                          ...List.generate(7, (dIdx) {
-                            final cellDate = weekDays[dIdx];
-                            final isToday = isSameDay(cellDate, now);
+                            // Colunas dos 7 Dias da Semana (com DragTarget para arrastar blocos)
+                            ...List.generate(7, (dIdx) {
+                              final cellDate = weekDays[dIdx];
+                              final isToday = isSameDay(cellDate, now);
 
-                            // Eventos que caem neste dia usando cache
-                            final dayEvents = _getEventsForDay(events, cellDate);
+                              // Eventos que caem neste dia usando cache
+                              final dayEvents = _getEventsForDay(events, cellDate);
 
-                            return Expanded(
-                              child: RepaintBoundary(
+                              return SizedBox(
+                                width: dayColWidth,
+                                child: RepaintBoundary(
                                 child: Builder(
                                   builder: (colCtx) {
                                     int resolveMinutesFromOffset(Offset globalOffset, Map<String, dynamic> evt) {
@@ -2893,7 +2939,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                           elevation: 6,
                                                           borderRadius: BorderRadius.circular(8),
                                                           child: SizedBox(
-                                                            width: (colWidth - 4).clamp(72.0, 220.0),
+                                                            width: (dayColWidth - 4).clamp(72.0, 220.0),
                                                             height: height,
                                                             child: buildEventCard(isFeedback: true),
                                                           ),
@@ -2920,13 +2966,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           }),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
+          );
+
+          if (needsHorizontalScroll) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.swipe_rounded, size: 14, color: AsterTheme.textMuted(context)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Deslize horizontalmente para ver os dias da semana',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AsterTheme.textMuted(context),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: weekContent,
+                ),
+              ],
+            );
+          }
+          return weekContent;
+        },
       ),
     ),
   );
@@ -2941,19 +3019,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final rowLine = _subtleBorderColor(context, isDark ? 0.15 : 0.12);
 
     return SoftClayCard(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 680 ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(_selectedDay),
-                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
+                    style: GoogleFonts.manrope(fontSize: 15.5, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
                   ),
                   Text(
                     '${dayEvents.length} bloco(s) agendados para este dia',
@@ -3414,8 +3495,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Divider(color: dividerCol, height: 1, thickness: 1),
           const SizedBox(height: 12),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Blocos em ${DateFormat("d 'de' MMMM", 'pt_BR').format(_selectedDay)} (${selectedEvents.length})',

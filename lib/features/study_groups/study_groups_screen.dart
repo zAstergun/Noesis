@@ -174,33 +174,40 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    NoesisCollapsedMenuSpacer(width: neededGap),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Grupos de Estudo',
-                          style: GoogleFonts.manrope(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: AsterTheme.text(context),
-                            letterSpacing: -0.5,
-                          ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 36,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      NoesisCollapsedMenuSpacer(width: neededGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Grupos de Estudo',
+                              style: GoogleFonts.manrope(
+                                fontSize: isDesktop ? 24 : 21,
+                                fontWeight: FontWeight.w900,
+                                color: AsterTheme.text(context),
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Compartilhe cadernos, flashcards, simulados, trilhas e acompanhe o diário e ranking juntos',
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: AsterTheme.textMuted(context),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Compartilhe cadernos, flashcards, simulados, trilhas e acompanhe o diário e ranking juntos',
-                          style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            color: AsterTheme.textMuted(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
                 Wrap(
                   spacing: 10,
@@ -585,58 +592,69 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      NoesisCollapsedMenuSpacer(width: isDesktop ? 56 : 0),
-                      IconButton(
-                        key: const Key('group_back_button'),
-                        tooltip: 'Voltar para todos os grupos',
-                        onPressed: () => setState(() => _selectedGroupId = null),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                      ),
-                      const SizedBox(width: 6),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 72,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        NoesisCollapsedMenuSpacer(width: isDesktop ? 56 : 0),
+                        IconButton(
+                          key: const Key('group_back_button'),
+                          tooltip: 'Voltar para todos os grupos',
+                          onPressed: () => setState(() => _selectedGroupId = null),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                group.name,
-                                style: GoogleFonts.manrope(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: AsterTheme.text(context),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: primaryCol.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                ),
-                                child: Text(
-                                  group.subject,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: primaryCol,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    group.name,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: isDesktop ? 20 : 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: AsterTheme.text(context),
+                                    ),
                                   ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: primaryCol.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    ),
+                                    child: Text(
+                                      group.subject,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: primaryCol,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${group.members.length} ${group.members.length == 1 ? 'membro' : 'membros'} · Código ${group.inviteCode}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  color: AsterTheme.textMuted(context),
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            '${group.members.length} ${group.members.length == 1 ? 'membro' : 'membros'} · Código ${group.inviteCode}',
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              color: AsterTheme.textMuted(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                   Wrap(
                     spacing: 8,

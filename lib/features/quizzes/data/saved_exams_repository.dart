@@ -398,6 +398,7 @@ class SavedExamsRepository {
     }
     _cache = list;
     await _persist(list);
+    SupabaseService.recordConsistencyActivity(date: attempt.createdAt);
 
     if (syncRemote) {
       await SupabaseService.upsertSavedExamAttempt(attempt.toJson());

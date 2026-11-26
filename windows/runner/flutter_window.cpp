@@ -1,8 +1,42 @@
 #include "flutter_window.h"
 
+#include <dwmapi.h>
+#include <flutter/standard_method_codec.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+constexpr const wchar_t kOrigChildProcProp[] = L"NoesisOrigChildProc";
+
+LRESULT CALLBACK ChildResizeSubclassProc(HWND hwnd, UINT message, WPARAM wparam,
+                                           LPARAM lparam) noexcept {
+  auto orig_proc =
+      reinterpret_cast<WNDPROC>(GetPropW(hwnd, kOrigChildProcProp));
+  if (message == WM_NCHITTEST) {
+    HWND parent = GetParent(hwnd);
+    if (parent != nullptr) {
+      LRESULT parent_hit = SendMessage(parent, WM_NCHITTEST, wparam, lparam);
+      if (parent_hit != HTCLIENT && parent_hit != HTNOWHERE) {
+        return HTTRANSPARENT;
+      }
+    }
+  } else if (message == WM_NCDESTROY) {
+    RemovePropW(hwnd, kOrigChildProcProp);
+  }
+  if (orig_proc != nullptr) {
+    return CallWindowProc(orig_proc, hwnd, message, wparam, lparam);
+  }
+  return DefWindowProc(hwnd, message, wparam, lparam);
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -25,7 +59,20 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  HWND child_hwnd = flutter_controller_->view()->GetNativeWindow();
+  SetChildContent(child_hwnd);
+
+  if (child_hwnd != nullptr) {
+    auto prev_proc = reinterpret_cast<WNDPROC>(
+        SetWindowLongPtrW(child_hwnd, GWLP_WNDPROC,
+                          reinterpret_cast<LONG_PTR>(ChildResizeSubclassProc)));
+    if (prev_proc != nullptr) {
+      SetPropW(child_hwnd, kOrigChildProcProp,
+               reinterpret_cast<HANDLE>(prev_proc));
+    }
+  }
+
+  SetupWindowChannel();
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -39,7 +86,60 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+void FlutterWindow::SetupWindowChannel() {
+  window_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "noesis/window_controls",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  window_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+                 result) {
+        HWND hwnd = GetHandle();
+        if (hwnd == nullptr) {
+          result->Success(flutter::EncodableValue(false));
+          return;
+        }
+        const std::string& method = call.method_name();
+        if (method == "startDrag") {
+          ReleaseCapture();
+          SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+          result->Success(flutter::EncodableValue(true));
+        } else if (method == "minimize") {
+          ShowWindow(hwnd, SW_MINIMIZE);
+          result->Success(flutter::EncodableValue(true));
+        } else if (method == "toggleMaximize") {
+          if (IsZoomed(hwnd)) {
+            ShowWindow(hwnd, SW_RESTORE);
+          } else {
+            ShowWindow(hwnd, SW_MAXIMIZE);
+          }
+          bool is_max = IsZoomed(hwnd) != FALSE;
+          last_maximized_ = is_max;
+          result->Success(flutter::EncodableValue(is_max));
+        } else if (method == "isMaximized") {
+          bool is_max = IsZoomed(hwnd) != FALSE;
+          last_maximized_ = is_max;
+          result->Success(flutter::EncodableValue(is_max));
+        } else if (method == "close") {
+          PostMessage(hwnd, WM_CLOSE, 0, 0);
+          result->Success(flutter::EncodableValue(true));
+        } else if (method == "setDarkMode") {
+          if (const auto* is_dark = std::get_if<bool>(call.arguments())) {
+            BOOL dark_val = *is_dark ? TRUE : FALSE;
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                                  &dark_val, sizeof(dark_val));
+          }
+          result->Success(flutter::EncodableValue(true));
+        } else {
+          result->NotImplemented();
+        }
+      });
+}
+
 void FlutterWindow::OnDestroy() {
+  window_channel_.reset();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -64,6 +164,17 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    case WM_SIZE:
+      if (window_channel_) {
+        bool is_max = IsZoomed(hwnd) != FALSE;
+        if (is_max != last_maximized_) {
+          last_maximized_ = is_max;
+          window_channel_->InvokeMethod(
+              "onMaximizeChanged",
+              std::make_unique<flutter::EncodableValue>(is_max));
+        }
+      }
       break;
   }
 
