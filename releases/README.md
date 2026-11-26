@@ -10,8 +10,8 @@ Esta pasta armazena os binários distribuíveis oficiais gerados a partir do có
 
 | Plataforma | Arquivo | Tamanho | SHA-256 |
 | :--- | :--- | :---: | :--- |
-| **Android (APK Release)** | [`noesis-v1.0.0-android.apk`](android/noesis-v1.0.0-android.apk) | ~70,5 MB (`73.975.011 bytes`) | `D651F8EADF3E50EEA1B7CAC3457062DFE120473975C170331E32CC8C97706676` |
-| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64.zip`](windows/noesis-v1.0.0-windows-x64.zip) | ~15,4 MB (`16.201.151 bytes`) | `641BA10110F53047C1DB23A2BFD92767F756D324B4B04079FDB8C170BFEF035B` |
+| **Android (APK Release)** | [`noesis-v1.0.0-android.apk`](android/noesis-v1.0.0-android.apk) | ~70,6 MB (`73.991.395 bytes`) | `D13CA0695F4578BE4C7C196A838E7D1DAFC796E56F63D29FCDE5FC812A19ED0E` |
+| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64.zip`](windows/noesis-v1.0.0-windows-x64.zip) | ~15,5 MB (`16.204.294 bytes`) | `E1664305E0C9F232ADA00C8827E063D281B9D65F336B87F0AAA95B52767F76FB` |
 
 ---
 
@@ -34,5 +34,5 @@ Esta pasta armazena os binários distribuíveis oficiais gerados a partir do có
 ```powershell
 flutter build apk --release
 flutter build windows --release
-pwsh -File scripts/package_releases.ps1 -Version "1.0.0"
+.\scripts\package_releases.ps1 -Version "1.0.0"
 ```
