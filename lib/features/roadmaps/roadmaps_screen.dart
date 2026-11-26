@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
 import '../../core/theme.dart';
+import '../study_groups/data/study_groups_service.dart';
+import '../study_groups/models/study_group_feature_scope.dart';
 import 'data/roadmaps_repository.dart';
 import 'models/roadmap_model.dart';
 
@@ -12,7 +14,9 @@ enum _RoadmapViewMode { list, graph }
 /// ou via IA, alternar entre visualização em Lista e Mapa Visual
 /// com sincronização compartilhada de conclusões, e salvar tudo no Supabase.
 class RoadmapsScreen extends StatefulWidget {
-  const RoadmapsScreen({super.key});
+  const RoadmapsScreen({super.key, this.groupScope});
+
+  final StudyGroupFeatureScope? groupScope;
 
   @override
   State<RoadmapsScreen> createState() => _RoadmapsScreenState();
@@ -27,11 +31,29 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.addListener(_onGroupListChanged);
+    }
     _loadRoadmaps(forceRemote: true);
   }
 
+  void _onGroupListChanged() {
+    if (mounted) _loadRoadmaps();
+  }
+
+  @override
+  void dispose() {
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.removeListener(_onGroupListChanged);
+    }
+    super.dispose();
+  }
+
   Future<void> _loadRoadmaps({bool forceRemote = false}) async {
-    final list = await RoadmapsRepository.loadAll(forceRemote: forceRemote);
+    final scope = widget.groupScope;
+    final list = scope != null
+        ? StudyGroupsService.instance.groupRoadmaps(scope.groupId)
+        : await RoadmapsRepository.loadAll(forceRemote: forceRemote);
     if (!mounted) return;
     setState(() {
       _roadmaps = list;
@@ -50,7 +72,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
   }
 
   Future<void> _persistRoadmap(StudyRoadmap updated) async {
-    final nextList = await RoadmapsRepository.saveRoadmap(updated);
+    final scope = widget.groupScope;
+    final List<StudyRoadmap> nextList;
+    if (scope != null) {
+      await StudyGroupsService.instance.saveGroupRoadmap(scope.groupId, updated);
+      nextList = StudyGroupsService.instance.groupRoadmaps(scope.groupId);
+    } else {
+      nextList = await RoadmapsRepository.saveRoadmap(updated);
+    }
     if (!mounted) return;
     setState(() {
       _roadmaps = nextList;
@@ -119,6 +148,20 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
     final updatedSteps = List<RoadmapStep>.from(roadmap.steps);
     updatedSteps[stepIndex] = step.copyWith(status: nextStatus, subtopics: subs);
     await _persistRoadmap(roadmap.copyWith(steps: updatedSteps));
+    final scope = widget.groupScope;
+    if (scope != null && nextStatus == RoadmapStepStatus.done) {
+      final res = await StudyGroupsService.instance.recordGroupRoadmapStepDone(
+        scope.groupId,
+        roadmap.id,
+        step.id,
+        step.title,
+      );
+      if (mounted && res.earnedInsights > 0 && res.message != null) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(content: Text(res.message!)));
+      }
+    }
   }
 
   Future<void> _toggleSubtopic(StudyRoadmap roadmap, int stepIndex, int subIndex) async {
@@ -142,6 +185,20 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
     final updatedSteps = List<RoadmapStep>.from(roadmap.steps);
     updatedSteps[stepIndex] = step.copyWith(subtopics: subs, status: newStatus);
     await _persistRoadmap(roadmap.copyWith(steps: updatedSteps));
+    final scope = widget.groupScope;
+    if (scope != null && newStatus == RoadmapStepStatus.done) {
+      final res = await StudyGroupsService.instance.recordGroupRoadmapStepDone(
+        scope.groupId,
+        roadmap.id,
+        step.id,
+        step.title,
+      );
+      if (mounted && res.earnedInsights > 0 && res.message != null) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(content: Text(res.message!)));
+      }
+    }
   }
 
   Future<void> _moveStep(StudyRoadmap roadmap, int index, int delta) async {
@@ -236,7 +293,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
     );
 
     if (confirmed == true) {
-      final list = await RoadmapsRepository.deleteRoadmap(roadmap.id);
+      final scope = widget.groupScope;
+      final List<StudyRoadmap> list;
+      if (scope != null) {
+        await StudyGroupsService.instance.deleteGroupRoadmap(scope.groupId, roadmap.id);
+        list = StudyGroupsService.instance.groupRoadmaps(scope.groupId);
+      } else {
+        list = await RoadmapsRepository.deleteRoadmap(roadmap.id);
+      }
       if (!mounted) return;
       setState(() {
         _roadmaps = list;
@@ -264,7 +328,9 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
             valueListenable: AsterTheme.sidebarCollapsedNotifier,
             builder: (context, isCollapsed, child) {
               return Padding(
-                padding: EdgeInsets.only(left: (isDesktop && isCollapsed) ? 84 : 0),
+                padding: EdgeInsets.only(
+                  left: (widget.groupScope == null && isDesktop && isCollapsed) ? 84 : 0,
+                ),
                 child: child,
               );
             },
@@ -315,23 +381,39 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                       ],
                     );
 
-                    final actionRow = Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        SoftClayPillButton(
-                          text: 'Nova Trilha Manual',
-                          icon: Icons.add_rounded,
-                          isSecondary: true,
-                          onPressed: () => _openManualRoadmapDialog(),
-                        ),
-                        SoftClayPillButton(
-                          text: 'Criar com IA',
-                          icon: Icons.auto_awesome,
-                          onPressed: _openCreateAiDialog,
-                        ),
-                      ],
-                    );
+                    final actionRow = (widget.groupScope != null && !widget.groupScope!.canEdit)
+                        ? const SizedBox.shrink()
+                        : Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              if (widget.groupScope?.onAttachExisting != null)
+                                OutlinedButton.icon(
+                                  key: const Key('group_attach_roadmap_button'),
+                                  onPressed: widget.groupScope!.onAttachExisting,
+                                  icon: const Icon(Icons.attach_file_rounded, size: 17),
+                                  label: const Text('Anexar Minha Trilha'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    ),
+                                  ),
+                                ),
+                              SoftClayPillButton(
+                                key: widget.groupScope != null ? const Key('group_create_roadmap_button') : null,
+                                text: 'Nova Trilha Manual',
+                                icon: Icons.add_rounded,
+                                isSecondary: true,
+                                onPressed: () => _openManualRoadmapDialog(),
+                              ),
+                              SoftClayPillButton(
+                                text: 'Criar com IA',
+                                icon: Icons.auto_awesome,
+                                onPressed: _openCreateAiDialog,
+                              ),
+                            ],
+                          );
 
                     if (compact) {
                       return Column(

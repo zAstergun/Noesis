@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
+import '../study_groups/data/study_groups_service.dart';
+import '../study_groups/models/study_group_feature_scope.dart';
 import 'models/flashcard_model.dart';
 import 'utils/deck_file_importer.dart';
 
@@ -21,7 +26,9 @@ class FlashcardsScreen extends StatefulWidget {
     externalDeckStarter.value = deck;
   }
 
-  const FlashcardsScreen({super.key});
+  const FlashcardsScreen({super.key, this.groupScope});
+
+  final StudyGroupFeatureScope? groupScope;
 
   @override
   State<FlashcardsScreen> createState() => FlashcardsScreenState();
@@ -98,9 +105,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   FlashcardDeck? _activeStudyDeck;
   List<Flashcard> _studyQueue = [];
   final Set<String> _requeuedCardIds = {};
+  final Set<String> _rewardedCardIds = {};
   bool _studyPendingOnly = true;
   int _activeCardIndex = 0;
-  bool _isCardFlipped = false;
+  final ValueNotifier<bool> _isCardFlippedNotifier = ValueNotifier<bool>(false);
   late final AnimationController _flipAnimationController;
   late final Animation<double> _flipAnimation;
 
@@ -122,24 +130,68 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       CurvedAnimation(parent: _flipAnimationController, curve: Curves.easeInOutCubic),
     );
 
+    _prewarmStudyFonts();
     _loadDecks();
-    FlashcardsScreen.externalDeckStarter.addListener(_onExternalDeckStarted);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (FlashcardsScreen.externalDeckStarter.value != null) {
-        _onExternalDeckStarted();
-      }
-    });
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.addListener(_onGroupListChanged);
+    } else {
+      FlashcardsScreen.externalDeckStarter.addListener(_onExternalDeckStarted);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (FlashcardsScreen.externalDeckStarter.value != null) {
+          _onExternalDeckStarted();
+        }
+      });
+    }
+  }
+
+  void _onGroupListChanged() {
+    if (mounted) _loadDecks();
   }
 
   @override
   void dispose() {
-    FlashcardsScreen.externalDeckStarter.removeListener(_onExternalDeckStarted);
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.removeListener(_onGroupListChanged);
+    } else {
+      FlashcardsScreen.externalDeckStarter.removeListener(_onExternalDeckStarted);
+    }
     _searchController.dispose();
+    _isCardFlippedNotifier.dispose();
     _flipAnimationController.dispose();
     super.dispose();
   }
 
+  void _prewarmStudyFonts() {
+    // Pré-aquece os pesos da fonte Manrope usados na frente e no verso antes do primeiro giro.
+    GoogleFonts.manrope(fontWeight: FontWeight.w600);
+    GoogleFonts.manrope(fontWeight: FontWeight.w700);
+    GoogleFonts.manrope(fontWeight: FontWeight.w800);
+    unawaited(GoogleFonts.pendingFonts());
+  }
+
+  void _prewarmCardBack(Flashcard card) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: card.back,
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            height: 1.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      );
+      painter.layout(maxWidth: 560);
+      painter.dispose();
+    });
+  }
+
   void _onExternalDeckStarted() {
+    if (widget.groupScope != null) return;
     final deck = FlashcardsScreen.externalDeckStarter.value;
     if (deck != null && mounted) {
       _startStudySession(deck);
@@ -147,9 +199,32 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     }
   }
 
+  Future<void> _persistDeck(FlashcardDeck deck) async {
+    final scope = widget.groupScope;
+    if (scope != null) {
+      await StudyGroupsService.instance.saveGroupDeck(scope.groupId, deck);
+    } else {
+      await SupabaseService.saveFlashcardDeck(deck);
+    }
+  }
+
+  Future<void> _deleteDeckById(String deckId) async {
+    final scope = widget.groupScope;
+    if (scope != null) {
+      await StudyGroupsService.instance.deleteGroupDeck(scope.groupId, deckId);
+    } else {
+      await SupabaseService.deleteFlashcardDeck(deckId);
+    }
+  }
+
   Future<void> _loadDecks() async {
-    setState(() => _isLoading = true);
-    final decks = await SupabaseService.getFlashcardDecks();
+    final scope = widget.groupScope;
+    if (scope == null) {
+      setState(() => _isLoading = true);
+    }
+    final decks = scope != null
+        ? StudyGroupsService.instance.groupDecks(scope.groupId)
+        : await SupabaseService.getFlashcardDecks();
     if (mounted) {
       setState(() {
         _decks = decks;
@@ -176,9 +251,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       _activeStudyDeck = deck;
       _studyQueue = queue;
       _requeuedCardIds.clear();
+      _rewardedCardIds.clear();
       _studyPendingOnly = usePendingOnly;
       _activeCardIndex = 0;
-      _isCardFlipped = false;
       _sessionEasyCount = 0;
       _sessionGoodCount = 0;
       _sessionHardCount = 0;
@@ -186,20 +261,25 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       _studyStopwatch.reset();
       _studyStopwatch.start();
     });
+    _isCardFlippedNotifier.value = false;
     _flipAnimationController.reset();
+    _prewarmCardBack(queue.first);
   }
 
   void _toggleCardFlip() {
     if (_flipAnimationController.isAnimating) return;
-    HapticFeedback.lightImpact();
-    if (_isCardFlipped) {
-      _flipAnimationController.reverse();
-    } else {
-      _flipAnimationController.forward();
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android)) {
+      HapticFeedback.lightImpact();
     }
-    setState(() {
-      _isCardFlipped = !_isCardFlipped;
-    });
+    final nextFlipped = !_isCardFlippedNotifier.value;
+    if (nextFlipped) {
+      _flipAnimationController.forward();
+    } else {
+      _flipAnimationController.reverse();
+    }
+    _isCardFlippedNotifier.value = nextFlipped;
   }
 
   void _rateCurrentCard(String difficulty) async {
@@ -208,16 +288,47 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
     final currentCard = _studyQueue[_activeCardIndex];
     final now = DateTime.now();
+    final wasDueForReview = currentCard.needsReview(referenceDate: now);
+    final wasPreviouslyHard = currentCard.difficulty == 'hard';
 
     if (difficulty == 'easy') _sessionEasyCount++;
     if (difficulty == 'good') _sessionGoodCount++;
     if (difficulty == 'hard') _sessionHardCount++;
 
-    await SupabaseService.updateCardReview(
-      deckId: _activeStudyDeck!.id,
-      cardId: currentCard.id,
-      difficulty: difficulty,
-    );
+    final allowBase = !_rewardedCardIds.contains(currentCard.id);
+    int earned = 0;
+    final scope = widget.groupScope;
+    if (scope != null) {
+      final res = await StudyGroupsService.instance.recordGroupFlashcardReviewByDeckId(
+        groupId: scope.groupId,
+        deckId: _activeStudyDeck!.id,
+        cardId: currentCard.id,
+        deckTitle: _activeStudyDeck!.title,
+        difficulty: difficulty,
+        isDueForReview: wasDueForReview,
+        wasPreviouslyHard: wasPreviouslyHard,
+        allowReviewBase: allowBase,
+      );
+      earned = res.earnedInsights;
+    } else {
+      await SupabaseService.updateCardReview(
+        deckId: _activeStudyDeck!.id,
+        cardId: currentCard.id,
+        difficulty: difficulty,
+      );
+
+      earned = ShopService.instance.awardForFlashcardReview(
+        cardId: currentCard.id,
+        difficulty: difficulty,
+        isDueForReview: wasDueForReview,
+        wasPreviouslyHard: wasPreviouslyHard,
+        deckTitle: _activeStudyDeck?.title,
+        allowReviewBase: allowBase,
+      );
+    }
+    if (allowBase && (wasDueForReview || earned > 0)) {
+      _rewardedCardIds.add(currentCard.id);
+    }
 
     final updatedCard = currentCard.copyWith(
       difficulty: difficulty,
@@ -259,15 +370,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
     if (_activeCardIndex + 1 < nextQueue.length) {
       AudioService().stopAudio();
-      if (_isCardFlipped) {
+      if (_isCardFlippedNotifier.value) {
         _flipAnimationController.reverse();
       }
+      _isCardFlippedNotifier.value = false;
+      final nextCard = nextQueue[_activeCardIndex + 1];
       setState(() {
         _activeStudyDeck = updatedDeck;
         _studyQueue = nextQueue;
         _activeCardIndex++;
-        _isCardFlipped = false;
       });
+      _prewarmCardBack(nextCard);
     } else {
       AudioService().stopAudio();
       _studyStopwatch.stop();
@@ -1150,7 +1263,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             createdAt: DateTime.now(),
                                           );
 
-                                          await SupabaseService.saveFlashcardDeck(deck);
+                                          await _persistDeck(deck);
                                           if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                                           if (!mounted) return;
                                           await _loadDecks();
@@ -1469,41 +1582,31 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             const SizedBox(width: 10),
                             Wrap(
                               spacing: 6,
+                              runSpacing: 6,
                               children: [20, 30, 40, 50, 100].map((size) {
                                 final isSelected = currentTargetCards == size;
-                                return ChoiceChip(
-                                  label: Text(
-                                    size == 30 ? '$size cards ✨' : '$size cards',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 11,
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                      color: isSelected ? AsterTheme.onPrimary(context) : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-                                    ),
-                                  ),
+                                return SoftClayChoiceChip(
+                                  label: size == 30 ? '$size cards ✨' : '$size cards',
                                   selected: isSelected,
-                                  selectedColor: AsterTheme.primary(context),
-                                  backgroundColor: isDark ? AsterConstants.surfaceCardDark : Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  visualDensity: VisualDensity.compact,
-                                  onSelected: (isReorganizing || isSavingAll)
-                                      ? null
-                                      : (selected) async {
-                                          if (selected && currentTargetCards != size) {
-                                            setDialogState(() {
-                                              currentTargetCards = size;
-                                              isReorganizing = true;
-                                            });
-                                            try {
-                                              final newDecks = await GeminiService.splitFlashcardsIntoDecks(
-                                                cards: originalCards,
-                                                baseTitle: baseTitle,
-                                                baseSubject: baseSubject,
-                                                targetCardsPerDeck: size,
-                                              );
-                                              setDialogState(() {
-                                                editors.clear();
-                                                editors.addAll(newDecks.map((d) => _AiSplitDeckEditor(
-                                                  id: d.id,
+                                  compact: true,
+                                  enabled: !(isReorganizing || isSavingAll),
+                                  onTap: () async {
+                                    if (currentTargetCards != size) {
+                                      setDialogState(() {
+                                        currentTargetCards = size;
+                                        isReorganizing = true;
+                                      });
+                                      try {
+                                        final newDecks = await GeminiService.splitFlashcardsIntoDecks(
+                                          cards: originalCards,
+                                          baseTitle: baseTitle,
+                                          baseSubject: baseSubject,
+                                          targetCardsPerDeck: size,
+                                        );
+                                        setDialogState(() {
+                                          editors.clear();
+                                          editors.addAll(newDecks.map((d) => _AiSplitDeckEditor(
+                                            id: d.id,
                                                   titleCtrl: TextEditingController(text: d.title),
                                                   subjectCtrl: TextEditingController(text: d.subject),
                                                   descriptionCtrl: TextEditingController(text: d.description),
@@ -1936,13 +2039,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           colorHex: e.colorHex,
                                         );
 
-                                        await SupabaseService.saveFlashcardDeck(deck);
+                                        await _persistDeck(deck);
                                         savedDecks.add(deck);
                                       }
 
                                       // Se veio de um baralho existente e foi configurado para substituir o original
                                       if (existingDeckId != null && deleteOriginalOnSave) {
-                                        await SupabaseService.deleteFlashcardDeck(existingDeckId);
+                                        await _deleteDeckById(existingDeckId);
                                       }
 
                                       if (dialogCtx.mounted) Navigator.pop(dialogCtx);
@@ -2441,18 +2544,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           runSpacing: 8,
                           children: ['Iniciante / Conceitos', 'Médio / Prático', 'Avançado / Técnico'].map((level) {
                             final isSel = difficulty == level;
-                            return ChoiceChip(
-                              label: Text(level),
+                            return SoftClayChoiceChip(
+                              label: level,
                               selected: isSel,
-                              selectedColor: AsterTheme.primary(context),
-                              labelStyle: GoogleFonts.manrope(
-                                fontSize: 12,
-                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                                color: isSel ? Colors.white : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-                              ),
-                              onSelected: isGenerating ? null : (selected) {
-                                if (selected) setDialogState(() => difficulty = level);
-                              },
+                              enabled: !isGenerating,
+                              onTap: () => setDialogState(() => difficulty = level),
                             );
                           }).toList(),
                         ),
@@ -2556,7 +2652,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       createdAt: DateTime.now(),
                                     );
 
-                                    await SupabaseService.saveFlashcardDeck(deck);
+                                    await _persistDeck(deck);
                                     if (dialogCtx.mounted) {
                                       Navigator.pop(dialogCtx);
                                     }
@@ -2986,7 +3082,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 createdAt: DateTime.now(),
                               );
 
-                              await SupabaseService.saveFlashcardDeck(deck);
+                              await _persistDeck(deck);
                               if (dialogCtx.mounted) {
                                 Navigator.pop(dialogCtx);
                               }
@@ -3198,7 +3294,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                               final updatedCards = List<Flashcard>.from(deck.cards)..add(newCard);
                               final updatedDeck = deck.copyWith(cards: updatedCards);
-                              await SupabaseService.saveFlashcardDeck(updatedDeck);
+                              await _persistDeck(updatedDeck);
                               if (dialogCtx.mounted) {
                                 Navigator.pop(dialogCtx);
                               }
@@ -3827,7 +3923,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           cards: validCards,
                                         );
 
-                                        await SupabaseService.saveFlashcardDeck(updatedDeck);
+                                        await _persistDeck(updatedDeck);
 
                                         if (dialogCtx.mounted) {
                                           Navigator.pop(dialogCtx);
@@ -3884,7 +3980,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
               onPressed: () async {
-                await SupabaseService.deleteFlashcardDeck(deck.id);
+                await _deleteDeckById(deck.id);
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
                 }
@@ -3939,34 +4035,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const NoesisCollapsedMenuSpacer(width: 82),
+                                if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: AsterTheme.primary(context).withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                            ),
-                                            child: Text(
-                                              'ACTIVE RECALL ENGINE',
-                                              style: GoogleFonts.manrope(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w800,
-                                                letterSpacing: 1.0,
-                                                color: AsterTheme.primary(context),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
                                       Text(
-                                        'Flashcards Cognitivos',
+                                        widget.groupScope != null ? 'Flashcards do Grupo' : 'Flashcards Cognitivos',
                                         style: GoogleFonts.manrope(
                                           fontSize: 26,
                                           fontWeight: FontWeight.w800,
@@ -3976,7 +4051,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.',
+                                        widget.groupScope != null
+                                            ? 'Crie baralhos, gere com IA ✨, importe ou anexe ao grupo. Seu progresso nos cartões é individual.'
+                                            : 'Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.',
                                         style: GoogleFonts.manrope(
                                           fontSize: 13,
                                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -3986,37 +4063,51 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      icon: const Icon(Icons.upload_file_rounded, size: 18),
-                                      label: const Text('Importar Arquivo'),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                        side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                if (widget.groupScope == null || widget.groupScope!.canEdit)
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      if (widget.groupScope?.onAttachExisting != null)
+                                        OutlinedButton.icon(
+                                          key: const Key('group_attach_deck_button'),
+                                          icon: const Icon(Icons.attach_file_rounded, size: 18),
+                                          label: const Text('Anexar Meu Baralho'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                            side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                          ),
+                                          onPressed: widget.groupScope!.onAttachExisting,
+                                        ),
+                                      OutlinedButton.icon(
+                                        icon: const Icon(Icons.upload_file_rounded, size: 18),
+                                        label: const Text('Importar Arquivo'),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                          side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                        ),
+                                        onPressed: _pickAndImportFile,
                                       ),
-                                      onPressed: _pickAndImportFile,
-                                    ),
-                                    OutlinedButton.icon(
-                                      icon: const Icon(Icons.add_rounded, size: 18),
-                                      label: const Text('Novo Baralho'),
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                        side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                      OutlinedButton.icon(
+                                        key: widget.groupScope != null ? const Key('group_create_deck_button') : null,
+                                        icon: const Icon(Icons.add_rounded, size: 18),
+                                        label: const Text('Novo Baralho'),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                          side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                                        ),
+                                        onPressed: _openCreateManualDeckDialog,
                                       ),
-                                      onPressed: _openCreateManualDeckDialog,
-                                    ),
-                                    SoftClayPillButton(
-                                      text: 'Gerar com IA ✨',
-                                      icon: Icons.auto_awesome_rounded,
-                                      onPressed: _openGenerateAiFlashcardsDialog,
-                                    ),
-                                  ],
-                                ),
+                                      SoftClayPillButton(
+                                        text: 'Gerar com IA ✨',
+                                        icon: Icons.auto_awesome_rounded,
+                                        onPressed: _openGenerateAiFlashcardsDialog,
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 24),
@@ -4725,23 +4816,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         runSpacing: 8,
                         children: [20, 30, 40, 50].map((size) {
                           final isSelected = selectedCardsPerDeck == size;
-                          return ChoiceChip(
-                            label: Text(
-                              size == 30 ? '$size cartões (Ideal) ✨' : '$size cartões',
-                              style: GoogleFonts.manrope(
-                                fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                color: isSelected ? AsterTheme.onPrimary(context) : (isDark ? AsterConstants.textLight : AsterConstants.textDark),
-                              ),
-                            ),
+                          return SoftClayChoiceChip(
+                            label: size == 30 ? '$size cartões (Ideal) ✨' : '$size cartões',
                             selected: isSelected,
-                            selectedColor: AsterTheme.primary(context),
-                            backgroundColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                            onSelected: (sel) {
-                              if (sel) {
-                                setDialogState(() => selectedCardsPerDeck = size);
-                              }
-                            },
+                            onTap: () => setDialogState(() => selectedCardsPerDeck = size),
                           );
                         }).toList(),
                       ),
@@ -5611,7 +5689,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         iconCode: _activeStudyDeck!.iconCode,
                                       );
 
-                                      await SupabaseService.saveFlashcardDeck(updatedDeck);
+                                      await _persistDeck(updatedDeck);
 
                                       if (dialogCtx.mounted) Navigator.pop(dialogCtx);
                                       if (!mounted) return;
@@ -5659,6 +5737,35 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     final isRequeued = _requeuedCardIds.contains(card.id);
 
     final isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    final frontFace = RepaintBoundary(
+      key: ValueKey('study_card_front_${card.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: _buildCardFace(
+          isFront: true,
+          card: card,
+          isDark: isDark,
+          color: color,
+        ),
+      ),
+    );
+    final backFace = RepaintBoundary(
+      key: ValueKey('study_card_back_${card.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Transform(
+          transform: Matrix4.identity()..rotateY(math.pi),
+          alignment: Alignment.center,
+          child: _buildCardFace(
+            isFront: false,
+            card: card,
+            isDark: isDark,
+            color: color,
+          ),
+        ),
+      ),
+    );
 
     return SoftClayBackground(
       child: Scaffold(
@@ -5750,9 +5857,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       ),
       body: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
+            constraints: const BoxConstraints(maxWidth: 708),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(10, 20, 10, 16),
               child: Column(
                 children: [
                   // Atalhos de Teclado Dica
@@ -5782,135 +5889,131 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 6),
 
-                  // 3D Flip Card
+                  // 3D Flip Card (faces pré-construídas e isoladas em RepaintBoundary)
                   Expanded(
-                    child: GestureDetector(
-                      onTap: _toggleCardFlip,
-                      child: AnimatedBuilder(
-                        animation: _flipAnimation,
-                        builder: (context, child) {
-                          final angle = _flipAnimation.value * math.pi;
-                          final isShowingFront = angle < (math.pi / 2);
+                    child: RepaintBoundary(
+                      child: GestureDetector(
+                        onTap: _toggleCardFlip,
+                        child: AnimatedBuilder(
+                          animation: _flipAnimation,
+                          builder: (context, _) {
+                            final angle = _flipAnimation.value * math.pi;
+                            final isShowingFront = angle < (math.pi / 2);
 
-                          return Transform(
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, 0.001) // perspective
-                              ..rotateY(angle),
-                            alignment: Alignment.center,
-                            child: isShowingFront
-                                ? _buildCardFace(
-                                    isFront: true,
-                                    card: card,
-                                    isDark: isDark,
-                                    color: color,
+                            return Transform(
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, 0.001) // perspective
+                                ..rotateY(angle),
+                              alignment: Alignment.center,
+                              child: isShowingFront ? frontFace : backFace,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Barra de Avaliação Animada (isolada via ValueNotifier sem rebuildar a tela inteira)
+                  RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _isCardFlippedNotifier,
+                        builder: (context, isFlipped, _) {
+                          return AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 320),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0.0, 0.25),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: isFlipped
+                                ? Column(
+                                    key: const ValueKey('rating_buttons'),
+                                    children: [
+                                      Text(
+                                        'Como foi a sua lembrança deste conceito?',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          _buildRatingButton(
+                                            label: 'Difícil 🔴',
+                                            subtitle: 'Errei / Revisar logo',
+                                            color: AsterConstants.coral,
+                                            onTap: () => _rateCurrentCard('hard'),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildRatingButton(
+                                            label: 'Bom 🟡',
+                                            subtitle: 'Lembrei com esforço',
+                                            color: AsterConstants.ambar,
+                                            onTap: () => _rateCurrentCard('good'),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildRatingButton(
+                                            label: 'Fácil 🟢',
+                                            subtitle: 'Dominei o conceito',
+                                            color: AsterConstants.menta,
+                                            onTap: () => _rateCurrentCard('easy'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   )
-                                : Transform(
-                                    transform: Matrix4.identity()..rotateY(math.pi),
-                                    alignment: Alignment.center,
-                                    child: _buildCardFace(
-                                      isFront: false,
-                                      card: card,
-                                      isDark: isDark,
-                                      color: color,
+                                : InkWell(
+                                    key: const ValueKey('flip_button_prompt'),
+                                    onTap: _toggleCardFlip,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                                        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        border: Border.all(
+                                          color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
+                                        ),
+                                        boxShadow: AsterConstants.clayShadow,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.flip_camera_android_rounded, size: 16, color: AsterTheme.primary(context)),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Ver Resposta (Virar Cartão) 👆',
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: AsterTheme.primary(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                           );
                         },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Barra de Avaliação Animada (Revelada apenas com a resposta virada)
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0.0, 0.25),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _isCardFlipped
-                        ? Column(
-                            key: const ValueKey('rating_buttons'),
-                            children: [
-                              Text(
-                                'Como foi a sua lembrança deste conceito?',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _buildRatingButton(
-                                    label: 'Difícil 🔴',
-                                    subtitle: 'Errei / Revisar logo',
-                                    color: AsterConstants.coral,
-                                    onTap: () => _rateCurrentCard('hard'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildRatingButton(
-                                    label: 'Bom 🟡',
-                                    subtitle: 'Lembrei com esforço',
-                                    color: AsterConstants.ambar,
-                                    onTap: () => _rateCurrentCard('good'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildRatingButton(
-                                    label: 'Fácil 🟢',
-                                    subtitle: 'Dominei o conceito',
-                                    color: AsterConstants.menta,
-                                    onTap: () => _rateCurrentCard('easy'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          )
-                        : InkWell(
-                            key: const ValueKey('flip_button_prompt'),
-                            onTap: _toggleCardFlip,
-                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                border: Border.all(
-                                  color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
-                                ),
-                                boxShadow: AsterConstants.clayShadow,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.flip_camera_android_rounded, size: 16, color: AsterTheme.primary(context)),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Ver Resposta (Virar Cartão) 👆',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AsterTheme.primary(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -6272,28 +6375,54 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     ),
                     const SizedBox(height: 24),
 
-                    // Botão registrar no Tracker de Estudos
+                    // Botão registrar no Tracker de Estudos ou Diário do Grupo
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.timer_outlined, size: 18),
-                        label: Text('Registrar ${minutesSpent}min no Tracker de Estudos ⏱️'),
+                        label: Text(
+                          widget.groupScope != null
+                              ? 'Registrar ${minutesSpent}min no Diário do Grupo ⏱️'
+                              : 'Registrar ${minutesSpent}min no Tracker de Estudos ⏱️',
+                        ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                         ),
                         onPressed: () async {
-                          await SupabaseService.addStudySession(
-                            subject: deck.subject,
-                            topic: 'Revisão de Flashcards: ${deck.title}',
-                            durationMinutes: minutesSpent > 0 ? minutesSpent : 15,
-                            studyDate: DateTime.now(),
-                            notes: 'Revisão de $totalStudied cartões via repetição espaçada no Noesis.',
-                          );
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Sessão registrada no seu Dashboard! 📊')),
-                          );
+                          final mins = minutesSpent > 0 ? minutesSpent : 15;
+                          final notesText =
+                              'Revisão de $totalStudied cartões via repetição espaçada no Noesis.';
+                          final scope = widget.groupScope;
+                          if (scope != null) {
+                            await StudyGroupsService.instance.addStudyLogEntry(
+                              groupId: scope.groupId,
+                              subject: deck.subject,
+                              topic: 'Revisão de Flashcards: ${deck.title}',
+                              durationMinutes: mins,
+                              notes: notesText,
+                            );
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sessão registrada no Diário do Grupo! 📊'),
+                              ),
+                            );
+                          } else {
+                            await SupabaseService.addStudySession(
+                              subject: deck.subject,
+                              topic: 'Revisão de Flashcards: ${deck.title}',
+                              durationMinutes: mins,
+                              studyDate: DateTime.now(),
+                              notes: notesText,
+                            );
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sessão registrada no seu Dashboard! 📊'),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
@@ -6371,7 +6500,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         iconCode: _activeStudyDeck!.iconCode,
       );
 
-      await SupabaseService.saveFlashcardDeck(updatedDeck);
+      await _persistDeck(updatedDeck);
 
       if (mounted) {
         setState(() {

@@ -101,9 +101,9 @@ void main() {
     await tester.tap(find.byKey(const Key('sidebar_logo_toggle')));
     await tester.pumpAndSettle();
 
-    final openNotebookBtn = find.textContaining('Abrir Caderno').first;
+    final openNotebookBtn = find.textContaining('Abrir Caderno');
     if (openNotebookBtn.evaluate().isNotEmpty) {
-      await tester.tap(openNotebookBtn);
+      await tester.tap(openNotebookBtn.first);
       await tester.pumpAndSettle();
 
       final backFinder = find.byIcon(Icons.arrow_back_rounded);

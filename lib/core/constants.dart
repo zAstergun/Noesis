@@ -8,9 +8,11 @@ class AsterConstants {
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvZnZjeWFyem51dnFudGdzbGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEyNzg2MDIsImV4cCI6MjEwNjg1NDYwMn0.HpYpKPqu8rE28hrmgZvy3Xf6zE50S6mNyZhXaCHeagw';
 
-  // Branding
+  // Branding & Comunidade Oficial Aster
   static const String appName = 'Noesis';
   static const String appSubtitle = 'Cognitive OS & AI Study Engine';
+  static const String asterDiscordInviteCode = 'EDzYV5JvMk';
+  static const String asterDiscordUrl = 'https://discord.gg/EDzYV5JvMk';
 
   // ─── Paleta de Cores Oficial: Aster Soft Clay ───
   // Fundo ambiente suave (Nevoa)

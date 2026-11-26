@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:noesis/core/noesis_agent_tools.dart';
 import 'package:noesis/core/supabase_service.dart';
+import 'package:noesis/core/theme.dart';
 import 'package:noesis/features/calendar/calendar_screen.dart';
 import '../harness/test_app_harness.dart';
 
@@ -154,6 +155,79 @@ void main() {
       expect(find.byKey(const Key('calendar_ai_suggestion_card')), findsOneWidget);
       expect(find.textContaining('Prova Security+ AWS'), findsAtLeastNWidgets(1));
       expect(find.text('Sim, agendar'), findsOneWidget);
+
+      await TestAppHarness.drainAsync(tester);
+    });
+
+    testWidgets('Creating a block via + Novo bloco updates the calendar immediately across light and dark themes',
+        (WidgetTester tester) async {
+      // Testa primeiro com o tema Personalizado escuro (igual ao ambiente com fundo escuro)
+      AsterTheme.selectThemeOption(AsterTheme.customThemeId);
+      addTearDown(() => AsterTheme.selectThemeOption('soft_clay_nevoa'));
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const CalendarScreen(),
+        themeMode: ThemeMode.dark,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('+ Novo bloco'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Revisão Direito Constitucional');
+      await tester.tap(find.text('Agendar Bloco'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Revisão Direito Constitucional'), findsAtLeastNWidgets(1));
+      expect(find.text('Bloco "Revisão Direito Constitucional" agendado com sucesso!'), findsOneWidget);
+
+      // Alterna também para tema claro Nórdico e Grafite para garantir renderização limpa sem erros
+      AsterTheme.selectThemeOption('nordico');
+      await tester.pumpAndSettle();
+      expect(find.text('Revisão Direito Constitucional'), findsAtLeastNWidgets(1));
+
+      AsterTheme.selectThemeOption('grafite');
+      await tester.pumpAndSettle();
+      expect(find.text('Revisão Direito Constitucional'), findsAtLeastNWidgets(1));
+
+      await TestAppHarness.drainAsync(tester);
+    });
+
+    testWidgets('Dragging a calendar block in weekly view reschedules it to the dropped day/time',
+        (WidgetTester tester) async {
+      final now = DateTime.now();
+      final monday = now.subtract(Duration(days: now.weekday - 1));
+      final startTime = DateTime(monday.year, monday.month, monday.day, 10, 0);
+      final endTime = startTime.add(const Duration(hours: 1));
+
+      await SupabaseService.addCalendarEvent(
+        title: 'Bloco Arrastável',
+        category: 'study',
+        startTime: startTime,
+        endTime: endTime,
+      );
+
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const CalendarScreen(),
+      );
+      await tester.pumpAndSettle();
+
+      final blockFinder = find.text('Bloco Arrastável').first;
+      expect(blockFinder, findsOneWidget);
+
+      // Arrasta 2 horas para baixo (+116px) e para a próxima coluna de dia (+120px)
+      await tester.drag(blockFinder, const Offset(120, 116));
+      await tester.pumpAndSettle();
+
+      final events = await SupabaseService.getCalendarEvents();
+      final moved = events.firstWhere((e) => e['title'] == 'Bloco Arrastável');
+      final movedStart = DateTime.parse(moved['start_time'].toString()).toLocal();
+      final movedEnd = DateTime.parse(moved['end_time'].toString()).toLocal();
+
+      expect(movedStart.isAfter(startTime), isTrue);
+      expect(movedEnd.difference(movedStart).inMinutes, equals(60));
 
       await TestAppHarness.drainAsync(tester);
     });

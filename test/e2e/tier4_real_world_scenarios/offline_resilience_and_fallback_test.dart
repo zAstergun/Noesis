@@ -20,17 +20,12 @@ void main() {
   });
 
   group('Tier 4 - Scenario 5: Offline Resilience & Zero-Network Degradation', () {
-    testWidgets('Real NoesisApp operates smoothly across all 5 tabs in Guest Mode with zero network calls',
+    testWidgets('Real NoesisApp operates smoothly across all tabs with zero network calls',
         (WidgetTester tester) async {
       await TestAppHarness.pumpInHarness(
         tester,
         const RootScreen(),
       );
-
-      // Transition to Guest Mode
-      final guestButton = find.text('Entrar sem login · Modo de Teste');
-      expect(guestButton, findsOneWidget);
-      await tester.tap(guestButton);
       await tester.pumpAndSettle();
 
       // Tab 0: Dashboard / Tracker

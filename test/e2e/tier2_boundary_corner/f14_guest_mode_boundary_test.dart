@@ -46,6 +46,13 @@ void main() {
     });
 
     test('4. In-memory calendar events can be updated with partial fields', () async {
+      final start = DateTime(2026, 12, 2, 10);
+      await SupabaseService.addCalendarEvent(
+        title: 'Event to Update',
+        category: 'study',
+        startTime: start,
+        endTime: start.add(const Duration(hours: 1)),
+      );
       final events = await SupabaseService.getCalendarEvents();
       final firstId = events.first['id'] as String;
 

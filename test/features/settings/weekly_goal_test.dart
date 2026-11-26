@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noesis/core/notifications_service.dart';
+import 'package:noesis/core/shop_service.dart';
 import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/core/theme.dart';
 import 'package:noesis/features/settings/settings_screen.dart';
@@ -14,9 +16,10 @@ void main() {
 
   setUp(() async {
     await SupabaseService.saveWeeklyGoalMinutes(SupabaseService.defaultWeeklyGoalMinutes);
+    await SupabaseService.saveDailyGoalMinutes(SupabaseService.defaultDailyGoalMinutes);
   });
 
-  test('formatGoalDuration and computeCurrentWeekStudiedMinutes work accurately', () {
+  test('formatGoalDuration, computeCurrentWeekStudiedMinutes, and computeTodayStudiedMinutes work accurately', () {
     expect(SupabaseService.formatGoalDuration(0), '0h');
     expect(SupabaseService.formatGoalDuration(45), '45m');
     expect(SupabaseService.formatGoalDuration(1500), '25h');
@@ -26,7 +29,8 @@ void main() {
     final wednesday = DateTime(2026, 11, 25, 14, 0);
     final sessions = [
       {'duration_minutes': 90, 'study_date': '2026-11-23'}, // Monday (same week)
-      {'duration_minutes': 60, 'study_date': '2026-11-25'}, // Wednesday (same week)
+      {'duration_minutes': 60, 'study_date': '2026-11-25'}, // Wednesday (today & same week)
+      {'duration_minutes': 30, 'study_date': '2026-11-25'}, // Wednesday (today & same week)
       {'duration_minutes': 45, 'study_date': '2026-11-29'}, // Sunday (same week)
       {'duration_minutes': 120, 'study_date': '2026-11-22'}, // Previous Sunday (excluded)
       {'duration_minutes': 80, 'study_date': '2026-11-30'}, // Next Monday (excluded)
@@ -34,7 +38,11 @@ void main() {
 
     expect(
       SupabaseService.computeCurrentWeekStudiedMinutes(sessions, referenceDate: wednesday),
-      195,
+      225,
+    );
+    expect(
+      SupabaseService.computeTodayStudiedMinutes(sessions, referenceDate: wednesday),
+      90,
     );
   });
 
@@ -160,10 +168,228 @@ void main() {
 
     expect(find.textContaining('Meta atual: 12h 30m/semana'), findsOneWidget);
     expect(SupabaseService.weeklyGoalMinutesNotifier.value, 12 * 60 + 30);
+
+    expect(find.text('Meta Diária de Estudos'), findsOneWidget);
+    expect(find.textContaining('Meta atual: 3h/dia'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('settings_edit_daily_goal_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar Meta Diária'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('daily_goal_hours_field')), '4');
+    await tester.enterText(find.byKey(const Key('daily_goal_minutes_field')), '30');
+    await tester.pump();
+
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Meta atual: 4h 30m/dia'), findsOneWidget);
+    expect(SupabaseService.dailyGoalMinutesNotifier.value, 4 * 60 + 30);
+  });
+
+  testWidgets('Goal editor toggles to Meta Diária, validates, and RootScreen sidebar updates live',
+      (WidgetTester tester) async {
+    await TestAppHarness.pumpInHarness(
+      tester,
+      Builder(
+        builder: (context) => Center(
+          child: ElevatedButton(
+            onPressed: () => showWeeklyGoalEditorDialog(
+              context,
+              currentWeekStudiedMinutes: 600,
+              currentDayStudiedMinutes: 60,
+            ),
+            child: const Text('Abrir Modal Meta'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir Modal Meta'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('goal_mode_daily_tab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar Meta Diária'), findsOneWidget);
+    expect(find.textContaining('1h / 3h · 33%'), findsOneWidget);
+
+    // Invalid (< 15 min) check
+    await tester.enterText(find.byKey(const Key('daily_goal_hours_field')), '0');
+    await tester.enterText(find.byKey(const Key('daily_goal_minutes_field')), '10');
+    await tester.pump();
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pump();
+    expect(find.textContaining('15 minutos e 24 horas'), findsOneWidget);
+
+    await tester.tap(find.text('2h'));
+    await tester.pump();
+    expect(find.textContaining('1h / 2h · 50%'), findsOneWidget);
+
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pumpAndSettle();
+
+    expect(SupabaseService.dailyGoalMinutesNotifier.value, 120);
+    expect(await SupabaseService.loadDailyGoalMinutes(), 120);
+
+    // Also verify sidebar + dashboard live update on RootScreen
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const RootScreen(),
+      screenSize: const Size(1440, 900),
+    );
+    final guestFinder = find.textContaining('Entrar sem login');
+    if (guestFinder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(guestFinder.first);
+      await tester.tap(guestFinder.first);
+      await tester.pumpAndSettle();
+    }
+
+    final dailyCard = find.byKey(const Key('sidebar_daily_goal_card'));
+    expect(find.text('META DIÁRIA'), findsOneWidget);
+    await tester.ensureVisible(dailyCard);
+    await tester.tap(dailyCard);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar Meta Diária'), findsOneWidget);
+    await tester.tap(find.text('4h'));
+    await tester.pump();
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: dailyCard,
+        matching: find.textContaining('/ 4h'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('dashboard_kpi_daily_goal')),
+        matching: find.textContaining('/ 4h'),
+      ),
+      findsOneWidget,
+    );
+    expect(SupabaseService.dailyGoalMinutesNotifier.value, 240);
+    await TestAppHarness.drainAsync(tester);
+  });
+
+  testWidgets('Users can opt out of weekly and daily goals cleanly (0 minutes / Sem meta)',
+      (WidgetTester tester) async {
+    final shop = ShopService.instance;
+    final fakeNow = DateTime(2026, 11, 25, 14, 0);
+    await shop.resetForTesting(customClock: () => fakeNow);
+    final earnedWithDisabledGoals = shop.evaluateStudyProgressRewards(
+      sessions: [
+        {'id': 'free-s1', 'duration_minutes': 200, 'study_date': '2026-11-25'},
+      ],
+      weeklyGoalMinutes: 0,
+      dailyGoalMinutes: 0,
+      referenceDate: fakeNow,
+    );
+    expect(earnedWithDisabledGoals, 0);
+
+    final notes = NotificationsService.buildNotificationsFromData(
+      now: fakeNow,
+      events: const [],
+      sessions: const [
+        {'id': 'free-s1', 'duration_minutes': 200, 'study_date': '2026-11-25'},
+      ],
+      weeklyGoalMinutes: 0,
+      dailyGoalMinutes: 0,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+    );
+    expect(notes.any((n) => n.id.contains('goal')), isFalse);
+
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const RootScreen(),
+      screenSize: const Size(1440, 900),
+    );
+    final guestFinder = find.textContaining('Entrar sem login');
+    if (guestFinder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(guestFinder.first);
+      await tester.tap(guestFinder.first);
+      await tester.pumpAndSettle();
+    }
+
+    // Desativa Meta Semanal e Meta Diária na mesma abertura do modal
+    await tester.ensureVisible(find.byKey(const Key('sidebar_weekly_goal_card')));
+    await tester.tap(find.byKey(const Key('sidebar_weekly_goal_card')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('goal_weekly_enabled_switch')));
+    await tester.pumpAndSettle();
+    expect(find.text('Sem meta semanal definida'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('goal_mode_daily_tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('goal_daily_enabled_switch')));
+    await tester.pumpAndSettle();
+    expect(find.text('Sem meta diária definida'), findsOneWidget);
+
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pumpAndSettle();
+
+    expect(SupabaseService.weeklyGoalMinutesNotifier.value, 0);
+    expect(SupabaseService.dailyGoalMinutesNotifier.value, 0);
+    expect(await SupabaseService.loadWeeklyGoalMinutes(), 0);
+    expect(await SupabaseService.loadDailyGoalMinutes(), 0);
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('sidebar_weekly_goal_card')),
+        matching: find.text('Sem meta'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('sidebar_daily_goal_card')),
+        matching: find.text('Sem meta'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('dashboard_kpi_daily_goal')),
+        matching: find.text('Modo livre'),
+      ),
+      findsOneWidget,
+    );
+
+    // Reativa Meta Diária pelo SettingsScreen
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const SettingsScreen(),
+      screenSize: const Size(1280, 800),
+    );
+    expect(find.textContaining('Sem meta semanal definida'), findsOneWidget);
+    expect(find.textContaining('Sem meta diária definida'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('settings_edit_daily_goal_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('goal_daily_enabled_switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2h'));
+    await tester.pump();
+    await tester.tap(find.text('Salvar Meta'));
+    await tester.pumpAndSettle();
+
+    expect(SupabaseService.dailyGoalMinutesNotifier.value, 120);
+    expect(find.textContaining('Meta atual: 2h/dia'), findsOneWidget);
+    await TestAppHarness.drainAsync(tester);
   });
 
   testWidgets('SettingsScreen displays Névoa and all 10 new Noesis themes cleanly',
       (WidgetTester tester) async {
+    await ShopService.instance.resetForTesting(
+      unlockedThemes: {'grafite', 'floresta'},
+    );
     await TestAppHarness.pumpInHarness(
       tester,
       const SettingsScreen(),
@@ -213,5 +439,6 @@ void main() {
 
     // Restaura padrão Soft Clay Névoa ao final
     AsterTheme.selectThemeOption('soft_clay_nevoa');
+    await ShopService.instance.resetForTesting();
   });
 }

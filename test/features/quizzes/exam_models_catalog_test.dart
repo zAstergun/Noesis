@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noesis/core/gemini_service.dart';
+import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/features/flashcards/models/flashcard_model.dart';
 import 'package:noesis/features/notebooks/models/notebook_model.dart';
 import 'package:noesis/features/quizzes/data/exam_models_catalog.dart';
@@ -543,6 +544,37 @@ void main() {
   });
 
   testWidgets('QuizScreen allows attaching flashcard decks and notebooks from pickers', (tester) async {
+    final testDeck = FlashcardDeck(
+      id: 'deck-picker-test',
+      title: 'Criptografia & Certificação Security+',
+      subject: 'Criptografia',
+      description: 'Baralho para picker',
+      cards: [
+        Flashcard(id: 'c-pick-1', front: 'AES?', back: 'Cifra simétrica.'),
+      ],
+      createdAt: DateTime.now(),
+    );
+    final testNb = StudyNotebook(
+      id: 'nb-picker-test',
+      title: 'Arquitetura Cloud & Infraestrutura',
+      subject: 'Tecnologia',
+      description: 'Caderno para picker',
+      notes: [
+        StudyNote(
+          id: 'n-pick-1',
+          notebookId: 'nb-picker-test',
+          title: 'VPC Subnets',
+          content: 'Subnets públicas e privadas.',
+        ),
+      ],
+    );
+    await SupabaseService.saveFlashcardDeck(testDeck);
+    await SupabaseService.saveNotebook(testNb);
+    addTearDown(() async {
+      await SupabaseService.deleteFlashcardDeck(testDeck.id);
+      await SupabaseService.deleteNotebook(testNb.id);
+    });
+
     await TestAppHarness.pumpInHarness(tester, const QuizScreen());
 
     final attachDecksBtn = find.text('Anexar Flashcards');
@@ -574,6 +606,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cadernos (1)'), findsOneWidget);
+
+    await TestAppHarness.drainAsync(tester);
+  });
+
+  testWidgets('QuizScreen highlights Modo Livre card and toggles cleanly between free and official model modes',
+      (tester) async {
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const QuizScreen(),
+      screenSize: const Size(1280, 900),
+    );
+
+    expect(find.byKey(const Key('quiz_mode_selector_bar')), findsOneWidget);
+    expect(find.byKey(const Key('quiz_official_model_mode_card')), findsOneWidget);
+    expect(find.byKey(const Key('quiz_free_mode_card')), findsOneWidget);
+    expect(find.text('Modo Livre (Sem Modelo)'), findsOneWidget);
+
+    // Ativa Modo Livre
+    await tester.ensureVisible(find.byKey(const Key('quiz_free_mode_card')));
+    await tester.tap(find.byKey(const Key('quiz_free_mode_card')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('quiz_free_mode_active_banner')), findsOneWidget);
+    expect(find.text('Modo Livre Ativo · Criação Personalizada'), findsOneWidget);
+
+    // Retorna para Modelo de Prova Oficial
+    await tester.tap(find.byKey(const Key('quiz_official_model_mode_card')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quiz_free_mode_active_banner')), findsNothing);
+    expect(find.text('ENEM (INEP)'), findsOneWidget);
 
     await TestAppHarness.drainAsync(tester);
   });

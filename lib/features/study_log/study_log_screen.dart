@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/weekly_goal_dialog.dart';
 
 enum _StudyPeriodFilter { all, today, week, month }
 
@@ -115,11 +116,10 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
   bool _userEditedDuration = false;
   StreamSubscription<List<Map<String, dynamic>>>? _sessionsSub;
 
-  static const int _dailyGoalMinutes = 180; // 3h/dia padrão de referência
-
   @override
   void initState() {
     super.initState();
+    SupabaseService.loadDailyGoalMinutes();
     _loadInitial();
     _sessionsSub = SupabaseService.studySessionsStream().listen((list) {
       if (mounted) {
@@ -517,7 +517,6 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
     final isCustomDate = selectedKey != todayKey && selectedKey != yesterdayKey;
 
     final todayMinutes = _totalMinutesForDate(todayKey);
-    final todayProgress = (todayMinutes / _dailyGoalMinutes).clamp(0.0, 1.0);
     final weekMinutes = _totalMinutesSinceDays(7);
     final activeDays = _distinctActiveDaysCount();
     final currentDurationMins = _readCurrentDurationMinutes();
@@ -679,13 +678,30 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                   builder: (context, constraints) {
                     final isWide = constraints.maxWidth >= 680;
                     final cards = [
-                      _kpiBox(
-                        label: 'ESTUDADO HOJE',
-                        value: _formatDuration(todayMinutes),
-                        sub: 'Meta: ${_formatDuration(_dailyGoalMinutes)} (${(todayProgress * 100).round()}%)',
-                        color: AsterTheme.primary(context),
-                        icon: Icons.today_rounded,
-                        progress: todayProgress,
+                      ValueListenableBuilder<int>(
+                        valueListenable: SupabaseService.dailyGoalMinutesNotifier,
+                        builder: (context, dailyGoalMinutes, _) {
+                          final hasDailyGoal = dailyGoalMinutes > 0;
+                          final safeDaily = hasDailyGoal ? dailyGoalMinutes : 1;
+                          final todayProgress = (todayMinutes / safeDaily).clamp(0.0, 1.0);
+                          return _kpiBox(
+                            key: const Key('study_log_daily_goal_kpi'),
+                            label: 'ESTUDADO HOJE',
+                            value: _formatDuration(todayMinutes),
+                            sub: hasDailyGoal
+                                ? 'Meta: ${_formatDuration(dailyGoalMinutes)} (${(todayProgress * 100).round()}%) · editar'
+                                : 'Sem meta fixa · definir',
+                            color: AsterTheme.primary(context),
+                            icon: Icons.today_rounded,
+                            progress: hasDailyGoal ? todayProgress : null,
+                            onTap: () => showDailyGoalEditorDialog(
+                              context,
+                              currentWeekStudiedMinutes:
+                                  SupabaseService.computeCurrentWeekStudiedMinutes(_sessions),
+                              currentDayStudiedMinutes: todayMinutes,
+                            ),
+                          );
+                        },
                       ),
                       _kpiBox(
                         label: 'ÚLTIMOS 7 DIAS',
@@ -1360,21 +1376,29 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
   }
 
   Widget _kpiBox({
+    Key? key,
     required String label,
     required String value,
     required String sub,
     required Color color,
     required IconData icon,
     double? progress,
+    VoidCallback? onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+    return Material(
+      key: key,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+            border: Border.all(color: color.withValues(alpha: 0.14)),
+          ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1438,6 +1462,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
             ),
           ],
         ],
+      ),
+        ),
       ),
     );
   }

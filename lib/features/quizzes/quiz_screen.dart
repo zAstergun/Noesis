@@ -9,9 +9,14 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
+import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../flashcards/models/flashcard_model.dart';
 import '../notebooks/models/notebook_model.dart';
+import '../study_groups/data/study_groups_service.dart';
+import '../study_groups/models/study_group_feature_scope.dart';
+import '../study_groups/models/study_group_model.dart';
+import '../study_groups/widgets/study_group_modals.dart';
 import 'data/exam_models_catalog.dart';
 import 'data/saved_exams_repository.dart';
 
@@ -34,7 +39,9 @@ class _QuestionSectionBlock {
 }
 
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
+  const QuizScreen({super.key, this.groupScope});
+
+  final StudyGroupFeatureScope? groupScope;
 
   static final ValueNotifier<Map<String, dynamic>?> externalQuizStarter = ValueNotifier(null);
 
@@ -183,6 +190,9 @@ class _QuizScreenState extends State<QuizScreen> {
   int _currentQuestionIndex = 0;
   final Map<int, int> _userAnswers = {}; // { questionIndex: selectedOptionIndex }
   final Set<int> _flaggedQuestions = {}; // Questões marcadas para revisão
+  final Set<int> _rewardedQuestionIndices = {}; // Evita recompensa duplicada na mesma sessão
+  int? _lastClockedQuestionIndex;
+  DateTime? _questionShownAt;
   final bool _showExplanation = true;
   int _remainingSeconds = 38 * 60 + 12;
   int _initialTotalSeconds = 38 * 60 + 12;
@@ -192,6 +202,7 @@ class _QuizScreenState extends State<QuizScreen> {
   List<SavedExamAttempt> _savedAttempts = [];
   bool _loadingSavedAttempts = false;
   String? _historyGroupFilter;
+  String? _historyMemberFilter;
   String? _currentAttemptId;
   bool _hasShownTimeUpAlert = false;
   bool _timeExpiredThisSession = false;
@@ -202,14 +213,25 @@ class _QuizScreenState extends State<QuizScreen> {
     super.initState();
     _timerNotifier = ValueNotifier<int>(_remainingSeconds);
     _activeQuestions = null;
-    QuizScreen.externalQuizStarter.addListener(_onExternalQuizStarted);
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.addListener(_onGroupListChanged);
+    } else {
+      QuizScreen.externalQuizStarter.addListener(_onExternalQuizStarted);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (QuizScreen.externalQuizStarter.value != null) {
+          _onExternalQuizStarted();
+        }
+      });
+    }
     _refreshSavedAttempts();
     _loadStudyResources();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (QuizScreen.externalQuizStarter.value != null) {
-        _onExternalQuizStarted();
-      }
-    });
+  }
+
+  void _onGroupListChanged() {
+    if (mounted) {
+      _refreshSavedAttempts();
+      _loadStudyResources();
+    }
   }
 
   void _setQuestionCount(int value) {
@@ -235,6 +257,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void _onExternalQuizStarted() {
+    if (widget.groupScope != null) return;
     final data = QuizScreen.externalQuizStarter.value;
     if (data != null && mounted) {
       final loadedQuestions = List<Map<String, dynamic>>.from(data['questions']);
@@ -259,72 +282,15 @@ class _QuizScreenState extends State<QuizScreen> {
         _currentQuestionIndex = 0;
         _userAnswers.clear();
         _flaggedQuestions.clear();
+        _rewardedQuestionIndices.clear();
+        _lastClockedQuestionIndex = null;
+        _questionShownAt = null;
         _initialTotalSeconds = customDuration ?? (loadedQuestions.length * 120);
         _remainingSeconds = _initialTotalSeconds;
         _startTimer();
       });
       QuizScreen.externalQuizStarter.value = null;
     }
-  }
-
-  void _loadDemoMockQuiz() {
-    setState(() {
-      _examSessionToken++;
-      _isLoadingNextBatch = false;
-      _batchErrorMessage = null;
-      _currentAttemptId = null;
-      _hasShownTimeUpAlert = false;
-      _timeExpiredThisSession = false;
-      _isReviewingSavedAttempt = false;
-      _selectedExamModel = ExamModelsCatalog.models.first;
-      _subjectController.text = 'Cybersegurança';
-      _topicController.text = 'CompTIA Security+ SY0-701';
-      _difficulty = 'Avançado / Nível Certificação';
-      _questionCount = 3;
-      _questionCountInputController.text = '3';
-      _currentQuestionIndex = 0;
-      _userAnswers.clear();
-      _flaggedQuestions.clear();
-      _activeQuestions = [
-        {
-          'question':
-              'Uma API interna expõe o endpoint /fetch?target= que busca o conteúdo de qualquer URL e o devolve ao cliente. Durante um pentest, o analista obteve credenciais temporárias da instância EC2 acessando o serviço de metadados. Qual medida melhor mitiga a vulnerabilidade na raiz?',
-          'code_snippet':
-              "1  # handler.py\n2  url = request.args.get('target')\n3  resp = requests.get(url, timeout=3)\n4  return resp.text  # 200 OK",
-          'options': [
-            'Aplicar rate limiting no endpoint e manter a validação de URL por lista negra de IPs internos.',
-            'Validar o destino com allow-list de hosts, bloquear redirecionamentos e resolver DNS antes da requisição (pinning).',
-            'Mover o serviço para uma sub-rede pública e desabilitar o IMDSv1 apenas no bastion host.',
-            'Sanitizar o parâmetro com HTML-encoding para impedir injeção de payloads no corpo da resposta.',
-          ],
-          'correct_index': 1,
-          'explanation':
-              'O cenário descreve um SSRF clássico: o servidor faz requisições para URLs controladas pelo usuário. A mitigação robusta é allow-list de destinos + bloqueio de redirects + resolução DNS prévia para evitar DNS rebinding. A alternativa A usa lista negra (facilmente contornável via 169.254.169.254 em formatos alternativos). C e D confundem o vetor com XSS / arquitetura de rede.',
-          'rag_sources': ['OWASP Top 10 2021 · A10', 'AWS IMDSv2 docs', 'CompTIA Security+ SY0-701'],
-        },
-        {
-          'question':
-              'Em uma arquitetura de microsserviços, como garantir que tokens JWT assinados com algoritmo assimétrico (RS256) não sejam forçados a validação insegura?',
-          'code_snippet':
-              "1  # jwt_verify.py\n2  header = jwt.get_unverified_header(token)\n3  # Vulnerabilidade: confiar cegamente no alg do cabeçalho\n4  jwt.decode(token, verify=True)",
-          'options': [
-            'Forçar explicitamente o algoritmo aceito (algorithms=[\'RS256\']) no momento da validação pelo consumidor.',
-            'Permitir que o cliente escolha entre HS256 e RS256 dinamicamente.',
-            'Codificar a chave pública em Base64 na URL de callback.',
-            'Desativar a checagem de expiração do token (exp claim).',
-          ],
-          'correct_index': 0,
-          'explanation':
-              'Vulnerabilidades de confusão de algoritmo (como forçar HS256 com chave pública como segredo) são mitigadas restringindo os algoritmos permitidos na chamada de decode.',
-          'rag_sources': ['RFC 7519', 'NIST SP 800-63B'],
-        },
-      ];
-      _targetQuestionCount = _activeQuestions!.length;
-      _userAnswers[0] = 1; // Selecionou B no mock
-      _initialTotalSeconds = 38 * 60 + 12;
-      _remainingSeconds = _initialTotalSeconds;
-      _startTimer();
-    });
   }
 
   void _startTimer() {
@@ -402,6 +368,15 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _refreshSavedAttempts({bool forceRemote = false}) async {
+    final scope = widget.groupScope;
+    if (scope != null) {
+      if (mounted) {
+        setState(() {
+          _savedAttempts = StudyGroupsService.instance.groupExams(scope.groupId);
+        });
+      }
+      return;
+    }
     if (_loadingSavedAttempts) return;
     _loadingSavedAttempts = true;
     final list = await SavedExamsRepository.loadAll(forceRemote: forceRemote);
@@ -414,6 +389,16 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _loadStudyResources() async {
+    final scope = widget.groupScope;
+    if (scope != null) {
+      if (mounted) {
+        setState(() {
+          _availableDecks = StudyGroupsService.instance.groupDecks(scope.groupId);
+          _availableNotebooks = StudyGroupsService.instance.groupNotebooks(scope.groupId);
+        });
+      }
+      return;
+    }
     try {
       final results = await Future.wait([
         SupabaseService.getFlashcardDecks(),
@@ -672,7 +657,14 @@ class _QuizScreenState extends State<QuizScreen> {
       aiReviewMarkdown: aiReviewMarkdown ?? existing?.aiReviewMarkdown,
     );
 
-    final updatedList = await SavedExamsRepository.saveAttempt(attempt);
+    final scope = widget.groupScope;
+    final List<SavedExamAttempt> updatedList;
+    if (scope != null) {
+      await StudyGroupsService.instance.saveGroupExamAttempt(scope.groupId, attempt);
+      updatedList = StudyGroupsService.instance.groupExams(scope.groupId);
+    } else {
+      updatedList = await SavedExamsRepository.saveAttempt(attempt);
+    }
     if (mounted) {
       setState(() {
         _savedAttempts = updatedList;
@@ -733,6 +725,9 @@ class _QuizScreenState extends State<QuizScreen> {
       _currentQuestionIndex = 0;
       _userAnswers.clear();
       _flaggedQuestions.clear();
+      _rewardedQuestionIndices.clear();
+      _lastClockedQuestionIndex = null;
+      _questionShownAt = null;
       _initialTotalSeconds = attempt.questions.length * 120;
       _remainingSeconds = _initialTotalSeconds;
       _showSavedHistory = false;
@@ -760,9 +755,16 @@ class _QuizScreenState extends State<QuizScreen> {
         initialAiReview: attempt.aiReviewMarkdown,
         previousGroupAttempts: previousForGroup,
         onAiReviewReady: (markdown) {
-          SavedExamsRepository.updateAiReview(attempt.id, markdown).then((_) {
-            _refreshSavedAttempts();
-          });
+          final scope = widget.groupScope;
+          if (scope != null) {
+            StudyGroupsService.instance
+                .updateGroupExamAiReview(scope.groupId, attempt.id, markdown)
+                .then((_) => _refreshSavedAttempts());
+          } else {
+            SavedExamsRepository.updateAiReview(attempt.id, markdown).then((_) {
+              _refreshSavedAttempts();
+            });
+          }
         },
         onJumpToQuestion: (index) {
           Navigator.of(ctx).pop();
@@ -781,7 +783,14 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _deleteSavedAttempt(String attemptId) async {
-    final updated = await SavedExamsRepository.deleteAttempt(attemptId);
+    final scope = widget.groupScope;
+    final List<SavedExamAttempt> updated;
+    if (scope != null) {
+      await StudyGroupsService.instance.deleteGroupExam(scope.groupId, attemptId);
+      updated = StudyGroupsService.instance.groupExams(scope.groupId);
+    } else {
+      updated = await SavedExamsRepository.deleteAttempt(attemptId);
+    }
     if (mounted) {
       setState(() {
         _savedAttempts = updated;
@@ -1121,18 +1130,14 @@ class _QuizScreenState extends State<QuizScreen> {
     final hasKey = GeminiService.apiKey != null && GeminiService.apiKey!.trim().isNotEmpty;
 
     if (!isCustom && !hasKey) {
-      ScaffoldMessenger.of(context)
+      final messenger = ScaffoldMessenger.of(context);
+      messenger
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 5),
             content: Text('Configure sua chave de API para ${GeminiService.currentProvider.label} em Configurações.'),
-            action: SnackBarAction(
-              label: 'Testar Demo',
-              textColor: Colors.white,
-              onPressed: _loadDemoMockQuiz,
-            ),
           ),
         );
       return;
@@ -1154,6 +1159,9 @@ class _QuizScreenState extends State<QuizScreen> {
       _activeQuestions = null;
       _userAnswers.clear();
       _flaggedQuestions.clear();
+      _rewardedQuestionIndices.clear();
+      _lastClockedQuestionIndex = null;
+      _questionShownAt = null;
       _currentQuestionIndex = 0;
     });
 
@@ -1289,7 +1297,8 @@ class _QuizScreenState extends State<QuizScreen> {
         setState(() {
           _batchErrorMessage = e.toString();
         });
-        ScaffoldMessenger.of(context)
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
           ..clearSnackBars()
           ..showSnackBar(
             SnackBar(
@@ -1298,8 +1307,10 @@ class _QuizScreenState extends State<QuizScreen> {
               content: Text('Pausa no lote ${_activeQuestions?.length ?? 0}/$_targetQuestionCount: $e'),
               action: SnackBarAction(
                 label: 'Tentar Próximo Lote',
-                textColor: Colors.white,
-                onPressed: () => _continueLoadingRemainingBatches(sessionToken),
+                onPressed: () {
+                  messenger.hideCurrentSnackBar();
+                  _continueLoadingRemainingBatches(sessionToken);
+                },
               ),
             ),
           );
@@ -1321,21 +1332,38 @@ class _QuizScreenState extends State<QuizScreen> {
 
     String? attemptId = _currentAttemptId;
     String? savedAiReview;
-    if (_isReviewingSavedAttempt && attemptId != null) {
-      savedAiReview = _savedAttempts.where((a) => a.id == attemptId).firstOrNull?.aiReviewMarkdown;
-    } else {
-      final saved = await _saveCurrentAttempt();
-      attemptId = saved.id;
-      savedAiReview = saved.aiReviewMarkdown;
-    }
-
-    if (!mounted) return;
     final groupKey = SavedExamsRepository.computeGroupKey(
       examModelId: _selectedExamModel?.id,
       examModelName: _selectedExamModel?.name,
       subject: subjectText,
       topic: topicText,
     );
+    if (_isReviewingSavedAttempt && attemptId != null) {
+      savedAiReview = _savedAttempts.where((a) => a.id == attemptId).firstOrNull?.aiReviewMarkdown;
+    } else {
+      final saved = await _saveCurrentAttempt();
+      attemptId = saved.id;
+      savedAiReview = saved.aiReviewMarkdown;
+      final scope = widget.groupScope;
+      if (scope != null) {
+        StudyGroupsService.instance.recordGroupExamCompletionRaw(
+          groupId: scope.groupId,
+          attemptId: saved.id,
+          groupKey: groupKey,
+          scorePercentage: saved.scorePercentage,
+          subject: subjectText,
+        );
+      } else {
+        ShopService.instance.awardForExamCompletion(
+          attemptId: saved.id,
+          groupKey: groupKey,
+          scorePercentage: saved.scorePercentage,
+          subject: subjectText,
+        );
+      }
+    }
+
+    if (!mounted) return;
     final previousForGroup = SavedExamsRepository.historyForGroup(
       _savedAttempts,
       groupKey,
@@ -1359,9 +1387,16 @@ class _QuizScreenState extends State<QuizScreen> {
           onAiReviewReady: attemptId == null
               ? null
               : (markdown) {
-                  SavedExamsRepository.updateAiReview(attemptId!, markdown).then((_) {
-                    _refreshSavedAttempts();
-                  });
+                  final scope = widget.groupScope;
+                  if (scope != null) {
+                    StudyGroupsService.instance
+                        .updateGroupExamAiReview(scope.groupId, attemptId!, markdown)
+                        .then((_) => _refreshSavedAttempts());
+                  } else {
+                    SavedExamsRepository.updateAiReview(attemptId!, markdown).then((_) {
+                      _refreshSavedAttempts();
+                    });
+                  }
                 },
           onJumpToQuestion: (index) {
             Navigator.of(ctx).pop();
@@ -1386,7 +1421,11 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   void dispose() {
-    QuizScreen.externalQuizStarter.removeListener(_onExternalQuizStarted);
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.removeListener(_onGroupListChanged);
+    } else {
+      QuizScreen.externalQuizStarter.removeListener(_onExternalQuizStarted);
+    }
     _subjectController.dispose();
     _topicController.dispose();
     _documentTextController.dispose();
@@ -1456,7 +1495,7 @@ class _QuizScreenState extends State<QuizScreen> {
       children: [
         Row(
           children: [
-            const NoesisCollapsedMenuSpacer(width: 82),
+            if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2564,6 +2603,10 @@ class _QuizScreenState extends State<QuizScreen> {
 
   // ─── Painel Direito com Alternativas ───
   Widget _buildAlternativesRightPanel() {
+    if (_lastClockedQuestionIndex != _currentQuestionIndex || _questionShownAt == null) {
+      _lastClockedQuestionIndex = _currentQuestionIndex;
+      _questionShownAt = ShopService.currentNow();
+    }
     final currentQ = _activeQuestions![_currentQuestionIndex];
     final List<dynamic> options = currentQ['options'] ?? [];
     final correctIdx = currentQ['correct_index'] as int? ?? 0;
@@ -2628,9 +2671,37 @@ class _QuizScreenState extends State<QuizScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                 onTap: () {
+                  final shouldReward = !_isReviewingSavedAttempt &&
+                      !_rewardedQuestionIndices.contains(_currentQuestionIndex);
+                  final elapsed = _questionShownAt == null
+                      ? Duration.zero
+                      : ShopService.currentNow().difference(_questionShownAt!);
                   setState(() {
                     _userAnswers[_currentQuestionIndex] = idx;
                   });
+                  if (shouldReward) {
+                    final scope = widget.groupScope;
+                    if (scope != null) {
+                      _rewardedQuestionIndices.add(_currentQuestionIndex);
+                      StudyGroupsService.instance.recordGroupExamAnswerRaw(
+                        groupId: scope.groupId,
+                        isCorrect: idx == correctIdx,
+                        elapsedSinceShown: elapsed,
+                        subject: _subjectController.text,
+                        reference: 'q:${_currentAttemptId ?? _examSessionToken}:$_currentQuestionIndex',
+                      );
+                    } else {
+                      final earned = ShopService.instance.awardForQuizAnswer(
+                        isCorrect: idx == correctIdx,
+                        elapsedSinceShown: elapsed,
+                        subject: _subjectController.text,
+                        reference: 'q:${_currentAttemptId ?? _examSessionToken}:$_currentQuestionIndex',
+                      );
+                      if (earned > 0) {
+                        _rewardedQuestionIndices.add(_currentQuestionIndex);
+                      }
+                    }
+                  }
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -2884,9 +2955,49 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Widget _buildSavedHistoryCard(bool isDesktop) {
     final all = _savedAttempts;
-    final filtered = _historyGroupFilter == null
-        ? all
-        : all.where((a) => a.groupKey == _historyGroupFilter).toList();
+    final groupScope = widget.groupScope;
+    final StudyGroup? group =
+        groupScope != null ? StudyGroupsService.instance.groupById(groupScope.groupId) : null;
+    final List<SharedGroupItem<SavedExamAttempt>> groupExamItems = groupScope != null
+        ? StudyGroupsService.instance.groupExamItems(groupScope.groupId)
+        : const [];
+    final metaByAttemptId = <String, SharedGroupItem<SavedExamAttempt>>{
+      for (final item in groupExamItems) item.data.id: item,
+    };
+
+    ({
+      String userId,
+      String displayName,
+      String username,
+      String? avatarUrl,
+      bool isVip,
+      StudyGroupMember? member,
+    }) resolveAttemptAuthor(SavedExamAttempt attempt) {
+      final meta = metaByAttemptId[attempt.id];
+      final uid = meta?.sharedByUserId ?? '';
+      final member = group?.memberFor(uid);
+      final name = member?.displayName ?? meta?.sharedByName ?? 'Estudante';
+      final handle = (member?.username.isNotEmpty == true)
+          ? member!.username
+          : (meta?.sharedByHandle.isNotEmpty == true ? meta!.sharedByHandle : 'estudante');
+      return (
+        userId: uid,
+        displayName: name,
+        username: handle,
+        avatarUrl: member?.avatarUrl,
+        isVip: member?.isVip ?? false,
+        member: member,
+      );
+    }
+
+    final filtered = all.where((a) {
+      if (_historyGroupFilter != null && a.groupKey != _historyGroupFilter) return false;
+      if (group != null && _historyMemberFilter != null) {
+        final authorId = metaByAttemptId[a.id]?.sharedByUserId ?? '';
+        if (authorId != _historyMemberFilter) return false;
+      }
+      return true;
+    }).toList();
 
     // Agrupa por simulado (groupKey) para comparar evolução das últimas vezes
     final grouped = <String, List<SavedExamAttempt>>{};
@@ -2894,10 +3005,89 @@ class _QuizScreenState extends State<QuizScreen> {
       grouped.putIfAbsent(attempt.groupKey, () => []).add(attempt);
     }
 
+    // Agrega desempenho por participante do grupo nos realizados
+    final memberBuckets = <String, List<SavedExamAttempt>>{};
+    if (group != null) {
+      for (final item in groupExamItems) {
+        final uid = item.sharedByUserId.isNotEmpty ? item.sharedByUserId : 'unknown';
+        memberBuckets.putIfAbsent(uid, () => []).add(item.data);
+      }
+    }
+    final memberPerformances = memberBuckets.entries.map((entry) {
+      final uid = entry.key;
+      final attempts = entry.value;
+      final member = group?.memberFor(uid);
+      final firstMeta = groupExamItems.where((e) => e.sharedByUserId == uid).firstOrNull;
+      final name = member?.displayName ?? firstMeta?.sharedByName ?? 'Estudante';
+      final handle = (member?.username.isNotEmpty == true)
+          ? member!.username
+          : (firstMeta?.sharedByHandle.isNotEmpty == true
+              ? firstMeta!.sharedByHandle
+              : 'estudante');
+      final avgPct = (attempts.fold<double>(0, (acc, a) => acc + a.scorePercentage) /
+              attempts.length)
+          .round();
+      final bestPct = attempts
+          .map((a) => a.scorePercentage)
+          .fold<double>(0, (a, b) => a > b ? a : b)
+          .round();
+      final totalCorrect = attempts.fold<int>(0, (acc, a) => acc + a.correctCount);
+      final totalLoaded = attempts.fold<int>(0, (acc, a) => acc + a.loadedCount);
+      return (
+        userId: uid,
+        displayName: name,
+        username: handle,
+        avatarUrl: member?.avatarUrl,
+        isVip: member?.isVip ?? false,
+        member: member,
+        attempts: attempts,
+        avgPct: avgPct,
+        bestPct: bestPct,
+        totalCorrect: totalCorrect,
+        totalLoaded: totalLoaded,
+      );
+    }).toList()
+      ..sort((a, b) {
+        final cmpAvg = b.avgPct.compareTo(a.avgPct);
+        if (cmpAvg != 0) return cmpAvg;
+        final cmpBest = b.bestPct.compareTo(a.bestPct);
+        if (cmpBest != 0) return cmpBest;
+        return b.attempts.length.compareTo(a.attempts.length);
+      });
+
     final avgScore = all.isEmpty
         ? 0
         : (all.fold<double>(0, (acc, a) => acc + a.scorePercentage) / all.length).round();
     final totalQuestionsAnswered = all.fold<int>(0, (acc, a) => acc + a.answeredCount);
+
+    List<({String userId, String username, String displayName, int bestPct})>
+        standingsForGroupKey(String groupKey) {
+      if (group == null) return const [];
+      final byUser = <String, ({String username, String displayName, int bestPct})>{};
+      for (final a in (grouped[groupKey] ?? const <SavedExamAttempt>[])) {
+        final author = resolveAttemptAuthor(a);
+        if (author.userId.isEmpty) continue;
+        final pct = a.scorePercentage.round();
+        final prev = byUser[author.userId];
+        if (prev == null || pct > prev.bestPct) {
+          byUser[author.userId] = (
+            username: author.username,
+            displayName: author.displayName,
+            bestPct: pct,
+          );
+        }
+      }
+      final list = byUser.entries
+          .map((e) => (
+                userId: e.key,
+                username: e.value.username,
+                displayName: e.value.displayName,
+                bestPct: e.value.bestPct,
+              ))
+          .toList()
+        ..sort((a, b) => b.bestPct.compareTo(a.bestPct));
+      return list;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2906,7 +3096,7 @@ class _QuizScreenState extends State<QuizScreen> {
           padding: const EdgeInsets.only(bottom: 16),
           child: Row(
             children: [
-              const NoesisCollapsedMenuSpacer(width: 82),
+              if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
               Expanded(
                 child: Wrap(
                   spacing: 12,
@@ -2931,7 +3121,9 @@ class _QuizScreenState extends State<QuizScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'SIMULADOS REALIZADOS & EVOLUÇÃO',
+                              widget.groupScope != null
+                                  ? 'SIMULADOS DO GRUPO & EVOLUÇÃO'
+                                  : 'SIMULADOS REALIZADOS & EVOLUÇÃO',
                               style: GoogleFonts.manrope(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w900,
@@ -2948,7 +3140,23 @@ class _QuizScreenState extends State<QuizScreen> {
                         ),
                       ],
                     ),
-                    _buildTopModeToggle(),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (widget.groupScope != null &&
+                            widget.groupScope!.canEdit &&
+                            widget.groupScope!.onAttachExisting != null)
+                          OutlinedButton.icon(
+                            key: const Key('group_attach_exam_button'),
+                            onPressed: widget.groupScope!.onAttachExisting,
+                            icon: const Icon(Icons.attach_file_rounded, size: 16),
+                            label: const Text('Anexar Meu Simulado'),
+                          ),
+                        _buildTopModeToggle(),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -3011,12 +3219,160 @@ class _QuizScreenState extends State<QuizScreen> {
                 children: [
                   _historyMetricTile('Simulados Salvos', '${all.length}', AsterTheme.primary(context)),
                   _historyMetricTile('Provas Distintas', '${grouped.length}', AsterConstants.ambar),
-                  _historyMetricTile('Média Geral', '$avgScore%', AsterConstants.menta),
+                  _historyMetricTile(
+                    group != null ? 'Média do Grupo' : 'Média Geral',
+                    '$avgScore%',
+                    AsterConstants.menta,
+                  ),
+                  if (group != null)
+                    _historyMetricTile(
+                      'Participantes',
+                      '${memberPerformances.length}',
+                      AsterTheme.secondary(context),
+                    ),
                   _historyMetricTile('Questões Respondidas', '$totalQuestionsAnswered', AsterTheme.text(context)),
                 ],
               ),
             ),
             const SizedBox(height: 20),
+
+            if (group != null && memberPerformances.isNotEmpty) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'DESEMPENHO POR MEMBRO NOS REALIZADOS (${memberPerformances.length})',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                        color: AsterTheme.textMuted(context),
+                      ),
+                    ),
+                  ),
+                  if (_historyMemberFilter != null)
+                    TextButton(
+                      onPressed: () => setState(() => _historyMemberFilter = null),
+                      child: const Text('Mostrar todos os membros'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                key: const Key('group_exams_members_performance_card'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AsterTheme.surfaceAlt(context),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  border: Border.all(
+                    color: AsterTheme.primary(context).withValues(alpha: 0.14),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    for (int idx = 0; idx < memberPerformances.length; idx++) ...[
+                      if (idx > 0) Divider(height: 14, color: AsterTheme.surfaceInset(context)),
+                      Builder(
+                        builder: (context) {
+                          final entry = memberPerformances[idx];
+                          final selected = _historyMemberFilter == entry.userId;
+                          final avgColor = entry.avgPct >= 70
+                              ? AsterConstants.menta
+                              : (entry.avgPct >= 45 ? AsterConstants.ambar : AsterConstants.coral);
+                          return InkWell(
+                            key: Key('group_exam_member_perf_${entry.userId}'),
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => setState(() {
+                              _historyMemberFilter = selected ? null : entry.userId;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AsterTheme.primary(context).withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    child: Text(
+                                      '#${idx + 1}',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w900,
+                                        color: idx == 0
+                                            ? AsterConstants.ambar
+                                            : AsterTheme.textMuted(context),
+                                      ),
+                                    ),
+                                  ),
+                                  GroupMemberAvatar(
+                                    displayName: entry.displayName,
+                                    avatarUrl: entry.avatarUrl,
+                                    isVip: entry.isVip,
+                                    radius: 15,
+                                    onTap: entry.member == null
+                                        ? null
+                                        : () => showGroupMemberProfileModal(
+                                              context,
+                                              group: group,
+                                              member: entry.member!,
+                                            ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${entry.displayName} (@${entry.username})',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: AsterTheme.text(context),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${entry.attempts.length} ${entry.attempts.length == 1 ? 'simulado realizado' : 'simulados realizados'} · ${entry.totalCorrect}/${entry.totalLoaded} acertos',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 11,
+                                            color: AsterTheme.textMuted(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      SoftClayTag(
+                                        label: 'Média ${entry.avgPct}%',
+                                        color: avgColor,
+                                      ),
+                                      SoftClayTag(
+                                        label: 'Melhor ${entry.bestPct}%',
+                                        color: AsterTheme.primary(context),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // Comparativo por simulado (últimas realizações)
             Row(
@@ -3144,6 +3500,28 @@ class _QuizScreenState extends State<QuizScreen> {
                                 color: AsterTheme.textMuted(context),
                               ),
                             ),
+                            if (group != null) ...[
+                              const SizedBox(height: 4),
+                              Builder(
+                                builder: (context) {
+                                  final standings = standingsForGroupKey(entry.key);
+                                  if (standings.isEmpty) return const SizedBox.shrink();
+                                  return Text(
+                                    standings
+                                        .take(3)
+                                        .map((s) => '@${s.username}: ${s.bestPct}%')
+                                        .join(' · '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AsterTheme.primary(context),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -3180,8 +3558,14 @@ class _QuizScreenState extends State<QuizScreen> {
                   : (scorePct >= 45 ? AsterConstants.ambar : AsterConstants.coral);
               final mins = attempt.elapsedSeconds ~/ 60;
               final secs = attempt.elapsedSeconds % 60;
+              final author = group != null ? resolveAttemptAuthor(attempt) : null;
+              final examStandings = group != null ? standingsForGroupKey(attempt.groupKey) : const [];
+              final canDelete = group == null ||
+                  (author?.userId == StudyGroupsService.currentUserId) ||
+                  group.canUserRemoveContent(StudyGroupsService.currentUserId);
 
               return Container(
+                key: group != null ? Key('group_exam_attempt_${attempt.id}') : null,
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -3192,6 +3576,51 @@ class _QuizScreenState extends State<QuizScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (author != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            GroupMemberAvatar(
+                              displayName: author.displayName,
+                              avatarUrl: author.avatarUrl,
+                              isVip: author.isVip,
+                              radius: 13,
+                              onTap: author.member == null
+                                  ? null
+                                  : () => showGroupMemberProfileModal(
+                                        context,
+                                        group: group!,
+                                        member: author.member!,
+                                      ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: author.member == null
+                                    ? null
+                                    : () => showGroupMemberProfileModal(
+                                          context,
+                                          group: group!,
+                                          member: author.member!,
+                                        ),
+                                child: Text(
+                                  '${author.displayName} (@${author.username})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: AsterTheme.primary(context),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -3238,14 +3667,42 @@ class _QuizScreenState extends State<QuizScreen> {
                                   color: AsterTheme.textMuted(context),
                                 ),
                               ),
+                              if (examStandings.length > 1) ...[
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Notas nesta prova:',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AsterTheme.textMuted(context),
+                                      ),
+                                    ),
+                                    for (final s in examStandings)
+                                      SoftClayTag(
+                                        label: '@${s.username}: ${s.bestPct}%',
+                                        color: s.bestPct >= 70
+                                            ? AsterConstants.menta
+                                            : (s.bestPct >= 45
+                                                ? AsterConstants.ambar
+                                                : AsterConstants.coral),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        IconButton(
-                          tooltip: 'Excluir do histórico',
-                          onPressed: () => _deleteSavedAttempt(attempt.id),
-                          icon: Icon(Icons.delete_outline_rounded, size: 18, color: AsterTheme.textMuted(context)),
-                        ),
+                        if (canDelete)
+                          IconButton(
+                            tooltip: 'Excluir do histórico',
+                            onPressed: () => _deleteSavedAttempt(attempt.id),
+                            icon: Icon(Icons.delete_outline_rounded, size: 18, color: AsterTheme.textMuted(context)),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -3266,7 +3723,11 @@ class _QuizScreenState extends State<QuizScreen> {
                         ElevatedButton.icon(
                           onPressed: () => _retakeSavedAttempt(attempt),
                           icon: const Icon(Icons.replay_rounded, size: 15),
-                          label: const Text('Refazer Simulado'),
+                          label: Text(
+                            group != null && author?.userId != StudyGroupsService.currentUserId
+                                ? 'Responder Simulado'
+                                : 'Refazer Simulado',
+                          ),
                         ),
                       ],
                     ),
@@ -3319,7 +3780,7 @@ class _QuizScreenState extends State<QuizScreen> {
           padding: const EdgeInsets.only(bottom: 16),
           child: Row(
             children: [
-              const NoesisCollapsedMenuSpacer(width: 82),
+              if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
               Expanded(
                 child: Wrap(
                   spacing: 12,
@@ -3344,7 +3805,9 @@ class _QuizScreenState extends State<QuizScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'GERAR NOVO SIMULADO COM IA',
+                              widget.groupScope != null
+                                  ? 'SIMULADOS DO GRUPO COM IA'
+                                  : 'GERAR NOVO SIMULADO COM IA',
                               style: GoogleFonts.manrope(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w900,
@@ -3366,6 +3829,15 @@ class _QuizScreenState extends State<QuizScreen> {
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        if (widget.groupScope != null &&
+                            widget.groupScope!.canEdit &&
+                            widget.groupScope!.onAttachExisting != null)
+                          OutlinedButton.icon(
+                            key: const Key('group_attach_exam_button'),
+                            onPressed: widget.groupScope!.onAttachExisting,
+                            icon: const Icon(Icons.attach_file_rounded, size: 16),
+                            label: const Text('Anexar Meu Simulado'),
+                          ),
                         _buildTopModeToggle(),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -3403,49 +3875,260 @@ class _QuizScreenState extends State<QuizScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
 
-          // ── Seletor Completo de Modelo de Prova Oficial ──
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'MODELO DE PROVA OFICIAL (${ExamModelsCatalog.models.length} BANCAS)',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: AsterTheme.textMuted(context),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () => _selectExamModel(null),
-                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          // ── Modo do Simulado: Modelo Oficial vs Modo Livre (em destaque) ──
+          Builder(
+            builder: (context) {
+              final isFreeMode = _selectedExamModel == null;
+              final primaryCol = AsterTheme.primary(context);
+              const freeAccent = AsterConstants.menta;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+
+              Widget modeCard({
+                required Key key,
+                required bool selected,
+                required Color accent,
+                required IconData icon,
+                required String title,
+                required String subtitle,
+                required String badge,
+                required VoidCallback onTap,
+              }) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
                   decoration: BoxDecoration(
-                    color: _selectedExamModel == null
-                        ? AsterTheme.primary(context).withValues(alpha: 0.15)
-                        : AsterTheme.surfaceAlt(context),
-                    borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    color: selected
+                        ? accent.withValues(alpha: isDark ? 0.18 : 0.12)
+                        : accent.withValues(alpha: isDark ? 0.06 : 0.045),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     border: Border.all(
-                      color: _selectedExamModel == null ? AsterTheme.primary(context) : Colors.transparent,
-                      width: 1.2,
+                      color: selected ? accent : accent.withValues(alpha: 0.35),
+                      width: selected ? 1.8 : 1.1,
+                    ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: accent.withValues(alpha: isDark ? 0.24 : 0.16),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                              spreadRadius: -2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      key: key,
+                      onTap: onTap,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? accent
+                                    : accent.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: Icon(
+                                icon,
+                                size: 19,
+                                color: selected ? _onAccentColor(accent) : accent,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: AsterTheme.text(context),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: selected
+                                              ? accent
+                                              : accent.withValues(alpha: 0.14),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                        ),
+                                        child: Text(
+                                          badge,
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: selected ? _onAccentColor(accent) : accent,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 11.5,
+                                      color: AsterTheme.textMuted(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selected) ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.check_circle_rounded, size: 18, color: accent),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'Modo Livre (Sem Modelo)',
+                );
+              }
+
+              final officialCard = modeCard(
+                key: const Key('quiz_official_model_mode_card'),
+                selected: !isFreeMode,
+                accent: primaryCol,
+                icon: Icons.verified_rounded,
+                title: 'Modelo de Prova Oficial (${ExamModelsCatalog.models.length})',
+                subtitle: _selectedExamModel != null
+                    ? 'Ativo: ${_selectedExamModel!.name}'
+                    : 'ENEM, FUVEST, OAB, Certificações e mais',
+                badge: !isFreeMode ? 'Ativo' : 'Bancas',
+                onTap: () {
+                  if (_selectedExamModel == null) {
+                    _selectExamModel(ExamModelsCatalog.models.first);
+                  }
+                },
+              );
+
+              final freeCard = modeCard(
+                key: const Key('quiz_free_mode_card'),
+                selected: isFreeMode,
+                accent: freeAccent,
+                icon: Icons.auto_awesome_rounded,
+                title: 'Modo Livre (Sem Modelo)',
+                subtitle: 'Matéria, tópico, nível e quantidade 100% livres',
+                badge: isFreeMode ? 'Ativo' : 'Personalizado',
+                onTap: () => _selectExamModel(null),
+              );
+
+              return Column(
+                key: const Key('quiz_mode_selector_bar'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'FORMATO DO SIMULADO',
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: _selectedExamModel == null ? AsterTheme.primary(context) : AsterTheme.textMuted(context),
+                      letterSpacing: 1.1,
+                      color: AsterTheme.textMuted(context),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(height: 8),
+                  if (isDesktop)
+                    Row(
+                      children: [
+                        Expanded(child: officialCard),
+                        const SizedBox(width: 12),
+                        Expanded(child: freeCard),
+                      ],
+                    )
+                  else ...[
+                    officialCard,
+                    const SizedBox(height: 10),
+                    freeCard,
+                  ],
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
 
+          if (_selectedExamModel == null)
+            Container(
+              key: const Key('quiz_free_mode_active_banner'),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AsterConstants.menta.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                border: Border.all(color: AsterConstants.menta.withValues(alpha: 0.38)),
+              ),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: AsterConstants.menta.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: AsterConstants.menta,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Modo Livre Ativo · Criação Personalizada',
+                              style: GoogleFonts.manrope(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: AsterTheme.text(context),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Escolha livremente a área, tópico, profundidade e quantidade de questões logo abaixo.',
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: AsterTheme.textMuted(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _selectExamModel(ExamModelsCatalog.models.first),
+                    icon: const Icon(Icons.verified_outlined, size: 15),
+                    label: const Text('Usar Modelo Oficial'),
+                  ),
+                ],
+              ),
+            )
+          else ...[
           // Filtros de Categoria + Busca rápida
           Row(
             children: [
@@ -3754,6 +4437,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 );
               },
             ),
+          ],
           ],
           const SizedBox(height: 22),
 
@@ -4175,9 +4859,8 @@ class _QuizScreenState extends State<QuizScreen> {
           ],
 
           // ── Botões de Ação Final ──
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 560;
+          Builder(
+            builder: (context) {
               final btnLabel = _isGenerating
                   ? (_generatedTotal > GeminiService.quizBatchSize
                       ? 'Gerando $_generatedProgress / $_generatedTotal questões...'
@@ -4193,39 +4876,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 onPressed: _isGenerating ? null : _startGenerateQuiz,
               );
 
-              final demoBtn = SoftClayPillButton(
-                text: 'Testar com Demo',
-                icon: Icons.play_circle_outline_rounded,
-                isSecondary: true,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                fontSize: 14,
-                iconSize: 18,
-                onPressed: _loadDemoMockQuiz,
-              );
-
-              if (isNarrow) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    createBtn,
-                    const SizedBox(height: 12),
-                    demoBtn,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: createBtn,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    flex: 2,
-                    child: demoBtn,
-                  ),
-                ],
+              return SizedBox(
+                width: double.infinity,
+                child: createBtn,
               );
             },
           ),

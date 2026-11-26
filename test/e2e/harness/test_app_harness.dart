@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:noesis/core/constants.dart';
 import 'package:noesis/core/theme.dart';
+import 'package:noesis/main.dart';
 import 'mock_http_overrides.dart';
 
 /// Test Harness for pumping Noesis widgets and end-to-end screen hierarchies
@@ -102,6 +103,7 @@ class TestAppHarness {
       // Supabase already initialized
     }
 
+    RootScreen.bypassAuthForTesting = true;
     _initialized = true;
   }
 

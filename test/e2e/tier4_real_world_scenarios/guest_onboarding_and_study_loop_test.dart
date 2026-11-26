@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noesis/core/supabase_service.dart';
+import 'package:noesis/core/theme.dart';
 import 'package:noesis/main.dart';
 import 'package:noesis/features/auth/auth_screen.dart';
 import 'package:noesis/features/tracker/tracker_screen.dart';
@@ -10,30 +12,51 @@ void main() {
     await TestAppHarness.setUpTestEnvironment();
   });
 
-  group('Tier 4 - Scenario 1: Guest Onboarding & Core Study Loop Workflow', () {
+  group('Tier 4 - Scenario 1: Auth Gate & Core Study Loop Workflow', () {
     testWidgets(
-        'Complete journey: Enter as Guest -> View Tracker -> Start Timer Loop -> Toggle Subject Chip',
+        'Complete journey: AuthScreen enforces login (no guest bypass) -> Tracker -> Start Timer Loop -> Toggle Subject Chip',
         (WidgetTester tester) async {
+      await SupabaseService.addStudySession(
+        subject: 'Criptografia',
+        topic: 'AES-GCM',
+        durationMinutes: 60,
+        studyDate: DateTime.now(),
+      );
+      await SupabaseService.addStudySession(
+        subject: 'Cloud / AWS',
+        topic: 'IAM',
+        durationMinutes: 45,
+        studyDate: DateTime.now(),
+      );
+
+      RootScreen.bypassAuthForTesting = false;
+      addTearDown(() => RootScreen.bypassAuthForTesting = true);
+
       await TestAppHarness.pumpInHarness(
         tester,
         const RootScreen(),
       );
 
-      // Step 1: Real AuthScreen is initially visible with guest login option
+      // Step 1: Real AuthScreen is initially visible without any guest/test account bypass
       expect(find.byType(AuthScreen), findsOneWidget);
-      final guestButton = find.text('Entrar sem login · Modo de Teste');
-      expect(guestButton, findsOneWidget);
+      expect(find.textContaining('Modo de Teste'), findsNothing);
+      expect(find.textContaining('Entrar sem login'), findsNothing);
 
-      // Step 2: Tap Continue as Guest to transition into Noesis Guest Mode
-      await tester.tap(guestButton);
+      // Step 2: Mount authenticated RootScreen via test harness bypass to test Tracker loop
+      RootScreen.bypassAuthForTesting = true;
+      await tester.pumpWidget(const SizedBox.shrink());
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const RootScreen(),
+      );
       await tester.pumpAndSettle();
 
       // Step 3: AuthScreen is dismissed, real TrackerScreen is mounted
       expect(find.byType(AuthScreen), findsNothing);
       expect(find.byType(TrackerScreen), findsOneWidget);
 
-      // Step 4: Verify core Tracker elements rendered in Guest Mode
-      expect(find.text('Consistência · 182 dias'), findsOneWidget);
+      // Step 4: Verify core Tracker elements rendered
+      expect(find.textContaining('Consistência · '), findsOneWidget);
       expect(find.text('Iniciar'), findsOneWidget);
       expect(find.text('Criptografia'), findsWidgets);
 
@@ -51,10 +74,15 @@ void main() {
       await tester.pump();
       expect(find.text('Iniciar'), findsOneWidget);
 
-      // Step 6: Toggle subject chip between Criptografia and Cloud / AWS
-      await tester.tap(find.widgetWithText(InkWell, 'Criptografia').first);
-      await tester.pump();
-      expect(find.text('Cloud / AWS'), findsWidgets);
+      // Step 6: Open subject picker and select Criptografia
+      final tagFinder = find.widgetWithText(SoftClayTag, 'Cloud / AWS').first;
+      await tester.ensureVisible(tagFinder);
+      await tester.tap(tagFinder);
+      await tester.pumpAndSettle();
+      expect(find.text('Disciplina da Sessão'), findsOneWidget);
+      await tester.tap(find.text('Criptografia').last);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(SoftClayTag, 'Criptografia'), findsWidgets);
     });
   });
 }

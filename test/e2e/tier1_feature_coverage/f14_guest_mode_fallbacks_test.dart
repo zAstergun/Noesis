@@ -14,14 +14,13 @@ void main() {
       expect(SupabaseService.isAuthenticated, isFalse);
     });
 
-    test('2. calendarEventsStream emits in-memory events without network in Guest Mode', () async {
+    test('2. calendarEventsStream emits empty list initially without fake demo events', () async {
       final stream = SupabaseService.calendarEventsStream();
       final initialEvents = await stream.first;
 
       expect(initialEvents, isNotNull);
-      expect(initialEvents, isNotEmpty,
-          reason: 'Guest Mode must return seeded in-memory calendar events');
-      expect(initialEvents.first, containsPair('category', isA<String>()));
+      expect(initialEvents, isEmpty,
+          reason: 'No fake mock calendar events should be seeded by default');
     });
 
     test('3. addCalendarEvent succeeds in Guest Mode and stores in-memory event', () async {
@@ -44,9 +43,16 @@ void main() {
       expect(updatedList.any((e) => e['title'] == 'E2E Guest Study Block'), isTrue);
     });
 
-    test('4. toggleCalendarEventCompleted toggles event status in Guest Mode', () async {
+    test('4. toggleCalendarEventCompleted toggles event status in local store', () async {
+      final startTime = DateTime.now().add(const Duration(days: 11));
+      await SupabaseService.addCalendarEvent(
+        title: 'Toggle Test Event',
+        category: 'study',
+        startTime: startTime,
+        endTime: startTime.add(const Duration(hours: 1)),
+      );
       final events = await SupabaseService.getCalendarEvents();
-      final targetEvent = events.first;
+      final targetEvent = events.firstWhere((e) => e['title'] == 'Toggle Test Event');
       final targetId = targetEvent['id'] as String;
       final currentStatus = targetEvent['is_completed'] as bool? ?? false;
 
@@ -57,16 +63,16 @@ void main() {
       expect(reloaded['is_completed'], equals(!currentStatus));
     });
 
-    testWidgets('5. Null user profile gracefully falls back to Visitante (Teste)',
+    testWidgets('5. Null user profile gracefully falls back to Estudante',
         (WidgetTester tester) async {
-      String resolveUserName(Map<String, dynamic>? profile, bool guest) {
-        return profile?['full_name'] ?? (guest ? 'Visitante (Teste)' : 'Estudante');
+      String resolveUserName(Map<String, dynamic>? profile) {
+        return profile?['full_name'] ?? 'Estudante';
       }
 
-      final userName = resolveUserName(null, true);
+      final userName = resolveUserName(null);
       final initials = userName.isNotEmpty
           ? userName.substring(0, userName.length >= 2 ? 2 : 1).toUpperCase()
-          : 'VT';
+          : 'ES';
 
       await TestAppHarness.pumpInHarness(
         tester,
@@ -78,8 +84,8 @@ void main() {
         ),
       );
 
-      expect(find.text('Nome: Visitante (Teste)'), findsOneWidget);
-      expect(find.text('Iniciais: VI'), findsOneWidget);
+      expect(find.text('Nome: Estudante'), findsOneWidget);
+      expect(find.text('Iniciais: ES'), findsOneWidget);
     });
   });
 }

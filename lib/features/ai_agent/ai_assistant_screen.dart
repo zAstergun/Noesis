@@ -8,9 +8,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/constants.dart';
 import '../../core/noesis_agent_tools.dart';
+import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
 import '../../main.dart';
+import '../../widgets/noesis_logo.dart';
+import '../../widgets/vip_privileges.dart';
+import 'data/ai_chat_history_repository.dart';
 import '../quizzes/quiz_screen.dart';
 import '../flashcards/flashcards_screen.dart';
 import '../flashcards/models/flashcard_model.dart';
@@ -45,6 +49,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   ];
   bool _isLoading = false;
   bool _hasDismissedCapabilities = false;
+  bool _isAttachMenuOpen = false;
+  final GlobalKey _attachAnchorKey = GlobalKey();
+  String? _activeSessionId;
+  DateTime? _activeSessionCreatedAt;
 
   @override
   void initState() {
@@ -86,7 +94,302 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       _attachments.clear();
       _messageController.clear();
       _hasDismissedCapabilities = false;
+      _activeSessionId = null;
+      _activeSessionCreatedAt = null;
     });
+  }
+
+  Future<void> _persistCurrentSessionIfVip() async {
+    if (!SupabaseService.isCurrentUserVip || _messages.isEmpty) return;
+    final now = DateTime.now();
+    _activeSessionId ??= 'chat-${now.microsecondsSinceEpoch}';
+    _activeSessionCreatedAt ??= now;
+
+    String title = 'Conversa Noesis AI';
+    for (final m in _messages) {
+      if (m['role'] == 'user') {
+        final raw = (m['text'] ?? '').toString().trim();
+        if (raw.isNotEmpty) {
+          title = raw.length > 52 ? '${raw.substring(0, 49)}...' : raw;
+          break;
+        }
+      }
+    }
+
+    await AiChatHistoryRepository.upsertSession(
+      AiChatSession(
+        id: _activeSessionId!,
+        title: title,
+        createdAt: _activeSessionCreatedAt!,
+        updatedAt: now,
+        messages: List<Map<String, dynamic>>.from(_messages),
+      ),
+    );
+  }
+
+  void _restoreSession(AiChatSession session) {
+    setState(() {
+      _activeSessionId = session.id;
+      _activeSessionCreatedAt = session.createdAt;
+      _messages
+        ..clear()
+        ..addAll(session.messages.map((m) => Map<String, dynamic>.from(m)));
+      _conversationHistory.clear();
+      for (final m in _messages) {
+        final role = m['role']?.toString();
+        final txt = (m['text'] ?? '').toString();
+        if (txt.isEmpty) continue;
+        if (role == 'user') {
+          _conversationHistory.add(Content.text(txt));
+        } else if (role == 'ai') {
+          _conversationHistory.add(Content.model([TextPart(txt)]));
+        }
+      }
+      _hasDismissedCapabilities = true;
+    });
+  }
+
+  Future<void> _openHistoryDialog() async {
+    if (!SupabaseService.isCurrentUserVip) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            persist: false,
+            duration: const Duration(seconds: 3),
+            content: const Text(
+              'O histórico de conversas do Noesis AI é exclusivo para membros VIP.',
+            ),
+            action: SnackBarAction(
+              label: 'Ver VIP',
+              onPressed: () {
+                if (mounted) showVipPrivilegesModal(context);
+              },
+            ),
+          ),
+        );
+      await showVipPrivilegesModal(context);
+      return;
+    }
+
+    var sessions = await AiChatHistoryRepository.loadAll();
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final primaryCol = AsterTheme.primary(ctx);
+            return Dialog(
+              key: const Key('ai_history_dialog'),
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 540, maxHeight: 620),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AsterTheme.card(ctx),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                    border: Border.all(color: AsterTheme.surfaceInset(ctx)),
+                    boxShadow: Theme.of(ctx).brightness == Brightness.dark
+                        ? AsterConstants.clayDarkShadow
+                        : AsterConstants.clayShadow,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
+                        decoration: BoxDecoration(
+                          color: AsterTheme.surfaceAlt(ctx),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(AsterConstants.radiusLarge),
+                          ),
+                          border: Border(bottom: BorderSide(color: AsterTheme.surfaceInset(ctx))),
+                        ),
+                        child: Row(
+                          children: [
+                            const VipCrownIcon(size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Histórico do Noesis AI',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AsterTheme.text(ctx),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Retome conversas anteriores a qualquer momento',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 11.5,
+                                      color: AsterTheme.textMuted(ctx),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (sessions.isNotEmpty)
+                              TextButton(
+                                key: const Key('ai_history_clear_all_button'),
+                                onPressed: () async {
+                                  await AiChatHistoryRepository.clearAll();
+                                  sessions = const [];
+                                  setDialogState(() {});
+                                },
+                                child: Text(
+                                  'Limpar tudo',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AsterConstants.coral,
+                                  ),
+                                ),
+                              ),
+                            IconButton(
+                              tooltip: 'Fechar',
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              icon: Icon(Icons.close_rounded, color: AsterTheme.textMuted(ctx)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: sessions.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.forum_outlined,
+                                      size: 36,
+                                      color: AsterTheme.textMuted(ctx).withValues(alpha: 0.6),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Nenhuma conversa salva ainda',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: AsterTheme.text(ctx),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Suas próximas conversas com o Noesis AI serão salvas automaticamente aqui.',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        color: AsterTheme.textMuted(ctx),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.all(14),
+                                itemCount: sessions.length,
+                                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                                itemBuilder: (_, index) {
+                                  final item = sessions[index];
+                                  final isCurrent = item.id == _activeSessionId;
+                                  return InkWell(
+                                    key: Key('ai_history_item_${item.id}'),
+                                    onTap: () {
+                                      Navigator.of(ctx).pop();
+                                      _restoreSession(item);
+                                    },
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isCurrent
+                                            ? primaryCol.withValues(alpha: 0.12)
+                                            : AsterTheme.surfaceAlt(ctx),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: isCurrent
+                                              ? primaryCol
+                                              : AsterTheme.surfaceInset(ctx),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.chat_bubble_outline_rounded,
+                                            size: 18,
+                                            color: isCurrent ? primaryCol : AsterTheme.textMuted(ctx),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item.title,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: AsterTheme.text(ctx),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  item.previewText,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 11.5,
+                                                    color: AsterTheme.textMuted(ctx),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'Excluir conversa',
+                                            onPressed: () async {
+                                              await AiChatHistoryRepository.deleteSession(item.id);
+                                              sessions = await AiChatHistoryRepository.loadAll();
+                                              setDialogState(() {});
+                                            },
+                                            icon: Icon(
+                                              Icons.delete_outline_rounded,
+                                              size: 17,
+                                              color: AsterTheme.textMuted(ctx),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   String? _buildAttachmentContext(List<NoesisAttachment> items) {
@@ -188,9 +491,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Não foi possível anexar arquivo: $e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              persist: false,
+              duration: const Duration(seconds: 4),
+              content: Text('Não foi possível anexar arquivo: $e'),
+            ),
+          );
       }
     }
   }
@@ -241,27 +550,32 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       ),
                       onChanged: (val) => setModalState(() => query = val.trim()),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final entry in const [
-                            ('all', 'Todos'),
-                            ('quiz', 'Simulados'),
-                            ('notebook', 'Cadernos'),
-                            ('flashcard_deck', 'Flashcards'),
-                            ('roadmap', 'Trilhas'),
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                label: Text(entry.$2),
-                                selected: filterKind == entry.$1,
-                                onSelected: (_) => setModalState(() => filterKind = entry.$1),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                        child: Row(
+                          children: [
+                            for (final entry in const [
+                              ('all', 'Todos', Icons.apps_rounded),
+                              ('quiz', 'Simulados', Icons.assignment_rounded),
+                              ('notebook', 'Cadernos', Icons.menu_book_rounded),
+                              ('flashcard_deck', 'Flashcards', Icons.style_rounded),
+                              ('roadmap', 'Trilhas', Icons.route_rounded),
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: SoftClayChoiceChip(
+                                  label: entry.$2,
+                                  icon: entry.$3,
+                                  selected: filterKind == entry.$1,
+                                  compact: true,
+                                  onTap: () => setModalState(() => filterKind = entry.$1),
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -336,73 +650,219 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 
-  void _openAttachMenu() {
-    showModalBottomSheet<void>(
+  Future<void> _openAttachMenu() async {
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlayBox = overlay.context.findRenderObject() as RenderBox?;
+    final box = _attachAnchorKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlaySize = overlayBox?.size ?? MediaQuery.of(context).size;
+    final Rect buttonRect = box != null && box.hasSize
+        ? (box.localToGlobal(Offset.zero, ancestor: overlayBox) & box.size)
+        : Rect.fromLTWH(24, overlaySize.height - 76, 40, 40);
+
+    final double popoverWidth = (overlaySize.width - 24).clamp(240.0, 348.0);
+
+    setState(() => _isAttachMenuOpen = true);
+    await showGeneralDialog<void>(
       context: context,
-      builder: (ctx) {
+      useRootNavigator: true,
+      barrierDismissible: true,
+      barrierLabel: 'Fechar menu de anexos',
+      barrierColor: Colors.black.withValues(alpha: 0.14),
+      transitionDuration: const Duration(milliseconds: 210),
+      pageBuilder: (ctx, _, _) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return SafeArea(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        final bg = isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard;
+        final borderCol = isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : AsterTheme.primary(ctx).withValues(alpha: 0.14);
+
+        return CustomSingleChildLayout(
+          delegate: _AttachPopoverLayoutDelegate(
+            anchorRect: buttonRect,
+            maxWidth: popoverWidth,
+          ),
+          child: Material(
+            key: const Key('ai_attach_popover_menu'),
+            color: Colors.transparent,
+            child: Container(
+              width: popoverWidth,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                border: Border.all(color: borderCol),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.14),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                    child: Text(
+                      'ANEXAR AO CONTEXTO',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
+                    ),
+                  ),
+                  _buildAttachMenuOption(
+                    ctx,
+                    key: const Key('attach_file_option'),
+                    icon: Icons.upload_file_rounded,
+                    accent: AsterTheme.primary(ctx),
+                    title: 'Anexar Arquivo do Dispositivo',
+                    subtitle: 'TXT, Markdown, CSV, JSON, PDF ou documentos de estudo',
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _pickLocalFiles();
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  _buildAttachMenuOption(
+                    ctx,
+                    key: const Key('attach_noesis_item_option'),
+                    icon: Icons.library_books_rounded,
+                    accent: AsterConstants.menta,
+                    title: 'Anexar Item do Noesis',
+                    subtitle: 'Simulados, Cadernos, Baralhos de Flashcards ou Trilhas',
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _openNoesisItemPicker();
+                    },
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  key: const Key('attach_file_option'),
-                  leading: Icon(Icons.upload_file_rounded, color: AsterTheme.primary(context)),
-                  title: Text(
-                    'Anexar Arquivo do Dispositivo',
-                    style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    'TXT, Markdown, CSV, JSON, PDF ou documentos de estudo',
-                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickLocalFiles();
-                  },
-                ),
-                ListTile(
-                  key: const Key('attach_noesis_item_option'),
-                  leading: const Icon(Icons.library_books_rounded, color: AsterConstants.menta),
-                  title: Text(
-                    'Anexar Item do Noesis',
-                    style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    'Simulados, Cadernos, Baralhos de Flashcards ou Trilhas',
-                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openNoesisItemPicker();
-                  },
-                ),
-              ],
+          ),
+        );
+      },
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        final isClosing = animation.status == AnimationStatus.reverse;
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: isClosing ? Curves.easeInCubic : Curves.easeOutBack,
+        );
+        final fade = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: fade,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.03),
+              end: Offset.zero,
+            ).animate(fade),
+            child: ScaleTransition(
+              alignment: Alignment.bottomLeft,
+              scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
+              child: child,
             ),
           ),
         );
       },
     );
+    if (mounted) {
+      setState(() => _isAttachMenuOpen = false);
+    }
+  }
+
+  Widget _buildAttachMenuOption(
+    BuildContext context, {
+    required Key key,
+    required IconData icon,
+    required Color accent,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 18, color: accent),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _sendMessage([String? quickText]) async {
     if (!_hasConfiguredAiKey) {
-      ScaffoldMessenger.of(context)
+      final messenger = ScaffoldMessenger.of(context);
+      messenger
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
+            persist: false,
+            duration: const Duration(seconds: 4),
             content: const Text(
               'Você precisa configurar uma chave de IA em Configurações para usar o Noesis AI.',
             ),
             action: SnackBarAction(
               label: 'Configurações',
-              onPressed: () => RootScreen.switchTab(6),
+              onPressed: () {
+                messenger.hideCurrentSnackBar();
+                RootScreen.switchTab(6);
+              },
             ),
           ),
         );
@@ -457,6 +917,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             'text': reply,
           });
         });
+        unawaited(_persistCurrentSessionIfVip());
       }
     } catch (e) {
       if (mounted) {
@@ -502,24 +963,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           child: Row(
             children: [
               const NoesisCollapsedMenuSpacer(width: 82),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AsterTheme.primary(context),
-                  shape: BoxShape.circle,
-                  boxShadow: AsterTheme.primaryShadow(context),
-                ),
-                child: Center(
-                  child: Text(
-                    'N',
-                    style: TextStyle(
-                      color: AsterTheme.onPrimary(context),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
+              const NoesisLogo(
+                key: Key('ai_header_logo'),
+                size: 36,
+                withShadow: true,
               ),
               const SizedBox(width: 12),
               Column(
@@ -535,10 +982,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   ),
                   Row(
                     children: [
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: AsterConstants.menta, shape: BoxShape.circle)),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _hasConfiguredAiKey ? AsterConstants.menta : AsterConstants.ambar,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                       const SizedBox(width: 6),
                       Text(
-                        'agente ativo · ferramentas operacionais',
+                        _hasConfiguredAiKey
+                            ? 'Tutor inteligente · conectado aos seus estudos'
+                            : 'Configure sua IA em Configurações',
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -549,6 +1005,60 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ],
               ),
               const Spacer(),
+              ValueListenableBuilder<bool>(
+                valueListenable: SupabaseService.isVipNotifier,
+                builder: (context, _, _) {
+                  final isVip = SupabaseService.isCurrentUserVip;
+                  return Tooltip(
+                    message: isVip
+                        ? 'Histórico de conversas (VIP)'
+                        : 'Histórico de conversas · Exclusivo VIP',
+                    child: InkWell(
+                      key: const Key('ai_history_button'),
+                      onTap: _openHistoryDialog,
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isVip
+                              ? AsterTheme.primary(context).withValues(alpha: 0.12)
+                              : AsterTheme.surfaceAlt(context),
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                          border: Border.all(
+                            color: isVip
+                                ? AsterTheme.primary(context).withValues(alpha: 0.35)
+                                : AsterVipColors.gold.withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.history_rounded,
+                              size: 16,
+                              color: isVip ? AsterTheme.primary(context) : AsterTheme.text(context),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Histórico',
+                              style: GoogleFonts.manrope(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: isVip ? AsterTheme.primary(context) : AsterTheme.text(context),
+                              ),
+                            ),
+                            if (!isVip) ...[
+                              const SizedBox(width: 5),
+                              const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
               IconButton(
                 key: const Key('ai_clear_chat_button'),
                 icon: Icon(Icons.delete_outline_rounded, size: 20, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
@@ -972,12 +1482,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                       tooltip: 'Copiar resposta',
                                       onPressed: () {
                                         Clipboard.setData(ClipboardData(text: msg['text']));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            duration: Duration(seconds: 1),
-                                            content: Text('Resposta copiada para a área de transferência!'),
-                                          ),
-                                        );
+                                        ScaffoldMessenger.of(context)
+                                          ..clearSnackBars()
+                                          ..showSnackBar(
+                                            const SnackBar(
+                                              persist: false,
+                                              duration: Duration(seconds: 1),
+                                              content: Text('Resposta copiada para a área de transferência!'),
+                                            ),
+                                          );
                                       },
                                     ),
                                   ],
@@ -1189,11 +1702,29 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    key: const Key('ai_attach_button'),
-                    tooltip: 'Anexar arquivo ou item do Noesis',
-                    onPressed: _openAttachMenu,
-                    icon: Icon(Icons.attach_file_rounded, color: AsterTheme.primary(context), size: 20),
+                  AnimatedContainer(
+                    key: _attachAnchorKey,
+                    duration: const Duration(milliseconds: 180),
+                    decoration: BoxDecoration(
+                      color: _isAttachMenuOpen
+                          ? AsterTheme.primary(context).withValues(alpha: 0.14)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      key: const Key('ai_attach_button'),
+                      tooltip: 'Anexar arquivo ou item do Noesis',
+                      onPressed: _openAttachMenu,
+                      icon: AnimatedRotation(
+                        duration: const Duration(milliseconds: 200),
+                        turns: _isAttachMenuOpen ? 0.125 : 0.0,
+                        child: Icon(
+                          Icons.attach_file_rounded,
+                          color: AsterTheme.primary(context),
+                          size: 20,
+                        ),
+                      ),
+                    ),
                   ),
                   Expanded(
                     child: TextField(
@@ -1365,14 +1896,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: primaryCol.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.auto_awesome_rounded, size: 28, color: primaryCol),
+              const NoesisLogo(
+                key: Key('ai_hero_logo'),
+                size: 56,
+                withShadow: true,
               ),
               const SizedBox(height: 14),
               Text(
@@ -1499,4 +2026,38 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
     return chip;
   }
+}
+
+class _AttachPopoverLayoutDelegate extends SingleChildLayoutDelegate {
+  final Rect anchorRect;
+  final double maxWidth;
+
+  const _AttachPopoverLayoutDelegate({
+    required this.anchorRect,
+    required this.maxWidth,
+  });
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints(
+      maxWidth: maxWidth.clamp(120.0, constraints.maxWidth - 24.0),
+      maxHeight: (constraints.maxHeight - 24.0).clamp(120.0, double.infinity),
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final maxX = (size.width - childSize.width - 12.0).clamp(12.0, double.infinity);
+    final x = anchorRect.left.clamp(12.0, maxX);
+    final aboveY = anchorRect.top - childSize.height - 8.0;
+    final belowY = anchorRect.bottom + 8.0;
+    final y = aboveY >= 12.0
+        ? aboveY
+        : belowY.clamp(12.0, (size.height - childSize.height - 12.0).clamp(12.0, double.infinity));
+    return Offset(x, y);
+  }
+
+  @override
+  bool shouldRelayout(covariant _AttachPopoverLayoutDelegate oldDelegate) =>
+      oldDelegate.anchorRect != anchorRect || oldDelegate.maxWidth != maxWidth;
 }

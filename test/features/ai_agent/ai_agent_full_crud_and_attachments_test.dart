@@ -5,6 +5,7 @@ import 'package:noesis/core/gemini_service.dart';
 import 'package:noesis/core/noesis_agent_tools.dart';
 import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/features/ai_agent/ai_assistant_screen.dart';
+import 'package:noesis/features/flashcards/models/flashcard_model.dart';
 import 'package:noesis/features/notebooks/models/notebook_model.dart';
 import 'package:noesis/features/roadmaps/data/roadmaps_repository.dart';
 import '../../e2e/harness/mock_http_overrides.dart';
@@ -396,9 +397,15 @@ void main() {
     await TestAppHarness.pumpInHarness(tester, const AiAssistantScreen());
     await tester.pumpAndSettle();
 
-    // 1. Anexa um arquivo local via botão de clipe
+    // 1. Anexa um arquivo local via botão de clipe (popover ancorado acima do clipe)
     await tester.tap(find.byKey(const Key('ai_attach_button')));
     await tester.pumpAndSettle();
+    final attachRect = tester.getRect(find.byKey(const Key('ai_attach_button')));
+    final popoverFinder = find.byKey(const Key('ai_attach_popover_menu'));
+    expect(popoverFinder, findsOneWidget);
+    final popoverRect = tester.getRect(popoverFinder);
+    expect(popoverRect.bottom, lessThan(attachRect.top));
+    expect(popoverRect.width, lessThanOrEqualTo(360));
     await tester.tap(find.byKey(const Key('attach_file_option')));
     await tester.pumpAndSettle();
     expect(find.text('Arquivo: edital.txt'), findsOneWidget);
@@ -476,10 +483,42 @@ void main() {
     expect(find.byKey(const Key('ai_missing_key_notice')), findsOneWidget);
     expect(find.text('Configure uma chave de IA para usar o assistente'), findsOneWidget);
 
+    // Ao tentar enviar sem chave configurada, o aviso em SnackBar aparece e fecha sozinho
+    await tester.enterText(find.byType(TextField), 'Oi');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Você precisa configurar uma chave de IA em Configurações para usar o Noesis AI.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Você precisa configurar uma chave de IA em Configurações para usar o Noesis AI.'),
+      findsNothing,
+    );
+
     await TestAppHarness.drainAsync(tester);
   });
 
   test('buildContextualQuickSuggestions adapts chips to user sessions, notebooks, and pending flashcards', () async {
+    await SupabaseService.saveFlashcardDeck(
+      FlashcardDeck(
+        id: 'deck-ctx-test',
+        title: 'Baralho Contexto',
+        subject: 'Cloud',
+        description: 'Teste',
+        cards: [
+          Flashcard(
+            id: 'c-ctx-1',
+            front: 'O que é IAM?',
+            back: 'Identity and Access Management.',
+            difficulty: 'unreviewed',
+          ),
+        ],
+        createdAt: DateTime.now(),
+      ),
+    );
     await SupabaseService.addStudySession(
       subject: 'Segurança em Cloud',
       topic: 'IAM Least Privilege',

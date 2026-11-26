@@ -164,16 +164,15 @@ void main() {
       expect(ConsistencyHeatmap.colorForLevel(0), equals(AsterConstants.surfaceInset));
     });
 
-    test('8. ConsistencyHeatmap simulatedLevelFor covers all 182 day units deterministically', () {
-      int activeCount = 0;
-      for (int col = 0; col < 26; col++) {
-        for (int row = 0; row < 7; row++) {
-          final level = ConsistencyHeatmap.simulatedLevelFor(col, row);
-          expect(level, inInclusiveRange(0, 4));
-          if (level > 0) activeCount++;
-        }
-      }
-      expect(activeCount, greaterThan(0), reason: 'Simulated streak must contain active study days');
+    testWidgets('8. ConsistencyHeatmap renders empty grid cleanly when levels is null',
+        (WidgetTester tester) async {
+      await TestAppHarness.pumpInHarness(
+        tester,
+        const ConsistencyHeatmap(columns: 26, rows: 7),
+      );
+
+      expect(find.byType(ConsistencyHeatmap), findsOneWidget);
+      expect(ConsistencyHeatmap.colorForLevel(0), equals(AsterConstants.surfaceInset));
     });
   });
 }

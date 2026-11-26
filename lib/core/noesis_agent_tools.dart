@@ -242,7 +242,7 @@ class NoesisAgentTools {
             },
           },
         },
-        // ─── META SEMANAL ───
+        // ─── META SEMANAL E DIÁRIA ───
         {
           'name': 'set_weekly_goal',
           'description': 'Define ou atualiza a meta semanal de estudos do usuário.',
@@ -250,6 +250,18 @@ class NoesisAgentTools {
             'type': 'OBJECT',
             'properties': {
               'hours': {'type': 'INTEGER', 'description': 'Horas por semana.'},
+              'minutes': {'type': 'INTEGER', 'description': 'Minutos adicionais (0 a 59).'},
+            },
+            'required': ['hours'],
+          },
+        },
+        {
+          'name': 'set_daily_goal',
+          'description': 'Define ou atualiza a meta diária de estudos do usuário.',
+          'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+              'hours': {'type': 'INTEGER', 'description': 'Horas por dia.'},
               'minutes': {'type': 'INTEGER', 'description': 'Minutos adicionais (0 a 59).'},
             },
             'required': ['hours'],
@@ -1410,14 +1422,40 @@ class NoesisAgentTools {
       case 'set_weekly_goal':
         final hours = (args['hours'] as num?)?.toInt() ?? 25;
         final mins = (args['minutes'] as num?)?.toInt() ?? 0;
-        final total = (hours * 60 + mins).clamp(30, 168 * 60);
+        final rawTotal = hours * 60 + mins;
+        final enabled = args['enabled'] != false && rawTotal > 0;
+        final total = enabled ? rawTotal.clamp(30, 168 * 60) : 0;
         await SupabaseService.saveWeeklyGoalMinutes(total);
         return ExecutedToolResult(
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Meta semanal ajustada para ${SupabaseService.formatGoalDuration(total)}',
+          summary: total == 0
+              ? 'Meta semanal desativada (sem meta fixa)'
+              : 'Meta semanal ajustada para ${SupabaseService.formatGoalDuration(total)}',
           responsePayload: {'status': 'success', 'weekly_goal_minutes': total},
+        );
+
+      case 'set_daily_goal':
+        final dHours = (args['hours'] as num?)?.toInt() ?? 3;
+        final dMins = (args['minutes'] as num?)?.toInt() ?? 0;
+        final rawDaily = dHours * 60 + dMins;
+        final dEnabled = args['enabled'] != false && rawDaily > 0;
+        final dTotal = dEnabled
+            ? rawDaily.clamp(
+                SupabaseService.minDailyGoalMinutes,
+                SupabaseService.maxDailyGoalMinutes,
+              )
+            : 0;
+        await SupabaseService.saveDailyGoalMinutes(dTotal);
+        return ExecutedToolResult(
+          name: name,
+          parameters: args,
+          status: 'completed',
+          summary: dTotal == 0
+              ? 'Meta diária desativada (sem meta fixa)'
+              : 'Meta diária ajustada para ${SupabaseService.formatGoalDuration(dTotal)}',
+          responsePayload: {'status': 'success', 'daily_goal_minutes': dTotal},
         );
 
       case 'create_quiz':
@@ -2017,6 +2055,24 @@ class NoesisAgentTools {
       }
     }
 
+    if (replyClaimsAction && (lowerUser.contains('meta diaria') || lowerUser.contains('meta diária'))) {
+      final hourMatch = RegExp(r'(\d+)\s*h').firstMatch(lowerUser);
+      final minMatch = RegExp(r'(\d+)\s*m(?:in)?').firstMatch(lowerUser);
+      if (hourMatch != null || minMatch != null) {
+        final h = hourMatch != null ? (int.tryParse(hourMatch.group(1)!) ?? 0) : 0;
+        final m = minMatch != null ? (int.tryParse(minMatch.group(1)!) ?? 0) : 0;
+        return executeTool(
+          name: 'set_daily_goal',
+          args: {'hours': h, 'minutes': m},
+          userMessage: userMessage,
+          attachmentContext: attachmentContext,
+          generateQuiz: generateQuiz,
+          generateFlashcards: generateFlashcards,
+          generateRoadmap: generateRoadmap,
+        );
+      }
+    }
+
     return null;
   }
 
@@ -2027,15 +2083,25 @@ class NoesisAgentTools {
     final result = <String, dynamic>{};
     bool matches(String text) => query.isEmpty || text.toLowerCase().contains(query);
 
-    if (scope == 'all' || scope == 'weekly_goal') {
+    if (scope == 'all' || scope == 'weekly_goal' || scope == 'daily_goal') {
       final goal = await SupabaseService.loadWeeklyGoalMinutes();
+      final dailyGoal = await SupabaseService.loadDailyGoalMinutes();
       final sessions = await SupabaseService.getStudySessions(limit: 100);
       final week = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+      final today = SupabaseService.computeTodayStudiedMinutes(sessions);
       result['weekly_goal'] = {
+        'enabled': goal > 0,
         'goal_minutes': goal,
-        'goal_formatted': SupabaseService.formatGoalDuration(goal),
+        'goal_formatted': goal > 0 ? SupabaseService.formatGoalDuration(goal) : 'Sem meta definida',
         'studied_this_week_minutes': week,
         'studied_this_week_formatted': SupabaseService.formatGoalDuration(week),
+      };
+      result['daily_goal'] = {
+        'enabled': dailyGoal > 0,
+        'goal_minutes': dailyGoal,
+        'goal_formatted': dailyGoal > 0 ? SupabaseService.formatGoalDuration(dailyGoal) : 'Sem meta definida',
+        'studied_today_minutes': today,
+        'studied_today_formatted': SupabaseService.formatGoalDuration(today),
       };
     }
 

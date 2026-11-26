@@ -6,9 +6,11 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
 import '../../main.dart' show RootScreen;
+import '../../widgets/insight_icon.dart';
 import '../../widgets/weekly_goal_dialog.dart';
 import '../flashcards/models/flashcard_model.dart';
 import '../notebooks/models/notebook_model.dart';
@@ -213,11 +215,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   runSpacing: 8,
                   children: subjects.map((subj) {
                     final selected = subj == _activeSubject;
-                    return ChoiceChip(
-                      label: Text(subj),
+                    return SoftClayChoiceChip(
+                      label: subj,
                       selected: selected,
-                      selectedColor: AsterTheme.primary(context).withValues(alpha: 0.2),
-                      onSelected: (_) {
+                      compact: true,
+                      onTap: () {
                         _activeSubject = subj;
                         _activeSubjectNotifier.value = subj;
                         Navigator.of(ctx).pop();
@@ -280,11 +282,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
             runSpacing: 8,
             children: options.map((mins) {
               final selected = _sessionGoalMinutes == mins;
-              return ChoiceChip(
-                label: Text(DashboardAnalytics.formatCompactDuration(mins)),
+              return SoftClayChoiceChip(
+                label: DashboardAnalytics.formatCompactDuration(mins),
                 selected: selected,
-                selectedColor: AsterTheme.primary(context).withValues(alpha: 0.2),
-                onSelected: (_) {
+                compact: true,
+                onTap: () {
                   _sessionGoalMinutes = mins;
                   _sessionGoalMinutesNotifier.value = mins;
                   Navigator.of(ctx).pop();
@@ -341,9 +343,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
                           spacing: 6,
                           runSpacing: 6,
                           children: suggestedSubjects.take(6).map((subj) {
-                            return ActionChip(
-                              label: Text(subj, style: const TextStyle(fontSize: 12)),
-                              onPressed: () {
+                            final selected = _subjectController.text.trim() == subj;
+                            return SoftClayChoiceChip(
+                              label: subj,
+                              selected: selected,
+                              compact: true,
+                              onTap: () {
                                 setModalState(() {
                                   _subjectController.text = subj;
                                 });
@@ -379,12 +384,12 @@ class _TrackerScreenState extends State<TrackerScreen> {
                         spacing: 6,
                         runSpacing: 6,
                         children: [25, 45, 60, 90, 120].map((m) {
-                          return ActionChip(
-                            label: Text(
-                              DashboardAnalytics.formatCompactDuration(m),
-                              style: const TextStyle(fontSize: 11.5),
-                            ),
-                            onPressed: () {
+                          final selected = _durationController.text.trim() == m.toString();
+                          return SoftClayChoiceChip(
+                            label: DashboardAnalytics.formatCompactDuration(m),
+                            selected: selected,
+                            compact: true,
+                            onTap: () {
                               setModalState(() {
                                 _durationController.text = m.toString();
                               });
@@ -583,12 +588,18 @@ class _TrackerScreenState extends State<TrackerScreen> {
       stream: _sessionsStream,
       builder: (context, snapshot) {
         final sessions = snapshot.data ?? const [];
-        return ValueListenableBuilder<DashboardEcosystemSnapshot>(
-          valueListenable: _ecosystemNotifier,
-          builder: (context, ecosystem, _) {
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            _ecosystemNotifier,
+            ShopService.instance.streakProtectorsNotifier,
+            SupabaseService.isVipNotifier,
+          ]),
+          builder: (context, _) {
+            final ecosystem = _ecosystemNotifier.value;
             final consistency = DashboardAnalytics.computeConsistencyStats(
               sessions,
               exams: ecosystem.savedExams,
+              protectedDates: ShopService.instance.protectedStreakDates,
             );
             return _buildHeatmapCard(consistency, isDark);
           },
@@ -625,6 +636,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 final consistency = DashboardAnalytics.computeConsistencyStats(
                   sessions,
                   exams: ecosystem.savedExams,
+                  protectedDates: ShopService.instance.protectedStreakDates,
                 );
                 final currentWeekMinutes =
                     SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
@@ -662,89 +674,217 @@ class _TrackerScreenState extends State<TrackerScreen> {
       builder: (context, sessionSnap) {
         final sessions = sessionSnap.data ?? const [];
         final weekStudied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+        final dayStudied = SupabaseService.computeTodayStudiedMinutes(sessions);
 
-        return ValueListenableBuilder<int>(
-          valueListenable: SupabaseService.weeklyGoalMinutesNotifier,
-          builder: (context, goalMinutes, _) {
-            return ValueListenableBuilder<DashboardEcosystemSnapshot>(
-              valueListenable: _ecosystemNotifier,
-              builder: (context, ecosystem, _) {
-                final goalPct =
-                    ((weekStudied / (goalMinutes > 0 ? goalMinutes : 1)) * 100)
-                        .round()
-                        .clamp(0, 999);
-                final avgExam = ecosystem.averageExamScore;
-                final upcoming = ecosystem.upcomingEvents();
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            SupabaseService.weeklyGoalMinutesNotifier,
+            SupabaseService.dailyGoalMinutesNotifier,
+            _ecosystemNotifier,
+          ]),
+          builder: (context, _) {
+            final goalMinutes = SupabaseService.weeklyGoalMinutesNotifier.value;
+            final dailyGoalMinutes = SupabaseService.dailyGoalMinutesNotifier.value;
+            final hasWeeklyGoal = goalMinutes > 0;
+            final hasDailyGoal = dailyGoalMinutes > 0;
+            final ecosystem = _ecosystemNotifier.value;
+            final goalPct = hasWeeklyGoal
+                ? ((weekStudied / goalMinutes) * 100).round().clamp(0, 999)
+                : 0;
+            final dailySafe = hasDailyGoal ? dailyGoalMinutes : 1;
+            final dailyProgress = (dayStudied / dailySafe).clamp(0.0, 1.0);
+            final dailyPct = hasDailyGoal ? ((dayStudied / dailySafe) * 100).round().clamp(0, 999) : 0;
+            final dailyReached = hasDailyGoal && dayStudied >= dailySafe;
+            final avgExam = ecosystem.averageExamScore;
+            final upcoming = ecosystem.upcomingEvents();
 
-                final tiles = [
-                  _EcosystemTileData(
-                    key: const Key('dashboard_kpi_weekly_goal'),
-                    title: 'Meta Semanal',
-                    value:
-                        '${SupabaseService.formatGoalDuration(weekStudied)} / ${SupabaseService.formatGoalDuration(goalMinutes)}',
-                    subtitle: '$goalPct% concluído · clique p/ editar',
-                    icon: Icons.track_changes_rounded,
-                    color: AsterConstants.menta,
-                    onTap: () => showWeeklyGoalEditorDialog(
-                      context,
-                      currentWeekStudiedMinutes: weekStudied,
+            final tiles = [
+              _EcosystemTileData(
+                key: const Key('dashboard_kpi_weekly_goal'),
+                title: 'Meta Semanal',
+                value: hasWeeklyGoal
+                    ? '${SupabaseService.formatGoalDuration(weekStudied)} / ${SupabaseService.formatGoalDuration(goalMinutes)}'
+                    : '${SupabaseService.formatGoalDuration(weekStudied)} na sem.',
+                subtitle: hasWeeklyGoal
+                    ? '$goalPct% concluído · clique p/ editar'
+                    : 'Sem meta fixa · clique p/ definir',
+                icon: Icons.track_changes_rounded,
+                color: AsterConstants.menta,
+                onTap: () => showWeeklyGoalEditorDialog(
+                  context,
+                  currentWeekStudiedMinutes: weekStudied,
+                  currentDayStudiedMinutes: dayStudied,
+                ),
+              ),
+              _EcosystemTileData(
+                key: const Key('dashboard_kpi_exams'),
+                title: 'Simulados',
+                value: '${ecosystem.examsCount} ${ecosystem.examsCount == 1 ? 'feito' : 'feitos'}',
+                subtitle: avgExam != null
+                    ? 'Média ${avgExam.round()}% de acerto'
+                    : 'Crie um simulado com IA',
+                icon: Icons.assignment_turned_in_rounded,
+                color: AsterTheme.primary(context),
+                onTap: () => RootScreen.switchTab(1),
+              ),
+              _EcosystemTileData(
+                key: const Key('dashboard_kpi_cards_notebooks'),
+                title: 'Flashcards & Cadernos',
+                value: '${ecosystem.cardsNeedingReview} p/ revisar',
+                subtitle:
+                    '${ecosystem.notebooksCount} cadernos · ${ecosystem.notesCount} notas',
+                icon: Icons.style_rounded,
+                color: AsterConstants.ambar,
+                onTap: () => RootScreen.switchTab(2),
+              ),
+              _EcosystemTileData(
+                key: const Key('dashboard_kpi_roadmaps_calendar'),
+                title: 'Trilhas & Agenda',
+                value: '${ecosystem.overallRoadmapProgressPct}% das trilhas',
+                subtitle:
+                    '${ecosystem.roadmapsCount} trilha${ecosystem.roadmapsCount == 1 ? '' : 's'} · ${upcoming.length} evento${upcoming.length == 1 ? '' : 's'} próx.',
+                icon: Icons.route_rounded,
+                color: AsterConstants.coral,
+                onTap: () => RootScreen.switchTab(8),
+              ),
+            ];
+
+            final dailyGoalBanner = SoftClayCard.list(
+              padding: EdgeInsets.zero,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const Key('dashboard_kpi_daily_goal'),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+                  onTap: () => showDailyGoalEditorDialog(
+                    context,
+                    currentWeekStudiedMinutes: weekStudied,
+                    currentDayStudiedMinutes: dayStudied,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AsterTheme.primary(context).withValues(alpha: 0.14),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.today_rounded,
+                            size: 17,
+                            color: AsterTheme.primary(context),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    hasDailyGoal
+                                        ? 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} / ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}'
+                                        : 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} hoje (sem meta fixa)',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                    ),
+                                  ),
+                                  Text(
+                                    hasDailyGoal ? '$dailyPct% hoje' : 'Modo livre',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: !hasDailyGoal
+                                          ? (isDark
+                                              ? AsterConstants.textMutedDark
+                                              : AsterConstants.textMuted)
+                                          : (dailyReached
+                                              ? AsterConstants.menta
+                                              : AsterTheme.primary(context)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (hasDailyGoal) ...[
+                                const SizedBox(height: 6),
+                                LinearProgressIndicator(
+                                  value: dailyProgress,
+                                  minHeight: 5,
+                                  borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                  backgroundColor: AsterTheme.surfaceInset(context),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    dailyReached
+                                        ? AsterConstants.menta
+                                        : AsterTheme.primary(context),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AsterTheme.primary(context).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.edit_rounded, size: 12, color: AsterTheme.primary(context)),
+                              const SizedBox(width: 4),
+                              Text(
+                                hasDailyGoal ? 'Editar Diária' : 'Definir Diária',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AsterTheme.primary(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  _EcosystemTileData(
-                    key: const Key('dashboard_kpi_exams'),
-                    title: 'Simulados',
-                    value: '${ecosystem.examsCount} ${ecosystem.examsCount == 1 ? 'feito' : 'feitos'}',
-                    subtitle: avgExam != null
-                        ? 'Média ${avgExam.round()}% de acerto'
-                        : 'Crie um simulado com IA',
-                    icon: Icons.assignment_turned_in_rounded,
-                    color: AsterTheme.primary(context),
-                    onTap: () => RootScreen.switchTab(1),
-                  ),
-                  _EcosystemTileData(
-                    key: const Key('dashboard_kpi_cards_notebooks'),
-                    title: 'Flashcards & Cadernos',
-                    value: '${ecosystem.cardsNeedingReview} p/ revisar',
-                    subtitle:
-                        '${ecosystem.notebooksCount} cadernos · ${ecosystem.notesCount} notas',
-                    icon: Icons.style_rounded,
-                    color: AsterConstants.ambar,
-                    onTap: () => RootScreen.switchTab(2),
-                  ),
-                  _EcosystemTileData(
-                    key: const Key('dashboard_kpi_roadmaps_calendar'),
-                    title: 'Trilhas & Agenda',
-                    value: '${ecosystem.overallRoadmapProgressPct}% das trilhas',
-                    subtitle:
-                        '${ecosystem.roadmapsCount} trilha${ecosystem.roadmapsCount == 1 ? '' : 's'} · ${upcoming.length} evento${upcoming.length == 1 ? '' : 's'} próx.',
-                    icon: Icons.route_rounded,
-                    color: AsterConstants.coral,
-                    onTap: () => RootScreen.switchTab(8),
-                  ),
-                ];
+                ),
+              ),
+            );
 
-                if (isDesktop) {
-                  return Row(
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (isDesktop)
+                  Row(
                     children: [
                       for (int i = 0; i < tiles.length; i++) ...[
                         Expanded(child: _buildEcosystemKpiCard(tiles[i], isDark)),
                         if (i < tiles.length - 1) const SizedBox(width: 14),
                       ],
                     ],
-                  );
-                }
-
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: tiles.map((tile) {
-                    return SizedBox(
-                      width: (MediaQuery.of(context).size.width - 44) / 2,
-                      child: _buildEcosystemKpiCard(tile, isDark),
-                    );
-                  }).toList(),
-                );
-              },
+                  )
+                else
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: tiles.map((tile) {
+                      return SizedBox(
+                        width: (MediaQuery.of(context).size.width - 44) / 2,
+                        child: _buildEcosystemKpiCard(tile, isDark),
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: 12),
+                dailyGoalBanner,
+              ],
             );
           },
         );
@@ -1493,6 +1633,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  ConsistencySlotRing(
+                    filled: true,
+                    size: 10,
+                    strokeWidth: 1.9,
+                    activeColor: AsterTheme.secondary(context),
+                  ),
+                  Text(
+                    ' Protegido',
+                    style: GoogleFonts.manrope(
+                      fontSize: 10,
+                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -1513,6 +1667,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       levels: consistency.levels,
                       datesGrid: consistency.datesGrid,
                       minutesGrid: consistency.minutesGrid,
+                      protectedGrid: consistency.protectedGrid,
                       onDayInspected: (label) {
                         _hoveredDayLabel.value = label;
                       },
@@ -1543,7 +1698,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     'MELHOR DIA',
                     style: GoogleFonts.manrope(
@@ -1557,14 +1712,73 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     bestStr,
                     key: const Key('dashboard_best_day_value'),
                     style: GoogleFonts.manrope(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  _buildConsistencySealsSummary(context, isDark: isDark),
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsistencySealsSummary(BuildContext context, {required bool isDark}) {
+    final shop = ShopService.instance;
+    final seals = shop.streakProtectors;
+    final maxSeals = shop.maxStreakProtectors;
+    final activeCol = AsterTheme.secondary(context);
+    final mutedCol = isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted;
+
+    return Tooltip(
+      message:
+          'Selos de Consistência preservam sua sequência automaticamente. Ganhe +1 grátis a cada 100 questões respondidas ou a cada 10h estudadas na semana (máx. $maxSeals guardados).',
+      child: Column(
+        key: const Key('dashboard_consistency_seals'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SELOS',
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: mutedCol,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 118),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (int i = 0; i < maxSeals; i++)
+                  ConsistencySlotRing(
+                    filled: i < seals,
+                    size: maxSeals > 5 ? 12 : 14,
+                    strokeWidth: 1.8,
+                    activeColor: activeCol,
+                    emptyColor: mutedCol,
+                  ),
+                const SizedBox(width: 2),
+                Text(
+                  '$seals/$maxSeals',
+                  key: const Key('dashboard_consistency_seals_value'),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1812,7 +2026,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
-  // ─── Widget: Insight do Agente (Totalmente Funcional & Conectado ao Ecossistema) ───
+  // ─── Widget: Sugestão do Agente (Totalmente Funcional & Conectado ao Ecossistema) ───
   Widget _buildAgentInsightCard({
     required DashboardInsight insight,
     required DashboardEcosystemSnapshot ecosystem,
@@ -1835,7 +2049,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Insight do agente',
+                'Sugestão do agente',
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -1993,7 +2207,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
     });
     await _refreshEcosystemAndSubject();
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
       ..clearSnackBars()
       ..showSnackBar(
         SnackBar(
@@ -2002,11 +2217,15 @@ class _TrackerScreenState extends State<TrackerScreen> {
           backgroundColor: AsterConstants.menta,
           content: Text(
             '"${insight.recommendedReviewTitle}" agendada para amanhã às 14:00!',
+            style: const TextStyle(color: Colors.white),
           ),
           action: SnackBarAction(
             label: 'Ver Agenda',
             textColor: Colors.white,
-            onPressed: () => RootScreen.switchTab(5),
+            onPressed: () {
+              messenger.hideCurrentSnackBar();
+              RootScreen.switchTab(5);
+            },
           ),
         ),
       );
@@ -2383,6 +2602,7 @@ class ConsistencyHeatmap extends StatelessWidget {
   final List<List<int>>? levels;
   final List<List<DateTime>>? datesGrid;
   final List<List<int>>? minutesGrid;
+  final List<List<bool>>? protectedGrid;
   final ValueChanged<String?>? onDayInspected;
 
   const ConsistencyHeatmap({
@@ -2392,6 +2612,7 @@ class ConsistencyHeatmap extends StatelessWidget {
     this.levels,
     this.datesGrid,
     this.minutesGrid,
+    this.protectedGrid,
     this.onDayInspected,
   });
 
@@ -2416,15 +2637,6 @@ class ConsistencyHeatmap extends StatelessWidget {
     }
   }
 
-  static int simulatedLevelFor(int col, int row) {
-    final seed = col * 7 + row;
-    if (seed % 11 == 0) return 4;
-    if (seed % 5 == 0) return 3;
-    if (seed % 3 == 0) return 2;
-    if (seed % 2 == 0) return 1;
-    return 0;
-  }
-
   void _inspectOffset(Offset localPos, Size size) {
     if (onDayInspected == null || datesGrid == null || minutesGrid == null) return;
     const double colStep = 17.0;
@@ -2437,10 +2649,14 @@ class ConsistencyHeatmap extends StatelessWidget {
     if (col >= 0 && col < columns && row >= 0 && row < rows) {
       final date = datesGrid![col][row];
       final mins = minutesGrid![col][row];
+      final isProtected = protectedGrid != null &&
+          col < protectedGrid!.length &&
+          row < protectedGrid![col].length &&
+          protectedGrid![col][row];
       final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
       final durStr = mins > 0
           ? '${DashboardAnalytics.formatReadableDuration(mins)} estudados'
-          : 'Sem registro';
+          : (isProtected ? 'Dia protegido (Selo de Consistência)' : 'Sem registro');
       onDayInspected!('$dateStr: $durStr');
     }
   }
@@ -2465,6 +2681,7 @@ class ConsistencyHeatmap extends StatelessWidget {
               columns: columns,
               rows: rows,
               levels: levels,
+              protectedGrid: protectedGrid,
               isDark: isDark,
               activeColor: activeCol,
               emptyColor: emptyCol,
@@ -2480,6 +2697,7 @@ class _HeatmapPainter extends CustomPainter {
   final int columns;
   final int rows;
   final List<List<int>>? levels;
+  final List<List<bool>>? protectedGrid;
   final bool isDark;
   final Color activeColor;
   final Color emptyColor;
@@ -2488,6 +2706,7 @@ class _HeatmapPainter extends CustomPainter {
     required this.columns,
     required this.rows,
     this.levels,
+    this.protectedGrid,
     this.isDark = false,
     required this.activeColor,
     required this.emptyColor,
@@ -2502,6 +2721,10 @@ class _HeatmapPainter extends CustomPainter {
     final double rowStep = (size.height - dotDiameter) / (rows - 1);
 
     final paint = Paint()..style = PaintingStyle.fill;
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = activeColor;
 
     for (int col = 0; col < columns; col++) {
       final double cx = col * colStep + startX;
@@ -2511,16 +2734,27 @@ class _HeatmapPainter extends CustomPainter {
         if (levels != null && col < levels!.length && row < levels![col].length) {
           level = levels![col][row];
         } else {
-          level = ConsistencyHeatmap.simulatedLevelFor(col, row);
+          level = 0;
         }
 
-        paint.color = ConsistencyHeatmap.colorForLevel(
-          level,
-          isDark: isDark,
-          activeColor: activeColor,
-          emptyColor: emptyColor,
-        );
-        canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+        final isProtected = protectedGrid != null &&
+            col < protectedGrid!.length &&
+            row < protectedGrid![col].length &&
+            protectedGrid![col][row];
+
+        if (isProtected && level == 0) {
+          paint.color = activeColor.withValues(alpha: 0.14);
+          canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+          canvas.drawCircle(Offset(cx, cy), dotRadius - 0.6, ringPaint);
+        } else {
+          paint.color = ConsistencyHeatmap.colorForLevel(
+            level,
+            isDark: isDark,
+            activeColor: activeColor,
+            emptyColor: emptyColor,
+          );
+          canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+        }
       }
     }
   }
@@ -2530,6 +2764,7 @@ class _HeatmapPainter extends CustomPainter {
     return oldDelegate.columns != columns ||
         oldDelegate.rows != rows ||
         oldDelegate.levels != levels ||
+        oldDelegate.protectedGrid != protectedGrid ||
         oldDelegate.isDark != isDark ||
         oldDelegate.activeColor != activeColor ||
         oldDelegate.emptyColor != emptyColor;

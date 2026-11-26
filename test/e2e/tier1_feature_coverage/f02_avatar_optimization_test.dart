@@ -70,12 +70,6 @@ void main() {
         const RootScreen(),
       );
 
-      // Transition to Guest Mode
-      final guestButton = find.text('Entrar sem login · Modo de Teste');
-      expect(guestButton, findsOneWidget);
-      await tester.tap(guestButton);
-      await tester.pumpAndSettle();
-
       // Inspect the real TopBar avatar widget from lib/main.dart
       final avatarFinder = find.byType(CircleAvatar);
       expect(avatarFinder, findsOneWidget);
@@ -87,21 +81,16 @@ void main() {
       await TestAppHarness.drainAsync(tester);
     });
 
-    testWidgets('5. Real TopBar CircleAvatar in RootScreen renders guest initials VI in lavanda color',
+    testWidgets('5. Real TopBar CircleAvatar in RootScreen renders default initials ES in lavanda color',
         (WidgetTester tester) async {
       await TestAppHarness.pumpInHarness(
         tester,
         const RootScreen(),
       );
 
-      // Transition to Guest Mode
-      final guestButton = find.text('Entrar sem login · Modo de Teste');
-      await tester.tap(guestButton);
-      await tester.pumpAndSettle();
-
-      // The real TopBar renders guest initials 'VI'
-      expect(find.text('VI'), findsOneWidget);
-      final textWidget = tester.widget<Text>(find.text('VI'));
+      // The real TopBar renders default initials 'ES' for Estudante
+      expect(find.text('ES'), findsOneWidget);
+      final textWidget = tester.widget<Text>(find.text('ES'));
       expect(textWidget.style?.color, equals(AsterConstants.lavanda));
 
       await TestAppHarness.drainAsync(tester);

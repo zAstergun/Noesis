@@ -49,10 +49,9 @@ void main() {
       expect(reply, contains('Sessão de Criptografia registrada'));
     });
 
-    test('3. SupabaseService in Guest Mode yields seeded calendar events stream', () async {
+    test('3. SupabaseService starts without fake seeded calendar events', () async {
       final initialEvents = await SupabaseService.calendarEventsStream().first;
-      expect(initialEvents.length, greaterThanOrEqualTo(9));
-      expect(initialEvents.any((e) => (e['title'] as String).contains('Criptografia')), isTrue);
+      expect(initialEvents.any((e) => (e['id'] as String).startsWith('mock-')), isFalse);
     });
 
     test('4. SupabaseService.addCalendarEvent updates in-memory calendar stream in Guest Mode', () async {

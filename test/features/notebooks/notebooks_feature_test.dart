@@ -61,9 +61,9 @@ void main() {
       expect(deserialized.notes.first.title, equals('Anotação de Teste'));
     });
 
-    test('2. SupabaseService loads pre-seeded notebooks, saves and deletes notebooks and notes', () async {
+    test('2. SupabaseService starts without fake seeded notebooks and saves/deletes notebooks and notes', () async {
       final initialNotebooks = await SupabaseService.getNotebooks();
-      expect(initialNotebooks.isNotEmpty, isTrue);
+      expect(initialNotebooks, isA<List<StudyNotebook>>());
 
       final testNb = StudyNotebook(
         id: 'nb-test-custom',
@@ -117,6 +117,45 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
+
+      final sampleNb = StudyNotebook(
+        id: 'nb-cloud-test-1',
+        title: 'Arquitetura Cloud & Infraestrutura',
+        subject: 'Tecnologia',
+        description: 'Anotações sobre VPCs e Subnets.',
+        notes: [
+          StudyNote(
+            id: 'note-cloud-test-1',
+            notebookId: 'nb-cloud-test-1',
+            title: 'Topologia de Redes VPC & Subnets Públicas vs Privadas',
+            content: '### Fundamentos de VPC\nSubnet pública vs privada.',
+            links: [
+              StudyLink(
+                id: 'link-img-1',
+                url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800',
+                title: 'Data Center e Infraestrutura Cloud',
+                isImage: true,
+              ),
+              StudyLink(
+                id: 'link-ref-1',
+                url: 'https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html',
+                title: 'Documentação Oficial Amazon VPC',
+                isImage: false,
+              ),
+            ],
+            tags: ['Cloud', 'AWS', 'VPC', 'Infra'],
+          ),
+          StudyNote(
+            id: 'note-cloud-test-2',
+            notebookId: 'nb-cloud-test-1',
+            title: 'Configuração de Segurança: Security Groups vs Network ACLs',
+            content: 'Security Groups vs NACLs.',
+            tags: ['Segurança', 'NACL', 'Firewall'],
+          ),
+        ],
+      );
+      await SupabaseService.saveNotebook(sampleNb);
+      addTearDown(() => SupabaseService.deleteNotebook(sampleNb.id));
 
       await TestAppHarness.pumpInHarness(
         tester,
@@ -250,6 +289,15 @@ void main() {
       expect(formatted.contains('https://docs.docker.com/'), isTrue);
 
       // 2. Testa o botão na interface do editor de anotação
+      final editorNb = StudyNotebook(
+        id: 'nb-editor-test-5',
+        title: 'DevOps & Cloud',
+        subject: 'Tecnologia',
+        description: 'Caderno de teste.',
+      );
+      await SupabaseService.saveNotebook(editorNb);
+      addTearDown(() => SupabaseService.deleteNotebook(editorNb.id));
+
       await TestAppHarness.pumpInHarness(
         tester,
         const NotebooksScreen(),
@@ -333,6 +381,31 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
+      final sampleNb = StudyNotebook(
+        id: 'nb-cloud-test-7',
+        title: 'Arquitetura Cloud & Infraestrutura',
+        subject: 'Tecnologia',
+        description: 'Anotações sobre VPCs e Subnets.',
+        notes: [
+          StudyNote(
+            id: 'note-cloud-7-1',
+            notebookId: 'nb-cloud-test-7',
+            title: 'Topologia de Redes VPC & Subnets Públicas vs Privadas',
+            content: 'Topologia VPC.',
+            tags: ['Cloud', 'AWS', 'VPC', 'Infra'],
+          ),
+          StudyNote(
+            id: 'note-cloud-7-2',
+            notebookId: 'nb-cloud-test-7',
+            title: 'Configuração de Segurança: Security Groups vs Network ACLs',
+            content: 'Security Groups vs NACLs.',
+            tags: ['Segurança', 'NACL', 'Firewall'],
+          ),
+        ],
+      );
+      await SupabaseService.saveNotebook(sampleNb);
+      addTearDown(() => SupabaseService.deleteNotebook(sampleNb.id));
+
       await TestAppHarness.pumpInHarness(
         tester,
         const NotebooksScreen(),
@@ -407,6 +480,24 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
+
+      final sampleNb = StudyNotebook(
+        id: 'nb-cloud-test-8',
+        title: 'Arquitetura Cloud & Infraestrutura',
+        subject: 'Tecnologia',
+        description: 'Anotações sobre VPCs e Subnets.',
+        notes: [
+          StudyNote(
+            id: 'note-cloud-8-1',
+            notebookId: 'nb-cloud-test-8',
+            title: 'Topologia de Redes VPC & Subnets Públicas vs Privadas',
+            content: 'Topologia VPC.',
+            tags: ['Cloud', 'AWS', 'VPC', 'Infra'],
+          ),
+        ],
+      );
+      await SupabaseService.saveNotebook(sampleNb);
+      addTearDown(() => SupabaseService.deleteNotebook(sampleNb.id));
 
       await TestAppHarness.pumpInHarness(
         tester,

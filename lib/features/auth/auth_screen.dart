@@ -8,12 +8,12 @@ import '../../widgets/noesis_logo.dart';
 
 class AuthScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
-  final VoidCallback? onContinueAsGuest;
+  final Uri? initialCallbackUri;
 
   const AuthScreen({
     super.key,
     required this.onAuthenticated,
-    this.onContinueAsGuest,
+    this.initialCallbackUri,
   });
 
   @override
@@ -32,6 +32,14 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _successMessage;
   OAuthProvider? _oauthLoading;
 
+  @override
+  void initState() {
+    super.initState();
+    _errorMessage = SupabaseService.extractOAuthCallbackError(
+      widget.initialCallbackUri ?? Uri.base,
+    );
+  }
+
   Future<void> _handleOAuth(OAuthProvider provider) async {
     setState(() {
       _oauthLoading = provider;
@@ -39,14 +47,18 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      await SupabaseService.signInWithOAuth(provider);
+      final launched = await SupabaseService.signInWithOAuth(provider);
+      if (!launched && mounted) {
+        setState(() {
+          _errorMessage = 'Não foi possível abrir o login externo. Tente novamente.';
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e
-            .toString()
-            .replaceAll('Exception: ', '')
-            .replaceAll('AuthException: ', '');
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = SupabaseService.translateAuthError(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -67,17 +79,26 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final fullName = _fullNameController.text.trim();
 
+    if (_isSignUp && fullName.isEmpty) {
+      setState(() => _errorMessage = 'Por favor, informe seu usuário.');
+      return;
+    }
     if (email.isEmpty) {
       setState(() => _errorMessage = 'Por favor, informe seu e-mail.');
+      return;
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      setState(() => _errorMessage = 'Por favor, informe um e-mail válido.');
       return;
     }
     if (password.isEmpty) {
       setState(() => _errorMessage = 'Por favor, informe sua senha.');
       return;
     }
-    if (_isSignUp && _fullNameController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Por favor, informe seu usuário.');
+    if (_isSignUp && password.length < 6) {
+      setState(() => _errorMessage = 'A senha precisa ter pelo menos 6 caracteres.');
       return;
     }
 
@@ -89,15 +110,30 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isSignUp) {
-        await SupabaseService.signUp(
+        final response = await SupabaseService.signUp(
           email: email,
           password: password,
-          fullName: _fullNameController.text.trim(),
+          fullName: fullName,
         );
-        setState(() {
-          _successMessage = 'Conta Aster criada com sucesso! Acesse suas credenciais.';
-          _isSignUp = false;
-        });
+        if (response.user != null && (response.user!.identities?.isEmpty ?? false)) {
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Já existe uma conta com esse e-mail.';
+            });
+          }
+          return;
+        }
+        if (response.session != null) {
+          widget.onAuthenticated();
+          return;
+        }
+        if (mounted) {
+          setState(() {
+            _successMessage =
+                'Conta Aster criada com sucesso! Verifique seu e-mail para confirmar e entrar.';
+            _isSignUp = false;
+          });
+        }
       } else {
         await SupabaseService.signIn(
           email: email,
@@ -106,12 +142,11 @@ class _AuthScreenState extends State<AuthScreen> {
         widget.onAuthenticated();
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e
-            .toString()
-            .replaceAll('Exception: ', '')
-            .replaceAll('AuthException: ', '');
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = SupabaseService.translateAuthError(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -252,16 +287,17 @@ class _AuthScreenState extends State<AuthScreen> {
                                   });
                                   try {
                                     await SupabaseService.client.auth
-                                        .resetPasswordForEmail(mail);
+                                        .resetPasswordForEmail(
+                                      mail,
+                                      redirectTo: SupabaseService.authRedirectUrl(),
+                                    );
                                     setDialogState(() {
                                       resetSent =
                                           'Link de redefinição enviado para $mail! Verifique sua caixa de entrada.';
                                     });
                                   } catch (e) {
                                     setDialogState(() {
-                                      resetError = e
-                                          .toString()
-                                          .replaceAll('Exception: ', '');
+                                      resetError = SupabaseService.translateAuthError(e);
                                     });
                                   } finally {
                                     setDialogState(() => isSending = false);
@@ -543,49 +579,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGuestButton() {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: AsterConstants.surfaceAlt,
-        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-        border: Border.all(
-          color: AsterConstants.surfaceInset,
-          width: 1.2,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onContinueAsGuest,
-          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 16,
-                  color: AsterTheme.primary(context),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Entrar sem login · Modo de Teste',
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AsterConstants.textDark,
-                  ),
-                ),
               ],
             ),
           ),
@@ -1032,14 +1025,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-
-                        // Botão Entrar sem Login (Modo Teste / Convidado)
-                        if (widget.onContinueAsGuest != null) ...[
-                          _buildGuestButton(),
-                          const SizedBox(height: 16),
-                        ] else
-                          const SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
                         // Selo de Criptografia & Segurança
                         Row(

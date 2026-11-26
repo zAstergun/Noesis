@@ -47,5 +47,43 @@ void main() {
       // Reset
       AsterTheme.setThemeMode(ThemeMode.light);
     });
+
+    testWidgets('2. ChipTheme and SoftClayChoiceChip use pill shape and soft borders in Light and Dark themes',
+        (WidgetTester tester) async {
+      for (final theme in [AsterTheme.softClayTheme, AsterTheme.darkTheme]) {
+        expect(theme.chipTheme.shape, isA<StadiumBorder>());
+        expect(theme.chipTheme.side, isA<WidgetStateBorderSide>());
+        final sideProp = theme.chipTheme.side! as WidgetStateBorderSide;
+        final selectedSide = sideProp.resolve({WidgetState.selected});
+        final unselectedSide = sideProp.resolve({});
+        expect(selectedSide, equals(BorderSide.none));
+        expect(unselectedSide, isNotNull);
+        expect(unselectedSide!.color, isNot(equals(Colors.black)));
+      }
+
+      bool selected = false;
+      await TestAppHarness.pumpInHarness(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            return Row(
+              children: [
+                SoftClayChoiceChip(
+                  label: 'Simulados',
+                  icon: Icons.assignment_rounded,
+                  selected: selected,
+                  onTap: () => setState(() => selected = !selected),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      expect(find.text('Simulados'), findsOneWidget);
+      await tester.tap(find.text('Simulados'));
+      await tester.pumpAndSettle();
+      expect(selected, isTrue);
+    });
   });
 }

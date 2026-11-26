@@ -1,7 +1,168 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart' show GoogleFonts;
+import '../features/quizzes/data/saved_exams_store_stub.dart'
+    if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
+    if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
 import 'constants.dart';
+
+/// Conjunto das 6 cores personalizáveis via RGB para membros VIP.
+class NoesisCustomThemeColors {
+  final Color bg;
+  final Color surface;
+  final Color primary;
+  final Color accent1;
+  final Color accent2;
+  final Color accent3;
+
+  const NoesisCustomThemeColors({
+    required this.bg,
+    required this.surface,
+    required this.primary,
+    required this.accent1,
+    required this.accent2,
+    required this.accent3,
+  });
+
+  static const NoesisCustomThemeColors defaults = NoesisCustomThemeColors(
+    bg: Color(0xFF0E0F1A),
+    surface: Color(0xFF17192A),
+    primary: Color(0xFFF2B33D),
+    accent1: Color(0xFF3CCF9A),
+    accent2: Color(0xFF7C6CF0),
+    accent3: Color(0xFFFF7A90),
+  );
+
+  List<Color> get asList => [bg, surface, primary, accent1, accent2, accent3];
+
+  NoesisCustomThemeColors copyWithSlot(int index, Color color) {
+    switch (index) {
+      case 0:
+        return NoesisCustomThemeColors(
+          bg: color,
+          surface: surface,
+          primary: primary,
+          accent1: accent1,
+          accent2: accent2,
+          accent3: accent3,
+        );
+      case 1:
+        return NoesisCustomThemeColors(
+          bg: bg,
+          surface: color,
+          primary: primary,
+          accent1: accent1,
+          accent2: accent2,
+          accent3: accent3,
+        );
+      case 2:
+        return NoesisCustomThemeColors(
+          bg: bg,
+          surface: surface,
+          primary: color,
+          accent1: accent1,
+          accent2: accent2,
+          accent3: accent3,
+        );
+      case 3:
+        return NoesisCustomThemeColors(
+          bg: bg,
+          surface: surface,
+          primary: primary,
+          accent1: color,
+          accent2: accent2,
+          accent3: accent3,
+        );
+      case 4:
+        return NoesisCustomThemeColors(
+          bg: bg,
+          surface: surface,
+          primary: primary,
+          accent1: accent1,
+          accent2: color,
+          accent3: accent3,
+        );
+      case 5:
+        return NoesisCustomThemeColors(
+          bg: bg,
+          surface: surface,
+          primary: primary,
+          accent1: accent1,
+          accent2: accent2,
+          accent3: color,
+        );
+      default:
+        return this;
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'bg': bg.toARGB32(),
+        'surface': surface.toARGB32(),
+        'primary': primary.toARGB32(),
+        'accent1': accent1.toARGB32(),
+        'accent2': accent2.toARGB32(),
+        'accent3': accent3.toARGB32(),
+      };
+
+  factory NoesisCustomThemeColors.fromJson(Map<String, dynamic> json) {
+    Color readCol(String key, Color fallback) {
+      final raw = json[key];
+      if (raw is int) return Color(raw);
+      return fallback;
+    }
+
+    return NoesisCustomThemeColors(
+      bg: readCol('bg', defaults.bg),
+      surface: readCol('surface', defaults.surface),
+      primary: readCol('primary', defaults.primary),
+      accent1: readCol('accent1', defaults.accent1),
+      accent2: readCol('accent2', defaults.accent2),
+      accent3: readCol('accent3', defaults.accent3),
+    );
+  }
+
+  NoesisThemeOption toNoesisThemeOption() {
+    final isBgDark = ThemeData.estimateBrightnessForColor(bg) == Brightness.dark;
+    final isSurfaceDark = ThemeData.estimateBrightnessForColor(surface) == Brightness.dark;
+    final isPrimaryDark = ThemeData.estimateBrightnessForColor(primary) == Brightness.dark;
+
+    final surface2 = isSurfaceDark
+        ? Color.lerp(surface, Colors.white, 0.08)!
+        : Color.lerp(surface, bg, 0.35)!;
+
+    return NoesisThemeOption(
+      id: AsterTheme.customThemeId,
+      name: 'Personalizado',
+      tag: 'VIP · 6 cores RGB',
+      description: 'Tema exclusivo VIP com 6 cores personalizáveis no espectro RGB e HEX.',
+      mode: isBgDark ? ThemeMode.dark : ThemeMode.light,
+      bg: bg,
+      surface: surface,
+      surface2: surface2,
+      textColor: isSurfaceDark ? const Color(0xFFF4F5FB) : const Color(0xFF1E2033),
+      mutedColor: isSurfaceDark ? const Color(0xFF9EA2C0) : const Color(0xFF666985),
+      primary: primary,
+      onPrimary: isPrimaryDark ? Colors.white : const Color(0xFF11121C),
+      accents: [accent1, accent2, accent3, primary],
+      icon: Icons.tune_rounded,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is NoesisCustomThemeColors &&
+      other.bg == bg &&
+      other.surface == surface &&
+      other.primary == primary &&
+      other.accent1 == accent1 &&
+      other.accent2 == accent2 &&
+      other.accent3 == accent3;
+
+  @override
+  int get hashCode => Object.hash(bg, surface, primary, accent1, accent2, accent3);
+}
 
 /// Opção selecionável de tema visual no ecossistema Noesis.
 class NoesisThemeOption {
@@ -224,6 +385,17 @@ class AsterTheme {
     ),
   ];
 
+  static const String customThemeId = 'custom';
+  static const String _customThemeStorageKey = 'noesis_custom_theme_v1';
+
+  static final ValueNotifier<NoesisCustomThemeColors> customThemeColorsNotifier =
+      ValueNotifier<NoesisCustomThemeColors>(NoesisCustomThemeColors.defaults);
+
+  static List<NoesisThemeOption> get availableThemesWithCustom => [
+        ...availableThemes,
+        customThemeColorsNotifier.value.toNoesisThemeOption(),
+      ];
+
   static final ValueNotifier<String> activeThemeIdNotifier =
       ValueNotifier<String>('soft_clay_nevoa');
 
@@ -233,6 +405,9 @@ class AsterTheme {
 
   static NoesisThemeOption get currentTheme {
     final id = activeThemeIdNotifier.value;
+    if (id == customThemeId) {
+      return customThemeColorsNotifier.value.toNoesisThemeOption();
+    }
     return availableThemes.firstWhere(
       (t) => t.id == id,
       orElse: () => availableThemes.first,
@@ -249,7 +424,7 @@ class AsterTheme {
 
   static void selectThemeOption(String themeId) {
     final prev = currentTheme;
-    final option = availableThemes.firstWhere(
+    final option = availableThemesWithCustom.firstWhere(
       (t) => t.id == themeId,
       orElse: () => availableThemes.first,
     );
@@ -259,6 +434,61 @@ class AsterTheme {
     themeDataFor(option);
     activeThemeIdNotifier.value = option.id;
     setThemeMode(option.mode);
+  }
+
+  static Future<void> loadCustomTheme({bool isVip = false}) async {
+    try {
+      final raw = await local_store.readSavedExamsRaw(_customThemeStorageKey);
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          final map = Map<String, dynamic>.from(decoded);
+          if (map['colors'] is Map) {
+            customThemeColorsNotifier.value = NoesisCustomThemeColors.fromJson(
+              Map<String, dynamic>.from(map['colors'] as Map),
+            );
+            _compiledThemeCache.remove(customThemeId);
+          }
+          if (isVip && map['active'] == true) {
+            selectThemeOption(customThemeId);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> updateCustomThemeColors(
+    NoesisCustomThemeColors colors, {
+    bool activateIfVip = false,
+  }) async {
+    _compiledThemeCache.remove(customThemeId);
+    customThemeColorsNotifier.value = colors;
+    final opt = colors.toNoesisThemeOption();
+    themeDataFor(opt);
+    if (activateIfVip || activeThemeIdNotifier.value == customThemeId) {
+      activeThemeIdNotifier.value = customThemeId;
+      setThemeMode(opt.mode);
+    }
+    try {
+      await local_store.writeSavedExamsRaw(
+        _customThemeStorageKey,
+        jsonEncode({
+          'colors': colors.toJson(),
+          'active': activeThemeIdNotifier.value == customThemeId,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  static Future<void> resetCustomThemeForTesting() async {
+    _compiledThemeCache.remove(customThemeId);
+    customThemeColorsNotifier.value = NoesisCustomThemeColors.defaults;
+    if (activeThemeIdNotifier.value == customThemeId) {
+      selectThemeOption('soft_clay_nevoa');
+    }
+    try {
+      await local_store.writeSavedExamsRaw(_customThemeStorageKey, '');
+    } catch (_) {}
   }
 
   static final Map<String, ThemeData> _compiledThemeCache = {};
@@ -349,6 +579,55 @@ class AsterTheme {
   // Instâncias imutáveis pré-compiladas em memória para eliminar re-alocações na troca de tema
   static final ThemeData softClayTheme = _buildSoftClayTheme();
   static final ThemeData darkTheme = _buildDarkTheme();
+
+  static ChipThemeData _buildChipTheme({
+    required bool isDark,
+    required Color surfaceAlt,
+    required Color primary,
+    required Color onPrimary,
+    required Color textColor,
+    required Color mutedColor,
+    required Color dividerCol,
+  }) {
+    return ChipThemeData(
+      backgroundColor: surfaceAlt,
+      selectedColor: primary,
+      secondarySelectedColor: primary,
+      disabledColor: surfaceAlt.withValues(alpha: 0.5),
+      deleteIconColor: mutedColor,
+      checkmarkColor: onPrimary,
+      elevation: 0,
+      pressElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: const StadiumBorder(),
+      side: WidgetStateBorderSide.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return BorderSide.none;
+        }
+        return BorderSide(
+          color: dividerCol.withValues(alpha: isDark ? 0.65 : 0.85),
+          width: 1,
+        );
+      }),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+      iconTheme: IconThemeData(size: 15, color: mutedColor),
+      labelStyle: WidgetStateTextStyle.resolveWith((states) {
+        final isSel = states.contains(WidgetState.selected);
+        return GoogleFonts.manrope(
+          fontSize: 12.5,
+          fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+          color: isSel ? onPrimary : textColor,
+        );
+      }),
+      secondaryLabelStyle: GoogleFonts.manrope(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w800,
+        color: onPrimary,
+      ),
+    );
+  }
 
   static ThemeData _buildThemeFromOption(NoesisThemeOption opt) {
     final isDark = opt.mode == ThemeMode.dark;
@@ -494,6 +773,24 @@ class AsterTheme {
         thickness: 1,
         space: 1,
       ),
+      chipTheme: _buildChipTheme(
+        isDark: isDark,
+        surfaceAlt: opt.surface2,
+        primary: opt.primary,
+        onPrimary: opt.onPrimary,
+        textColor: opt.textColor,
+        mutedColor: opt.mutedColor,
+        dividerCol: dividerCol,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: opt.mode == ThemeMode.dark ? opt.surface2 : AsterConstants.textDark,
+        contentTextStyle: GoogleFonts.manrope(
+          color: opt.mode == ThemeMode.dark ? opt.textColor : Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        actionTextColor: opt.primary,
+      ),
     );
   }
 
@@ -625,6 +922,15 @@ class AsterTheme {
         color: AsterConstants.surfaceInsetDark,
         thickness: 1,
         space: 1,
+      ),
+      chipTheme: _buildChipTheme(
+        isDark: true,
+        surfaceAlt: AsterConstants.surfaceAltDark,
+        primary: AsterConstants.lavanda,
+        onPrimary: Colors.white,
+        textColor: AsterConstants.textLight,
+        mutedColor: AsterConstants.textMutedDark,
+        dividerCol: AsterConstants.surfaceInsetDark,
       ),
     );
   }
@@ -854,6 +1160,108 @@ class SoftClayTag extends StatelessWidget {
       );
     }
     return chip;
+  }
+}
+
+/// Pílula interativa Soft Clay para filtros, seleções e ações rápidas,
+/// substituindo chips genéricos do Material 3 com borda escura.
+class SoftClayChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final Color? accentColor;
+  final bool showCheckmark;
+  final bool compact;
+  final bool enabled;
+
+  const SoftClayChoiceChip({
+    super.key,
+    required this.label,
+    this.selected = false,
+    this.onTap,
+    this.icon,
+    this.accentColor,
+    this.showCheckmark = false,
+    this.compact = false,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final activeBg = accentColor ?? theme.colorScheme.primary;
+    final activeFg = accentColor == null
+        ? theme.colorScheme.onPrimary
+        : (ThemeData.estimateBrightnessForColor(activeBg) == Brightness.dark
+            ? Colors.white
+            : AsterConstants.textDark);
+    final inactiveBg = isDark ? AsterConstants.surfaceAltDark : theme.colorScheme.surface;
+    final inactiveBorder = AsterTheme.surfaceInset(context);
+    final fgColor = selected
+        ? activeFg
+        : (enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant);
+
+    final IconData? effectiveIcon =
+        icon ?? (selected && showCheckmark ? Icons.check_rounded : null);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: selected ? activeBg : inactiveBg,
+        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+        border: Border.all(
+          color: selected ? Colors.transparent : inactiveBorder,
+          width: 1,
+        ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: activeBg.withValues(alpha: isDark ? 0.34 : 0.28),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                  spreadRadius: -2,
+                ),
+              ]
+            : (isDark ? AsterConstants.claySubtleDarkShadow : AsterConstants.claySubtleShadow),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 11 : 14,
+              vertical: compact ? 6.5 : 8.5,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (effectiveIcon != null) ...[
+                  Icon(
+                    effectiveIcon,
+                    size: compact ? 13.5 : 15,
+                    color: fgColor,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: GoogleFonts.manrope(
+                    fontSize: compact ? 11.5 : 12.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: fgColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

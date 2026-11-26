@@ -9,15 +9,16 @@ void main() {
   });
 
   group('Tier 4 - Scenario 3: RAG Document Ingestion & Exam Engine Simulation', () {
-    testWidgets('Full RAG & Exam workflow: Mount QuizScreen -> Select Preset -> Load Demo Exam -> Answer question',
+    testWidgets('Full RAG & Exam workflow: Mount QuizScreen -> Select Preset -> Start Exam -> Answer question',
         (WidgetTester tester) async {
       await TestAppHarness.pumpInHarness(
         tester,
         const QuizScreen(),
       );
 
-      // Verify real QuizScreen is mounted
+      // Verify real QuizScreen is mounted without demo generator buttons
       expect(find.byType(QuizScreen), findsOneWidget);
+      expect(find.text('Testar com Demo'), findsNothing);
 
       // Verify Exam Presets exist
       expect(find.text('CompTIA Security+'), findsOneWidget);
@@ -27,11 +28,24 @@ void main() {
       await tester.tap(find.text('CompTIA Security+'));
       await tester.pumpAndSettle();
 
-      // Tap Testar com Demo to start the exam runner with genuine quiz questions
-      final demoBtn = find.text('Testar com Demo');
-      expect(demoBtn, findsOneWidget);
-      await tester.ensureVisible(demoBtn);
-      await tester.tap(demoBtn);
+      // Start an active exam session directly via QuizScreen.startQuiz
+      QuizScreen.startQuiz(
+        title: 'Simulado Security+',
+        subject: 'Cybersegurança',
+        questions: [
+          {
+            'question': 'Qual medida melhor mitiga SSRF na raiz?',
+            'options': [
+              'Lista negra simples de IPs.',
+              'Allow-list de hosts, bloqueio de redirects e pinning DNS.',
+              'HTML-encoding na resposta.',
+              'Mover para sub-rede pública.',
+            ],
+            'correct_index': 1,
+            'explanation': 'Allow-list de hosts e bloqueio de redirecionamentos mitigam SSRF.',
+          },
+        ],
+      );
       await tester.pumpAndSettle();
 
       // Verify Exam Runner UI is active
@@ -39,11 +53,8 @@ void main() {
       expect(find.byIcon(Icons.timer_outlined), findsOneWidget);
 
       // Verify question options are rendered and selectable
-      final optionFinder = find.byType(InkWell);
-      expect(optionFinder, findsWidgets);
-
-      // Select an answer option
-      await tester.tap(optionFinder.at(2));
+      expect(find.text('Allow-list de hosts, bloqueio de redirects e pinning DNS.'), findsOneWidget);
+      await tester.tap(find.text('Allow-list de hosts, bloqueio de redirects e pinning DNS.'));
       await tester.pumpAndSettle();
 
       // Drain all pending font futures and frame callbacks cleanly

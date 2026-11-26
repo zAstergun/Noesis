@@ -6,7 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'core/constants.dart';
+import 'core/notifications_service.dart';
+import 'core/shop_service.dart';
 import 'core/theme.dart';
 import 'core/supabase_service.dart';
 import 'features/auth/auth_screen.dart';
@@ -16,10 +19,21 @@ import 'features/ai_agent/ai_assistant_screen.dart';
 import 'features/quizzes/quiz_screen.dart';
 import 'features/flashcards/flashcards_screen.dart';
 import 'features/notebooks/notebooks_screen.dart';
+import 'features/performance/performance_screen.dart';
+import 'features/profile/data/social_connections_service.dart';
+import 'features/profile/profile_screen.dart';
+import 'features/ranking/data/ranking_service.dart';
+import 'features/ranking/ranking_screen.dart';
 import 'features/roadmaps/roadmaps_screen.dart';
+import 'features/shop/shop_screen.dart';
+import 'features/study_groups/study_groups_screen.dart';
 import 'features/study_log/study_log_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'widgets/insight_gain_toast_overlay.dart';
+import 'widgets/insight_icon.dart';
 import 'widgets/noesis_logo.dart';
+import 'widgets/profile_settings_dialog.dart';
+import 'widgets/vip_privileges.dart';
 import 'widgets/weekly_goal_dialog.dart';
 
 void main() async {
@@ -66,6 +80,7 @@ class NoesisApp extends StatelessWidget {
       listenable: Listenable.merge([
         AsterTheme.themeModeNotifier,
         AsterTheme.activeThemeIdNotifier,
+        AsterTheme.customThemeColorsNotifier,
       ]),
       builder: (context, _) {
         final themeMode = AsterTheme.themeModeNotifier.value;
@@ -91,7 +106,9 @@ class NoesisApp extends StatelessWidget {
           themeAnimationDuration: Duration.zero,
           builder: (context, child) {
             return NoesisThemeTransitionOverlay(
-              child: child ?? const SizedBox.shrink(),
+              child: InsightGainToastOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
             );
           },
           home: const RootScreen(),
@@ -101,30 +118,11 @@ class NoesisApp extends StatelessWidget {
   }
 }
 
-class _NotificationItem {
-  final String id;
-  final String title;
-  final String message;
-  final String time;
-  final IconData icon;
-  final Color color;
-  final int? targetTab;
-  bool isRead;
-
-  _NotificationItem({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.icon,
-    required this.color,
-    this.targetTab,
-    this.isRead = false,
-  });
-}
-
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
+
+  @visibleForTesting
+  static bool bypassAuthForTesting = false;
 
   static late ValueNotifier<int> activeTabNotifier;
   static ValueNotifier<int>? activeTabListenable;
@@ -142,7 +140,6 @@ class RootScreen extends StatefulWidget {
 class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateMixin {
   late final ValueNotifier<int> _activeTabNotifier;
   Map<String, dynamic>? _userProfile;
-  bool _isGuestMode = false;
   bool _isSidebarCollapsed = false;
   late final AnimationController _sidebarController;
   late final Animation<Offset> _sidebarOffset;
@@ -151,49 +148,8 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
   StreamSubscription<List<Map<String, dynamic>>>? _studySessionsSubscription;
   Session? _session;
   int _weeklyStudiedMinutes = 0;
+  int _dailyStudiedMinutes = 0;
   int _currentStreakDays = 0;
-
-  final List<_NotificationItem> _notifications = [
-    _NotificationItem(
-      id: '1',
-      title: 'Meta de Streak Mantida 🔥',
-      message: 'Parabéns! Você completou sua sessão diária e atingiu 42 dias de consistência.',
-      time: 'Há 12 min',
-      icon: Icons.local_fire_department_rounded,
-      color: AsterConstants.menta,
-      targetTab: 0,
-    ),
-    _NotificationItem(
-      id: '2',
-      title: 'Novo Simulado RAG Gerado',
-      message: 'O Agente Noesis preparou 5 questões inéditas de Criptografia & Redes para você testar.',
-      time: 'Há 45 min',
-      icon: Icons.quiz_rounded,
-      color: AsterConstants.ambar,
-      targetTab: 1,
-    ),
-    _NotificationItem(
-      id: '3',
-      title: 'Alerta de Cronograma',
-      message: 'Simulado Oficial OWASP agendado para os próximos 2 dias. Revise seus pontos fracos.',
-      time: 'Hoje às 09:15',
-      icon: Icons.event_available_rounded,
-      color: AsterConstants.coral,
-      targetTab: 4,
-    ),
-    _NotificationItem(
-      id: '4',
-      title: 'Insight do Agente Cognitivo',
-      message: 'Sua retenção em Sistemas Distribuídos aumentou 14% após a revisão espaçada.',
-      time: 'Ontem',
-      icon: Icons.auto_awesome_rounded,
-      color: AsterConstants.lavanda,
-      targetTab: 4,
-      isRead: true,
-    ),
-  ];
-
-  int get _unreadNotificationCount => _notifications.where((n) => !n.isRead).length;
 
   final Set<int> _loadedTabs = {0};
 
@@ -217,6 +173,16 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
         return const StudyLogScreen();
       case 8:
         return const RoadmapsScreen();
+      case 9:
+        return const ShopScreen();
+      case 10:
+        return const StudyGroupsScreen();
+      case 11:
+        return const RankingScreen();
+      case 12:
+        return const ProfileScreen();
+      case 13:
+        return const PerformanceScreen();
       default:
         return const TrackerScreen();
     }
@@ -249,9 +215,12 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
         setState(() {
           _loadedTabs.add(_activeTabNotifier.value);
         });
+        NotificationsService.instance.refresh();
       }
     });
     _session = SupabaseService.client.auth.currentSession;
+    SupabaseService.userProfileNotifier.addListener(_onUserProfileChanged);
+    SupabaseService.isVipNotifier.addListener(_onUserProfileChanged);
     _authSubscription = SupabaseService.authStateChanges.listen((data) {
       if (mounted) {
         final newSession = data.session;
@@ -261,11 +230,25 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
           });
           _loadProfile();
           _loadWeeklyGoalAndSessions();
+          ShopService.instance.init(force: true).then((_) {
+            if (mounted) NotificationsService.instance.refresh();
+          });
         }
       }
     });
     _loadProfile();
     _loadWeeklyGoalAndSessions();
+    ShopService.instance.init().then((_) {
+      if (mounted) NotificationsService.instance.refresh();
+    });
+    NotificationsService.instance.start();
+  }
+
+  void _onUserProfileChanged() {
+    if (!mounted) return;
+    setState(() {
+      _userProfile = SupabaseService.userProfileNotifier.value;
+    });
   }
 
   void _toggleSidebar() {
@@ -282,6 +265,9 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    SupabaseService.userProfileNotifier.removeListener(_onUserProfileChanged);
+    SupabaseService.isVipNotifier.removeListener(_onUserProfileChanged);
+    NotificationsService.instance.stop();
     AsterTheme.sidebarCollapsedNotifier.value = false;
     _sidebarController.dispose();
     _authSubscription?.cancel();
@@ -294,39 +280,63 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _loadWeeklyGoalAndSessions() async {
-    await SupabaseService.loadWeeklyGoalMinutes();
+    await Future.wait([
+      SupabaseService.loadWeeklyGoalMinutes(),
+      SupabaseService.loadDailyGoalMinutes(),
+    ]);
+    await ShopService.instance.init();
+    await RankingService.instance.init();
     _studySessionsSubscription?.cancel();
     _studySessionsSubscription = SupabaseService.studySessionsStream().listen((sessions) {
       if (!mounted) return;
-      final mins = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
-      final streak = SupabaseService.computeCurrentStreakDays(sessions);
-      if (mins != _weeklyStudiedMinutes || streak != _currentStreakDays) {
-        setState(() {
-          _weeklyStudiedMinutes = mins;
-          _currentStreakDays = streak;
-        });
-      }
+      unawaited(_syncSessionsAndRewards(sessions));
     });
     final initialSessions = await SupabaseService.getStudySessions(limit: 200);
-    if (mounted) {
+    await _syncSessionsAndRewards(initialSessions);
+  }
+
+  Future<void> _syncSessionsAndRewards(List<Map<String, dynamic>> sessions) async {
+    await ShopService.instance.reconcileStreakProtectors(sessions);
+    ShopService.instance.evaluateStudyProgressRewards(
+      sessions: sessions,
+      weeklyGoalMinutes: SupabaseService.weeklyGoalMinutesNotifier.value,
+      dailyGoalMinutes: SupabaseService.dailyGoalMinutesNotifier.value,
+    );
+    unawaited(RankingService.instance.syncCurrentUserProgress());
+    final mins = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+    final dailyMins = SupabaseService.computeTodayStudiedMinutes(sessions);
+    final streak = SupabaseService.computeCurrentStreakDays(
+      sessions,
+      protectedDates: ShopService.instance.protectedStreakDates,
+    );
+    if (mounted &&
+        (mins != _weeklyStudiedMinutes ||
+            dailyMins != _dailyStudiedMinutes ||
+            streak != _currentStreakDays)) {
       setState(() {
-        _weeklyStudiedMinutes =
-            SupabaseService.computeCurrentWeekStudiedMinutes(initialSessions);
-        _currentStreakDays =
-            SupabaseService.computeCurrentStreakDays(initialSessions);
+        _weeklyStudiedMinutes = mins;
+        _dailyStudiedMinutes = dailyMins;
+        _currentStreakDays = streak;
       });
     }
   }
 
   Future<void> _loadProfile() async {
-    if (SupabaseService.currentUser != null) {
-      final profile = await SupabaseService.getProfile();
-      if (mounted) {
-        setState(() {
-          _userProfile = profile;
-        });
-      }
+    final profile = await SupabaseService.loadFullProfile();
+    await AsterTheme.loadCustomTheme(isVip: SupabaseService.isCurrentUserVip);
+    unawaited(SocialConnectionsService.instance.init());
+    if (mounted) {
+      setState(() {
+        _userProfile = profile;
+      });
     }
+  }
+
+  void _openProfileSettings() {
+    showProfileSettingsDialog(
+      context,
+      streakDays: _currentStreakDays,
+    );
   }
 
   String get _greeting {
@@ -348,35 +358,31 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
   }
 
   void _showNotificationsPanel(BuildContext context, bool isWideScreen) {
+    NotificationsService.instance.refresh();
     if (isWideScreen) {
       showDialog(
         context: context,
         barrierColor: Colors.black.withValues(alpha: 0.12),
         builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (ctx, setPanelState) {
-              return Stack(
-                children: [
-                  Positioned(
-                    top: 68,
-                    right: 28,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 390,
-                          maxHeight: 520,
-                        ),
-                        child: _buildNotificationsContent(
-                          dialogContext: dialogContext,
-                          setPanelState: setPanelState,
-                        ),
-                      ),
+          return Stack(
+            children: [
+              Positioned(
+                top: 68,
+                right: 28,
+                child: Material(
+                  color: Colors.transparent,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 390,
+                      maxHeight: 520,
+                    ),
+                    child: _buildNotificationsContent(
+                      dialogContext: dialogContext,
                     ),
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           );
         },
       );
@@ -386,24 +392,19 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (bottomSheetContext) {
-          return StatefulBuilder(
-            builder: (ctx, setPanelState) {
-              return SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.75,
-                    ),
-                    child: _buildNotificationsContent(
-                      dialogContext: bottomSheetContext,
-                      setPanelState: setPanelState,
-                      isBottomSheet: true,
-                    ),
-                  ),
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
                 ),
-              );
-            },
+                child: _buildNotificationsContent(
+                  dialogContext: bottomSheetContext,
+                  isBottomSheet: true,
+                ),
+              ),
+            ),
           );
         },
       );
@@ -412,303 +413,325 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
 
   Widget _buildNotificationsContent({
     required BuildContext dialogContext,
-    required void Function(void Function()) setPanelState,
     bool isBottomSheet = false,
   }) {
-    final unread = _unreadNotificationCount;
-    final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+    return ValueListenableBuilder<List<NoesisNotification>>(
+      valueListenable: NotificationsService.instance.notificationsNotifier,
+      builder: (context, items, _) {
+        final unread = items.where((n) => !n.isRead).length;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final primaryCol = AsterTheme.primary(context);
+        final cardCol = AsterTheme.card(context);
+        final surfaceAltCol = AsterTheme.surfaceAlt(context);
+        final insetCol = AsterTheme.surfaceInset(context);
+        final textCol = AsterTheme.text(context);
+        final mutedCol = AsterTheme.textMuted(context);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeInOutCubic,
-      decoration: BoxDecoration(
-        color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-        borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
-        border: Border.all(
-          color: isDark ? AsterConstants.surfaceInsetDark : Colors.white.withValues(alpha: 0.8),
-          width: 1.5,
-        ),
-        boxShadow: isDark ? AsterConstants.clayDarkShadow : AsterConstants.clayShadow,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (isBottomSheet)
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 4),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
-                  borderRadius: BorderRadius.circular(2),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOutCubic,
+          decoration: BoxDecoration(
+            color: cardCol,
+            borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+            border: Border.all(
+              color: isDark ? insetCol : Colors.white.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+            boxShadow: isDark ? AsterConstants.clayDarkShadow : AsterConstants.clayShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isBottomSheet)
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 4),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: insetCol,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: primaryCol.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.notifications_active_rounded,
+                        size: 16,
+                        color: primaryCol,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Notificações',
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: textCol,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (unread > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AsterConstants.coral.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                        ),
+                        child: Text(
+                          '$unread ${unread == 1 ? 'nova' : 'novas'}',
+                          style: GoogleFonts.manrope(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: AsterConstants.coral,
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    if (unread > 0)
+                      TextButton(
+                        onPressed: NotificationsService.instance.markAllAsRead,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Marcar lidas',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: primaryCol,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, size: 18, color: mutedCol),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      splashRadius: 18,
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AsterTheme.primary(context).withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.notifications_active_rounded,
-                    size: 16,
-                    color: AsterTheme.primary(context),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Notificações',
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (unread > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AsterConstants.coral.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                    ),
-                    child: Text(
-                      '$unread novas',
-                      style: GoogleFonts.manrope(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AsterConstants.coral,
-                      ),
-                    ),
-                  ),
-                const Spacer(),
-                if (unread > 0)
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        for (var n in _notifications) {
-                          n.isRead = true;
-                        }
-                      });
-                      setPanelState(() {});
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Marcar lidas',
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AsterTheme.primary(context),
-                      ),
-                    ),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: AsterConstants.textMuted),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  splashRadius: 18,
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: AsterConstants.surfaceInset),
-          Flexible(
-            child: _notifications.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.done_all_rounded,
-                            size: 24,
-                            color: AsterConstants.menta,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Tudo em dia!',
-                          style: GoogleFonts.manrope(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Você não tem novas notificações no momento.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.manrope(
-                            fontSize: 12,
-                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _notifications.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      indent: 64,
-                      endIndent: 20,
-                      color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceAlt,
-                    ),
-                    itemBuilder: (context, index) {
-                      final item = _notifications[index];
-                      final itemColor = item.id == '4' ? AsterTheme.primary(context) : item.color;
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              item.isRead = true;
-                              if (item.targetTab != null) {
-                                _activeTabNotifier.value = item.targetTab!;
-                                _loadedTabs.add(item.targetTab!);
-                              }
-                            });
-                            Navigator.of(dialogContext).pop();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: itemColor.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(item.icon, size: 18, color: itemColor),
+              Divider(height: 1, color: insetCol),
+              Flexible(
+                child: items.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: surfaceAltCol,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.done_all_rounded,
+                                size: 24,
+                                color: AsterConstants.menta,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Tudo em dia!',
+                              style: GoogleFonts.manrope(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: textCol,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Você não tem novas notificações no momento.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.manrope(
+                                fontSize: 12,
+                                color: mutedCol,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: NotificationsService.instance.restoreAndRefresh,
+                              icon: Icon(Icons.refresh_rounded, size: 15, color: primaryCol),
+                              label: Text(
+                                'Verificar notificações',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryCol,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => Divider(
+                          height: 1,
+                          indent: 64,
+                          endIndent: 20,
+                          color: insetCol.withValues(alpha: 0.6),
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          final itemColor = item.resolveColor(context);
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                NotificationsService.instance.markAsRead(item.id);
+                                _activeTabNotifier.value = item.targetTab;
+                                _loadedTabs.add(item.targetTab);
+                                Navigator.of(dialogContext).pop();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: itemColor.withValues(alpha: 0.12),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: item.id == 'welcome_insights_bonus'
+                                          ? const Center(child: InsightCoinIcon(size: 20))
+                                          : Icon(item.icon, size: 18, color: itemColor),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Expanded(
-                                            child: Text(
-                                              item.title,
-                                              style: GoogleFonts.manrope(
-                                                fontSize: 13,
-                                                fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w800,
-                                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.title,
+                                                  style: GoogleFonts.manrope(
+                                                    fontSize: 13,
+                                                    fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w800,
+                                                    color: textCol,
+                                                  ),
+                                                ),
                                               ),
+                                              if (!item.isRead) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    color: itemColor,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            item.message,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11.5,
+                                              height: 1.35,
+                                              color: item.isRead
+                                                  ? mutedCol.withValues(alpha: 0.72)
+                                                  : mutedCol,
                                             ),
                                           ),
-                                          if (!item.isRead) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              width: 6,
-                                              height: 6,
-                                              decoration: BoxDecoration(
-                                                color: item.color,
-                                                shape: BoxShape.circle,
-                                              ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            item.timeLabel,
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 10,
+                                              color: mutedCol.withValues(alpha: 0.75),
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                          ],
+                                          ),
                                         ],
                                       ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        item.message,
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 11.5,
-                                          height: 1.35,
-                                          color: item.isRead
-                                              ? (isDark ? AsterConstants.textFaintDark : AsterConstants.textFaint)
-                                              : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                                        ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      tooltip: 'Dispensar',
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        size: 15,
+                                        color: mutedCol.withValues(alpha: 0.7),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item.time,
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 10,
-                                          color: isDark ? AsterConstants.textFaintDark : AsterConstants.textFaint,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                      splashRadius: 14,
+                                      onPressed: () =>
+                                          NotificationsService.instance.dismiss(item.id),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
+                          );
+                        },
+                      ),
+              ),
+              if (items.isNotEmpty) ...[
+                Divider(height: 1, color: insetCol),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Toque para abrir no app',
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          color: mutedCol.withValues(alpha: 0.75),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: NotificationsService.instance.dismissAll,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Limpar todas',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: mutedCol,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      );
-                    },
-                  ),
-          ),
-          if (_notifications.isNotEmpty) ...[
-            Divider(height: 1, color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Toque para abrir no app',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark ? AsterConstants.textFaintDark : AsterConstants.textFaint,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _notifications.clear();
-                      });
-                      setPanelState(() {});
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Limpar todas',
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        color: AsterConstants.textMuted,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -716,7 +739,7 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final session = _session ?? SupabaseService.client.auth.currentSession;
 
-    if (session == null && !_isGuestMode) {
+    if (session == null && !RootScreen.bypassAuthForTesting) {
       return AuthScreen(
         onAuthenticated: () {
           setState(() {
@@ -724,10 +747,8 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
           });
           _loadProfile();
           _loadWeeklyGoalAndSessions();
-        },
-        onContinueAsGuest: () {
-          setState(() {
-            _isGuestMode = true;
+          ShopService.instance.init(force: true).then((_) {
+            if (mounted) NotificationsService.instance.refresh();
           });
         },
       );
@@ -735,11 +756,16 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
 
         final isWideScreen = MediaQuery.of(context).size.width >= 900;
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final userName = _userProfile?['full_name'] ??
-            _userProfile?['channel'] ??
-            session?.user.email?.split('@').first ??
-            (_isGuestMode ? 'Visitante (Teste)' : 'Estudante');
-        final initials = userName.isNotEmpty ? userName.substring(0, userName.length >= 2 ? 2 : 1).toUpperCase() : 'VT';
+        final rawFullName = (_userProfile?['full_name'] ?? '').toString().trim();
+        final rawChannel = SupabaseService.sanitizeUsername((_userProfile?['channel'] ?? '').toString());
+        final userName = rawFullName.isNotEmpty
+            ? rawFullName
+            : (rawChannel.isNotEmpty
+                ? '@$rawChannel'
+                : (session?.user.email?.split('@').first ?? 'Estudante'));
+        final initials = userName.isNotEmpty ? userName.substring(0, userName.length >= 2 ? 2 : 1).toUpperCase() : 'ES';
+        final avatarImage = buildAvatarImageProvider(_userProfile?['avatar_url']?.toString());
+        final isVip = SupabaseService.isCurrentUserVip;
 
         return Scaffold(
           body: SoftClayBackground(
@@ -810,6 +836,52 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                               ),
                                             ),
                                             const Text('🔥', style: TextStyle(fontSize: 13)),
+                                            ValueListenableBuilder<int>(
+                                              valueListenable:
+                                                  ShopService.instance.streakProtectorsNotifier,
+                                              builder: (context, shields, _) {
+                                                if (shields <= 0) return const SizedBox.shrink();
+                                                return Padding(
+                                                  padding: const EdgeInsets.only(left: 6),
+                                                  child: Tooltip(
+                                                    message:
+                                                        '$shields ${shields == 1 ? 'Protetor de Ofensiva ativo' : 'Protetores de Ofensiva ativos'}',
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF38BDF8)
+                                                            .withValues(alpha: 0.14),
+                                                        borderRadius: BorderRadius.circular(
+                                                          AsterConstants.radiusPill,
+                                                        ),
+                                                        border: Border.all(
+                                                          color: const Color(0xFF38BDF8)
+                                                              .withValues(alpha: 0.4),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const StreakShieldIcon(size: 13),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            '$shields',
+                                                            style: GoogleFonts.jetBrainsMono(
+                                                              fontSize: 10.5,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: const Color(0xFF0284C7),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -818,61 +890,149 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
 
                                   const Spacer(),
 
-                                  // Botão Interativo de Notificações
-                                  Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      AnimatedContainer(
-                                        duration: const Duration(milliseconds: 280),
-                                        curve: Curves.easeInOutCubic,
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                                          shape: BoxShape.circle,
-                                          boxShadow: isDark ? AsterConstants.claySubtleDarkShadow : AsterConstants.claySubtleShadow,
-                                        ),
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => _showNotificationsPanel(context, isWideScreen),
-                                            borderRadius: BorderRadius.circular(20),
-                                            child: Center(
-                                              child: Icon(
-                                                Icons.notifications_none_rounded,
-                                                size: 20,
-                                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      if (_unreadNotificationCount > 0)
-                                        Positioned(
-                                          top: 2,
-                                          right: 2,
+                                  // Carteira rápida de Lúmens (clique abre a Loja)
+                                  ValueListenableBuilder<int>(
+                                    valueListenable: ShopService.instance.balanceNotifier,
+                                    builder: (context, balance, _) {
+                                      return Tooltip(
+                                        message: 'Saldo na Loja (${ShopService.currencyName})',
+                                        child: InkWell(
+                                          key: const Key('header_wallet_pill'),
+                                          onTap: () => RootScreen.switchTab(9),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                           child: Container(
-                                            width: 10,
-                                            height: 10,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                             decoration: BoxDecoration(
-                                              color: AsterConstants.coral,
-                                              shape: BoxShape.circle,
+                                              color: AsterTheme.card(context),
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                               border: Border.all(
-                                                color: isDark ? AsterConstants.surfaceCardDark : Colors.white,
-                                                width: 2,
+                                                color: AsterConstants.ambar.withValues(alpha: 0.4),
                                               ),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Color.fromRGBO(255, 122, 144, 0.4),
-                                                  blurRadius: 4,
-                                                  offset: Offset(0, 1),
+                                              boxShadow: isDark
+                                                  ? AsterConstants.claySubtleDarkShadow
+                                                  : AsterConstants.claySubtleShadow,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const InsightCoinIcon(size: 18),
+                                                const SizedBox(width: 7),
+                                                Text(
+                                                  '$balance ${ShopService.currencyName}',
+                                                  style: GoogleFonts.jetBrainsMono(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: AsterTheme.text(context),
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           ),
                                         ),
-                                    ],
+                                      );
+                                    },
                                   ),
+                                  const SizedBox(width: 10),
+
+                                  // Botão Interativo de Notificações (reativo com dados reais)
+                                  ValueListenableBuilder<List<NoesisNotification>>(
+                                    valueListenable: NotificationsService.instance.notificationsNotifier,
+                                    builder: (context, notifications, _) {
+                                      final unread = notifications.where((n) => !n.isRead).length;
+                                      return Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          AnimatedContainer(
+                                            duration: const Duration(milliseconds: 280),
+                                            curve: Curves.easeInOutCubic,
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: AsterTheme.card(context),
+                                              shape: BoxShape.circle,
+                                              boxShadow: isDark
+                                                  ? AsterConstants.claySubtleDarkShadow
+                                                  : AsterConstants.claySubtleShadow,
+                                            ),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                key: const Key('notifications_bell_button'),
+                                                onTap: () => _showNotificationsPanel(context, isWideScreen),
+                                                borderRadius: BorderRadius.circular(20),
+                                                child: Center(
+                                                  child: Icon(
+                                                    unread > 0
+                                                        ? Icons.notifications_active_outlined
+                                                        : Icons.notifications_none_rounded,
+                                                    size: 20,
+                                                    color: AsterTheme.text(context),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          if (unread > 0)
+                                            Positioned(
+                                              key: const Key('notifications_unread_dot'),
+                                              top: 2,
+                                              right: 2,
+                                              child: Container(
+                                                width: 10,
+                                                height: 10,
+                                                decoration: BoxDecoration(
+                                                  color: AsterConstants.coral,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: AsterTheme.card(context),
+                                                    width: 2,
+                                                  ),
+                                                  boxShadow: const [
+                                                    BoxShadow(
+                                                      color: Color.fromRGBO(255, 122, 144, 0.4),
+                                                      blurRadius: 4,
+                                                      offset: Offset(0, 1),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  if (!isWideScreen) ...[
+                                    const SizedBox(width: 10),
+                                    Tooltip(
+                                      message: 'Configurações do Perfil',
+                                      child: InkWell(
+                                        key: const Key('mobile_profile_button'),
+                                        customBorder: const CircleBorder(),
+                                        onTap: _openProfileSettings,
+                                        child: VipAvatarCircle(
+                                          isVip: isVip,
+                                          badgeSize: VipBadgeSize.xs,
+                                          borderWidth: 2,
+                                          child: CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: AsterTheme.primary(context).withValues(alpha: 0.16),
+                                            backgroundImage: avatarImage,
+                                            onBackgroundImageError: avatarImage != null ? (_, _) {} : null,
+                                            child: avatarImage == null
+                                                ? Text(
+                                                    initials,
+                                                    style: GoogleFonts.manrope(
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: 12,
+                                                      color: AsterTheme.primary(context),
+                                                    ),
+                                                  )
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -889,7 +1049,7 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                             return Stack(
                               fit: StackFit.expand,
                               children: [
-                                for (int index = 0; index < 9; index++)
+                                for (int index = 0; index < 14; index++)
                                   if (_loadedTabs.contains(index))
                                     Positioned.fill(
                                       child: Offstage(
@@ -976,7 +1136,7 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -988,12 +1148,12 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                                   onTap: _toggleSidebar,
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                                     child: Row(
                                       children: [
-                                        const NoesisLogo(size: 38, withShadow: true),
-                                        const SizedBox(width: 12),
-                                        const NoesisWordmark(fontSize: 21),
+                                        const NoesisLogo(size: 34, withShadow: true),
+                                        const SizedBox(width: 11),
+                                        const NoesisWordmark(fontSize: 19.5),
                                         const Spacer(),
                                         Icon(
                                           Icons.menu_open_rounded,
@@ -1005,75 +1165,241 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 36),
+                              const SizedBox(height: 6),
 
-                              // Itens de Menu Soft Clay
-                              _buildNavItem(
-                                index: 0,
-                                title: 'Dashboard',
-                                icon: Icons.home_rounded,
+                              // Itens de Menu organizados por seção (rolável em telas menores para manter rodapé sempre visível)
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildNavItem(
+                                        index: 0,
+                                        title: 'Dashboard',
+                                        icon: Icons.home_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 13,
+                                        title: 'Desempenho',
+                                        icon: Icons.analytics_rounded,
+                                      ),
+                                      _buildNavSectionHeader('ESTUDO'),
+                                      _buildNavItem(
+                                        index: 1,
+                                        title: 'Simulados',
+                                        icon: Icons.assignment_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 2,
+                                        title: 'Flashcards',
+                                        icon: Icons.style_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 3,
+                                        title: 'Cadernos',
+                                        icon: Icons.menu_book_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 8,
+                                        title: 'Trilhas',
+                                        icon: Icons.route_rounded,
+                                      ),
+                                      _buildNavSectionHeader('ROTINA & IA'),
+                                      _buildNavItem(
+                                        index: 7,
+                                        title: 'Diário de Estudos',
+                                        icon: Icons.auto_stories_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 5,
+                                        title: 'Calendário',
+                                        icon: Icons.calendar_today_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 4,
+                                        title: 'Noesis AI',
+                                        icon: Icons.smart_toy_rounded,
+                                      ),
+                                      _buildNavSectionHeader('COMUNIDADE'),
+                                      _buildNavItem(
+                                        index: 10,
+                                        title: 'Grupos',
+                                        icon: Icons.groups_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 11,
+                                        title: 'Ranking',
+                                        icon: Icons.emoji_events_rounded,
+                                      ),
+                                      _buildNavSectionHeader('CONTA'),
+                                      _buildNavItem(
+                                        index: 12,
+                                        title: 'Perfil',
+                                        icon: Icons.person_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 9,
+                                        title: 'Loja',
+                                        icon: Icons.storefront_rounded,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      _buildNavItem(
+                                        index: 6,
+                                        title: 'Configurações',
+                                        icon: Icons.settings_rounded,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 1,
-                                title: 'Simulados',
-                                icon: Icons.assignment_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 2,
-                                title: 'Flashcards',
-                                icon: Icons.style_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 3,
-                                title: 'Cadernos',
-                                icon: Icons.menu_book_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 7,
-                                title: 'Diário de Estudos',
-                                icon: Icons.auto_stories_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 8,
-                                title: 'Trilhas',
-                                icon: Icons.route_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 4,
-                                title: 'Noesis AI',
-                                icon: Icons.smart_toy_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 5,
-                                title: 'Calendário',
-                                icon: Icons.calendar_today_rounded,
-                              ),
-                              const SizedBox(height: 8),
-                              _buildNavItem(
-                                index: 6,
-                                title: 'Configurações',
-                                icon: Icons.settings_rounded,
-                              ),
+                              const SizedBox(height: 6),
 
-                              const Spacer(),
+                              // Widget: Meta Diária & Meta Semanal (interativos e editáveis)
+                              ValueListenableBuilder<int>(
+                                valueListenable: SupabaseService.dailyGoalMinutesNotifier,
+                                builder: (context, dailyGoalMinutes, _) {
+                                  final hasDailyGoal = dailyGoalMinutes > 0;
+                                  final safeDaily = hasDailyGoal ? dailyGoalMinutes : 1;
+                                  final dailyProgress =
+                                      (_dailyStudiedMinutes / safeDaily).clamp(0.0, 1.0);
+                                  final dailyPct = ((_dailyStudiedMinutes / safeDaily) * 100)
+                                      .round()
+                                      .clamp(0, 999);
+                                  final dailyReached =
+                                      hasDailyGoal && _dailyStudiedMinutes >= safeDaily;
 
-                              // Widget: Meta Semanal (interativo e editável)
+                                  return Tooltip(
+                                    message: 'Clique para editar a meta diária',
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 280),
+                                      curve: Curves.easeInOutCubic,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? AsterConstants.surfaceAltDark
+                                            : AsterConstants.surfaceAlt,
+                                        borderRadius:
+                                            BorderRadius.circular(AsterConstants.radiusMedium),
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          key: const Key('sidebar_daily_goal_card'),
+                                          borderRadius:
+                                              BorderRadius.circular(AsterConstants.radiusMedium),
+                                          onTap: () => showDailyGoalEditorDialog(
+                                            context,
+                                            currentWeekStudiedMinutes: _weeklyStudiedMinutes,
+                                            currentDayStudiedMinutes: _dailyStudiedMinutes,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 9,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'META DIÁRIA',
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: 9.5,
+                                                        fontWeight: FontWeight.w800,
+                                                        letterSpacing: 0.8,
+                                                        color: isDark
+                                                            ? AsterConstants.textMutedDark
+                                                            : AsterConstants.textMuted,
+                                                      ),
+                                                    ),
+                                                    Icon(
+                                                      Icons.edit_rounded,
+                                                      size: 11,
+                                                      color: AsterTheme.primary(context),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        hasDailyGoal
+                                                            ? '${SupabaseService.formatGoalDuration(_dailyStudiedMinutes)} / ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}'
+                                                            : '${SupabaseService.formatGoalDuration(_dailyStudiedMinutes)} hoje',
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: GoogleFonts.manrope(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w800,
+                                                          color: isDark
+                                                              ? AsterConstants.textLight
+                                                              : AsterConstants.textDark,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      hasDailyGoal ? '$dailyPct%' : 'Sem meta',
+                                                      style: GoogleFonts.manrope(
+                                                        fontSize: hasDailyGoal ? 11.5 : 10.5,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: !hasDailyGoal
+                                                            ? (isDark
+                                                                ? AsterConstants.textMutedDark
+                                                                : AsterConstants.textMuted)
+                                                            : (dailyReached
+                                                                ? AsterTheme.secondary(context)
+                                                                : AsterTheme.primary(context)),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (hasDailyGoal) ...[
+                                                  const SizedBox(height: 6),
+                                                  LinearProgressIndicator(
+                                                    value: dailyProgress,
+                                                    minHeight: 5,
+                                                    borderRadius: BorderRadius.circular(
+                                                      AsterConstants.radiusPill,
+                                                    ),
+                                                    backgroundColor:
+                                                        AsterTheme.surfaceInset(context),
+                                                    valueColor: AlwaysStoppedAnimation(
+                                                      AsterTheme.primary(context),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 8),
                               ValueListenableBuilder<int>(
                                 valueListenable: SupabaseService.weeklyGoalMinutesNotifier,
                                 builder: (context, goalMinutes, _) {
-                                  final safeGoal = goalMinutes > 0 ? goalMinutes : 1;
+                                  final hasWeeklyGoal = goalMinutes > 0;
+                                  final safeGoal = hasWeeklyGoal ? goalMinutes : 1;
                                   final progress = (_weeklyStudiedMinutes / safeGoal).clamp(0.0, 1.0);
                                   final pct = ((_weeklyStudiedMinutes / safeGoal) * 100)
                                       .round()
                                       .clamp(0, 999);
-                                  final goalReached = _weeklyStudiedMinutes >= safeGoal;
+                                  final goalReached =
+                                      hasWeeklyGoal && _weeklyStudiedMinutes >= safeGoal;
 
                                   return Tooltip(
                                     message: 'Clique para editar a meta semanal',
@@ -1096,9 +1422,13 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                           onTap: () => showWeeklyGoalEditorDialog(
                                             context,
                                             currentWeekStudiedMinutes: _weeklyStudiedMinutes,
+                                            currentDayStudiedMinutes: _dailyStudiedMinutes,
                                           ),
                                           child: Padding(
-                                            padding: const EdgeInsets.all(16),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 9,
+                                            ),
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
@@ -1108,7 +1438,7 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                                     Text(
                                                       'META SEMANAL',
                                                       style: GoogleFonts.manrope(
-                                                        fontSize: 10,
+                                                        fontSize: 9.5,
                                                         fontWeight: FontWeight.w800,
                                                         letterSpacing: 0.8,
                                                         color: isDark
@@ -1126,22 +1456,24 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                                       ),
                                                       child: Icon(
                                                         Icons.edit_rounded,
-                                                        size: 12,
+                                                        size: 11,
                                                         color: AsterTheme.primary(context),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 6),
+                                                const SizedBox(height: 4),
                                                 Row(
                                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                   children: [
                                                     Flexible(
                                                       child: Text(
-                                                        '${SupabaseService.formatGoalDuration(_weeklyStudiedMinutes)} / ${SupabaseService.formatGoalDuration(goalMinutes)}',
+                                                        hasWeeklyGoal
+                                                            ? '${SupabaseService.formatGoalDuration(_weeklyStudiedMinutes)} / ${SupabaseService.formatGoalDuration(goalMinutes)}'
+                                                            : '${SupabaseService.formatGoalDuration(_weeklyStudiedMinutes)} na sem.',
                                                         overflow: TextOverflow.ellipsis,
                                                         style: GoogleFonts.manrope(
-                                                          fontSize: 14,
+                                                          fontSize: 13.5,
                                                           fontWeight: FontWeight.w800,
                                                           color: isDark
                                                               ? AsterConstants.textLight
@@ -1151,28 +1483,35 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                                     ),
                                                     const SizedBox(width: 6),
                                                     Text(
-                                                      '$pct%',
+                                                      hasWeeklyGoal ? '$pct%' : 'Sem meta',
                                                       style: GoogleFonts.manrope(
-                                                        fontSize: 12,
+                                                        fontSize: hasWeeklyGoal ? 12 : 10.5,
                                                         fontWeight: FontWeight.w700,
-                                                        color: goalReached
-                                                            ? AsterTheme.secondary(context)
-                                                            : AsterTheme.primary(context),
+                                                        color: !hasWeeklyGoal
+                                                            ? (isDark
+                                                                ? AsterConstants.textMutedDark
+                                                                : AsterConstants.textMuted)
+                                                            : (goalReached
+                                                                ? AsterTheme.secondary(context)
+                                                                : AsterTheme.primary(context)),
                                                       ),
                                                     ),
                                                   ],
                                                 ),
-                                                const SizedBox(height: 8),
-                                                LinearProgressIndicator(
-                                                  value: progress,
-                                                  minHeight: 6,
-                                                  borderRadius: BorderRadius.circular(
-                                                      AsterConstants.radiusPill),
-                                                  backgroundColor: AsterTheme.surfaceInset(context),
-                                                  valueColor: AlwaysStoppedAnimation(
-                                                    AsterTheme.secondary(context),
+                                                if (hasWeeklyGoal) ...[
+                                                  const SizedBox(height: 6),
+                                                  LinearProgressIndicator(
+                                                    value: progress,
+                                                    minHeight: 5,
+                                                    borderRadius: BorderRadius.circular(
+                                                        AsterConstants.radiusPill),
+                                                    backgroundColor:
+                                                        AsterTheme.surfaceInset(context),
+                                                    valueColor: AlwaysStoppedAnimation(
+                                                      AsterTheme.secondary(context),
+                                                    ),
                                                   ),
-                                                ),
+                                                ],
                                               ],
                                             ),
                                           ),
@@ -1182,75 +1521,215 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                                   );
                                 },
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 10),
 
-                              // Perfil do Usuário
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: AsterTheme.primary(context).withValues(alpha: 0.15),
-                                      backgroundImage: _userProfile?['avatar_url'] != null
-                                          ? ResizeImage(
-                                              NetworkImage(_userProfile!['avatar_url']),
-                                              width: 72,
-                                              height: 72,
-                                            )
-                                          : null,
-                                      child: _userProfile?['avatar_url'] == null
-                                          ? Text(
-                                              initials,
-                                              style: GoogleFonts.manrope(
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 12,
-                                                color: AsterTheme.primary(context),
-                                              ),
-                                            )
-                                          : null,
+                              // Botão oficial da comunidade Discord do Aster (acima do perfil do usuário)
+                              Tooltip(
+                                message: 'Entrar na comunidade Discord do Aster (${AsterConstants.asterDiscordInviteCode})',
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF5865F2),
+                                        Color(0xFF4752C4),
+                                      ],
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            userName,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.24),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF5865F2).withValues(alpha: isDark ? 0.28 : 0.26),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                    child: InkWell(
+                                      key: const Key('sidebar_discord_button'),
+                                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                      hoverColor: Colors.white.withValues(alpha: 0.08),
+                                      splashColor: Colors.white.withValues(alpha: 0.14),
+                                      onTap: () async {
+                                        final uri = Uri.parse(AsterConstants.asterDiscordUrl);
+                                        try {
+                                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                        } catch (_) {}
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 28,
+                                              height: 28,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(9),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.12),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Center(
+                                                child: DiscordLogoWidget(size: 16),
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            _isGuestMode
-                                                ? 'Modo de Teste · ${_currentStreakDays}d'
-                                                : 'Pro · Streak ${_currentStreakDays}d',
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 11,
-                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                            const SizedBox(width: 9),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'Entrar no Discord',
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w800,
+                                                      height: 1.15,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 1),
+                                                  Text(
+                                                    'Comunidade Aster',
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: GoogleFonts.manrope(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      height: 1.15,
+                                                      color: Colors.white.withValues(alpha: 0.80),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              width: 22,
+                                              height: 22,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.18),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  size: 13,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: Icon(Icons.logout_rounded, size: 18, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                                      tooltip: _isGuestMode ? 'Voltar para o Login' : 'Sair',
-                                      onPressed: () {
-                                        if (_isGuestMode) {
-                                          setState(() {
-                                            _isGuestMode = false;
-                                          });
-                                        } else {
-                                          SupabaseService.signOut();
-                                        }
-                                      },
-                                    ),
-                                  ],
+                                  ),
                                 ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Perfil do Usuário (clicável -> abre Configurações do Perfil estilo StudioOS)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Tooltip(
+                                      message: 'Configurações do Perfil',
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          key: const Key('sidebar_profile_button'),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                          onTap: _openProfileSettings,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                            child: Row(
+                                              children: [
+                                                VipAvatarCircle(
+                                                  isVip: isVip,
+                                                  badgeSize: VipBadgeSize.xs,
+                                                  borderWidth: 2,
+                                                  child: CircleAvatar(
+                                                    radius: 18,
+                                                    backgroundColor: AsterTheme.primary(context).withValues(alpha: 0.15),
+                                                    backgroundImage: avatarImage,
+                                                    onBackgroundImageError: avatarImage != null ? (_, _) {} : null,
+                                                    child: avatarImage == null
+                                                        ? Text(
+                                                            initials,
+                                                            style: GoogleFonts.manrope(
+                                                              fontWeight: FontWeight.w800,
+                                                              fontSize: 12,
+                                                              color: AsterTheme.primary(context),
+                                                            ),
+                                                          )
+                                                        : null,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        userName,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: GoogleFonts.manrope(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        rawChannel.isNotEmpty
+                                                            ? '@$rawChannel · ${isVip ? 'VIP · ' : ''}${_currentStreakDays}d'
+                                                            : '${isVip ? 'VIP' : 'Pro'} · Streak ${_currentStreakDays}d',
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: GoogleFonts.manrope(
+                                                          fontSize: 11,
+                                                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.tune_rounded,
+                                                  size: 15,
+                                                  color: isDark
+                                                      ? AsterConstants.textMutedDark.withValues(alpha: 0.8)
+                                                      : AsterConstants.textMuted.withValues(alpha: 0.8),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.logout_rounded,
+                                      size: 18,
+                                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                    ),
+                                    tooltip: 'Sair',
+                                    onPressed: () {
+                                      SupabaseService.signOut();
+                                    },
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1287,13 +1766,22 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           _buildMobileNavItem(0, Icons.home_rounded, 'Dashboard'),
+                          _buildMobileNavItem(13, Icons.analytics_rounded, 'Desempenho'),
+                          _buildMobileNavDivider(context),
                           _buildMobileNavItem(1, Icons.assignment_rounded, 'Simulados'),
                           _buildMobileNavItem(2, Icons.style_rounded, 'Flashcards'),
                           _buildMobileNavItem(3, Icons.menu_book_rounded, 'Cadernos'),
-                          _buildMobileNavItem(7, Icons.auto_stories_rounded, 'Diário'),
                           _buildMobileNavItem(8, Icons.route_rounded, 'Trilhas'),
-                          _buildMobileNavItem(4, Icons.smart_toy_rounded, 'Noesis AI'),
+                          _buildMobileNavDivider(context),
+                          _buildMobileNavItem(7, Icons.auto_stories_rounded, 'Diário'),
                           _buildMobileNavItem(5, Icons.calendar_today_rounded, 'Calendário'),
+                          _buildMobileNavItem(4, Icons.smart_toy_rounded, 'Noesis AI'),
+                          _buildMobileNavDivider(context),
+                          _buildMobileNavItem(10, Icons.groups_rounded, 'Grupos'),
+                          _buildMobileNavItem(11, Icons.emoji_events_rounded, 'Ranking'),
+                          _buildMobileNavDivider(context),
+                          _buildMobileNavItem(12, Icons.person_rounded, 'Perfil'),
+                          _buildMobileNavItem(9, Icons.storefront_rounded, 'Loja'),
                           _buildMobileNavItem(6, Icons.settings_rounded, 'Config'),
                         ],
                       ),
@@ -1340,6 +1828,43 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildNavSectionHeader(String title) {
+    final muted = AsterTheme.textMuted(context);
+    final lineCol = AsterTheme.surfaceInset(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 5, 8, 2),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.manrope(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+              color: muted.withValues(alpha: 0.78),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: lineCol.withValues(alpha: 0.75),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileNavDivider(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 22,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: AsterTheme.surfaceInset(context),
+    );
+  }
+
   Widget _buildNavItem({
     required int index,
     required String title,
@@ -1366,21 +1891,25 @@ class _RootScreenState extends State<RootScreen> with SingleTickerProviderStateM
               },
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3.2),
                 child: Row(
                   children: [
                     Icon(
                       icon,
-                      size: 20,
+                      size: 18,
                       color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      title,
-                      style: GoogleFonts.manrope(
-                        fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        color: isSelected ? cs.onPrimary : cs.onSurface,
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? cs.onPrimary : cs.onSurface,
+                        ),
                       ),
                     ),
                   ],

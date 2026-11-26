@@ -46,6 +46,7 @@ class DashboardConsistencyStats {
     required this.levels,
     required this.minutesGrid,
     required this.datesGrid,
+    this.protectedGrid = const [],
     required this.currentStreakDays,
     required this.bestDayMinutes,
     required this.bestDayDate,
@@ -56,6 +57,7 @@ class DashboardConsistencyStats {
   final List<List<int>> levels;
   final List<List<int>> minutesGrid;
   final List<List<DateTime>> datesGrid;
+  final List<List<bool>> protectedGrid;
   final int currentStreakDays;
   final int bestDayMinutes;
   final DateTime? bestDayDate;
@@ -368,12 +370,14 @@ class DashboardAnalytics {
   static DashboardConsistencyStats computeConsistencyStats(
     List<Map<String, dynamic>> sessions, {
     List<SavedExamAttempt> exams = const [],
+    Set<DateTime> protectedDates = const {},
     int columns = 26,
     int rows = 7,
     DateTime? referenceDate,
   }) {
     final today = _dayOnly(referenceDate ?? DateTime.now());
     final byDay = _groupMinutesByDay(sessions, exams: exams);
+    final normalizedProtected = protectedDates.map(_dayOnly).toSet();
 
     // Alinha colunas em semanas calendário (Seg..Dom), terminando na semana atual.
     final currentWeekMonday = today.subtract(Duration(days: today.weekday - 1));
@@ -381,6 +385,7 @@ class DashboardAnalytics {
 
     final levels = List.generate(columns, (_) => List.filled(rows, 0));
     final minutesGrid = List.generate(columns, (_) => List.filled(rows, 0));
+    final protectedGrid = List.generate(columns, (_) => List.filled(rows, false));
     final datesGrid = List.generate(
       columns,
       (col) => List.generate(
@@ -398,27 +403,33 @@ class DashboardAnalytics {
         if (date.isAfter(today)) {
           levels[col][row] = 0;
           minutesGrid[col][row] = 0;
+          protectedGrid[col][row] = false;
           continue;
         }
         trackedDays++;
         final mins = byDay[date] ?? 0;
         minutesGrid[col][row] = mins;
         levels[col][row] = levelForMinutes(mins);
+        protectedGrid[col][row] = mins <= 0 && normalizedProtected.contains(date);
         if (mins > 0) activeDays++;
       }
     }
 
-    // Streak real considerando sessões + simulados registrados
+    // Streak real considerando sessões + simulados registrados + dias protegidos pelo Selo de Consistência
     int streak = 0;
     final yesterday = today.subtract(const Duration(days: 1));
     DateTime? cursor;
-    if ((byDay[today] ?? 0) > 0) {
+    if ((byDay[today] ?? 0) > 0 || normalizedProtected.contains(today)) {
       cursor = today;
-    } else if ((byDay[yesterday] ?? 0) > 0) {
+    } else if ((byDay[yesterday] ?? 0) > 0 || normalizedProtected.contains(yesterday)) {
       cursor = yesterday;
     }
-    while (cursor != null && (byDay[cursor] ?? 0) > 0) {
-      streak++;
+    while (cursor != null) {
+      if ((byDay[cursor] ?? 0) > 0) {
+        streak++;
+      } else if (!normalizedProtected.contains(cursor)) {
+        break;
+      }
       cursor = cursor.subtract(const Duration(days: 1));
     }
 
@@ -435,6 +446,7 @@ class DashboardAnalytics {
       levels: levels,
       minutesGrid: minutesGrid,
       datesGrid: datesGrid,
+      protectedGrid: protectedGrid,
       currentStreakDays: streak,
       bestDayMinutes: bestMinutes,
       bestDayDate: bestDate,
@@ -625,6 +637,21 @@ class DashboardAnalytics {
             'Bloco de preparação antes do evento "$title".',
         recommendedDurationMinutes: 30,
         targetTab: 5,
+        accuracySpots: spots,
+        latestAccuracyPct: avgExamPct,
+      );
+    }
+
+    if (weeklyGoalMinutes <= 0) {
+      return DashboardInsight(
+        badgeLabel: 'Consistência',
+        message:
+            'Você estudou ${formatReadableDuration(currentWeekMinutes)} nesta semana '
+            'em ritmo livre (${consistency.currentStreakDays}d de streak).',
+        recommendedReviewTitle: 'Sessão de Revisão · Noesis',
+        recommendedReviewDescription: 'Bloco prático no seu próprio ritmo.',
+        recommendedDurationMinutes: 30,
+        targetTab: 1,
         accuracySpots: spots,
         latestAccuracyPct: avgExamPct,
       );

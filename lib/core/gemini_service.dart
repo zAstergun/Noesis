@@ -1017,6 +1017,157 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA (seja direto, use bullets e negrito):
     return buffer.toString();
   }
 
+  /// Gera uma revisão analítica longitudinal da IA sobre toda a utilização da conta
+  /// no período filtrado (tempo, evolução em simulados, retenção em flashcards, trilhas e hábitos).
+  static Future<({String headline, String markdown, bool generatedWithLlm})>
+      generateAccountPerformanceReview({
+    required String periodLabel,
+    required int totalMinutes,
+    required int previousPeriodMinutes,
+    required int? minutesDeltaPct,
+    required int sessionsCount,
+    required int activeDaysCount,
+    required int streakDays,
+    required int examsCount,
+    required int totalQuestions,
+    required double? averageExamScore,
+    required double? previousExamScore,
+    required List<String> topSubjectsSummary,
+    required int cardsReviewedInPeriod,
+    required int retentionRatePct,
+    required int cardsDueCount,
+    required int notesUpdatedInPeriod,
+    required int notesNeedingReview,
+    required int roadmapProgressPct,
+    required int insightsEarnedInPeriod,
+    required String currentEloName,
+  }) async {
+    final hoursStr = (totalMinutes / 60.0).toStringAsFixed(1);
+    final prevHoursStr = (previousPeriodMinutes / 60.0).toStringAsFixed(1);
+    final avgScoreStr = averageExamScore != null ? '${averageExamScore.round()}%' : 'sem simulados';
+    final prevScoreStr = previousExamScore != null ? '${previousExamScore.round()}%' : 'sem base anterior';
+
+    final key = apiKey?.trim() ?? '';
+    if (provider == 'custom' || key.isNotEmpty) {
+      final prompt = '''
+Você é o mentor analítico do Noesis. Gere um review longitudinal claro e acionável em Markdown (em Português) avaliando o desempenho real deste estudante no período "$periodLabel":
+
+MÉTRICAS CONSOLIDADAS DA CONTA:
+- Período analisado: $periodLabel
+- Tempo total estudado: ${totalMinutes}m (${hoursStr}h) em $sessionsCount sessões · $activeDaysCount dias ativos · streak atual: ${streakDays}d
+- Comparativo vs período anterior: ${prevHoursStr}h (${minutesDeltaPct != null ? '${minutesDeltaPct >= 0 ? '+' : ''}$minutesDeltaPct%' : 'sem comparativo'})
+- Simulados no período: $examsCount provas · $totalQuestions questões · acurácia média: $avgScoreStr (anterior: $prevScoreStr)
+- Matérias destacadas: ${topSubjectsSummary.isEmpty ? 'nenhuma registrada ainda' : topSubjectsSummary.join('; ')}
+- Flashcards: $cardsReviewedInPeriod revisados no período · retenção estimada $retentionRatePct% · $cardsDueCount cartões pendentes
+- Cadernos: $notesUpdatedInPeriod notas atualizadas no período · $notesNeedingReview marcadas para revisão
+- Trilhas de estudo: $roadmapProgressPct% concluído
+- Economia & Liga: +$insightsEarnedInPeriod Insights conquistados · Elo atual: $currentEloName
+
+Estruture exatamente em 4 seções curtas com `###`:
+### 1. Diagnóstico do Período
+### 2. Evolução ao Longo do Tempo
+### 3. Pontos de Atenção & Lacunas
+### 4. Plano Prático para os Próximos Dias
+Seja direto, cite os números reais e dê ações concretas.
+''';
+      try {
+        final raw = await _executeRawPrompt(
+          prompt: prompt,
+          systemInstruction:
+              'Você é um analista pedagógico de alto desempenho do Noesis. Responda apenas em Markdown conciso e baseado nos dados fornecidos.',
+          timeoutSeconds: 45,
+        );
+        if (raw.trim().isNotEmpty) {
+          final headline = averageExamScore != null
+              ? '${hoursStr}h estudadas · Média $avgScoreStr em $periodLabel'
+              : '${hoursStr}h estudadas em $sessionsCount sessões ($periodLabel)';
+          return (headline: headline, markdown: raw.trim(), generatedWithLlm: true);
+        }
+      } catch (_) {}
+    }
+
+    // Fallback autônomo determinístico rico com os dados reais da conta
+    final buffer = StringBuffer();
+    buffer.writeln('### 1. Diagnóstico do Período ($periodLabel)');
+    if (totalMinutes > 0) {
+      final deltaText = minutesDeltaPct == null
+          ? 'primeiro recorte registrado'
+          : (minutesDeltaPct >= 0
+              ? 'avanço de **+$minutesDeltaPct%** vs período anterior (${prevHoursStr}h)'
+              : 'queda de **$minutesDeltaPct%** vs período anterior (${prevHoursStr}h)');
+      buffer.writeln(
+        '- **Carga horária:** **${hoursStr}h** ($totalMinutes min) distribuídas em **$sessionsCount sessões** e **$activeDaysCount dias ativos** ($deltaText).',
+      );
+    } else {
+      buffer.writeln('- Nenhuma sessão cronometrada ou registrada neste período ainda.');
+    }
+    if (examsCount > 0 && averageExamScore != null) {
+      buffer.writeln(
+        '- **Simulados:** **$examsCount simulado(s)** ($totalQuestions questões) com média de **${averageExamScore.round()}%**.',
+      );
+    }
+    buffer.writeln('- **Ritmo atual:** sequência de **${streakDays}d** e Elo **$currentEloName** (+$insightsEarnedInPeriod Insights no período).');
+    buffer.writeln('');
+
+    buffer.writeln('### 2. Evolução ao Longo do Tempo');
+    if (averageExamScore != null && previousExamScore != null) {
+      final diffPts = (averageExamScore - previousExamScore).round();
+      if (diffPts > 0) {
+        buffer.writeln('- Sua precisão em simulados subiu **+$diffPts p.p.** em comparação ao ciclo anterior (**${previousExamScore.round()}% → ${averageExamScore.round()}%**).');
+      } else if (diffPts < 0) {
+        buffer.writeln('- A média em simulados recuou **${diffPts.abs()} p.p.** (**${previousExamScore.round()}% → ${averageExamScore.round()}%**); revise os erros recentes antes da próxima bateria.');
+      } else {
+        buffer.writeln('- Acurácia estável em **${averageExamScore.round()}%** frente ao período anterior.');
+      }
+    } else if (topSubjectsSummary.isNotEmpty) {
+      buffer.writeln('- Concentração principal de esforço: **${topSubjectsSummary.take(3).join(' · ')}**.');
+    } else {
+      buffer.writeln('- Continue registrando sessões e simulados para formar sua série histórica de evolução.');
+    }
+    if (cardsReviewedInPeriod > 0 || roadmapProgressPct > 0) {
+      buffer.writeln('- **Retenção ativa:** **$cardsReviewedInPeriod flashcards** revisados (retenção de **$retentionRatePct%**) e **$roadmapProgressPct%** das trilhas concluídos.');
+    }
+    buffer.writeln('');
+
+    buffer.writeln('### 3. Pontos de Atenção & Lacunas');
+    if (cardsDueCount > 0) {
+      buffer.writeln('- Existem **$cardsDueCount flashcards pendentes/difíceis** aguardando revisão espaçada.');
+    }
+    if (notesNeedingReview > 0) {
+      buffer.writeln('- Você marcou **$notesNeedingReview anotações** em Cadernos para revisão.');
+    }
+    if (minutesDeltaPct != null && minutesDeltaPct < -10) {
+      buffer.writeln('- O volume de horas caiu frente ao ciclo anterior; blocos menores de 25–45 min ajudam a retomar a constância.');
+    }
+    if (cardsDueCount == 0 && notesNeedingReview == 0 && examsCount == 0) {
+      buffer.writeln('- Inclua pelo menos 1 simulado diagnóstico para medir acurácia objetiva além do tempo de estudo.');
+    }
+    buffer.writeln('');
+
+    buffer.writeln('### 4. Plano Prático para os Próximos Dias');
+    if (cardsDueCount > 0) {
+      buffer.writeln('- **Prioridade 1:** Zerar ao menos **${cardsDueCount.clamp(5, 25)} flashcards** pendentes hoje.');
+    }
+    if (examsCount == 0 || (averageExamScore != null && averageExamScore < 75)) {
+      buffer.writeln('- **Prioridade 2:** Fazer um simulado de **15 a 30 questões** focado na disciplina de menor nota e ler o review questão a questão.');
+    } else if (averageExamScore != null) {
+      buffer.writeln('- **Prioridade 2:** Manter sua média acima de **${averageExamScore.round()}%** avançando uma etapa nas Trilhas ($roadmapProgressPct% concluídos).');
+    }
+    if (notesNeedingReview > 0) {
+      buffer.writeln('- **Prioridade 3:** Revisar **1 a 2 notas** sinalizadas nos Cadernos para fixar os conceitos-chave.');
+    }
+
+    final headline = examsCount > 0 && averageExamScore != null
+        ? '${hoursStr}h estudadas · Média ${averageExamScore.round()}% ($periodLabel)'
+        : '${hoursStr}h em $sessionsCount sessões ($periodLabel)';
+
+    return (
+      headline: headline,
+      markdown: buffer.toString(),
+      generatedWithLlm: false,
+    );
+  }
+
   static Future<List<Map<String, dynamic>>> _generateQuizBatch({
     required String cleanModel,
     required String key,

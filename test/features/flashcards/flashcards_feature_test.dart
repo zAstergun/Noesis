@@ -61,10 +61,9 @@ void main() {
       expect(roundtripDeck.cards.first.front, equals(card1.front));
     });
 
-    test('2. SupabaseService loads pre-seeded decks and supports deck persistence', () async {
-      final decks = await SupabaseService.getFlashcardDecks();
-      expect(decks, isNotEmpty);
-      expect(decks.any((d) => d.subject == 'Criptografia'), isTrue);
+    test('2. SupabaseService starts without fake seeded decks and supports deck persistence', () async {
+      final initialDecks = await SupabaseService.getFlashcardDecks();
+      expect(initialDecks, isA<List<FlashcardDeck>>());
 
       // Create and save custom deck
       final newDeck = FlashcardDeck(
@@ -119,6 +118,30 @@ void main() {
 
     testWidgets('4. FlashcardsScreen renders decks, metrics, and executes study flip session',
         (WidgetTester tester) async {
+      final seededTestDeck = FlashcardDeck(
+        id: 'test-ui-deck-1',
+        title: 'Criptografia & Segurança',
+        subject: 'Criptografia',
+        description: 'Baralho de revisão para teste de UI.',
+        cards: [
+          Flashcard(
+            id: 'fc-ui-1',
+            front: 'O que é AES-GCM?',
+            back: 'Modo de operação AEAD com confidencialidade e integridade.',
+            difficulty: 'unreviewed',
+          ),
+          Flashcard(
+            id: 'fc-ui-2',
+            front: 'O que é Perfect Forward Secrecy?',
+            back: 'Troca efêmera de chaves que protege sessões passadas.',
+            difficulty: 'unreviewed',
+          ),
+        ],
+        createdAt: DateTime.now(),
+      );
+      await SupabaseService.saveFlashcardDeck(seededTestDeck);
+      addTearDown(() => SupabaseService.deleteFlashcardDeck(seededTestDeck.id));
+
       await TestAppHarness.pumpInHarness(
         tester,
         const FlashcardsScreen(),
@@ -126,7 +149,7 @@ void main() {
 
       // Verify screen title and action buttons
       expect(find.text('Flashcards Cognitivos'), findsOneWidget);
-      expect(find.text('ACTIVE RECALL ENGINE'), findsOneWidget);
+      expect(find.text('ACTIVE RECALL ENGINE'), findsNothing);
       expect(find.text('Gerar com IA ✨'), findsAtLeastNWidgets(1));
       expect(find.text('Novo Baralho'), findsOneWidget);
 

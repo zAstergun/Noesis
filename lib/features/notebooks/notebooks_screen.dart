@@ -8,12 +8,17 @@ import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/vip_rgb_theme_editor.dart';
+import '../study_groups/data/study_groups_service.dart';
+import '../study_groups/models/study_group_feature_scope.dart';
 import 'models/notebook_model.dart';
 
 enum _NotebookReviewFilter { all, toReview, upToDate }
 
 class NotebooksScreen extends StatefulWidget {
-  const NotebooksScreen({super.key});
+  const NotebooksScreen({super.key, this.groupScope});
+
+  final StudyGroupFeatureScope? groupScope;
 
   @override
   State<NotebooksScreen> createState() => _NotebooksScreenState();
@@ -45,11 +50,21 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.addListener(_onGroupListChanged);
+    }
     _loadNotebooks();
+  }
+
+  void _onGroupListChanged() {
+    if (mounted) _loadNotebooks();
   }
 
   @override
   void dispose() {
+    if (widget.groupScope != null) {
+      StudyGroupsService.instance.groupsNotifier.removeListener(_onGroupListChanged);
+    }
     _searchCtrl.dispose();
     _notesSearchCtrl.dispose();
     _tagsScrollCtrl.dispose();
@@ -57,8 +72,13 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   }
 
   Future<void> _loadNotebooks() async {
-    setState(() => _isLoading = true);
-    final data = await SupabaseService.getNotebooks();
+    final scope = widget.groupScope;
+    if (scope == null) {
+      setState(() => _isLoading = true);
+    }
+    final data = scope != null
+        ? StudyGroupsService.instance.groupNotebooks(scope.groupId)
+        : await SupabaseService.getNotebooks();
     if (!mounted) return;
     setState(() {
       _notebooks = data;
@@ -255,37 +275,54 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: palette.map((colorItem) {
-                          final isSelected = selectedColor == colorItem['hex'];
-                          final colorVal = _parseColor(colorItem['hex']!);
-                          return GestureDetector(
-                            onTap: () => setModalState(() => selectedColor = colorItem['hex']!),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 10),
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: colorVal,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected ? Colors.white : Colors.transparent,
-                                  width: 2.5,
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          ...palette.map((colorItem) {
+                            final isSelected = selectedColor == colorItem['hex'];
+                            final colorVal = _parseColor(colorItem['hex']!);
+                            return GestureDetector(
+                              onTap: () => setModalState(() => selectedColor = colorItem['hex']!),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: colorVal,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected ? Colors.white : Colors.transparent,
+                                    width: 2.5,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: colorVal.withValues(alpha: 0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          )
+                                        ]
+                                      : null,
                                 ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: colorVal.withValues(alpha: 0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        )
-                                      ]
-                                    : null,
+                                child: isSelected ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
                               ),
-                              child: isSelected ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
+                            );
+                          }),
+                          VipRgbColorTrigger(
+                            currentColor: _parseColor(selectedColor),
+                            isCustomSelected: !palette.any(
+                              (c) => (c['hex'] ?? '').toUpperCase() == selectedColor.toUpperCase(),
                             ),
-                          );
-                        }).toList(),
+                            onColorSelected: (picked) {
+                              setModalState(() {
+                                selectedColor = VipRgbSpectrumPicker.colorToHex(
+                                  picked,
+                                  includeHash: false,
+                                );
+                              });
+                            },
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
 
@@ -333,7 +370,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       createdAt: notebook?.createdAt ?? DateTime.now(),
                                     );
 
-                                    await SupabaseService.saveNotebook(newNb);
+                                    final scope = widget.groupScope;
+                                    if (scope != null) {
+                                      await StudyGroupsService.instance.saveGroupNotebook(scope.groupId, newNb);
+                                    } else {
+                                      await SupabaseService.saveNotebook(newNb);
+                                    }
 
                                     if (dialogCtx.mounted) {
                                       Navigator.pop(dialogCtx);
@@ -379,7 +421,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await SupabaseService.deleteNotebook(notebook.id);
+                final scope = widget.groupScope;
+                if (scope != null) {
+                  await StudyGroupsService.instance.deleteGroupNotebook(scope.groupId, notebook.id);
+                } else {
+                  await SupabaseService.deleteNotebook(notebook.id);
+                }
                 if (mounted) {
                   if (_selectedNotebook?.id == notebook.id) {
                     setState(() {
@@ -822,16 +869,20 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         children: [
                                           Row(
                                             children: [
-                                              ChoiceChip(
-                                                label: const Text('Imagem 🖼️'),
+                                              SoftClayChoiceChip(
+                                                label: 'Imagem 🖼️',
+                                                icon: Icons.image_rounded,
                                                 selected: isImageToggle,
-                                                onSelected: (val) => setModalState(() => isImageToggle = true),
+                                                compact: true,
+                                                onTap: () => setModalState(() => isImageToggle = true),
                                               ),
-                                              const SizedBox(width: 6),
-                                              ChoiceChip(
-                                                label: const Text('Link Web 🔗'),
+                                              const SizedBox(width: 8),
+                                              SoftClayChoiceChip(
+                                                label: 'Link Web 🔗',
+                                                icon: Icons.link_rounded,
                                                 selected: !isImageToggle,
-                                                onSelected: (val) => setModalState(() => isImageToggle = false),
+                                                compact: true,
+                                                onTap: () => setModalState(() => isImageToggle = false),
                                               ),
                                             ],
                                           ),
@@ -1096,7 +1147,16 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       createdAt: note?.createdAt ?? DateTime.now(),
                                     );
 
-                                    await SupabaseService.saveNote(notebook.id, updatedNote);
+                                    final scope = widget.groupScope;
+                                    if (scope != null) {
+                                      await StudyGroupsService.instance.saveGroupNote(
+                                        scope.groupId,
+                                        notebook.id,
+                                        updatedNote,
+                                      );
+                                    } else {
+                                      await SupabaseService.saveNote(notebook.id, updatedNote);
+                                    }
 
                                     if (dialogCtx.mounted) {
                                       Navigator.pop(dialogCtx);
@@ -1149,7 +1209,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await SupabaseService.deleteNote(notebook.id, note.id);
+                final scope = widget.groupScope;
+                if (scope != null) {
+                  await StudyGroupsService.instance.deleteGroupNote(scope.groupId, notebook.id, note.id);
+                } else {
+                  await SupabaseService.deleteNote(notebook.id, note.id);
+                }
                 if (mounted) {
                   setState(() {
                     if (_selectedNote?.id == note.id) {
@@ -1262,7 +1327,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const NoesisCollapsedMenuSpacer(width: 82),
+                if (widget.groupScope == null) const NoesisCollapsedMenuSpacer(width: 82),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1270,7 +1335,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       Row(
                         children: [
                           Text(
-                            'Cadernos de Estudo 📚',
+                            widget.groupScope != null ? 'Cadernos do Grupo 📚' : 'Cadernos de Estudo 📚',
                             style: GoogleFonts.manrope(
                               fontSize: 26,
                               fontWeight: FontWeight.w800,
@@ -1298,7 +1363,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.',
+                        widget.groupScope != null
+                            ? 'Crie cadernos, formate anotações com IA ✨ ou anexe seus próprios cadernos ao grupo.'
+                            : 'Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.',
                         style: GoogleFonts.manrope(
                           fontSize: 14,
                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1307,17 +1374,36 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Novo Caderno'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AsterTheme.primary(context),
-                    foregroundColor: AsterTheme.onPrimary(context),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                if (widget.groupScope == null || widget.groupScope!.canEdit)
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      if (widget.groupScope?.onAttachExisting != null)
+                        OutlinedButton.icon(
+                          key: const Key('group_attach_notebook_button'),
+                          onPressed: widget.groupScope!.onAttachExisting,
+                          icon: const Icon(Icons.attach_file_rounded, size: 18),
+                          label: const Text('Anexar Meu Caderno'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                          ),
+                        ),
+                      ElevatedButton.icon(
+                        key: widget.groupScope != null ? const Key('group_create_notebook_button') : null,
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: const Text('Novo Caderno'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AsterTheme.primary(context),
+                          foregroundColor: AsterTheme.onPrimary(context),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
+                        ),
+                        onPressed: () => _openNotebookModal(),
+                      ),
+                    ],
                   ),
-                  onPressed: () => _openNotebookModal(),
-                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -1920,7 +2006,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
       needsReview: !note.needsReview,
       updatedAt: note.updatedAt,
     );
-    await SupabaseService.saveNote(notebook.id, updated);
+    final scope = widget.groupScope;
+    if (scope != null) {
+      await StudyGroupsService.instance.saveGroupNote(notebook.id.isNotEmpty ? scope.groupId : scope.groupId, notebook.id, updated);
+    } else {
+      await SupabaseService.saveNote(notebook.id, updated);
+    }
     await _loadNotebooks();
     if (!mounted) return;
     setState(() {
@@ -1951,7 +2042,20 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
       reviewCount: note.reviewCount + 1,
       updatedAt: note.updatedAt,
     );
-    await SupabaseService.saveNote(notebook.id, updated);
+    final scope = widget.groupScope;
+    int groupEarned = 0;
+    if (scope != null) {
+      await StudyGroupsService.instance.saveGroupNote(scope.groupId, notebook.id, updated);
+      final res = await StudyGroupsService.instance.recordGroupNotebookReviewById(
+        scope.groupId,
+        notebook.id,
+        note.id,
+        notebook.title,
+      );
+      groupEarned = res.earnedInsights;
+    } else {
+      await SupabaseService.saveNote(notebook.id, updated);
+    }
     await _loadNotebooks();
     if (!mounted) return;
     setState(() {
@@ -1965,7 +2069,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
         SnackBar(
           duration: const Duration(seconds: 3),
           backgroundColor: AsterConstants.menta,
-          content: Text('Revisão de "${note.title}" concluída! ✓'),
+          content: Text(
+            groupEarned > 0
+                ? 'Revisão de "${note.title}" concluída! +$groupEarned Insights no grupo ✓'
+                : 'Revisão de "${note.title}" concluída! ✓',
+          ),
         ),
       );
   }
@@ -3283,12 +3391,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     ? null
                     : () => _toggleNoteReviewMark(_selectedNotebook!, note),
               ),
-              if (note.shouldReview() && _selectedNotebook != null) ...[
+              if ((note.shouldReview() || widget.groupScope != null) && _selectedNotebook != null) ...[
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   key: const Key('note_complete_review_button'),
                   icon: const Icon(Icons.check_circle_rounded, size: 16),
-                  label: const Text('Concluir Revisão'),
+                  label: Text(widget.groupScope != null ? 'Concluir Leitura' : 'Concluir Revisão'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AsterConstants.menta,
                     foregroundColor: Colors.white,
@@ -3296,18 +3404,22 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   onPressed: () => _completeNoteReview(_selectedNotebook!, note),
                 ),
               ],
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Editar'),
-                onPressed: () => _openNoteEditorModal(note: note),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AsterConstants.coral),
-                tooltip: 'Excluir anotação',
-                onPressed: () => _confirmDeleteNote(note),
-              ),
+              if (widget.groupScope == null || widget.groupScope!.canEdit) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Editar'),
+                  onPressed: () => _openNoteEditorModal(note: note),
+                ),
+              ],
+              if (widget.groupScope == null || widget.groupScope!.canRemove) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AsterConstants.coral),
+                  tooltip: 'Excluir anotação',
+                  onPressed: () => _confirmDeleteNote(note),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 20),

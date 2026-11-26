@@ -7,6 +7,40 @@ import '../features/notebooks/models/notebook_model.dart';
 import '../features/quizzes/data/saved_exams_store_stub.dart'
     if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
     if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
+import 'oauth_loopback_stub.dart'
+    if (dart.library.io) 'oauth_loopback_io.dart' as oauth_loopback;
+
+class ProfileActionResult {
+  final bool ok;
+  final String? message;
+  final String? error;
+  final Map<String, dynamic>? profile;
+  final bool requiresVip;
+
+  const ProfileActionResult({
+    required this.ok,
+    this.message,
+    this.error,
+    this.profile,
+    this.requiresVip = false,
+  });
+}
+
+class LinkedIdentity {
+  final String id;
+  final String identityId;
+  final String provider;
+  final String? accountLabel;
+  final UserIdentity? raw;
+
+  const LinkedIdentity({
+    required this.id,
+    required this.identityId,
+    required this.provider,
+    this.accountLabel,
+    this.raw,
+  });
+}
 
 class SupabaseService {
   static final SupabaseClient client = Supabase.instance.client;
@@ -29,6 +63,22 @@ class SupabaseService {
     );
   }
 
+  static String authRedirectUrl({Uri? baseUriOverride}) {
+    if (kIsWeb || baseUriOverride != null) {
+      final base = baseUriOverride ?? Uri.base;
+      final isDefaultPort = !base.hasPort ||
+          (base.scheme == 'http' && base.port == 80) ||
+          (base.scheme == 'https' && base.port == 443);
+      return Uri(
+        scheme: base.scheme,
+        host: base.host,
+        port: isDefaultPort ? null : base.port,
+        path: base.path.isEmpty ? '/' : base.path,
+      ).toString();
+    }
+    return 'io.supabase.noesis://login-callback/';
+  }
+
   static Future<AuthResponse> signUp({
     required String email,
     required String password,
@@ -38,15 +88,27 @@ class SupabaseService {
       email: email,
       password: password,
       data: fullName != null ? {'full_name': fullName} : null,
+      emailRedirectTo: authRedirectUrl(),
     );
     return response;
   }
 
   static Future<bool> signInWithOAuth(OAuthProvider provider) async {
+    final scopes = provider == OAuthProvider.discord ? 'identify email' : null;
+    if (oauth_loopback.isDesktopLoopbackPlatform) {
+      return await oauth_loopback.runDesktopOAuthLoopback(
+        client: client,
+        startAuthFlow: (redirectUrl) => client.auth.getOAuthSignInUrl(
+          provider: provider,
+          scopes: scopes,
+          redirectTo: redirectUrl,
+        ),
+      );
+    }
     return await client.auth.signInWithOAuth(
       provider,
-      scopes: provider == OAuthProvider.discord ? 'identify email' : null,
-      redirectTo: kIsWeb ? null : 'io.supabase.noesis://login-callback/',
+      scopes: scopes,
+      redirectTo: authRedirectUrl(),
     );
   }
 
@@ -54,29 +116,729 @@ class SupabaseService {
     await client.auth.signOut();
   }
 
+  static const String _localProfileStorageKey = 'noesis_local_profile_v1';
+  static final ValueNotifier<Map<String, dynamic>?> userProfileNotifier =
+      ValueNotifier<Map<String, dynamic>?>(null);
+  static final ValueNotifier<bool> isVipNotifier = ValueNotifier<bool>(false);
+
+  @visibleForTesting
+  static bool? isVipOverrideForTesting;
+
+  static bool get isCurrentUserVip {
+    if (isVipOverrideForTesting != null) {
+      return isVipOverrideForTesting!;
+    }
+    final prof = userProfileNotifier.value;
+    if (prof != null && prof['is_vip'] == true) {
+      return true;
+    }
+    final user = currentUser;
+    if (user == null) return false;
+    return user.userMetadata?['is_vip'] == true || user.appMetadata['is_vip'] == true;
+  }
+
+  @visibleForTesting
+  static void setVipForTesting(bool? vip) {
+    isVipOverrideForTesting = vip;
+    final current = userProfileNotifier.value;
+    if (current != null && vip != null) {
+      userProfileNotifier.value = Map<String, dynamic>.from(current)..['is_vip'] = vip;
+    }
+    isVipNotifier.value = isCurrentUserVip;
+  }
+
+  /// Gancho apenas para testes de widget validarem vinculação/desvinculação OAuth offline.
+  @visibleForTesting
+  static List<LinkedIdentity>? linkedIdentitiesOverrideForTesting;
+
+  @visibleForTesting
+  static Future<void> resetProfileForTesting() async {
+    linkedIdentitiesOverrideForTesting = null;
+    isVipOverrideForTesting = null;
+    isVipNotifier.value = false;
+    userProfileNotifier.value = null;
+    await _writeLocalProfileCache(const {});
+  }
+
   static Future<Map<String, dynamic>?> getProfile() async {
-    if (currentUser == null) return null;
+    return loadFullProfile();
+  }
+
+  static Future<Map<String, dynamic>?> _readLocalProfileCache() async {
+    try {
+      final raw = await local_store.readSavedExamsRaw(_localProfileStorageKey);
+      if (raw == null || raw.trim().isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> _writeLocalProfileCache(Map<String, dynamic> data) async {
+    try {
+      await local_store.writeSavedExamsRaw(
+        _localProfileStorageKey,
+        jsonEncode(data),
+      );
+    } catch (_) {}
+  }
+
+  static Future<Map<String, dynamic>?> loadFullProfile() async {
+    final user = currentUser;
+    final localCache = await _readLocalProfileCache();
+
+    if (user == null) {
+      if (localCache != null) {
+        userProfileNotifier.value = localCache;
+      }
+      isVipNotifier.value = isCurrentUserVip;
+      return localCache;
+    }
+
+    final meta = Map<String, dynamic>.from(user.userMetadata ?? const {});
+    final customClaims = meta['custom_claims'] is Map
+        ? Map<String, dynamic>.from(meta['custom_claims'] as Map)
+        : const <String, dynamic>{};
+
+    final merged = <String, dynamic>{
+      'id': user.id,
+      'email': user.email ?? '',
+      'email_confirmed_at': user.emailConfirmedAt,
+      'full_name': meta['full_name'] ??
+          meta['name'] ??
+          customClaims['global_name'] ??
+          meta['user_name'] ??
+          meta['preferred_username'] ??
+          user.email?.split('@').first ??
+          'Estudante',
+      'channel': meta['channel'],
+      'avatar_url': meta['avatar_url'] ?? meta['picture'],
+      'bio': meta['bio'],
+      'is_vip': meta['is_vip'] == true || user.appMetadata['is_vip'] == true,
+    };
+
     try {
       final res = await client
           .from('profiles')
           .select()
-          .eq('id', currentUser!.id)
+          .eq('id', user.id)
           .maybeSingle();
-      return res;
+      if (res != null) {
+        if ((res['full_name'] ?? '').toString().trim().isNotEmpty) {
+          merged['full_name'] = res['full_name'];
+        }
+        if ((res['channel'] ?? '').toString().trim().isNotEmpty) {
+          merged['channel'] = res['channel'];
+        }
+        if ((res['avatar_url'] ?? '').toString().trim().isNotEmpty) {
+          merged['avatar_url'] = res['avatar_url'];
+        }
+        if (res['bio'] != null) {
+          merged['bio'] = res['bio'];
+        }
+        if (res['is_vip'] is bool) {
+          merged['is_vip'] = res['is_vip'];
+        }
+        if (res['stats'] != null) {
+          merged['stats'] = res['stats'];
+        }
+      }
     } catch (e) {
       debugPrint('Error loading Aster Profile: $e');
+    }
+
+    userProfileNotifier.value = merged;
+    isVipNotifier.value = isCurrentUserVip;
+    return merged;
+  }
+
+  /// Normaliza nome de usuário (@ único) no padrão do StudioOS.
+  static String sanitizeUsername(String raw) {
+    return raw
+        .trim()
+        .replaceFirst(RegExp(r'^@+'), '')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_.-]'), '');
+  }
+
+  /// Traduz mensagens técnicas do Supabase Auth/Postgres para português (mesma lógica do StudioOS).
+  static String translateAuthError(Object error) {
+    final msg = error
+        .toString()
+        .replaceFirst(RegExp(r'^Exception:\s*'), '')
+        .replaceFirst(RegExp(r'^AuthException:\s*'), '')
+        .trim();
+    final m = msg.toLowerCase();
+    if (m.contains('invalid login credentials')) {
+      return 'E-mail ou senha incorretos.';
+    }
+    if (m.contains('email not confirmed')) {
+      return 'Confirme seu e-mail antes de entrar. Verifique a caixa de entrada.';
+    }
+    if (m.contains('user already registered') || m.contains('already been registered')) {
+      return 'Já existe uma conta com esse e-mail.';
+    }
+    if (m.contains('password should be at least')) {
+      return 'A senha precisa ter pelo menos 6 caracteres.';
+    }
+    if (m.contains('new password should be different')) {
+      return 'A nova senha deve ser diferente da senha atual.';
+    }
+    if (m.contains('rate limit') || m.contains('too many')) {
+      return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
+    }
+    if (m.contains('unable to validate email') || m.contains('invalid email')) {
+      return 'E-mail inválido.';
+    }
+    if (m.contains('network') || m.contains('fetch') || m.contains('socketexception')) {
+      return 'Falha de conexão. Verifique sua internet.';
+    }
+    if (m.contains('provider is not enabled')) {
+      return 'Esse provedor de login não está habilitado no Supabase (Authentication → Providers).';
+    }
+    if (m.contains('manual linking is disabled')) {
+      return 'A vinculação e desvinculação manual de contas está desativada no servidor.';
+    }
+    if (m.contains('only one identity') ||
+        m.contains('cannot unlink') ||
+        m.contains('at least 2') ||
+        m.contains('last identity')) {
+      return 'Você precisa manter ao menos um método de login ativo para não perder o acesso à sua conta.';
+    }
+    if (m.contains('identity not found')) {
+      return 'Identidade externa não encontrada ou já desvinculada.';
+    }
+    if (m.contains('already linked') || m.contains('identity is already')) {
+      return 'Essa conta externa já está vinculada a outro usuário.';
+    }
+    if (m.contains('access_denied') || m.contains('did not authorize')) {
+      return 'Autorização cancelada. Você pode tentar novamente quando quiser.';
+    }
+    if (m.contains('flow_state_already_used') || m.contains('state has already been used')) {
+      return 'Esta tentativa de login já foi usada ou expirou. Tente entrar novamente.';
+    }
+    if (m.contains('oauth')) {
+      return 'Não foi possível iniciar o login externo. Tente de novo.';
+    }
+    if (m.contains('23505') || m.contains('duplicate key') || m.contains('profiles_channel_key') || m.contains('unique')) {
+      return 'Este nome de usuário (@) já está em uso por outro usuário. Escolha outro.';
+    }
+    return msg;
+  }
+
+  /// Extrai e traduz erro retornado via query ou fragmento no callback OAuth.
+  static String? extractOAuthCallbackError(Uri uri) {
+    final params = <String, String>{...uri.queryParameters};
+    if (uri.fragment.isNotEmpty) {
+      try {
+        params.addAll(Uri.splitQueryString(uri.fragment));
+      } catch (_) {}
+    }
+    final err = params['error']?.trim() ?? '';
+    final errCode = params['error_code']?.trim() ?? '';
+    final errDesc = params['error_description']?.trim() ?? '';
+    if (err.isEmpty && errCode.isEmpty && errDesc.isEmpty) {
       return null;
+    }
+    return translateAuthError('$err $errCode $errDesc'.trim());
+  }
+
+  /// Valida os parâmetros de atualização de perfil antes de persistir (regra idêntica ao StudioOS).
+  static String? validateProfileUpdate({
+    required String newUsername,
+    required String? currentUsername,
+    required bool isEmailConfirmed,
+    required bool isAuthenticatedUser,
+  }) {
+    final cleanNew = newUsername.trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
+    final cleanCurrent = (currentUsername ?? '').trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
+
+    if (isAuthenticatedUser && cleanCurrent.isNotEmpty && cleanNew != cleanCurrent && !isEmailConfirmed) {
+      return 'Você só pode alterar seu nome de usuário (@) após verificar o seu e-mail. Verifique a caixa de entrada da sua conta para liberar a alteração.';
+    }
+    if (cleanNew.isNotEmpty && !RegExp(r'^[a-z0-9_.-]+$').hasMatch(cleanNew)) {
+      return 'O nome de usuário (@) só pode conter letras minúsculas, números, sublinhados (_), hífens (-) e pontos (.).';
+    }
+    return null;
+  }
+
+  static Future<ProfileActionResult> updateUserProfile({
+    required String fullName,
+    required String username,
+    String? bio,
+  }) async {
+    final trimmedName = fullName.trim().isEmpty ? 'Estudante' : fullName.trim();
+    final cleanHandle = username.trim().replaceFirst(RegExp(r'^@+'), '').toLowerCase();
+    final trimmedBio = bio?.trim();
+    final user = currentUser;
+    final currentMap = userProfileNotifier.value ?? await _readLocalProfileCache() ?? <String, dynamic>{};
+    final currentChannel = (currentMap['channel'] ?? user?.userMetadata?['channel'] ?? '').toString();
+
+    final validationError = validateProfileUpdate(
+      newUsername: cleanHandle,
+      currentUsername: currentChannel,
+      isEmailConfirmed: user?.emailConfirmedAt != null,
+      isAuthenticatedUser: user != null,
+    );
+    if (validationError != null) {
+      return ProfileActionResult(ok: false, error: validationError);
+    }
+
+    if (user == null) {
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..['full_name'] = trimmedName
+        ..['channel'] = cleanHandle.isEmpty ? null : cleanHandle
+        ..['bio'] = trimmedBio
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      await _writeLocalProfileCache(updated);
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Perfil atualizado com sucesso.',
+        profile: updated,
+      );
+    }
+
+    try {
+      final upsertData = <String, dynamic>{
+        'id': user.id,
+        'full_name': trimmedName,
+        'channel': cleanHandle.isEmpty ? null : cleanHandle,
+        if (currentMap['avatar_url'] != null) 'avatar_url': currentMap['avatar_url'],
+        'bio': ?trimmedBio,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Atualiza primeiro no Postgres para validar restrição UNIQUE de @username
+      try {
+        await client.from('profiles').upsert(upsertData);
+      } catch (dbErr) {
+        final msg = dbErr.toString().toLowerCase();
+        if (msg.contains('23505') || msg.contains('unique') || msg.contains('profiles_channel_key')) {
+          return const ProfileActionResult(
+            ok: false,
+            error: 'Este nome de usuário (@) já está em uso por outro usuário. Escolha outro.',
+          );
+        }
+        // Se a coluna bio ainda não existir em alguma tabela antiga, tenta sem bio
+        if (msg.contains('bio') && msg.contains('column')) {
+          upsertData.remove('bio');
+          await client.from('profiles').upsert(upsertData);
+        } else {
+          return ProfileActionResult(ok: false, error: translateAuthError(dbErr));
+        }
+      }
+
+      await client.auth.updateUser(
+        UserAttributes(
+          data: {
+            'full_name': trimmedName,
+            'channel': cleanHandle.isEmpty ? null : cleanHandle,
+            'bio': ?trimmedBio,
+          },
+        ),
+      );
+
+      final refreshed = Map<String, dynamic>.from(currentMap)
+        ..['id'] = user.id
+        ..['email'] = user.email ?? currentMap['email'] ?? ''
+        ..['email_confirmed_at'] = user.emailConfirmedAt
+        ..['full_name'] = trimmedName
+        ..['channel'] = cleanHandle.isEmpty ? null : cleanHandle
+        ..['bio'] = trimmedBio
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      userProfileNotifier.value = refreshed;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Perfil atualizado com sucesso.',
+        profile: refreshed,
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static Future<ProfileActionResult> updateUserEmail(String newEmail) async {
+    final trimmed = newEmail.trim();
+    if (trimmed.isEmpty) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'Por favor, digite um endereço de e-mail válido.',
+      );
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed)) {
+      return const ProfileActionResult(ok: false, error: 'E-mail inválido.');
+    }
+
+    final user = currentUser;
+    final currentMap = userProfileNotifier.value ?? await _readLocalProfileCache() ?? <String, dynamic>{};
+    final currentEmail = (user?.email ?? currentMap['email'] ?? '').toString().trim();
+
+    if (trimmed.toLowerCase() == currentEmail.toLowerCase()) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'O endereço digitado já é o seu e-mail cadastrado atualmente.',
+      );
+    }
+
+    if (user == null) {
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..['email'] = trimmed
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      await _writeLocalProfileCache(updated);
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'E-mail local atualizado para $trimmed.',
+        profile: updated,
+      );
+    }
+
+    try {
+      await client.auth.updateUser(
+        UserAttributes(email: trimmed),
+        emailRedirectTo: authRedirectUrl(),
+      );
+      return const ProfileActionResult(
+        ok: true,
+        message:
+            'Enviamos um link de confirmação para o novo e-mail. Verifique sua caixa de entrada para concluir a alteração.',
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static Future<ProfileActionResult> updateUserPassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    if (currentPassword.isEmpty) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'Por favor, digite sua senha atual para continuar.',
+      );
+    }
+    if (newPassword.isEmpty || newPassword != confirmPassword) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'As novas senhas digitadas não coincidem ou estão vazias.',
+      );
+    }
+    if (newPassword.length < 8) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'A nova senha deve ter no mínimo 8 caracteres para sua segurança.',
+      );
+    }
+
+    final user = currentUser;
+    if (user == null) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'A alteração de senha requer uma conta Aster autenticada.',
+      );
+    }
+
+    try {
+      await client.auth.updateUser(
+        UserAttributes(
+          password: newPassword,
+          currentPassword: currentPassword,
+        ),
+      );
+      return const ProfileActionResult(
+        ok: true,
+        message: 'Sua senha foi alterada com sucesso!',
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static String _mimeTypeForExtension(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  static bool isGifUpload({required Uint8List bytes, required String fileName}) {
+    final lowerName = fileName.trim().toLowerCase();
+    if (lowerName.endsWith('.gif')) return true;
+    if (bytes.length >= 6) {
+      final header = String.fromCharCodes(bytes.sublist(0, 6));
+      if (header == 'GIF87a' || header == 'GIF89a') return true;
+    }
+    return false;
+  }
+
+  static Future<ProfileActionResult> uploadUserAvatar({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    if (bytes.isEmpty) {
+      return const ProfileActionResult(ok: false, error: 'Arquivo de imagem vazio.');
+    }
+    if (bytes.length > 5 * 1024 * 1024) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'A imagem deve ter no máximo 5 MB.',
+      );
+    }
+
+    final isGif = isGifUpload(bytes: bytes, fileName: fileName);
+    if (isGif && !isCurrentUserVip) {
+      return const ProfileActionResult(
+        ok: false,
+        requiresVip: true,
+        error:
+            'Apenas membros VIP podem usar GIFs na foto de perfil. Torne-se VIP para desbloquear avatares animados!',
+      );
+    }
+
+    final dotIdx = fileName.lastIndexOf('.');
+    final rawExt = dotIdx >= 0 ? fileName.substring(dotIdx + 1).toLowerCase() : 'jpg';
+    final ext = const {'png', 'jpg', 'jpeg', 'webp', 'gif'}.contains(rawExt) ? rawExt : 'jpg';
+    final mime = _mimeTypeForExtension(ext);
+    final currentMap = userProfileNotifier.value ?? await _readLocalProfileCache() ?? <String, dynamic>{};
+    final user = currentUser;
+
+    if (user == null) {
+      final dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..['avatar_url'] = dataUri
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      await _writeLocalProfileCache(updated);
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Foto de perfil atualizada!',
+        profile: updated,
+      );
+    }
+
+    try {
+      final objectPath = '${user.id}-${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await client.storage.from('avatars').uploadBinary(
+            objectPath,
+            bytes,
+            fileOptions: FileOptions(upsert: true, contentType: mime),
+          );
+      final publicUrl = client.storage.from('avatars').getPublicUrl(objectPath);
+
+      await client.auth.updateUser(UserAttributes(data: {'avatar_url': publicUrl}));
+      await client.from('profiles').upsert({
+        'id': user.id,
+        'avatar_url': publicUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..['id'] = user.id
+        ..['avatar_url'] = publicUrl
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Foto de perfil atualizada!',
+        profile: updated,
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static Future<ProfileActionResult> removeUserAvatar() async {
+    final currentMap = userProfileNotifier.value ?? await _readLocalProfileCache() ?? <String, dynamic>{};
+    final user = currentUser;
+
+    if (user == null) {
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..remove('avatar_url')
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      await _writeLocalProfileCache(updated);
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Foto de perfil removida.',
+        profile: updated,
+      );
+    }
+
+    try {
+      await client.auth.updateUser(UserAttributes(data: {'avatar_url': null}));
+      await client.from('profiles').upsert({
+        'id': user.id,
+        'avatar_url': null,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      final updated = Map<String, dynamic>.from(currentMap)
+        ..remove('avatar_url')
+        ..['updated_at'] = DateTime.now().toIso8601String();
+      userProfileNotifier.value = updated;
+      return ProfileActionResult(
+        ok: true,
+        message: 'Foto de perfil removida.',
+        profile: updated,
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static String? _extractIdentityLabel(String provider, Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) return null;
+    if (provider == 'google') {
+      final label = (data['email'] ?? data['name'] ?? '').toString().trim();
+      return label.isEmpty ? null : label;
+    }
+    if (provider == 'discord') {
+      final claims = data['custom_claims'] is Map
+          ? Map<String, dynamic>.from(data['custom_claims'] as Map)
+          : const <String, dynamic>{};
+      final label = (claims['global_name'] ??
+              data['preferred_username'] ??
+              data['user_name'] ??
+              data['name'] ??
+              data['email'] ??
+              '')
+          .toString()
+          .trim();
+      return label.isEmpty ? null : label;
+    }
+    final fallback = (data['email'] ?? data['name'] ?? '').toString().trim();
+    return fallback.isEmpty ? null : fallback;
+  }
+
+  static Future<List<LinkedIdentity>> getLinkedIdentities() async {
+    if (linkedIdentitiesOverrideForTesting != null) {
+      return List<LinkedIdentity>.from(linkedIdentitiesOverrideForTesting!);
+    }
+    final user = currentUser;
+    if (user == null) return const [];
+
+    List<UserIdentity> rawList = const [];
+    try {
+      rawList = await client.auth.getUserIdentities();
+    } catch (_) {
+      rawList = user.identities ?? const [];
+    }
+
+    return rawList
+        .map(
+          (i) => LinkedIdentity(
+            id: i.id,
+            identityId: i.identityId,
+            provider: i.provider.toLowerCase(),
+            accountLabel: _extractIdentityLabel(i.provider.toLowerCase(), i.identityData),
+            raw: i,
+          ),
+        )
+        .toList();
+  }
+
+  static Future<ProfileActionResult> linkOAuthIdentity(OAuthProvider provider) async {
+    if (currentUser == null) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'Entre com uma conta Aster para vincular Google ou Discord.',
+      );
+    }
+    try {
+      final scopes = provider == OAuthProvider.discord ? 'identify email' : null;
+      final bool launched;
+      if (oauth_loopback.isDesktopLoopbackPlatform) {
+        launched = await oauth_loopback.runDesktopOAuthLoopback(
+          client: client,
+          startAuthFlow: (redirectUrl) => client.auth.getLinkIdentityUrl(
+            provider,
+            scopes: scopes,
+            redirectTo: redirectUrl,
+          ),
+        );
+      } else {
+        launched = await client.auth.linkIdentity(
+          provider,
+          scopes: scopes,
+          redirectTo: authRedirectUrl(),
+        );
+      }
+      if (!launched) {
+        return const ProfileActionResult(
+          ok: false,
+          error: 'Não foi possível abrir o navegador para concluir a vinculação.',
+        );
+      }
+      final label = provider == OAuthProvider.google ? 'Google' : 'Discord';
+      return ProfileActionResult(
+        ok: true,
+        message: 'Fluxo de vinculação com $label iniciado. Conclua no navegador e toque em atualizar.',
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
+    }
+  }
+
+  static Future<ProfileActionResult> unlinkOAuthIdentity(
+    LinkedIdentity identity, {
+    required int totalIdentities,
+  }) async {
+    if (totalIdentities <= 1) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'Você precisa manter ao menos um método de login ativo para não perder o acesso à sua conta.',
+      );
+    }
+    if (linkedIdentitiesOverrideForTesting != null) {
+      linkedIdentitiesOverrideForTesting = linkedIdentitiesOverrideForTesting!
+          .where((item) => item.identityId != identity.identityId && item.id != identity.id)
+          .toList();
+      return const ProfileActionResult(
+        ok: true,
+        message: 'Conta desvinculada com sucesso.',
+      );
+    }
+    if (currentUser == null || identity.raw == null) {
+      return const ProfileActionResult(
+        ok: false,
+        error: 'Identidade externa não encontrada.',
+      );
+    }
+    try {
+      await client.auth.unlinkIdentity(identity.raw!);
+      return const ProfileActionResult(
+        ok: true,
+        message: 'Conta desvinculada com sucesso.',
+      );
+    } catch (e) {
+      return ProfileActionResult(ok: false, error: translateAuthError(e));
     }
   }
 
   // ----------------------------------------------------
-  // WEEKLY STUDY GOAL (local cache + profiles.stats)
+  // WEEKLY & DAILY STUDY GOALS (local cache + profiles.stats)
   // ----------------------------------------------------
   static const int defaultWeeklyGoalMinutes = 25 * 60; // 25h padrão
   static const int minWeeklyGoalMinutes = 30; // 30m mínimo
   static const int maxWeeklyGoalMinutes = 168 * 60; // 168h máximo (semana inteira)
   static final ValueNotifier<int> weeklyGoalMinutesNotifier =
       ValueNotifier<int>(defaultWeeklyGoalMinutes);
+
+  static const int defaultDailyGoalMinutes = 3 * 60; // 3h padrão por dia
+  static const int minDailyGoalMinutes = 15; // 15m mínimo
+  static const int maxDailyGoalMinutes = 24 * 60; // 24h máximo
+  static final ValueNotifier<int> dailyGoalMinutesNotifier =
+      ValueNotifier<int>(defaultDailyGoalMinutes);
 
   static String formatGoalDuration(int totalMinutes) {
     if (totalMinutes <= 0) return '0h';
@@ -85,6 +847,29 @@ class SupabaseService {
     if (mins == 0) return '${hours}h';
     if (hours == 0) return '${mins}m';
     return '${hours}h ${mins}m';
+  }
+
+  static int computeTodayStudiedMinutes(
+    List<Map<String, dynamic>> sessions, {
+    DateTime? referenceDate,
+  }) {
+    final now = referenceDate ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    int total = 0;
+    for (final session in sessions) {
+      final mins = (session['duration_minutes'] as num?)?.toInt() ?? 0;
+      if (mins <= 0) continue;
+      final rawDate = (session['study_date'] ?? session['created_at'] ?? '').toString().trim();
+      if (rawDate.isEmpty) continue;
+      final parsed = DateTime.tryParse(rawDate);
+      if (parsed == null) continue;
+      final day = DateTime(parsed.year, parsed.month, parsed.day);
+      if (day == today) {
+        total += mins;
+      }
+    }
+    return total;
   }
 
   static int computeCurrentWeekStudiedMinutes(
@@ -115,6 +900,7 @@ class SupabaseService {
   static int computeCurrentStreakDays(
     List<Map<String, dynamic>> sessions, {
     DateTime? referenceDate,
+    Set<DateTime> protectedDates = const {},
   }) {
     final activeDays = <DateTime>{};
     for (final session in sessions) {
@@ -128,22 +914,30 @@ class SupabaseService {
     }
     if (activeDays.isEmpty) return 0;
 
+    final normalizedProtected = {
+      for (final d in protectedDates) DateTime(d.year, d.month, d.day),
+    };
+    final coveredDays = <DateTime>{...activeDays, ...normalizedProtected};
+
     final now = referenceDate ?? DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
 
     DateTime cursor;
-    if (activeDays.contains(today)) {
+    if (coveredDays.contains(today)) {
       cursor = today;
-    } else if (activeDays.contains(yesterday)) {
+    } else if (coveredDays.contains(yesterday)) {
       cursor = yesterday;
     } else {
       return 0;
     }
 
+    // Dias protegidos preservam a ponte da sequência sem somar dias extras não estudados.
     int streak = 0;
-    while (activeDays.contains(cursor)) {
-      streak++;
+    while (coveredDays.contains(cursor)) {
+      if (activeDays.contains(cursor)) {
+        streak++;
+      }
       cursor = cursor.subtract(const Duration(days: 1));
     }
     return streak;
@@ -157,7 +951,8 @@ class SupabaseService {
         final decoded = jsonDecode(raw);
         if (decoded is Map && decoded['weekly_goal_minutes'] is num) {
           final parsed = (decoded['weekly_goal_minutes'] as num).toInt();
-          if (parsed >= minWeeklyGoalMinutes && parsed <= maxWeeklyGoalMinutes) {
+          if (parsed == 0 ||
+              (parsed >= minWeeklyGoalMinutes && parsed <= maxWeeklyGoalMinutes)) {
             resolved = parsed;
           }
         }
@@ -170,7 +965,8 @@ class SupabaseService {
         final stats = profile?['stats'];
         if (stats is Map && stats['noesis_weekly_goal_minutes'] is num) {
           final remote = (stats['noesis_weekly_goal_minutes'] as num).toInt();
-          if (remote >= minWeeklyGoalMinutes && remote <= maxWeeklyGoalMinutes) {
+          if (remote == 0 ||
+              (remote >= minWeeklyGoalMinutes && remote <= maxWeeklyGoalMinutes)) {
             resolved = remote;
             unawaited(
               local_store.writeSavedExamsRaw(
@@ -191,7 +987,9 @@ class SupabaseService {
   }
 
   static Future<void> saveWeeklyGoalMinutes(int minutes) async {
-    final clamped = minutes.clamp(minWeeklyGoalMinutes, maxWeeklyGoalMinutes);
+    final clamped = minutes <= 0
+        ? 0
+        : minutes.clamp(minWeeklyGoalMinutes, maxWeeklyGoalMinutes);
     weeklyGoalMinutesNotifier.value = clamped;
 
     try {
@@ -224,67 +1022,98 @@ class SupabaseService {
     }
   }
 
+  static Future<int> loadDailyGoalMinutes() async {
+    int? resolved;
+    try {
+      final raw = await local_store.readSavedExamsRaw('noesis_daily_goal_v1');
+      if (raw != null && raw.trim().isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map && decoded['daily_goal_minutes'] is num) {
+          final parsed = (decoded['daily_goal_minutes'] as num).toInt();
+          if (parsed == 0 ||
+              (parsed >= minDailyGoalMinutes && parsed <= maxDailyGoalMinutes)) {
+            resolved = parsed;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (currentUser != null) {
+      try {
+        final profile = await getProfile();
+        final stats = profile?['stats'];
+        if (stats is Map && stats['noesis_daily_goal_minutes'] is num) {
+          final remote = (stats['noesis_daily_goal_minutes'] as num).toInt();
+          if (remote == 0 ||
+              (remote >= minDailyGoalMinutes && remote <= maxDailyGoalMinutes)) {
+            resolved = remote;
+            unawaited(
+              local_store.writeSavedExamsRaw(
+                'noesis_daily_goal_v1',
+                jsonEncode({'daily_goal_minutes': remote}),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Erro ao carregar meta diária do Supabase: $e');
+      }
+    }
+
+    final finalMinutes = resolved ?? defaultDailyGoalMinutes;
+    dailyGoalMinutesNotifier.value = finalMinutes;
+    return finalMinutes;
+  }
+
+  static Future<void> saveDailyGoalMinutes(int minutes) async {
+    final clamped = minutes <= 0
+        ? 0
+        : minutes.clamp(minDailyGoalMinutes, maxDailyGoalMinutes);
+    dailyGoalMinutesNotifier.value = clamped;
+
+    try {
+      await local_store.writeSavedExamsRaw(
+        'noesis_daily_goal_v1',
+        jsonEncode({
+          'daily_goal_minutes': clamped,
+          'updated_at': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
+
+    if (currentUser != null) {
+      try {
+        final profile = await getProfile();
+        final currentStats = profile?['stats'] is Map
+            ? Map<String, dynamic>.from(profile!['stats'] as Map)
+            : <String, dynamic>{};
+        currentStats['noesis_daily_goal_minutes'] = clamped;
+        await client
+            .from('profiles')
+            .update({
+              'stats': currentStats,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', currentUser!.id);
+      } catch (e) {
+        debugPrint('Erro ao salvar meta diária no Supabase: $e');
+      }
+    }
+  }
+
   // ----------------------------------------------------
   // STUDY SESSIONS (noesis_sessions)
   // ----------------------------------------------------
   static final StreamController<List<Map<String, dynamic>>> _studySessionsStreamController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
   static List<Map<String, dynamic>> _inMemoryStudySessions = [];
-  static bool _seededMockSessions = false;
-
-  static void _seedInitialStudySessions() {
-    if (_seededMockSessions) return;
-    _seededMockSessions = true;
-    final now = DateTime.now();
-    _inMemoryStudySessions = [
-      {
-        'id': 'session-mock-1',
-        'subject': 'Criptografia',
-        'topic': 'AES-GCM & Modos de Operação',
-        'duration_minutes': 90,
-        'study_date': now.subtract(const Duration(hours: 3)).toIso8601String().split('T').first,
-        'notes': 'Análise de nonce reuse e ataques de replay.',
-        'created_at': now.subtract(const Duration(hours: 3)).toIso8601String(),
-      },
-      {
-        'id': 'session-mock-2',
-        'subject': 'Cloud / AWS',
-        'topic': 'VPC Peering & IAM Security',
-        'duration_minutes': 60,
-        'study_date': now.subtract(const Duration(days: 1)).toIso8601String().split('T').first,
-        'notes': 'Políticas de least privilege e endpoints de VPC.',
-        'created_at': now.subtract(const Duration(days: 1)).toIso8601String(),
-      },
-      {
-        'id': 'session-mock-3',
-        'subject': 'Redes & OWASP',
-        'topic': 'SQL Injection & XSS Mitigations',
-        'duration_minutes': 45,
-        'study_date': now.subtract(const Duration(days: 2)).toIso8601String().split('T').first,
-        'notes': 'Laboratório prático com headers de CSP.',
-        'created_at': now.subtract(const Duration(days: 2)).toIso8601String(),
-      },
-      {
-        'id': 'session-mock-4',
-        'subject': 'Sistemas Dist.',
-        'topic': 'Raft Consensus & Eventual Consistency',
-        'duration_minutes': 75,
-        'study_date': now.subtract(const Duration(days: 3)).toIso8601String().split('T').first,
-        'notes': 'Leitura do paper do Raft e análise de split-brain.',
-        'created_at': now.subtract(const Duration(days: 3)).toIso8601String(),
-      },
-    ];
-  }
 
   static Future<void> _hydrateLocalStudySessions() async {
-    if (currentUser == null) {
-      _seedInitialStudySessions();
-    }
     try {
       final raw = await local_store.readSavedExamsRaw('noesis_study_sessions_v1');
       if (raw != null && raw.trim().isNotEmpty) {
         final decoded = jsonDecode(raw);
-        if (decoded is List && decoded.isNotEmpty) {
+        if (decoded is List) {
           _inMemoryStudySessions = decoded
               .whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
@@ -327,9 +1156,13 @@ class SupabaseService {
 
   static Stream<List<Map<String, dynamic>>> studySessionsStream() {
     if (currentUser == null) {
-      _seedInitialStudySessions();
       return Stream<List<Map<String, dynamic>>>.multi((controller) {
         controller.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+        _hydrateLocalStudySessions().then((_) {
+          if (!controller.isClosed) {
+            controller.add(List<Map<String, dynamic>>.from(_inMemoryStudySessions));
+          }
+        });
         final sub = _studySessionsStreamController.stream.listen((sessions) {
           controller.add(sessions);
         });
@@ -463,115 +1296,39 @@ class SupabaseService {
   // ----------------------------------------------------
   static final StreamController<List<Map<String, dynamic>>> _calendarStreamController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
-  static List<Map<String, dynamic>> _inMemoryCalendarEvents = [];
-  static bool _seededMockCalendar = false;
+  static final List<Map<String, dynamic>> _inMemoryCalendarEvents = [];
 
-  static void _seedInitialCalendarEvents() {
-    if (_seededMockCalendar) return;
-    _seededMockCalendar = true;
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
+  static bool _isUuid(String id) =>
+      RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+          .hasMatch(id);
 
-    DateTime at(int dayOffset, int hour, int minute) {
-      final d = monday.add(Duration(days: dayOffset));
-      return DateTime(d.year, d.month, d.day, hour, minute);
-    }
+  static List<Map<String, dynamic>> _sortedCalendarSnapshot({String? userId}) {
+    final filtered = userId == null
+        ? List<Map<String, dynamic>>.from(_inMemoryCalendarEvents)
+        : _inMemoryCalendarEvents
+            .where((e) => e['user_id'] == userId)
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+    filtered.sort(
+      (a, b) => (a['start_time'] ?? '').toString().compareTo((b['start_time'] ?? '').toString()),
+    );
+    return filtered;
+  }
 
-    _inMemoryCalendarEvents = [
-      {
-        'id': 'mock-1',
-        'title': 'Criptografia · Modos de Operação',
-        'description': 'Estudo aprofundado de AES-GCM e nonce reuse.',
-        'category': 'study',
-        'start_time': at(0, 8, 0).toIso8601String(), // Seg 08:00
-        'end_time': at(0, 9, 30).toIso8601String(), // 1.5h
-        'is_completed': true,
-      },
-      {
-        'id': 'mock-2',
-        'title': 'Lab OWASP · SQLi & XSS',
-        'description': 'Prática no ambiente de laboratório com testes de penetração.',
-        'category': 'lab',
-        'start_time': at(1, 9, 0).toIso8601String(), // Ter 09:00
-        'end_time': at(1, 11, 0).toIso8601String(), // 2h
-        'is_completed': true,
-      },
-      {
-        'id': 'mock-3',
-        'title': 'Criptografia · Hashing & MAC',
-        'description': 'Revisão de HMAC, SHA-256 e PBKDF2.',
-        'category': 'study',
-        'start_time': at(2, 8, 0).toIso8601String(), // Qua 08:00
-        'end_time': at(2, 9, 30).toIso8601String(), // 1.5h
-        'is_completed': true,
-      },
-      {
-        'id': 'mock-4',
-        'title': 'Mentoria de Carreira & Certificações',
-        'description': 'Alinhamento de cronograma para Security+ e AWS SAA.',
-        'category': 'exam',
-        'start_time': at(2, 14, 0).toIso8601String(), // Qua 14:00
-        'end_time': at(2, 15, 0).toIso8601String(), // 1h
-        'is_completed': true,
-      },
-      {
-        'id': 'mock-5',
-        'title': 'Simulado #12 · Security+',
-        'description': 'Simulado com 50 questões focadas em Arquitetura e Ameaças.',
-        'category': 'lab',
-        'start_time': at(3, 10, 0).toIso8601String(), // Qui 10:00
-        'end_time': at(3, 11, 30).toIso8601String(), // 1.5h
-        'is_completed': false,
-      },
-      {
-        'id': 'mock-6',
-        'title': 'Deep work · Cloud Security',
-        'description': 'Estudo de arquitetura de nuvem AWS, IAM e VPC Peering.',
-        'category': 'study',
-        'start_time': at(4, 9, 0).toIso8601String(), // Sex 09:00
-        'end_time': at(4, 12, 0).toIso8601String(), // 3h
-        'is_completed': false,
-      },
-      {
-        'id': 'mock-7',
-        'title': 'Revisão Criptografia',
-        'description': 'Revisão espaçada dos conceitos de chaves assimétricas.',
-        'category': 'review',
-        'start_time': at(4, 14, 0).toIso8601String(), // Sex 14:00
-        'end_time': at(4, 15, 0).toIso8601String(), // 1h
-        'is_completed': false,
-      },
-      {
-        'id': 'mock-8',
-        'title': 'Prova Oficial Security+',
-        'description': '16:00 · Pearson VUE · Trazer dois documentos com foto.',
-        'category': 'exam',
-        'start_time': at(4, 16, 0).toIso8601String(), // Sex 16:00
-        'end_time': at(4, 18, 0).toIso8601String(), // 2h
-        'is_completed': false,
-      },
-      {
-        'id': 'mock-9',
-        'title': 'Planejamento Semanal',
-        'description': 'Definir metas para a semana seguinte e checar métricas.',
-        'category': 'lab',
-        'start_time': at(5, 10, 0).toIso8601String(), // Sáb 10:00
-        'end_time': at(5, 11, 0).toIso8601String(), // 1h
-        'is_completed': false,
-      },
-    ];
+  static void _emitCalendarEvents() {
+    _calendarStreamController.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
   }
 
   static Future<List<Map<String, dynamic>>> getCalendarEvents({
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    _seedInitialCalendarEvents();
     if (currentUser == null) {
-      return List<Map<String, dynamic>>.from(_inMemoryCalendarEvents);
+      return _sortedCalendarSnapshot();
     }
+    final uid = currentUser!.id;
     try {
-      var query = client.from('noesis_calendar_events').select().eq('user_id', currentUser!.id);
+      var query = client.from('noesis_calendar_events').select().eq('user_id', uid);
 
       if (startDate != null) {
         query = query.gte('start_time', startDate.toIso8601String());
@@ -581,42 +1338,105 @@ class SupabaseService {
       }
 
       final res = await query.order('start_time', ascending: true);
-      final list = List<Map<String, dynamic>>.from(res);
-      if (list.isEmpty) {
-        return List<Map<String, dynamic>>.from(_inMemoryCalendarEvents);
+      final list = List<Map<String, dynamic>>.from(
+        (res as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+      if (startDate == null && endDate == null) {
+        final pendingOptimistic = _inMemoryCalendarEvents
+            .where((e) =>
+                e['user_id'] == uid &&
+                (e['id']?.toString().startsWith('evt-') ?? false))
+            .toList();
+        _inMemoryCalendarEvents
+          ..removeWhere((e) => e['user_id'] == uid)
+          ..addAll(list);
+        for (final opt in pendingOptimistic) {
+          final alreadyPresent = _inMemoryCalendarEvents.any((e) =>
+              e['user_id'] == uid &&
+              e['title'] == opt['title'] &&
+              e['start_time'] == opt['start_time']);
+          if (!alreadyPresent) {
+            _inMemoryCalendarEvents.add(opt);
+          }
+        }
+        _emitCalendarEvents();
       }
       return list;
-    } catch (_) {
-      return List<Map<String, dynamic>>.from(_inMemoryCalendarEvents);
+    } catch (e) {
+      debugPrint('Erro ao carregar eventos do calendário: $e');
+      return _sortedCalendarSnapshot(userId: uid);
     }
   }
 
   static Stream<List<Map<String, dynamic>>> calendarEventsStream() {
-    _seedInitialCalendarEvents();
     if (currentUser == null) {
       return Stream<List<Map<String, dynamic>>>.multi((controller) {
-        controller.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
-        final sub = _calendarStreamController.stream.listen((events) {
-          controller.add(events);
+        controller.add(_sortedCalendarSnapshot());
+        final sub = _calendarStreamController.stream.listen((_) {
+          if (!controller.isClosed) {
+            controller.add(_sortedCalendarSnapshot());
+          }
         });
         controller.onCancel = () => sub.cancel();
       });
     }
 
-    return client
-        .from('noesis_calendar_events')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', currentUser!.id)
-        .order('start_time', ascending: true)
-        .map((events) {
-          if (events.isEmpty) {
-            return List<Map<String, dynamic>>.from(_inMemoryCalendarEvents);
+    final uid = currentUser!.id;
+    return Stream<List<Map<String, dynamic>>>.multi((controller) {
+      void emitForUser() {
+        if (!controller.isClosed) {
+          controller.add(_sortedCalendarSnapshot(userId: uid));
+        }
+      }
+
+      emitForUser();
+
+      // Carrega snapshot imediato via REST mesmo se o Realtime atrasar ou oscilar
+      getCalendarEvents().then((_) => emitForUser());
+
+      final localSub = _calendarStreamController.stream.listen((_) {
+        emitForUser();
+      });
+
+      final realtimeSub = client
+          .from('noesis_calendar_events')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', uid)
+          .order('start_time', ascending: true)
+          .listen(
+        (events) {
+          final pendingOptimistic = _inMemoryCalendarEvents
+              .where((e) =>
+                  e['user_id'] == uid &&
+                  (e['id']?.toString().startsWith('evt-') ?? false))
+              .toList();
+          _inMemoryCalendarEvents
+            ..removeWhere((e) => e['user_id'] == uid)
+            ..addAll(events.map((e) => Map<String, dynamic>.from(e)));
+          for (final opt in pendingOptimistic) {
+            final alreadySynced = _inMemoryCalendarEvents.any((e) =>
+                e['user_id'] == uid &&
+                e['title'] == opt['title'] &&
+                e['start_time'] == opt['start_time']);
+            if (!alreadySynced) {
+              _inMemoryCalendarEvents.add(opt);
+            }
           }
-          return events;
-        });
+          emitForUser();
+        },
+        onError: (Object error) {
+          debugPrint('Realtime calendar stream error: $error');
+        },
+      );
+
+      controller.onCancel = () async {
+        await localSub.cancel();
+        await realtimeSub.cancel();
+      };
+    });
   }
 
-  static Future<void> addCalendarEvent({
+  static Future<Map<String, dynamic>> addCalendarEvent({
     required String title,
     String? description,
     String category = 'study',
@@ -624,10 +1444,14 @@ class SupabaseService {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
-    _seedInitialCalendarEvents();
-    final newEvent = {
-      'id': 'evt-${DateTime.now().millisecondsSinceEpoch}',
-      'user_id': currentUser?.id,
+    final uid = currentUser?.id;
+    final tempId = 'evt-${DateTime.now().microsecondsSinceEpoch}-${_inMemoryCalendarEvents.length}';
+    final startUtcIso = startTime.toUtc().toIso8601String();
+    final endUtcIso = endTime.toUtc().toIso8601String();
+
+    final newEvent = <String, dynamic>{
+      'id': tempId,
+      'user_id': uid,
       'title': title,
       'description': description,
       'category': category,
@@ -639,55 +1463,93 @@ class SupabaseService {
     };
 
     _inMemoryCalendarEvents.add(newEvent);
-    _calendarStreamController.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
+    _emitCalendarEvents();
 
-    if (currentUser != null) {
+    if (uid != null) {
       try {
-        final payload = {
-          'user_id': currentUser!.id,
+        final payload = <String, dynamic>{
+          'user_id': uid,
           'title': title,
           'description': description,
           'category': category,
-          'start_time': startTime.toIso8601String(),
-          'end_time': endTime.toIso8601String(),
+          'start_time': startUtcIso,
+          'end_time': endUtcIso,
         };
         if (color != null) {
           payload['color'] = color;
         }
-        await client.from('noesis_calendar_events').insert(payload);
+        final inserted = await client
+            .from('noesis_calendar_events')
+            .insert(payload)
+            .select()
+            .single();
+        final authoritative = Map<String, dynamic>.from(inserted);
+        final idx = _inMemoryCalendarEvents.indexWhere((e) => e['id'] == tempId);
+        if (idx != -1) {
+          _inMemoryCalendarEvents[idx] = authoritative;
+        } else {
+          _inMemoryCalendarEvents.add(authoritative);
+        }
+        _emitCalendarEvents();
+        return authoritative;
       } catch (e) {
+        _inMemoryCalendarEvents.removeWhere((e) => e['id'] == tempId);
+        _emitCalendarEvents();
         debugPrint('Erro ao persistir evento no Supabase: $e');
+        rethrow;
       }
     }
+    return newEvent;
   }
 
   static Future<void> deleteCalendarEvent(String id) async {
-    _seedInitialCalendarEvents();
-    _inMemoryCalendarEvents.removeWhere((e) => e['id'] == id);
-    _calendarStreamController.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
+    final uid = currentUser?.id;
+    final backupIdx = _inMemoryCalendarEvents.indexWhere((e) => e['id']?.toString() == id);
+    final backupEvent = backupIdx != -1 ? Map<String, dynamic>.from(_inMemoryCalendarEvents[backupIdx]) : null;
+    _inMemoryCalendarEvents.removeWhere((e) => e['id']?.toString() == id);
+    _emitCalendarEvents();
 
-    if (currentUser != null) {
+    if (uid != null && _isUuid(id)) {
       try {
-        await client.from('noesis_calendar_events').delete().eq('id', id);
+        await client
+            .from('noesis_calendar_events')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', uid);
       } catch (e) {
+        if (backupEvent != null) {
+          _inMemoryCalendarEvents.add(backupEvent);
+          _emitCalendarEvents();
+        }
         debugPrint('Erro ao deletar evento no Supabase: $e');
+        rethrow;
       }
     }
   }
 
   static Future<void> toggleCalendarEventCompleted(String id, bool isCompleted) async {
-    _seedInitialCalendarEvents();
-    final idx = _inMemoryCalendarEvents.indexWhere((e) => e['id'] == id);
+    final uid = currentUser?.id;
+    final idx = _inMemoryCalendarEvents.indexWhere((e) => e['id']?.toString() == id);
+    final previousState = idx != -1 ? _inMemoryCalendarEvents[idx]['is_completed'] : null;
     if (idx != -1) {
       _inMemoryCalendarEvents[idx]['is_completed'] = isCompleted;
-      _calendarStreamController.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
+      _emitCalendarEvents();
     }
 
-    if (currentUser != null) {
+    if (uid != null && _isUuid(id)) {
       try {
-        await client.from('noesis_calendar_events').update({'is_completed': isCompleted}).eq('id', id);
+        await client
+            .from('noesis_calendar_events')
+            .update({'is_completed': isCompleted})
+            .eq('id', id)
+            .eq('user_id', uid);
       } catch (e) {
+        if (idx != -1) {
+          _inMemoryCalendarEvents[idx]['is_completed'] = previousState;
+          _emitCalendarEvents();
+        }
         debugPrint('Erro ao atualizar status do evento no Supabase: $e');
+        rethrow;
       }
     }
   }
@@ -701,8 +1563,9 @@ class SupabaseService {
     DateTime? startTime,
     DateTime? endTime,
   }) async {
-    _seedInitialCalendarEvents();
-    final idx = _inMemoryCalendarEvents.indexWhere((e) => e['id'] == id);
+    final uid = currentUser?.id;
+    final idx = _inMemoryCalendarEvents.indexWhere((e) => e['id']?.toString() == id);
+    final backupEvent = idx != -1 ? Map<String, dynamic>.from(_inMemoryCalendarEvents[idx]) : null;
     if (idx != -1) {
       if (title != null) _inMemoryCalendarEvents[idx]['title'] = title;
       if (description != null) _inMemoryCalendarEvents[idx]['description'] = description;
@@ -710,22 +1573,41 @@ class SupabaseService {
       if (color != null) _inMemoryCalendarEvents[idx]['color'] = color;
       if (startTime != null) _inMemoryCalendarEvents[idx]['start_time'] = startTime.toIso8601String();
       if (endTime != null) _inMemoryCalendarEvents[idx]['end_time'] = endTime.toIso8601String();
-      _calendarStreamController.add(List<Map<String, dynamic>>.from(_inMemoryCalendarEvents));
+      _emitCalendarEvents();
     }
 
-    if (currentUser != null) {
+    if (uid != null && _isUuid(id)) {
       try {
         final payload = <String, dynamic>{
           'title': ?title,
           'description': ?description,
           'category': ?category,
           'color': ?color,
-          if (startTime != null) 'start_time': startTime.toIso8601String(),
-          if (endTime != null) 'end_time': endTime.toIso8601String(),
+          if (startTime != null) 'start_time': startTime.toUtc().toIso8601String(),
+          if (endTime != null) 'end_time': endTime.toUtc().toIso8601String(),
         };
-        await client.from('noesis_calendar_events').update(payload).eq('id', id);
+        final updated = await client
+            .from('noesis_calendar_events')
+            .update(payload)
+            .eq('id', id)
+            .eq('user_id', uid)
+            .select()
+            .single();
+        final currentIdx = _inMemoryCalendarEvents.indexWhere((e) => e['id']?.toString() == id);
+        if (currentIdx != -1) {
+          _inMemoryCalendarEvents[currentIdx] = Map<String, dynamic>.from(updated);
+          _emitCalendarEvents();
+        }
       } catch (e) {
+        if (backupEvent != null) {
+          final currentIdx = _inMemoryCalendarEvents.indexWhere((e) => e['id']?.toString() == id);
+          if (currentIdx != -1) {
+            _inMemoryCalendarEvents[currentIdx] = backupEvent;
+          }
+          _emitCalendarEvents();
+        }
         debugPrint('Erro ao atualizar evento no Supabase: $e');
+        rethrow;
       }
     }
   }
@@ -980,152 +1862,8 @@ class SupabaseService {
   // FLASHCARDS & REPETIÇÃO ESPAÇADA
   // ----------------------------------------------------
   static final List<FlashcardDeck> _inMemoryFlashcardDecks = [];
-  static bool _flashcardsSeeded = false;
-
-  static void _seedInitialFlashcardDecks() {
-    if (_flashcardsSeeded) return;
-    _flashcardsSeeded = true;
-
-    final now = DateTime.now();
-    _inMemoryFlashcardDecks.addAll([
-      FlashcardDeck(
-        id: 'deck-crypto-1',
-        title: 'Criptografia & Certificação Security+',
-        subject: 'Criptografia',
-        description: 'Cifras simétricas vs assimétricas, modos de operação, integridade, PFS e assinaturas digitais.',
-        colorHex: '7C6CF0',
-        iconCode: 0xe5e1,
-        createdAt: now.subtract(const Duration(days: 4)),
-        cards: [
-          Flashcard(
-            id: 'c-1',
-            front: 'Qual a diferença essencial entre criptografia simétrica e assimétrica?',
-            back: 'A simétrica (AES, ChaCha20) usa uma única chave compartilhada para cifrar e decifrar (alta velocidade, ideal para dados massivos). A assimétrica (RSA, ECC) usa um par público/privado (ideal para troca de chaves e assinaturas digitais).',
-            tags: ['Criptografia', 'Fundamentos'],
-            difficulty: 'easy',
-            reviewCount: 3,
-            lastReviewed: now.subtract(const Duration(hours: 12)),
-          ),
-          Flashcard(
-            id: 'c-2',
-            front: 'O que é Forward Secrecy (PFS - Perfect Forward Secrecy)?',
-            back: 'Propriedade que assegura que o vazamento futuro da chave privada de longo prazo do servidor NÃO permita decifrar o tráfego de sessões passadas. Implementado via trocas efêmeras Diffie-Hellman (DHE/ECDHE).',
-            tags: ['TLS', 'PFS'],
-            difficulty: 'good',
-            reviewCount: 2,
-            lastReviewed: now.subtract(const Duration(days: 1)),
-          ),
-          Flashcard(
-            id: 'c-3',
-            front: 'Qual o papel do Salt e das funções KDF (Argon2, bcrypt, PBKDF2) no hash de senhas?',
-            back: 'O Salt adiciona entropia aleatória única para neutralizar Rainbow Tables e hashes idênticos. O KDF aplica custo computacional e de memória calibrado para retardar ataques de força bruta com GPUs e ASICs.',
-            tags: ['Hash', 'Segurança'],
-            difficulty: 'easy',
-            reviewCount: 4,
-            lastReviewed: now.subtract(const Duration(hours: 6)),
-          ),
-          Flashcard(
-            id: 'c-4',
-            front: 'Como funciona a assinatura digital e o que ela garante?',
-            back: 'O emissor calcula o hash da mensagem e o cifra com sua CHAVE PRIVADA. O receptor decifra com a CHAVE PÚBLICA do emissor e valida o hash. Garante: Autenticidade, Integridade e Não-Repúdio.',
-            tags: ['PKI', 'Assinatura'],
-            difficulty: 'hard',
-            reviewCount: 1,
-            lastReviewed: now.subtract(const Duration(days: 2)),
-          ),
-          Flashcard(
-            id: 'c-5',
-            front: 'Qual a diferença entre AES-CBC e AES-GCM?',
-            back: 'AES-CBC oferece apenas confidencialidade e exige padding (vulnerável a Padding Oracle sem MAC). AES-GCM é um modo AEAD que entrega confidencialidade e integridade autenticada simultaneamente em alta performance.',
-            tags: ['AES', 'AEAD'],
-            difficulty: 'unreviewed',
-          ),
-        ],
-      ),
-      FlashcardDeck(
-        id: 'deck-cloud-2',
-        title: 'Arquitetura Cloud & Resiliência AWS',
-        subject: 'Cloud / AWS',
-        description: 'Conceitos de VPC, isolamento de subnets, padrões de alta disponibilidade e recuperação de desastres.',
-        colorHex: '3CCF9A',
-        iconCode: 0xe19f,
-        createdAt: now.subtract(const Duration(days: 2)),
-        cards: [
-          Flashcard(
-            id: 'c-6',
-            front: 'O que distingue uma Subnet Pública de uma Subnet Privada na AWS VPC?',
-            back: 'Subnet Pública possui uma Route Table com rota para um Internet Gateway (0.0.0.0/0 -> IGW). Subnet Privada não possui rota direta para o IGW e utiliza um NAT Gateway (posicionado numa subnet pública) para acesso outbound.',
-            tags: ['VPC', 'Redes'],
-            difficulty: 'easy',
-            reviewCount: 2,
-            lastReviewed: now.subtract(const Duration(hours: 20)),
-          ),
-          Flashcard(
-            id: 'c-7',
-            front: 'Qual a diferença crucial entre RTO e RPO em Disaster Recovery?',
-            back: 'RTO (Recovery Time Objective): tempo máximo suportável fora do ar até a restauração. RPO (Recovery Point Objective): perda máxima de dados tolerável medida no tempo (ex: intervalo de replicação de banco de dados).',
-            tags: ['DR', 'Resiliência'],
-            difficulty: 'good',
-            reviewCount: 2,
-            lastReviewed: now.subtract(const Duration(days: 1)),
-          ),
-          Flashcard(
-            id: 'c-8',
-            front: 'Qual a vantagem fundamental de IAM Roles sobre IAM Users?',
-            back: 'IAM Roles fornecem credenciais temporárias renováveis automaticamente via AWS STS, eliminando senhas e access keys de longa duração hardcoded em servidores ou aplicações.',
-            tags: ['IAM', 'Segurança'],
-            difficulty: 'easy',
-            reviewCount: 3,
-            lastReviewed: now.subtract(const Duration(days: 2)),
-          ),
-          Flashcard(
-            id: 'c-9',
-            front: 'Como o padrão Dead Letter Queue (DLQ) protege arquiteturas orientadas a eventos?',
-            back: 'Isola mensagens malformadas (poison pills) após esgotar o limite de tentativas de reprocessamento, impedindo travamento de consumers e perda silenciosa de eventos.',
-            tags: ['SQS', 'Filas'],
-            difficulty: 'unreviewed',
-          ),
-        ],
-      ),
-      FlashcardDeck(
-        id: 'deck-algo-3',
-        title: 'Estruturas de Dados & Algoritmos',
-        subject: 'Ciência da Computação',
-        description: 'Complexidade de tempo Big-O, busca em grafos, balanceamento de árvores e técnicas dinâmicas.',
-        colorHex: 'F5A623',
-        iconCode: 0xe6df,
-        createdAt: now.subtract(const Duration(days: 1)),
-        cards: [
-          Flashcard(
-            id: 'c-10',
-            front: 'Qual a complexidade de tempo de busca, inserção e remoção em uma Hash Table?',
-            back: 'Caso Médio: O(1) amortizado constante. Pior Caso: O(N) linear quando ocorrem colisões em cadeia e a resolução se degrada para varredura de lista encadeada.',
-            tags: ['Big-O', 'Hash'],
-            difficulty: 'easy',
-            reviewCount: 2,
-          ),
-          Flashcard(
-            id: 'c-11',
-            front: 'Quando optar por Busca em Largura (BFS) vs Busca em Profundidade (DFS)?',
-            back: 'BFS (usa Fila FIFO) encontra o menor caminho em grafos não ponderados. DFS (usa Pilha/Recursão LIFO) consome menos memória em árvores profundas e é ideal para ordenação topológica e detecção de ciclos.',
-            tags: ['Grafos', 'BFS/DFS'],
-            difficulty: 'good',
-            reviewCount: 1,
-          ),
-          Flashcard(
-            id: 'c-12',
-            front: 'O que diferencia o QuickSort do MergeSort na prática?',
-            back: 'QuickSort é in-place (O(1) memória adicional) e mais rápido em dados em memória pelo cache, mas pior caso é O(N²). MergeSort é estável e garante O(N log N) sempre, porém exige O(N) memória extra.',
-            tags: ['Ordenação', 'Algoritmos'],
-            difficulty: 'unreviewed',
-          ),
-        ],
-      ),
-    ]);
-  }
 
   static Future<List<FlashcardDeck>> getFlashcardDecks() async {
-    _seedInitialFlashcardDecks();
     if (currentUser == null) {
       return List<FlashcardDeck>.from(_inMemoryFlashcardDecks);
     }
@@ -1135,18 +1873,15 @@ class SupabaseService {
           .select()
           .eq('user_id', currentUser!.id)
           .order('created_at', ascending: false);
-      final list = (res as List).map((row) => FlashcardDeck.fromMap(Map<String, dynamic>.from(row))).toList();
-      if (list.isEmpty) {
-        return List<FlashcardDeck>.from(_inMemoryFlashcardDecks);
-      }
-      return list;
+      return (res as List)
+          .map((row) => FlashcardDeck.fromMap(Map<String, dynamic>.from(row)))
+          .toList();
     } catch (_) {
       return List<FlashcardDeck>.from(_inMemoryFlashcardDecks);
     }
   }
 
   static Future<FlashcardDeck> saveFlashcardDeck(FlashcardDeck deck) async {
-    _seedInitialFlashcardDecks();
     final existingIndex = _inMemoryFlashcardDecks.indexWhere((d) => d.id == deck.id);
     if (existingIndex >= 0) {
       _inMemoryFlashcardDecks[existingIndex] = deck;
@@ -1191,7 +1926,6 @@ class SupabaseService {
     required String cardId,
     required String difficulty,
   }) async {
-    _seedInitialFlashcardDecks();
     final deckIndex = _inMemoryFlashcardDecks.indexWhere((d) => d.id == deckId);
     if (deckIndex >= 0) {
       final deck = _inMemoryFlashcardDecks[deckIndex];
@@ -1212,120 +1946,8 @@ class SupabaseService {
   // CADERNOS DE ESTUDO & ANOTAÇÕES (NOTEBOOKS)
   // ----------------------------------------------------
   static final List<StudyNotebook> _inMemoryNotebooks = [];
-  static bool _notebooksSeeded = false;
-
-  static void _seedInitialNotebooks() {
-    if (_notebooksSeeded) return;
-    _notebooksSeeded = true;
-
-    final now = DateTime.now();
-    _inMemoryNotebooks.addAll([
-      StudyNotebook(
-        id: 'nb-cloud-1',
-        title: 'Arquitetura Cloud & Infraestrutura',
-        subject: 'Tecnologia',
-        description: 'Anotações sobre VPCs, Subnets, Gateways, Roteamento e Práticas de Alta Disponibilidade.',
-        colorHex: '7C6CF0',
-        iconCode: 0xe3e6, // Icons.menu_book_rounded
-        createdAt: now.subtract(const Duration(days: 5)),
-        notes: [
-          StudyNote(
-            id: 'note-cloud-1',
-            notebookId: 'nb-cloud-1',
-            title: 'Topologia de Redes VPC & Subnets Públicas vs Privadas',
-            content: '### Fundamentos de VPC (Virtual Private Cloud)\n\n'
-                'Uma VPC é uma rede virtual isolada e dedicada à sua conta em nuvem. '
-                'Ao estruturar a rede para aplicações críticas de estudo e produção, dividimos em duas camadas essenciais:\n\n'
-                '* **Subnets Públicas:** Têm rota direta para o **Internet Gateway (IGW)**. Hospedam balanceadores de carga (ALB/NLB) e instâncias de borda (Bastion Hosts).\n'
-                '* **Subnets Privadas:** Não possuem rota direta para a internet. O tráfego de saída passa por um **NAT Gateway** estrategicamente alocado na subnet pública.\n\n'
-                '```bash\n'
-                '# Exemplo de verificação de rotas e gateways\n'
-                'aws ec2 describe-route-tables --filters "Name=vpc-id,Values=vpc-0123456789abcdef0"\n'
-                '```\n\n'
-                'O diagrama de infraestrutura abaixo exemplifica essa segmentação segura:',
-            links: [
-              StudyLink(
-                id: 'link-cloud-img-1',
-                url: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800',
-                title: 'Data Center e Infraestrutura Cloud',
-                isImage: true,
-              ),
-              StudyLink(
-                id: 'link-cloud-ref-1',
-                url: 'https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html',
-                title: 'Documentação Oficial Amazon VPC',
-                isImage: false,
-              ),
-            ],
-            tags: ['Cloud', 'AWS', 'VPC', 'Infra'],
-            createdAt: now.subtract(const Duration(days: 3)),
-          ),
-          StudyNote(
-            id: 'note-cloud-2',
-            notebookId: 'nb-cloud-1',
-            title: 'Configuração de Segurança: Security Groups vs Network ACLs',
-            content: '### Comparativo de Camadas de Defesa em Profundidade\n\n'
-                '1. **Security Groups:** Statefull (com estado). Atuam no nível da interface de rede elástica (ENI). Regras de entrada autorizam automaticamente as saídas de resposta correspondentes.\n'
-                '2. **NACLs (Network Access Control Lists):** Stateless (sem estado). Atuam no nível da subnet inteira como filtro de pacotes por número de regra.\n\n'
-                'Recomenda-se manter as NACLs com regras padrão de permissão e focar o controle granular nos Security Groups.',
-            links: [
-              StudyLink(
-                id: 'link-cloud-img-2',
-                url: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=800',
-                title: 'Roteamento de Redes e Servidores',
-                isImage: true,
-              ),
-            ],
-            tags: ['Segurança', 'NACL', 'Firewall'],
-            createdAt: now.subtract(const Duration(days: 1)),
-          ),
-        ],
-      ),
-      StudyNotebook(
-        id: 'nb-crypto-2',
-        title: 'Criptografia Aplicada & Segurança da Informação',
-        subject: 'Criptografia',
-        description: 'Protocolos de segurança, cifras de chave pública, curvas elípticas e TLS 1.3.',
-        colorHex: '5DC6A1',
-        iconCode: 0xe5e1, // Icons.security_rounded
-        createdAt: now.subtract(const Duration(days: 2)),
-        notes: [
-          StudyNote(
-            id: 'note-crypto-1',
-            notebookId: 'nb-crypto-2',
-            title: 'Handshake TLS 1.3 e Perfect Forward Secrecy (PFS)',
-            content: '### Otimização e Segurança no TLS 1.3 (RFC 8446)\n\n'
-                'O protocolo TLS 1.3 reduziu o tempo de handshake para **1-RTT** (ou até 0-RTT com retomada de sessão) '
-                'e removeu cifras obsoletas que não ofereciam Perfect Forward Secrecy.\n\n'
-                '* **Cifras Estáticas Removidas:** RSA Key Exchange estático foi abolido.\n'
-                '* **Obrigatório:** Troca de chaves efêmera baseada em Diffie-Hellman (ECDHE com Curve25519 ou P-256).\n'
-                '* **Cifras Suportadas:** AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305.\n\n'
-                'O segredo de encaminhamento perfeito garante que, mesmo que a chave de longo prazo do servidor seja violada no futuro, os dados trafegados no passado permanecem indecifráveis.',
-            links: [
-              StudyLink(
-                id: 'link-crypto-img-1',
-                url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800',
-                title: 'Código Criptográfico e Segurança de Dados',
-                isImage: true,
-              ),
-              StudyLink(
-                id: 'link-crypto-ref-1',
-                url: 'https://www.rfc-editor.org/rfc/rfc8446',
-                title: 'RFC 8446: Protocolo TLS 1.3',
-                isImage: false,
-              ),
-            ],
-            tags: ['TLS 1.3', 'PFS', 'ECDHE', 'Criptografia'],
-            createdAt: now.subtract(const Duration(hours: 18)),
-          ),
-        ],
-      ),
-    ]);
-  }
 
   static Future<List<StudyNotebook>> getNotebooks() async {
-    _seedInitialNotebooks();
-
     if (currentUser != null) {
       try {
         final res = await client
@@ -1333,12 +1955,9 @@ class SupabaseService {
             .select()
             .eq('user_id', currentUser!.id)
             .order('created_at', ascending: false);
-        final list = (res as List)
+        return (res as List)
             .map((row) => StudyNotebook.fromMap(Map<String, dynamic>.from(row)))
             .toList();
-        if (list.isNotEmpty) {
-          return list;
-        }
       } catch (e) {
         debugPrint('Erro ao buscar cadernos no Supabase: $e');
       }
@@ -1347,7 +1966,6 @@ class SupabaseService {
   }
 
   static Future<StudyNotebook> saveNotebook(StudyNotebook notebook) async {
-    _seedInitialNotebooks();
     final idx = _inMemoryNotebooks.indexWhere((n) => n.id == notebook.id);
     if (idx >= 0) {
       _inMemoryNotebooks[idx] = notebook;
@@ -1390,7 +2008,6 @@ class SupabaseService {
   }
 
   static Future<void> saveNote(String notebookId, StudyNote note) async {
-    _seedInitialNotebooks();
     final nbIndex = _inMemoryNotebooks.indexWhere((n) => n.id == notebookId);
     if (nbIndex >= 0) {
       final nb = _inMemoryNotebooks[nbIndex];
@@ -1410,7 +2027,6 @@ class SupabaseService {
   }
 
   static Future<void> deleteNote(String notebookId, String noteId) async {
-    _seedInitialNotebooks();
     final nbIndex = _inMemoryNotebooks.indexWhere((n) => n.id == notebookId);
     if (nbIndex >= 0) {
       final nb = _inMemoryNotebooks[nbIndex];

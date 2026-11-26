@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script>
+    // Supabase Auth aceita http://127.0.0.1:** e rejeita http://localhost:**,
+    // evitando fallback para a Site URL (studio.asterdev.me) no OAuth Web local.
+    if (window.location.hostname === 'localhost') {
+      var target = new URL(window.location.href);
+      target.hostname = '127.0.0.1';
+      window.location.replace(target.toString());
+    }
+  </script>
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.

@@ -5,7 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
+import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
+import '../../main.dart';
+import '../../widgets/vip_privileges.dart';
+import '../../widgets/vip_rgb_theme_editor.dart';
 import '../../widgets/weekly_goal_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -63,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _apiKeyController.text = GeminiService.apiKey!;
     }
     SupabaseService.loadWeeklyGoalMinutes();
+    SupabaseService.loadDailyGoalMinutes();
     final prov = GeminiService.providers.firstWhere(
       (p) => p.id == _selectedProviderId,
       orElse: () => GeminiService.providers.first,
@@ -118,12 +123,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AsterConstants.coral,
-            content: Text('Não foi possível abrir o link: $url'),
-          ),
-        );
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              persist: false,
+              duration: const Duration(seconds: 3),
+              backgroundColor: AsterConstants.coral,
+              content: Text(
+                'Não foi possível abrir o link: $url',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          );
       }
     }
   }
@@ -240,15 +252,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
 
         if (showSuccessSnackbar) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${result.models.length} modelo(s) operacionais prontos: ${result.models.join(", ")}',
-                style: TextStyle(color: AsterTheme.onPrimary(context)),
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                persist: false,
+                duration: const Duration(seconds: 3),
+                content: Text(
+                  '${result.models.length} modelo(s) operacionais prontos: ${result.models.join(", ")}',
+                  style: TextStyle(color: AsterTheme.onPrimary(context)),
+                ),
+                backgroundColor: AsterTheme.primary(context),
               ),
-              backgroundColor: AsterTheme.primary(context),
-            ),
-          );
+            );
         }
       } else {
         setState(() {
@@ -280,15 +296,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       customBaseUrl: url,
     );
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AsterTheme.primary(context),
-        content: Text(
-          'Configurações de IA salvas com sucesso!',
-          style: TextStyle(color: AsterTheme.onPrimary(context)),
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          persist: false,
+          duration: const Duration(seconds: 2),
+          backgroundColor: AsterTheme.primary(context),
+          content: Text(
+            'Configurações de IA salvas com sucesso!',
+            style: TextStyle(color: AsterTheme.onPrimary(context)),
+          ),
         ),
-      ),
-    );
+      );
   }
 
   @override
@@ -371,64 +391,141 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ─── 1. Seção de Aparência e Tema ───
   Widget _buildWeeklyGoalSection(bool isDark) {
-    return ValueListenableBuilder<int>(
-      valueListenable: SupabaseService.weeklyGoalMinutesNotifier,
-      builder: (context, goalMinutes, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        SupabaseService.weeklyGoalMinutesNotifier,
+        SupabaseService.dailyGoalMinutesNotifier,
+      ]),
+      builder: (context, _) {
+        final goalMinutes = SupabaseService.weeklyGoalMinutesNotifier.value;
+        final dailyGoalMinutes = SupabaseService.dailyGoalMinutesNotifier.value;
+        final hasWeeklyGoal = goalMinutes > 0;
+        final hasDailyGoal = dailyGoalMinutes > 0;
         final dailyAvg = (goalMinutes / 7).round();
         return SoftClayCard(
           padding: const EdgeInsets.all(24),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AsterTheme.secondary(context).withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.track_changes_rounded,
-                  size: 20,
-                  color: AsterTheme.secondary(context),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Meta Semanal de Estudos',
-                      style: GoogleFonts.manrope(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AsterTheme.secondary(context).withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Meta atual: ${SupabaseService.formatGoalDuration(goalMinutes)}/semana · média ~${SupabaseService.formatGoalDuration(dailyAvg)}/dia',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12.5,
-                        color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                      ),
+                    child: Icon(
+                      Icons.track_changes_rounded,
+                      size: 20,
+                      color: AsterTheme.secondary(context),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meta Semanal de Estudos',
+                          style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          hasWeeklyGoal
+                              ? 'Meta atual: ${SupabaseService.formatGoalDuration(goalMinutes)}/semana · média ~${SupabaseService.formatGoalDuration(dailyAvg)}/dia'
+                              : 'Sem meta semanal definida · modo livre ativo',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12.5,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SoftClayPillButton(
+                    key: const Key('settings_edit_weekly_goal_button'),
+                    text: hasWeeklyGoal ? 'Editar Meta' : 'Definir Meta',
+                    onPressed: () async {
+                      final sessions = await SupabaseService.getStudySessions(limit: 200);
+                      final studied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+                      final studiedToday = SupabaseService.computeTodayStudiedMinutes(sessions);
+                      if (!context.mounted) return;
+                      await showWeeklyGoalEditorDialog(
+                        context,
+                        currentWeekStudiedMinutes: studied,
+                        currentDayStudiedMinutes: studiedToday,
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              SoftClayPillButton(
-                key: const Key('settings_edit_weekly_goal_button'),
-                text: 'Editar Meta',
-                onPressed: () async {
-                  final sessions = await SupabaseService.getStudySessions(limit: 200);
-                  final studied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
-                  if (!context.mounted) return;
-                  await showWeeklyGoalEditorDialog(
-                    context,
-                    currentWeekStudiedMinutes: studied,
-                  );
-                },
+              const SizedBox(height: 16),
+              Divider(height: 1, color: AsterTheme.surfaceInset(context)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AsterTheme.primary(context).withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.today_rounded,
+                      size: 20,
+                      color: AsterTheme.primary(context),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meta Diária de Estudos',
+                          style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          hasDailyGoal
+                              ? 'Meta atual: ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}/dia · equivalente a ~${SupabaseService.formatGoalDuration(dailyGoalMinutes * 7)}/semana'
+                              : 'Sem meta diária definida · modo livre ativo',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12.5,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SoftClayPillButton(
+                    key: const Key('settings_edit_daily_goal_button'),
+                    text: hasDailyGoal ? 'Editar Diária' : 'Definir Diária',
+                    onPressed: () async {
+                      final sessions = await SupabaseService.getStudySessions(limit: 200);
+                      final studied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
+                      final studiedToday = SupabaseService.computeTodayStudiedMinutes(sessions);
+                      if (!context.mounted) return;
+                      await showDailyGoalEditorDialog(
+                        context,
+                        currentWeekStudiedMinutes: studied,
+                        currentDayStudiedMinutes: studiedToday,
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -438,9 +535,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildThemeSection(bool isDark) {
-    return ValueListenableBuilder<String>(
-      valueListenable: AsterTheme.activeThemeIdNotifier,
-      builder: (context, activeThemeId, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        AsterTheme.activeThemeIdNotifier,
+        AsterTheme.customThemeColorsNotifier,
+        SupabaseService.isVipNotifier,
+        ShopService.instance.unlockedThemesNotifier,
+      ]),
+      builder: (context, _) {
+        final activeThemeId = AsterTheme.activeThemeIdNotifier.value;
+        final isVip = SupabaseService.isCurrentUserVip;
+        final customColors = AsterTheme.customThemeColorsNotifier.value;
+        final themes = AsterTheme.availableThemesWithCustom;
+
         return SoftClayCard(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -458,25 +565,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Icon(Icons.palette_rounded, size: 20, color: AsterTheme.primary(context)),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Aparência e Tema',
-                        style: GoogleFonts.manrope(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Aparência e Tema',
+                          style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Escolha o tema visual para o seu ambiente de estudos',
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                        Text(
+                          'Escolha o tema visual para o seu ambiente de estudos',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -485,16 +594,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: AsterTheme.availableThemes.map((themeOption) {
+                children: themes.map((themeOption) {
                   return SizedBox(
                     width: 210,
                     child: _buildThemeOptionCard(
                       option: themeOption,
                       isSelected: activeThemeId == themeOption.id,
+                      isVip: isVip,
                     ),
                   );
                 }).toList(),
               ),
+
+              if (isVip && activeThemeId == AsterTheme.customThemeId)
+                VipRgbThemeEditor(
+                  colors: customColors,
+                  onChanged: (next) => AsterTheme.updateCustomThemeColors(
+                    next,
+                    activateIfVip: true,
+                  ),
+                  onReset: () => AsterTheme.updateCustomThemeColors(
+                    NoesisCustomThemeColors.defaults,
+                    activateIfVip: true,
+                  ),
+                )
+              else if (!isVip) ...[
+                const SizedBox(height: 14),
+                InkWell(
+                  key: const Key('custom_theme_vip_lock_banner'),
+                  onTap: () => showVipPrivilegesModal(context),
+                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AsterVipColors.gold.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                      border: Border.all(
+                        color: AsterVipColors.gold.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const VipCrownIcon(size: 16),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Tema "Personalizado" com escolha livre das 6 cores em RGB liberado somente para VIP.',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AsterTheme.text(context),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const VipBadgePill(size: VipBadgeSize.sm, interactive: false),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -505,7 +664,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildThemeOptionCard({
     required NoesisThemeOption option,
     required bool isSelected,
+    required bool isVip,
   }) {
+    final isCustom = option.id == AsterTheme.customThemeId;
+    final isLockedVip = isCustom && !isVip;
+    final isLockedShop = !isCustom && !ShopService.instance.isThemeUnlocked(option.id);
+    final isLocked = isLockedVip || isLockedShop;
+    final price = isLockedShop ? ShopService.instance.priceForTheme(option.id) : 0;
     final accent = option.primary;
     final paletteSwatches = <Color>[
       option.bg,
@@ -516,7 +681,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return InkWell(
       key: Key('theme_option_${option.id}'),
-      onTap: () => AsterTheme.selectThemeOption(option.id),
+      onTap: () {
+        if (isLockedVip) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                persist: false,
+                duration: const Duration(seconds: 3),
+                content: const Text(
+                  'O tema Personalizado (6 cores RGB) é exclusivo para membros VIP.',
+                ),
+                action: SnackBarAction(
+                  label: 'Ver VIP',
+                  onPressed: () {
+                    if (mounted) showVipPrivilegesModal(context);
+                  },
+                ),
+              ),
+            );
+          showVipPrivilegesModal(context);
+          return;
+        }
+        if (isLockedShop) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                persist: false,
+                duration: const Duration(seconds: 3),
+                content: Text(
+                  'Compre o tema ${option.name} na Loja por $price ${ShopService.currencySymbol} ${ShopService.currencyName}.',
+                ),
+                action: SnackBarAction(
+                  label: 'Abrir Loja',
+                  onPressed: () => RootScreen.switchTab(9),
+                ),
+              ),
+            );
+          return;
+        }
+        if (isCustom) {
+          AsterTheme.updateCustomThemeColors(
+            AsterTheme.customThemeColorsNotifier.value,
+            activateIfVip: true,
+          );
+        } else {
+          AsterTheme.selectThemeOption(option.id);
+        }
+      },
       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
@@ -528,8 +741,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : AsterTheme.surfaceAlt(context),
           borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
           border: Border.all(
-            color: isSelected ? accent : Colors.transparent,
-            width: 2,
+            color: isSelected
+                ? accent
+                : (isCustom ? AsterVipColors.gold.withValues(alpha: 0.45) : Colors.transparent),
+            width: isSelected ? 2 : (isCustom ? 1.2 : 2),
           ),
         ),
         child: Column(
@@ -552,15 +767,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        option.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.manrope(
-                          fontSize: 12.5,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-                          color: isSelected ? accent : AsterTheme.text(context),
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              option.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.manrope(
+                                fontSize: 12.5,
+                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                                color: isSelected ? accent : AsterTheme.text(context),
+                              ),
+                            ),
+                          ),
+                          if (isCustom) ...[
+                            const SizedBox(width: 4),
+                            const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
+                          ] else if (isLockedShop) ...[
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AsterConstants.ambar.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                              ),
+                              child: Text(
+                                '$price ${ShopService.currencySymbol}',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AsterConstants.ambar,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         option.tag,
@@ -575,7 +817,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
-                if (isSelected)
+                if (isLocked)
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 15,
+                    color: isLockedVip ? AsterVipColors.gold : AsterConstants.ambar,
+                  )
+                else if (isSelected)
                   Icon(Icons.check_circle_rounded, size: 16, color: option.primary),
               ],
             ),
@@ -1228,9 +1476,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _testResult = null;
                       _testSuccess = null;
                     });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Configurações de IA redefinidas.')),
-                    );
+                    ScaffoldMessenger.of(context)
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        const SnackBar(
+                          persist: false,
+                          duration: Duration(seconds: 2),
+                          content: Text('Configurações de IA redefinidas.'),
+                        ),
+                      );
                   },
                   child: Text('Limpar', style: GoogleFonts.manrope(color: AsterConstants.coral, fontWeight: FontWeight.w700)),
                 ),
@@ -1327,14 +1581,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return InkWell(
                     onTap: () {
                       setState(() => _selectedLangCode = lang.code);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          duration: const Duration(seconds: 2),
-                          backgroundColor: primaryCol,
-                          content: Text(
-                              'Idioma selecionado: ${lang.flag} ${lang.name} (${lang.region})'),
-                        ),
-                      );
+                      ScaffoldMessenger.of(context)
+                        ..clearSnackBars()
+                        ..showSnackBar(
+                          SnackBar(
+                            persist: false,
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: primaryCol,
+                            content: Text(
+                              'Idioma selecionado: ${lang.flag} ${lang.name} (${lang.region})',
+                              style: TextStyle(color: AsterTheme.onPrimary(context)),
+                            ),
+                          ),
+                        );
                     },
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     child: AnimatedContainer(

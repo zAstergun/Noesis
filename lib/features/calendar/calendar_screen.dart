@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,7 @@ import '../../core/constants.dart';
 import '../../core/noesis_agent_tools.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
+import '../../widgets/vip_rgb_theme_editor.dart';
 
 class CalendarCategory {
   final String id;
@@ -115,6 +117,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late final Stream<List<Map<String, dynamic>>> _eventsStream;
   final Map<String, DateTime> _parsedDateCache = {};
   late final ScrollController _weekScrollController;
+  bool _isDraggingCalendarEvent = false;
+  String? _draggingEventId;
+  final ValueNotifier<({int dayIdx, int startMinutes, int durationMinutes, Color color, String title})?>
+      _dragPreviewNotifier = ValueNotifier(null);
 
   @override
   void initState() {
@@ -164,6 +170,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void dispose() {
     _weekScrollController.dispose();
+    _dragPreviewNotifier.dispose();
     _selectedDayNotifier.dispose();
     _activeViewModeNotifier.dispose();
     _selectedCategoryFilterNotifier.dispose();
@@ -172,13 +179,206 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.dispose();
   }
 
+  Future<void> _rescheduleEventByDrag(Map<String, dynamic> event, DateTime newStart) async {
+    final id = event['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    final oldStart = _parseDateTime(event['start_time']);
+    final oldEnd = _parseDateTime(event['end_time']);
+    final durationMinutes = oldEnd.difference(oldStart).inMinutes.clamp(15, 720);
+
+    if (newStart.year == oldStart.year &&
+        newStart.month == oldStart.month &&
+        newStart.day == oldStart.day &&
+        newStart.hour == oldStart.hour &&
+        newStart.minute == oldStart.minute) {
+      return;
+    }
+
+    final newEnd = newStart.add(Duration(minutes: durationMinutes));
+    final title = (event['title'] ?? 'Bloco').toString();
+
+    _parsedDateCache.clear();
+    setState(() {
+      _selectedDay = newStart;
+      _focusedDay = newStart;
+      _selectedDayNotifier.value = newStart;
+    });
+
+    try {
+      await SupabaseService.updateCalendarEvent(
+        id: id,
+        startTime: newStart,
+        endTime: newEnd,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              backgroundColor: AsterConstants.coral,
+              content: Text('Não foi possível mover o bloco. Tente novamente.'),
+            ),
+          );
+      }
+      return;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            backgroundColor: AsterTheme.primary(context),
+            content: Text(
+              'Bloco "$title" movido para ${DateFormat("E, d/MM 'às' HH:mm", 'pt_BR').format(newStart)}.',
+              style: GoogleFonts.manrope(
+                color: AsterTheme.onPrimary(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
   Color _resolveCalendarColor(Color raw) =>
       raw == AsterConstants.lavanda ? AsterTheme.primary(context) : raw;
+
+  bool _isDarkTheme(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _subtleBorderColor(BuildContext context, [double? strength]) {
+    final card = AsterTheme.card(context);
+    final ink = AsterTheme.text(context);
+    final t = strength ?? (_isDarkTheme(context) ? 0.16 : 0.13);
+    return Color.lerp(card, ink, t) ?? AsterTheme.surfaceInset(context);
+  }
+
+  double _contrastRatio(Color a, Color b) {
+    final l1 = a.computeLuminance();
+    final l2 = b.computeLuminance();
+    final lighter = math.max(l1, l2);
+    final darker = math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  Color _readableAccent(Color accent, Color background) {
+    if (_contrastRatio(accent, background) >= 4.0) return accent;
+    final bgDark =
+        ThemeData.estimateBrightnessForColor(background) == Brightness.dark;
+    final target = bgDark ? Colors.white : const Color(0xFF141624);
+    for (final t in const [0.25, 0.4, 0.55, 0.7, 0.85]) {
+      final candidate = Color.lerp(accent, target, t)!;
+      if (_contrastRatio(candidate, background) >= 4.2) return candidate;
+    }
+    return target;
+  }
+
+  ThemeData _themedPickerTheme(BuildContext context) {
+    final base = Theme.of(context);
+    final cs = base.colorScheme;
+    final cardBg = AsterTheme.card(context);
+    final textCol = AsterTheme.text(context);
+    final accentAction = _readableAccent(cs.primary, cardBg);
+    return base.copyWith(
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: cardBg,
+        headerBackgroundColor: cs.primary,
+        headerForegroundColor: cs.onPrimary,
+        dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return cs.onPrimary;
+          if (states.contains(WidgetState.disabled)) {
+            return AsterTheme.textMuted(context).withValues(alpha: 0.45);
+          }
+          return textCol;
+        }),
+        todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return cs.onPrimary;
+          return accentAction;
+        }),
+        todayBorder: BorderSide(color: accentAction, width: 1.4),
+        weekdayStyle: GoogleFonts.manrope(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AsterTheme.textMuted(context),
+        ),
+        confirmButtonStyle: TextButton.styleFrom(
+          foregroundColor: accentAction,
+          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+        ),
+        cancelButtonStyle: TextButton.styleFrom(
+          foregroundColor: AsterTheme.textMuted(context),
+          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
 
   Color _onColor(Color bg) =>
       ThemeData.estimateBrightnessForColor(bg) == Brightness.light
           ? const Color(0xFF111111)
           : Colors.white;
+
+  Color _parseHexColor(String hex) {
+    try {
+      final clean = hex.replaceAll('#', '').trim().toUpperCase();
+      return Color(int.parse(clean.length == 6 ? 'FF$clean' : clean, radix: 16));
+    } catch (_) {
+      return AsterConstants.lavanda;
+    }
+  }
+
+  Widget _buildColorPaletteWrap({
+    required String currentHex,
+    required ValueChanged<String> onHexChanged,
+  }) {
+    final isPreset = _colorPalette.any(
+      (p) => p.hex.toUpperCase() == currentHex.toUpperCase(),
+    );
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        ..._colorPalette.map((p) {
+          final isSelected = currentHex.toUpperCase() == p.hex.toUpperCase();
+          return InkWell(
+            onTap: () => onHexChanged(p.hex),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: p.color,
+                shape: BoxShape.circle,
+                border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
+                boxShadow: [
+                  if (isSelected)
+                    BoxShadow(
+                      color: p.color.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                ],
+              ),
+              child: isSelected
+                  ? const Center(
+                      child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                    )
+                  : null,
+            ),
+          );
+        }),
+        VipRgbColorTrigger(
+          currentColor: _parseHexColor(currentHex),
+          isCustomSelected: !isPreset,
+          onColorSelected: (c) => onHexChanged(VipRgbSpectrumPicker.colorToHex(c)),
+        ),
+      ],
+    );
+  }
 
   Color _getCategoryColor(String? cat) =>
       _resolveCalendarColor(_categoryInfo[cat]?.color ?? AsterConstants.lavanda);
@@ -203,12 +403,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   DateTime _parseDateTime(dynamic val) {
-    if (val is DateTime) return val;
+    if (val is DateTime) return val.toLocal();
     if (val is String) {
       final cached = _parsedDateCache[val];
       if (cached != null) return cached;
       try {
-        final parsed = DateTime.parse(val);
+        final parsed = DateTime.parse(val).toLocal();
         _parsedDateCache[val] = parsed;
         return parsed;
       } catch (_) {}
@@ -297,27 +497,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  void _deleteEventWithUndo(Map<String, dynamic> event) {
+  void _deleteEventWithUndo(Map<String, dynamic> event) async {
     final id = event['id']?.toString() ?? '';
     final title = event['title'] ?? 'Bloco';
     if (id.isEmpty) return;
 
-    // Dispara a remoção de forma otimista imediata
-    SupabaseService.deleteCalendarEvent(id);
+    try {
+      await SupabaseService.deleteCalendarEvent(id);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              backgroundColor: AsterConstants.coral,
+              content: Text('Não foi possível excluir o bloco. Tente novamente.'),
+            ),
+          );
+      }
+      return;
+    }
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
+      final messenger = ScaffoldMessenger.of(context);
+      messenger
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 4),
             backgroundColor: AsterConstants.surfaceDark,
-            content: Text('Bloco "$title" excluído com sucesso.'),
+            content: Text(
+              'Bloco "$title" excluído com sucesso.',
+              style: const TextStyle(color: Colors.white),
+            ),
             action: SnackBarAction(
               label: 'Desfazer',
               textColor: AsterConstants.ambar,
               onPressed: () {
+                messenger.hideCurrentSnackBar();
                 SupabaseService.addCalendarEvent(
                   title: event['title'] ?? '',
                   description: event['description'],
@@ -325,7 +543,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   color: event['color'],
                   startTime: _parseDateTime(event['start_time']),
                   endTime: _parseDateTime(event['end_time']),
-                );
+                ).catchError((_) => <String, dynamic>{});
               },
             ),
           ),
@@ -346,277 +564,301 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _titleController.clear();
     _descController.clear();
 
+    bool isSaving = false;
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          final cardBg = AsterTheme.card(context);
+          final textCol = AsterTheme.text(context);
+          final primaryCol = AsterTheme.primary(context);
+          final readablePrimary = _readableAccent(primaryCol, cardBg);
+
           return AlertDialog(
-            backgroundColor: AsterTheme.card(context),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            backgroundColor: cardBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+              side: BorderSide(color: _subtleBorderColor(context, 0.16), width: 1),
+            ),
             title: Text(
               'Novo Bloco / Agendamento',
               style: GoogleFonts.manrope(
                 fontWeight: FontWeight.w800,
-                color: AsterTheme.text(context),
+                color: textCol,
               ),
             ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Título do Bloco',
-                    hintText: 'ex: Prova Security+, Revisão de Redes',
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    style: GoogleFonts.manrope(color: textCol),
+                    decoration: const InputDecoration(
+                      labelText: 'Título do Bloco',
+                      hintText: 'ex: Prova Security+, Revisão de Redes',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-                DropdownButtonFormField<String>(
-                  value: _categoryInfo.containsKey(_dialogCategory) ? _dialogCategory : _categoryInfo.keys.first,
-                  decoration: const InputDecoration(labelText: 'Categoria Semântica'),
-                  items: [
-                    ..._categoryInfo.entries.map((e) {
-                      return DropdownMenuItem(
-                        value: e.key,
+                  DropdownButtonFormField<String>(
+                    value: _categoryInfo.containsKey(_dialogCategory) ? _dialogCategory : _categoryInfo.keys.first,
+                    dropdownColor: cardBg,
+                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: textCol),
+                    decoration: const InputDecoration(labelText: 'Categoria Semântica'),
+                    items: [
+                      ..._categoryInfo.entries.map((e) {
+                        final catColor = _resolveCalendarColor(e.value.color);
+                        return DropdownMenuItem(
+                          value: e.key,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(color: catColor, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: textCol)),
+                            ],
+                          ),
+                        );
+                      }),
+                      DropdownMenuItem(
+                        value: '__add_category__',
                         child: Row(
                           children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(color: e.value.color, shape: BoxShape.circle),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      );
-                    }),
-                    DropdownMenuItem(
-                      value: '__add_category__',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterTheme.primary(context)),
-                          const SizedBox(width: 8),
-                          Text(
-                            '+ Nova Categoria...',
-                            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val == '__add_category__') {
-                      _openAddEditCategoryDialog(
-                        onSaved: () {
-                          setModalState(() {
-                            _dialogCategory = _categoryInfo.keys.last;
-                            _dialogColorHex = _categoryInfo.values.last.hex;
-                          });
-                        },
-                      );
-                    } else if (val != null) {
-                      setModalState(() {
-                        _dialogCategory = val;
-                        _dialogColorHex = _categoryInfo[val]?.hex ?? '#7C6CF0';
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // ─── Seletor de Cores Personalizadas ───
-                Text(
-                  'Cor do Bloco',
-                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _colorPalette.map((p) {
-                    final isSelected = _dialogColorHex.toUpperCase() == p.hex.toUpperCase();
-
-                    return InkWell(
-                      onTap: () => setModalState(() => _dialogColorHex = p.hex),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: p.color,
-                          shape: BoxShape.circle,
-                          border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
-                          boxShadow: [
-                            if (isSelected)
-                              BoxShadow(
-                                color: p.color.withValues(alpha: 0.6),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                          ],
-                        ),
-                        child: isSelected
-                            ? const Center(
-                                child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
-                              )
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-
-                // Seletor de Data
-                InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _dialogDate,
-                      firstDate: DateTime(2024),
-                      lastDate: DateTime(2030),
-                      locale: const Locale('pt', 'BR'),
-                    );
-                    if (picked != null) {
-                      setModalState(() => _dialogDate = picked);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AsterTheme.surfaceAlt(context),
-                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.calendar_today_rounded, size: 16, color: AsterTheme.primary(context)),
+                            Icon(Icons.add_circle_outline_rounded, size: 15, color: readablePrimary),
                             const SizedBox(width: 8),
                             Text(
-                              DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_dialogDate),
-                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: AsterTheme.text(context)),
+                              '+ Nova Categoria...',
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: readablePrimary),
                             ),
                           ],
                         ),
-                        Icon(Icons.edit_calendar_rounded, size: 16, color: AsterTheme.textMuted(context)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Seletor de Horário e Duração
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: DropdownButtonFormField<int>(
-                        value: _dialogStartHour,
-                        decoration: const InputDecoration(labelText: 'Horário de Início'),
-                        items: List.generate(24, (i) => i).map((h) {
-                          final hStr = '${h.toString().padLeft(2, '0')}:00';
-                          return DropdownMenuItem(value: h, child: Text(hStr, style: GoogleFonts.manrope(fontSize: 13)));
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) setModalState(() => _dialogStartHour = val);
-                        },
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 5,
-                      child: DropdownButtonFormField<int>(
-                        value: _dialogDurationMinutes,
-                        decoration: const InputDecoration(labelText: 'Duração'),
-                        items: const [
-                          DropdownMenuItem(value: 30, child: Text('30 min')),
-                          DropdownMenuItem(value: 60, child: Text('1 hora')),
-                          DropdownMenuItem(value: 90, child: Text('1h 30m')),
-                          DropdownMenuItem(value: 120, child: Text('2 horas')),
-                          DropdownMenuItem(value: 180, child: Text('3 horas')),
+                    ],
+                    onChanged: (val) {
+                      if (val == '__add_category__') {
+                        _openAddEditCategoryDialog(
+                          onSaved: () {
+                            setModalState(() {
+                              _dialogCategory = _categoryInfo.keys.last;
+                              _dialogColorHex = _categoryInfo.values.last.hex;
+                            });
+                          },
+                        );
+                      } else if (val != null) {
+                        setModalState(() {
+                          _dialogCategory = val;
+                          _dialogColorHex = _categoryInfo[val]?.hex ?? '#7C6CF0';
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ─── Seletor de Cores Personalizadas ───
+                  Text(
+                    'Cor do Bloco',
+                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: textCol),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildColorPaletteWrap(
+                    currentHex: _dialogColorHex,
+                    onHexChanged: (hex) => setModalState(() => _dialogColorHex = hex),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Seletor de Data
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _dialogDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime(2030),
+                        locale: const Locale('pt', 'BR'),
+                        builder: (pickerCtx, child) => Theme(
+                          data: _themedPickerTheme(pickerCtx),
+                          child: child!,
+                        ),
+                      );
+                      if (picked != null) {
+                        setModalState(() => _dialogDate = picked);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AsterTheme.surfaceAlt(context),
+                        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                        border: Border.all(color: _subtleBorderColor(context, 0.14)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_rounded, size: 16, color: readablePrimary),
+                              const SizedBox(width: 8),
+                              Text(
+                                DateFormat("EEEE, d 'de' MMMM", 'pt_BR').format(_dialogDate),
+                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: textCol),
+                              ),
+                            ],
+                          ),
+                          Icon(Icons.edit_calendar_rounded, size: 16, color: AsterTheme.textMuted(context)),
                         ],
-                        onChanged: (val) {
-                          if (val != null) setModalState(() => _dialogDurationMinutes = val);
-                        },
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                TextField(
-                  controller: _descController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Detalhes ou Objetivos (opcional)',
-                    hintText: 'Capítulos, links de lab, requisitos de estudo...',
                   ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
-            ),
-            SoftClayPillButton(
-              text: 'Agendar Bloco',
-              onPressed: () async {
-                final title = _titleController.text.trim();
-                if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Por favor, informe o título do bloco.')),
-                  );
-                  return;
-                }
+                  const SizedBox(height: 14),
 
-                final start = DateTime(
-                  _dialogDate.year,
-                  _dialogDate.month,
-                  _dialogDate.day,
-                  _dialogStartHour,
-                  _dialogStartMinute,
-                );
-                final end = start.add(Duration(minutes: _dialogDurationMinutes));
-
-                // Disparo imediato otimista
-                SupabaseService.addCalendarEvent(
-                  title: title,
-                  description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
-                  category: _dialogCategory,
-                  color: _dialogColorHex,
-                  startTime: start,
-                  endTime: end,
-                );
-
-                Navigator.pop(ctx);
-                _titleController.clear();
-                _descController.clear();
-                setState(() {
-                  _selectedDay = _dialogDate;
-                  _focusedDay = _dialogDate;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: AsterTheme.primary(context),
-                    content: Text('Bloco "$title" agendado com sucesso!'),
+                  // Seletor de Horário e Duração
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: DropdownButtonFormField<int>(
+                          value: _dialogStartHour,
+                          dropdownColor: cardBg,
+                          style: GoogleFonts.manrope(fontSize: 13, color: textCol),
+                          decoration: const InputDecoration(labelText: 'Horário de Início'),
+                          items: List.generate(24, (i) => i).map((h) {
+                            final hStr = '${h.toString().padLeft(2, '0')}:00';
+                            return DropdownMenuItem(value: h, child: Text(hStr, style: GoogleFonts.manrope(fontSize: 13, color: textCol)));
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setModalState(() => _dialogStartHour = val);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 5,
+                        child: DropdownButtonFormField<int>(
+                          value: _dialogDurationMinutes,
+                          dropdownColor: cardBg,
+                          style: GoogleFonts.manrope(fontSize: 13, color: textCol),
+                          decoration: const InputDecoration(labelText: 'Duração'),
+                          items: [
+                            DropdownMenuItem(value: 30, child: Text('30 min', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                            DropdownMenuItem(value: 60, child: Text('1 hora', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                            DropdownMenuItem(value: 90, child: Text('1h 30m', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                            DropdownMenuItem(value: 120, child: Text('2 horas', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                            DropdownMenuItem(value: 180, child: Text('3 horas', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setModalState(() => _dialogDurationMinutes = val);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: _descController,
+                    maxLines: 2,
+                    style: GoogleFonts.manrope(color: textCol),
+                    decoration: const InputDecoration(
+                      labelText: 'Detalhes ou Objetivos (opcional)',
+                      hintText: 'Capítulos, links de lab, requisitos de estudo...',
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        );
-      },
-    ),
-  );
-}
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
+              ),
+              SoftClayPillButton(
+                text: isSaving ? 'Salvando...' : 'Agendar Bloco',
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final title = _titleController.text.trim();
+                        if (title.isEmpty) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(content: Text('Por favor, informe o título do bloco.')),
+                          );
+                          return;
+                        }
+
+                        final start = DateTime(
+                          _dialogDate.year,
+                          _dialogDate.month,
+                          _dialogDate.day,
+                          _dialogStartHour,
+                          _dialogStartMinute,
+                        );
+                        final end = start.add(Duration(minutes: _dialogDurationMinutes));
+
+                        setModalState(() => isSaving = true);
+                        try {
+                          await SupabaseService.addCalendarEvent(
+                            title: title,
+                            description: _descController.text.trim().isNotEmpty ? _descController.text.trim() : null,
+                            category: _dialogCategory,
+                            color: _dialogColorHex,
+                            startTime: start,
+                            endTime: end,
+                          );
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            setModalState(() => isSaving = false);
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: AsterConstants.coral,
+                                content: Text('Erro ao salvar bloco no calendário. Verifique sua conexão e tente novamente.'),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        if (!mounted) return;
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _titleController.clear();
+                        _descController.clear();
+                        setState(() {
+                          _selectedDay = _dialogDate;
+                          _focusedDay = _dialogDate;
+                          _selectedDayNotifier.value = _dialogDate;
+                          if (_selectedCategoryFilter != null &&
+                              _selectedCategoryFilter != _dialogCategory) {
+                            _selectedCategoryFilter = null;
+                            _selectedCategoryFilterNotifier.value = null;
+                          }
+                        });
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AsterTheme.primary(this.context),
+                            content: Text(
+                              'Bloco "$title" agendado com sucesso!',
+                              style: GoogleFonts.manrope(
+                                color: AsterTheme.onPrimary(this.context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   void _showEventDetailsDialog(Map<String, dynamic> event) {
     final title = event['title'] ?? 'Sem título';
@@ -638,15 +880,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
+        final isDark = _isDarkTheme(ctx);
+        final cardBg = AsterTheme.card(ctx);
+        final textCol = AsterTheme.text(ctx);
+        final primaryCol = AsterTheme.primary(ctx);
+        final readableColor = _readableAccent(color, cardBg);
+        final readablePrimary = _readableAccent(primaryCol, cardBg);
+        final readableCoral = _readableAccent(AsterConstants.coral, cardBg);
+        final statusRaw = isCompleted ? AsterConstants.menta : AsterConstants.ambar;
+        final statusReadable = _readableAccent(statusRaw, cardBg);
+
         return AlertDialog(
-          backgroundColor: AsterTheme.card(context),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+          backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+            side: BorderSide(color: _subtleBorderColor(ctx, 0.16), width: 1),
+          ),
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                child: Icon(icon, size: 20, color: color),
+                decoration: BoxDecoration(color: color.withValues(alpha: isDark ? 0.24 : 0.15), shape: BoxShape.circle),
+                child: Icon(icon, size: 20, color: readableColor),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -658,10 +913,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       style: GoogleFonts.manrope(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: AsterTheme.text(context),
+                        color: textCol,
                       ),
                     ),
-                    Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+                    Text(label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: readableColor)),
                   ],
                 ),
               ),
@@ -681,13 +936,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AsterTheme.primary(context).withValues(alpha: 0.08),
+                    color: primaryCol.withValues(alpha: isDark ? 0.14 : 0.08),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                    border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.25), width: 1.2),
+                    border: Border.all(color: readablePrimary.withValues(alpha: 0.32), width: 1.2),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.access_time_rounded, size: 18, color: AsterTheme.primary(context)),
+                      Icon(Icons.access_time_rounded, size: 18, color: readablePrimary),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -698,18 +953,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: AsterTheme.text(context),
+                                color: textCol,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Toque para remarcar data ou horário ✏️',
-                              style: GoogleFonts.manrope(fontSize: 10.5, color: AsterTheme.primary(context), fontWeight: FontWeight.w700),
+                              style: GoogleFonts.manrope(fontSize: 10.5, color: readablePrimary, fontWeight: FontWeight.w700),
                             ),
                           ],
                         ),
                       ),
-                      Icon(Icons.edit_calendar_rounded, size: 16, color: AsterTheme.primary(context)),
+                      Icon(Icons.edit_calendar_rounded, size: 16, color: readablePrimary),
                     ],
                   ),
                 ),
@@ -720,15 +975,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AsterTheme.surfaceAlt(context),
+                    color: AsterTheme.surfaceAlt(ctx),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    border: Border.all(color: _subtleBorderColor(ctx, 0.12), width: 1),
                   ),
                   child: Text(
                     desc,
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       height: 1.4,
-                      color: AsterTheme.text(context),
+                      color: textCol,
                     ),
                   ),
                 ),
@@ -740,14 +996,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     'Status:',
                     style: GoogleFonts.manrope(
                       fontSize: 12,
-                      color: AsterTheme.textMuted(context),
+                      color: AsterTheme.textMuted(ctx),
                     ),
                   ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (isCompleted ? AsterConstants.menta : AsterConstants.ambar).withValues(alpha: 0.15),
+                    color: statusRaw.withValues(alpha: isDark ? 0.22 : 0.14),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                   child: Text(
@@ -755,7 +1011,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isCompleted ? AsterConstants.menta : AsterConstants.ambar,
+                      color: statusReadable,
                     ),
                   ),
                 ),
@@ -769,8 +1025,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AsterConstants.coral,
-                  side: const BorderSide(color: AsterConstants.coral, width: 1.2),
+                  foregroundColor: readableCoral,
+                  side: BorderSide(color: readableCoral, width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 ),
@@ -784,8 +1040,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AsterTheme.primary(context),
-                  side: BorderSide(color: AsterTheme.primary(context), width: 1.2),
+                  foregroundColor: readablePrimary,
+                  side: BorderSide(color: readablePrimary, width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
                 ),
@@ -802,12 +1058,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Navigator.pop(ctx);
                   final id = event['id']?.toString() ?? '';
                   if (id.isNotEmpty) {
-                    await SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
+                    try {
+                      await SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
+                    } catch (_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: AsterConstants.coral,
+                            content: Text('Não foi possível atualizar o status do bloco.'),
+                          ),
+                        );
+                      }
+                    }
                   }
                 },
                 child: Text(
                   isCompleted ? 'Marcar Pendente' : 'Marcar Concluído',
-                  style: GoogleFonts.manrope(color: AsterTheme.primary(context), fontWeight: FontWeight.w700, fontSize: 12),
+                  style: GoogleFonts.manrope(color: readablePrimary, fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
               const SizedBox(width: 6),
@@ -838,11 +1105,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     String editColorHex = event['color'] ?? (_categoryInfo[editCategory]?.hex ?? '#7C6CF0');
     final titleEditController = TextEditingController(text: event['title'] ?? '');
     final descEditController = TextEditingController(text: event['description'] ?? '');
+    bool isSaving = false;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          final cardBg = AsterTheme.card(context);
+          final textCol = AsterTheme.text(context);
+          final primaryCol = AsterTheme.primary(context);
+          final readablePrimary = _readableAccent(primaryCol, cardBg);
           final computedStart = DateTime(
             editDate.year,
             editDate.month,
@@ -854,17 +1126,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final durH = editDurationMinutes / 60.0;
           final durStr = durH == durH.truncateToDouble() ? '${durH.toInt()}h' : '${durH.toStringAsFixed(1)}h';
           return AlertDialog(
-            backgroundColor: AsterTheme.card(context),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
+            backgroundColor: cardBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+              side: BorderSide(color: _subtleBorderColor(context, 0.16), width: 1),
+            ),
             title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AsterTheme.primary(context).withValues(alpha: 0.15),
+                    color: primaryCol.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.edit_calendar_rounded, size: 20, color: AsterTheme.primary(context)),
+                  child: Icon(Icons.edit_calendar_rounded, size: 20, color: readablePrimary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -876,7 +1151,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         style: GoogleFonts.manrope(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
-                          color: AsterTheme.text(context),
+                          color: textCol,
                         ),
                       ),
                       Text(
@@ -898,6 +1173,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 children: [
                   TextField(
                     controller: titleEditController,
+                    style: GoogleFonts.manrope(color: textCol),
                     decoration: const InputDecoration(
                       labelText: 'Título do Bloco',
                       hintText: 'ex: Prova Security+, Revisão de Redes',
@@ -919,6 +1195,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         firstDate: DateTime(2024),
                         lastDate: DateTime(2030),
                         locale: const Locale('pt', 'BR'),
+                        builder: (pickerCtx, child) => Theme(
+                          data: _themedPickerTheme(pickerCtx),
+                          child: child!,
+                        ),
                       );
                       if (picked != null) {
                         setModalState(() => editDate = picked);
@@ -930,35 +1210,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       decoration: BoxDecoration(
                         color: AsterTheme.surfaceAlt(context),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                        border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.35), width: 1.2),
+                        border: Border.all(color: readablePrimary.withValues(alpha: 0.35), width: 1.2),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_today_rounded, size: 16, color: AsterTheme.primary(context)),
+                              Icon(Icons.calendar_today_rounded, size: 16, color: readablePrimary),
                               const SizedBox(width: 10),
                               Text(
                                 DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'pt_BR').format(editDate),
-                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: textCol),
                               ),
                             ],
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AsterTheme.primary(context).withValues(alpha: 0.12),
+                              color: primaryCol.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.edit_rounded, size: 12, color: AsterTheme.primary(context)),
+                                Icon(Icons.edit_rounded, size: 12, color: readablePrimary),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Trocar Data',
-                                  style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
+                                  style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: readablePrimary),
                                 ),
                               ],
                             ),
@@ -984,12 +1264,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             const SizedBox(height: 6),
                             DropdownButtonFormField<int>(
                               value: editStartHour,
+                              dropdownColor: cardBg,
+                              style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700, color: textCol),
                               decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                               items: List.generate(24, (i) => i).map((h) {
                                 final hStr = '${h.toString().padLeft(2, '0')}:${editStartMinute.toString().padLeft(2, '0')}';
                                 return DropdownMenuItem(
                                   value: h,
-                                  child: Text(hStr, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700)),
+                                  child: Text(hStr, style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w700, color: textCol)),
                                 );
                               }).toList(),
                               onChanged: (val) {
@@ -1012,16 +1294,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             const SizedBox(height: 6),
                             DropdownButtonFormField<int>(
                               value: [15, 30, 45, 60, 90, 120, 180, 240].contains(editDurationMinutes) ? editDurationMinutes : 60,
+                              dropdownColor: cardBg,
+                              style: GoogleFonts.manrope(fontSize: 13, color: textCol),
                               decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                              items: const [
-                                DropdownMenuItem(value: 15, child: Text('15 min')),
-                                DropdownMenuItem(value: 30, child: Text('30 min')),
-                                DropdownMenuItem(value: 45, child: Text('45 min')),
-                                DropdownMenuItem(value: 60, child: Text('1 hora')),
-                                DropdownMenuItem(value: 90, child: Text('1h 30m')),
-                                DropdownMenuItem(value: 120, child: Text('2 horas')),
-                                DropdownMenuItem(value: 180, child: Text('3 horas')),
-                                DropdownMenuItem(value: 240, child: Text('4 horas')),
+                              items: [
+                                DropdownMenuItem(value: 15, child: Text('15 min', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 30, child: Text('30 min', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 45, child: Text('45 min', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 60, child: Text('1 hora', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 90, child: Text('1h 30m', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 120, child: Text('2 horas', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 180, child: Text('3 horas', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
+                                DropdownMenuItem(value: 240, child: Text('4 horas', style: GoogleFonts.manrope(fontSize: 13, color: textCol))),
                               ],
                               onChanged: (val) {
                                 if (val != null) setModalState(() => editDurationMinutes = val);
@@ -1039,16 +1323,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AsterTheme.primary(context).withValues(alpha: 0.08),
+                      color: primaryCol.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.schedule_rounded, size: 15, color: AsterTheme.primary(context)),
+                        Icon(Icons.schedule_rounded, size: 15, color: readablePrimary),
                         const SizedBox(width: 8),
                         Text(
                           'Horário final: ${DateFormat('HH:mm').format(computedStart)} às ${DateFormat('HH:mm').format(computedEnd)} ($durStr)',
-                          style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                          style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700, color: textCol),
                         ),
                       ],
                     ),
@@ -1057,9 +1341,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                   DropdownButtonFormField<String>(
                     value: _categoryInfo.containsKey(editCategory) ? editCategory : _categoryInfo.keys.first,
+                    dropdownColor: cardBg,
+                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: textCol),
                     decoration: const InputDecoration(labelText: 'Categoria Semântica'),
                     items: [
                       ..._categoryInfo.entries.map((e) {
+                        final catColor = _resolveCalendarColor(e.value.color);
                         return DropdownMenuItem(
                           value: e.key,
                           child: Row(
@@ -1067,10 +1354,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               Container(
                                 width: 12,
                                 height: 12,
-                                decoration: BoxDecoration(color: e.value.color, shape: BoxShape.circle),
+                                decoration: BoxDecoration(color: catColor, shape: BoxShape.circle),
                               ),
                               const SizedBox(width: 8),
-                              Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600)),
+                              Text(e.value.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: textCol)),
                             ],
                           ),
                         );
@@ -1079,11 +1366,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         value: '__add_category__',
                         child: Row(
                           children: [
-                            Icon(Icons.add_circle_outline_rounded, size: 15, color: AsterTheme.primary(context)),
+                            Icon(Icons.add_circle_outline_rounded, size: 15, color: readablePrimary),
                             const SizedBox(width: 8),
                             Text(
                               '+ Nova Categoria...',
-                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
+                              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: readablePrimary),
                             ),
                           ],
                         ),
@@ -1112,48 +1399,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // Seletor de Cor
                   Text(
                     'Cor do Bloco',
-                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                    style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: textCol),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: _colorPalette.map((p) {
-                      final isSelected = editColorHex.toUpperCase() == p.hex.toUpperCase();
-
-                      return InkWell(
-                        onTap: () => setModalState(() => editColorHex = p.hex),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: p.color,
-                            shape: BoxShape.circle,
-                            border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
-                            boxShadow: [
-                              if (isSelected)
-                                BoxShadow(
-                                  color: p.color.withValues(alpha: 0.6),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                            ],
-                          ),
-                          child: isSelected
-                              ? const Center(
-                                  child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
-                                )
-                              : null,
-                        ),
-                      );
-                    }).toList(),
+                  _buildColorPaletteWrap(
+                    currentHex: editColorHex,
+                    onHexChanged: (hex) => setModalState(() => editColorHex = hex),
                   ),
                   const SizedBox(height: 16),
 
                   TextField(
                     controller: descEditController,
                     maxLines: 2,
+                    style: GoogleFonts.manrope(color: textCol),
                     decoration: const InputDecoration(
                       labelText: 'Detalhes ou Objetivos (opcional)',
                       hintText: 'Capítulos, links de lab, requisitos de estudo...',
@@ -1165,59 +1423,92 @@ class _CalendarScreenState extends State<CalendarScreen> {
             actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             actions: [
               TextButton(
-                onPressed: () {
-                  titleEditController.dispose();
-                  descEditController.dispose();
-                  Navigator.pop(ctx);
-                },
+                onPressed: isSaving
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        titleEditController.dispose();
+                        descEditController.dispose();
+                      },
                 child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(context))),
               ),
               SoftClayPillButton(
-                text: 'Salvar Alterações',
-                onPressed: () async {
-                  final newTitle = titleEditController.text.trim();
-                  if (newTitle.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Por favor, informe o título do bloco.')),
-                    );
-                    return;
-                  }
+                text: isSaving ? 'Salvando...' : 'Salvar Alterações',
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final newTitle = titleEditController.text.trim();
+                        if (newTitle.isEmpty) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(content: Text('Por favor, informe o título do bloco.')),
+                          );
+                          return;
+                        }
 
-                  final newStart = DateTime(
-                    editDate.year,
-                    editDate.month,
-                    editDate.day,
-                    editStartHour,
-                    editStartMinute,
-                  );
-                  final newEnd = newStart.add(Duration(minutes: editDurationMinutes));
+                        final newStart = DateTime(
+                          editDate.year,
+                          editDate.month,
+                          editDate.day,
+                          editStartHour,
+                          editStartMinute,
+                        );
+                        final newEnd = newStart.add(Duration(minutes: editDurationMinutes));
 
-                  SupabaseService.updateCalendarEvent(
-                    id: eventId,
-                    title: newTitle,
-                    description: descEditController.text.trim().isNotEmpty ? descEditController.text.trim() : null,
-                    category: editCategory,
-                    color: editColorHex,
-                    startTime: newStart,
-                    endTime: newEnd,
-                  );
+                        setModalState(() => isSaving = true);
+                        try {
+                          await SupabaseService.updateCalendarEvent(
+                            id: eventId,
+                            title: newTitle,
+                            description: descEditController.text.trim().isNotEmpty ? descEditController.text.trim() : null,
+                            category: editCategory,
+                            color: editColorHex,
+                            startTime: newStart,
+                            endTime: newEnd,
+                          );
+                        } catch (_) {
+                          if (ctx.mounted) {
+                            setModalState(() => isSaving = false);
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: AsterConstants.coral,
+                                content: Text('Não foi possível salvar as alterações. Tente novamente.'),
+                              ),
+                            );
+                          }
+                          return;
+                        }
 
-                  titleEditController.dispose();
-                  descEditController.dispose();
-                  Navigator.pop(ctx);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        titleEditController.dispose();
+                        descEditController.dispose();
+                        if (!mounted) return;
 
-                  setState(() {
-                    _selectedDay = editDate;
-                    _focusedDay = editDate;
-                  });
+                        setState(() {
+                          _selectedDay = editDate;
+                          _focusedDay = editDate;
+                          _selectedDayNotifier.value = editDate;
+                          if (_selectedCategoryFilter != null &&
+                              _selectedCategoryFilter != editCategory) {
+                            _selectedCategoryFilter = null;
+                            _selectedCategoryFilterNotifier.value = null;
+                          }
+                        });
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AsterTheme.primary(context),
-                      content: Text('Bloco "$newTitle" remarcado para ${DateFormat("d 'de' MMMM", 'pt_BR').format(editDate)} às ${DateFormat('HH:mm').format(newStart)}!'),
-                    ),
-                  );
-                },
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: AsterTheme.primary(this.context),
+                            content: Text(
+                              'Bloco "$newTitle" remarcado para ${DateFormat("d 'de' MMMM", 'pt_BR').format(editDate)} às ${DateFormat('HH:mm').format(newStart)}!',
+                              style: GoogleFonts.manrope(
+                                color: AsterTheme.onPrimary(this.context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
               ),
             ],
           );
@@ -1522,44 +1813,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: AsterTheme.textMuted(context)),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _colorPalette.map((p) {
-                        final isSelected = selectedHex.toUpperCase() == p.hex.toUpperCase();
-
-                        return InkWell(
-                          onTap: () {
-                            setModalState(() {
-                              selectedHex = p.hex;
-                              selectedColor = p.color;
-                            });
-                          },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: p.color,
-                              shape: BoxShape.circle,
-                              border: isSelected ? Border.all(color: Colors.white, width: 2.5) : null,
-                              boxShadow: [
-                                if (isSelected)
-                                  BoxShadow(
-                                    color: p.color.withValues(alpha: 0.6),
-                                    blurRadius: 8,
-                                    spreadRadius: 1,
-                                  ),
-                              ],
-                            ),
-                            child: isSelected
-                                ? const Center(
-                                    child: Icon(Icons.check_rounded, size: 18, color: Colors.white),
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
+                    _buildColorPaletteWrap(
+                      currentHex: selectedHex,
+                      onHexChanged: (hex) {
+                        setModalState(() {
+                          selectedHex = hex;
+                          selectedColor = _parseHexColor(hex);
+                        });
+                      },
                     ),
                     const SizedBox(height: 18),
 
@@ -1662,14 +1923,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
         : null;
     if (rec == null) return;
 
-    await SupabaseService.addCalendarEvent(
-      title: rec.eventTitle,
-      description: rec.eventDescription,
-      category: rec.category,
-      color: rec.colorHex,
-      startTime: rec.startTime,
-      endTime: rec.endTime,
-    );
+    try {
+      await SupabaseService.addCalendarEvent(
+        title: rec.eventTitle,
+        description: rec.eventDescription,
+        category: rec.category,
+        color: rec.colorHex,
+        startTime: rec.startTime,
+        endTime: rec.endTime,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AsterConstants.coral,
+            content: Text('Erro ao agendar sugestão no calendário. Tente novamente.'),
+          ),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       setState(() {
@@ -1678,12 +1951,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _focusedDay = rec.startTime;
         _selectedDay = rec.startTime;
         _selectedDayNotifier.value = rec.startTime;
+        if (_selectedCategoryFilter != null &&
+            _selectedCategoryFilter != rec.category) {
+          _selectedCategoryFilter = null;
+          _selectedCategoryFilterNotifier.value = null;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AsterTheme.primary(context),
           content: Text(
             '${rec.eventTitle} agendado para ${DateFormat("EEEE, d 'de' MMMM 'às' HH:mm", 'pt_BR').format(rec.startTime)}!',
+            style: GoogleFonts.manrope(
+              color: AsterTheme.onPrimary(context),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       );
@@ -1815,6 +2097,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               decoration: BoxDecoration(
                 color: AsterTheme.card(context),
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                border: Border.all(color: _subtleBorderColor(context, 0.16), width: 1),
                 boxShadow: AsterConstants.claySubtleShadow,
               ),
               child: ValueListenableBuilder<String>(
@@ -1859,8 +2142,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               children: [
                 InkWell(
                   onTap: () => setState(() {
-                    _focusedDay = DateTime.now();
-                    _selectedDay = DateTime.now();
+                    final now = DateTime.now();
+                    _focusedDay = now;
+                    _selectedDay = now;
+                    _selectedDayNotifier.value = now;
                   }),
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   child: Container(
@@ -1868,6 +2153,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     decoration: BoxDecoration(
                       color: AsterTheme.card(context),
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                      border: Border.all(color: _subtleBorderColor(context, 0.16), width: 1),
                       boxShadow: AsterConstants.claySubtleShadow,
                     ),
                     child: Text(
@@ -1886,6 +2172,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   decoration: BoxDecoration(
                     color: AsterTheme.card(context),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                    border: Border.all(color: _subtleBorderColor(context, 0.16), width: 1),
                     boxShadow: AsterConstants.claySubtleShadow,
                   ),
                   child: Row(
@@ -1900,6 +2187,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           decoration: BoxDecoration(
                             color: AsterTheme.surfaceAlt(context),
                             shape: BoxShape.circle,
+                            border: Border.all(color: _subtleBorderColor(context, 0.12), width: 1),
                           ),
                           child: Icon(Icons.chevron_left_rounded, size: 18, color: AsterTheme.text(context)),
                         ),
@@ -1915,6 +2203,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           decoration: BoxDecoration(
                             color: AsterTheme.surfaceAlt(context),
                             shape: BoxShape.circle,
+                            border: Border.all(color: _subtleBorderColor(context, 0.12), width: 1),
                           ),
                           child: Icon(Icons.chevron_right_rounded, size: 18, color: AsterTheme.text(context)),
                         ),
@@ -1949,12 +2238,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   decoration: BoxDecoration(
                     color: AsterTheme.surfaceAlt(context),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                    border: Border.all(color: AsterTheme.surfaceInset(context), width: 1),
+                    border: Border.all(color: _subtleBorderColor(context, 0.18), width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.tune_rounded, size: 14, color: AsterTheme.primary(context)),
+                      Icon(Icons.tune_rounded, size: 14, color: _readableAccent(AsterTheme.primary(context), AsterTheme.surfaceAlt(context))),
                       const SizedBox(width: 5),
                       Text(
                         'Categorias',
@@ -1986,7 +2275,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       valueListenable: _selectedCategoryFilterNotifier,
       builder: (context, activeFilter, _) {
         final isSelected = activeFilter == categoryKey;
+        final isDark = _isDarkTheme(context);
+        final cardBg = AsterTheme.card(context);
         final resolvedColor = _resolveCalendarColor(color);
+        final dotColor = _readableAccent(resolvedColor, cardBg);
         final onSelected = _onColor(resolvedColor);
 
         return InkWell(
@@ -2009,9 +2301,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? resolvedColor : resolvedColor.withValues(alpha: 0.12),
+              color: isSelected
+                  ? resolvedColor
+                  : resolvedColor.withValues(alpha: isDark ? 0.18 : 0.11),
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-              border: isSelected ? null : Border.all(color: resolvedColor.withValues(alpha: 0.3), width: 1),
+              border: isSelected
+                  ? null
+                  : Border.all(
+                      color: dotColor.withValues(alpha: isDark ? 0.45 : 0.35),
+                      width: 1,
+                    ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -2020,7 +2319,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: isSelected ? onSelected : resolvedColor,
+                    color: isSelected ? onSelected : dotColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -2107,6 +2406,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     const double totalGridHeight = totalHours * hourHeight;
 
     final now = DateTime.now();
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final primaryCol = AsterTheme.primary(context);
+    final readablePrimary = _readableAccent(primaryCol, cardBg);
+    final hGridLine = _subtleBorderColor(context, isDark ? 0.16 : 0.13);
+    final vGridLine = _subtleBorderColor(context, isDark ? 0.11 : 0.09);
 
     return RepaintBoundary(
       child: SoftClayCard(
@@ -2133,7 +2438,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSelected && !isToday ? AsterTheme.primary(context).withValues(alpha: 0.1) : Colors.transparent,
+                        color: isSelected && !isToday ? primaryCol.withValues(alpha: isDark ? 0.14 : 0.10) : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -2143,7 +2448,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: isToday ? AsterTheme.primary(context) : AsterTheme.textMuted(context),
+                              color: isToday ? readablePrimary : AsterTheme.text(context).withValues(alpha: 0.78),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -2152,11 +2457,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             height: 26,
                             decoration: BoxDecoration(
                               color: isToday
-                                  ? AsterTheme.primary(context)
-                                  : (isSelected ? AsterTheme.primary(context).withValues(alpha: 0.20) : Colors.transparent),
+                                  ? primaryCol
+                                  : (isSelected ? primaryCol.withValues(alpha: isDark ? 0.24 : 0.16) : Colors.transparent),
                               borderRadius: BorderRadius.circular(8),
                               border: isSelected && !isToday
-                                  ? Border.all(color: AsterTheme.primary(context), width: 1.5)
+                                  ? Border.all(color: readablePrimary, width: 1.5)
                                   : null,
                             ),
                             child: Center(
@@ -2167,7 +2472,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   fontWeight: FontWeight.w800,
                                   color: isToday
                                       ? AsterTheme.onPrimary(context)
-                                      : (isSelected ? AsterTheme.primary(context) : AsterTheme.text(context)),
+                                      : (isSelected ? readablePrimary : AsterTheme.text(context)),
                                 ),
                               ),
                             ),
@@ -2181,7 +2486,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(),
+          Divider(color: hGridLine, height: 1, thickness: 1),
 
           // Grade Contínua de Horários com Scroll (00h às 23h)
           SizedBox(
@@ -2191,227 +2496,436 @@ class _CalendarScreenState extends State<CalendarScreen> {
               thumbVisibility: true,
               child: SingleChildScrollView(
                 controller: _weekScrollController,
-                child: SizedBox(
-                  height: totalGridHeight,
-                  child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Coluna de Rótulos de Horas
-                    SizedBox(
-                      width: 48,
-                      child: Stack(
-                        children: List.generate(totalHours, (idx) {
-                          final h = startHour + idx;
-                          return Positioned(
-                            top: idx * hourHeight,
-                            child: Text(
-                              '${h.toString().padLeft(2, '0')}h',
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 10,
-                                color: AsterTheme.textMuted(context),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-
-                    // Colunas dos 7 Dias da Semana
-                    ...List.generate(7, (dIdx) {
-                      final cellDate = weekDays[dIdx];
-                      final isToday = isSameDay(cellDate, now);
-
-                      // Eventos que caem neste dia usando cache
-                      final dayEvents = _getEventsForDay(events, cellDate);
-
-                      return Expanded(
-                        child: RepaintBoundary(
-                          child: Container(
-                            decoration: BoxDecoration(
-                            color: isToday ? AsterTheme.primary(context).withValues(alpha: 0.03) : Colors.transparent,
-                            border: Border(
-                              right: BorderSide(
-                                color: AsterTheme.surfaceInset(context).withValues(alpha: 0.6),
-                                width: 0.5,
-                              ),
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              // 1. Linhas de Fundo Horárias (com toque para agendar)
-                              ...List.generate(totalHours, (hIdx) {
-                                final currentH = startHour + hIdx;
+                physics: _isDraggingCalendarEvent
+                    ? const NeverScrollableScrollPhysics()
+                    : const ClampingScrollPhysics(),
+                child: LayoutBuilder(
+                  builder: (gridCtx, gridConstraints) {
+                    final colWidth = ((gridConstraints.maxWidth - 48.0) / 7.0).clamp(64.0, 240.0);
+                    return SizedBox(
+                      height: totalGridHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Coluna de Rótulos de Horas
+                          SizedBox(
+                            width: 48,
+                            child: Stack(
+                              children: List.generate(totalHours, (idx) {
+                                final h = startHour + idx;
                                 return Positioned(
-                                  top: hIdx * hourHeight,
-                                  left: 0,
-                                  right: 0,
-                                  height: hourHeight,
-                                  child: InkWell(
-                                    onTap: () => _openAddEventDialog(prefilledDate: cellDate, prefilledHour: currentH),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          bottom: BorderSide(color: AsterTheme.surfaceInset(context), width: 0.5),
-                                        ),
-                                      ),
+                                  top: idx * hourHeight,
+                                  child: Text(
+                                    '${h.toString().padLeft(2, '0')}h',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 10.5,
+                                      color: AsterTheme.text(context).withValues(alpha: isDark ? 0.74 : 0.68),
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 );
                               }),
+                            ),
+                          ),
 
-                              // 2. Linha do Horário Atual (se for hoje e estiver entre 07h e 22h)
-                              if (isToday && now.hour >= startHour && now.hour < endHour)
-                                Positioned(
-                                  top: ((now.hour - startHour) + (now.minute / 60.0)) * hourHeight,
-                                  left: 0,
-                                  right: 0,
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: AsterConstants.coral,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Container(
-                                          height: 1.5,
-                                          color: AsterConstants.coral.withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                          // Colunas dos 7 Dias da Semana (com DragTarget para arrastar blocos)
+                          ...List.generate(7, (dIdx) {
+                            final cellDate = weekDays[dIdx];
+                            final isToday = isSameDay(cellDate, now);
 
-                              // 3. Blocos de Eventos com Altura Proporcional e Botão de Excluir Direto
-                              ...dayEvents.map((evt) {
-                                final st = _parseDateTime(evt['start_time']);
-                                final et = _parseDateTime(evt['end_time']);
-                                final color = _getEventColor(evt);
-                                final category = evt['category'] ?? 'study';
-                                final title = evt['title'] ?? 'Sem título';
-                                final isCompleted = evt['is_completed'] == true;
+                            // Eventos que caem neste dia usando cache
+                            final dayEvents = _getEventsForDay(events, cellDate);
 
-                                // Calcula posição e altura proporcional
-                                final eventStartHours = (st.hour - startHour) + (st.minute / 60.0);
-                                final durationHours = (et.difference(st).inMinutes / 60.0).clamp(0.4, 8.0);
+                            return Expanded(
+                              child: RepaintBoundary(
+                                child: Builder(
+                                  builder: (colCtx) {
+                                    int resolveMinutesFromOffset(Offset globalOffset, Map<String, dynamic> evt) {
+                                      final box = colCtx.findRenderObject() as RenderBox?;
+                                      if (box == null) {
+                                        final st = _parseDateTime(evt['start_time']);
+                                        return st.hour * 60 + st.minute;
+                                      }
+                                      final localDy = box.globalToLocal(globalOffset).dy;
+                                      final snappedHalfHours = (localDy / (hourHeight / 2)).round().clamp(0, 47);
+                                      return snappedHalfHours * 30;
+                                    }
 
-                                final top = (eventStartHours * hourHeight).clamp(0.0, totalGridHeight - 20.0);
-                                final height = (durationHours * hourHeight - 4.0).clamp(28.0, totalGridHeight - top);
-
-                                final durStr = durationHours == durationHours.truncateToDouble()
-                                    ? '${durationHours.toInt()}h'
-                                    : '${durationHours.toStringAsFixed(1)}h';
-
-                                return Positioned(
-                                  top: top,
-                                  left: 2,
-                                  right: 2,
-                                  height: height,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () => _showEventDetailsDialog(evt),
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: color.withValues(alpha: isCompleted ? 0.08 : 0.16),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border(left: BorderSide(color: color, width: 3.5)),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: color.withValues(alpha: 0.08),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 1),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Stack(
-                                          children: [
-                                            // Conteúdo do Bloco
-                                            Padding(
-                                              padding: const EdgeInsets.only(right: 18), // Espaço para o botão excluir
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    title,
-                                                    maxLines: height > 70 ? 2 : 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: GoogleFonts.manrope(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.w800,
-                                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                                      color: isCompleted ? AsterTheme.textMuted(context) : AsterTheme.text(context),
-                                                    ),
-                                                  ),
-                                                  if (height > 44)
-                                                    Text(
-                                                      '${_getCategoryLabel(category)} · $durStr',
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.manrope(
-                                                        fontSize: 8.5,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: AsterTheme.textMuted(context),
-                                                      ),
-                                                    ),
-                                                ],
+                                    return DragTarget<Map<String, dynamic>>(
+                                      onWillAcceptWithDetails: (_) => true,
+                                      onMove: (details) {
+                                        final startMins = resolveMinutesFromOffset(details.offset, details.data);
+                                        final st = _parseDateTime(details.data['start_time']);
+                                        final et = _parseDateTime(details.data['end_time']);
+                                        final durMins = et.difference(st).inMinutes.clamp(30, 480);
+                                        final nextPreview = (
+                                          dayIdx: dIdx,
+                                          startMinutes: startMins,
+                                          durationMinutes: durMins,
+                                          color: _getEventColor(details.data),
+                                          title: (details.data['title'] ?? 'Bloco').toString(),
+                                        );
+                                        if (_dragPreviewNotifier.value != nextPreview) {
+                                          _dragPreviewNotifier.value = nextPreview;
+                                        }
+                                      },
+                                      onLeave: (_) {
+                                        if (_dragPreviewNotifier.value?.dayIdx == dIdx) {
+                                          _dragPreviewNotifier.value = null;
+                                        }
+                                      },
+                                      onAcceptWithDetails: (details) {
+                                        final targetMins = _dragPreviewNotifier.value?.dayIdx == dIdx
+                                            ? _dragPreviewNotifier.value!.startMinutes
+                                            : resolveMinutesFromOffset(details.offset, details.data);
+                                        _dragPreviewNotifier.value = null;
+                                        final newStart = DateTime(
+                                          cellDate.year,
+                                          cellDate.month,
+                                          cellDate.day,
+                                          targetMins ~/ 60,
+                                          targetMins % 60,
+                                        );
+                                        _rescheduleEventByDrag(details.data, newStart);
+                                      },
+                                      builder: (context, candidateData, rejectedData) {
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: candidateData.isNotEmpty
+                                                ? primaryCol.withValues(alpha: isDark ? 0.10 : 0.07)
+                                                : (isToday ? primaryCol.withValues(alpha: isDark ? 0.06 : 0.045) : Colors.transparent),
+                                            border: Border(
+                                              right: BorderSide(
+                                                color: vGridLine,
+                                                width: 1.0,
                                               ),
                                             ),
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              // 1. Linhas de Fundo Horárias (com toque para agendar)
+                                              ...List.generate(totalHours, (hIdx) {
+                                                final currentH = startHour + hIdx;
+                                                return Positioned(
+                                                  top: hIdx * hourHeight,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: hourHeight,
+                                                  child: InkWell(
+                                                    onTap: () => _openAddEventDialog(prefilledDate: cellDate, prefilledHour: currentH),
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        border: Border(
+                                                          bottom: BorderSide(color: hGridLine, width: 1.0),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }),
 
-                                            // Botão de Excluir Rápido (X no canto superior direito)
-                                            Positioned(
-                                              top: -2,
-                                              right: -2,
-                                              child: InkWell(
-                                                onTap: () => _confirmDeleteEvent(evt),
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: Container(
-                                                  width: 18,
-                                                  height: 18,
-                                                  decoration: BoxDecoration(
-                                                    color: AsterTheme.card(context).withValues(alpha: 0.85),
-                                                    shape: BoxShape.circle,
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withValues(alpha: 0.05),
-                                                        blurRadius: 2,
+                                              // 2. Linha do Horário Atual
+                                              if (isToday && now.hour >= startHour && now.hour < endHour)
+                                                Positioned(
+                                                  top: ((now.hour - startHour) + (now.minute / 60.0)) * hourHeight,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 7,
+                                                        height: 7,
+                                                        decoration: BoxDecoration(
+                                                          color: _readableAccent(AsterConstants.coral, cardBg),
+                                                          shape: BoxShape.circle,
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        child: Container(
+                                                          height: 1.8,
+                                                          color: _readableAccent(AsterConstants.coral, cardBg).withValues(alpha: 0.85),
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
-                                                  child: const Icon(
-                                                    Icons.close_rounded,
-                                                    size: 11,
-                                                    color: AsterConstants.coral,
+                                                ),
+
+                                              // 3. Prévia ao vivo do horário de destino enquanto arrasta
+                                              Positioned.fill(
+                                                child: IgnorePointer(
+                                                  child: ValueListenableBuilder<
+                                                      ({int dayIdx, int startMinutes, int durationMinutes, Color color, String title})?>(
+                                                    valueListenable: _dragPreviewNotifier,
+                                                    builder: (ctx, preview, _) {
+                                                      if (preview == null || preview.dayIdx != dIdx) {
+                                                        return const SizedBox.shrink();
+                                                      }
+                                                      final previewTop =
+                                                          ((preview.startMinutes / 60.0) * hourHeight).clamp(0.0, totalGridHeight - 20.0);
+                                                      final previewHeight =
+                                                          ((preview.durationMinutes / 60.0) * hourHeight - 4.0)
+                                                              .clamp(28.0, totalGridHeight - previewTop);
+                                                      final previewStartDt = DateTime(
+                                                        cellDate.year,
+                                                        cellDate.month,
+                                                        cellDate.day,
+                                                        preview.startMinutes ~/ 60,
+                                                        preview.startMinutes % 60,
+                                                      );
+                                                      final previewColor = _readableAccent(preview.color, cardBg);
+                                                      return Stack(
+                                                        children: [
+                                                          Positioned(
+                                                            top: previewTop,
+                                                            left: 2,
+                                                            right: 2,
+                                                            height: previewHeight,
+                                                            child: Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                              decoration: BoxDecoration(
+                                                                color: preview.color.withValues(alpha: isDark ? 0.34 : 0.24),
+                                                                borderRadius: BorderRadius.circular(8),
+                                                                border: Border.all(color: previewColor, width: 1.8),
+                                                              ),
+                                                              child: Text(
+                                                                '${DateFormat('HH:mm').format(previewStartDt)} · ${preview.title}',
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                                style: GoogleFonts.manrope(
+                                                                  fontSize: 10,
+                                                                  fontWeight: FontWeight.w800,
+                                                                  color: previewColor,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        ),
+
+                                              // 4. Blocos de Eventos arrastáveis com Altura Proporcional e Botão de Excluir Direto
+                                              ...dayEvents.map((evt) {
+                                                final st = _parseDateTime(evt['start_time']);
+                                                final et = _parseDateTime(evt['end_time']);
+                                                final color = _getEventColor(evt);
+                                                final readableColor = _readableAccent(color, cardBg);
+                                                final category = evt['category'] ?? 'study';
+                                                final title = evt['title'] ?? 'Sem título';
+                                                final isCompleted = evt['is_completed'] == true;
+
+                                                // Calcula posição e altura proporcional
+                                                final eventStartHours = (st.hour - startHour) + (st.minute / 60.0);
+                                                final durationHours = (et.difference(st).inMinutes / 60.0).clamp(0.4, 8.0);
+
+                                                final top = (eventStartHours * hourHeight).clamp(0.0, totalGridHeight - 20.0);
+                                                final height = (durationHours * hourHeight - 4.0).clamp(28.0, totalGridHeight - top);
+
+                                                final durStr = durationHours == durationHours.truncateToDouble()
+                                                    ? '${durationHours.toInt()}h'
+                                                    : '${durationHours.toStringAsFixed(1)}h';
+
+                                                Widget buildEventCard({required bool isFeedback}) {
+                                                  return ClipRRect(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    child: Material(
+                                                      color: Colors.transparent,
+                                                      child: InkWell(
+                                                        onTap: isFeedback ? null : () => _showEventDetailsDialog(evt),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            color: isFeedback
+                                                                ? Color.alphaBlend(
+                                                                    color.withValues(alpha: isDark ? 0.34 : 0.24),
+                                                                    cardBg,
+                                                                  )
+                                                                : color.withValues(
+                                                                    alpha: isDark
+                                                                        ? (isCompleted ? 0.12 : 0.24)
+                                                                        : (isCompleted ? 0.09 : 0.16),
+                                                                  ),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                            border: Border.all(
+                                                              color: readableColor.withValues(
+                                                                alpha: isFeedback ? 0.85 : (isDark ? 0.45 : 0.35),
+                                                              ),
+                                                              width: isFeedback ? 1.5 : 1.0,
+                                                            ),
+                                                          ),
+                                                          child: Stack(
+                                                            children: [
+                                                              Positioned(
+                                                                left: 0,
+                                                                top: 0,
+                                                                bottom: 0,
+                                                                width: 4,
+                                                                child: ColoredBox(color: readableColor),
+                                                              ),
+                                                              // Conteúdo do Bloco
+                                                              Padding(
+                                                                padding: EdgeInsets.fromLTRB(9, 4, isFeedback ? 8 : 22, 4),
+                                                                child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                                  children: [
+                                                                    Text(
+                                                                      title,
+                                                                      maxLines: height > 70 ? 2 : 1,
+                                                                      overflow: TextOverflow.ellipsis,
+                                                                      style: GoogleFonts.manrope(
+                                                                        fontSize: 10.5,
+                                                                        fontWeight: FontWeight.w800,
+                                                                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                                                        color: isCompleted ? AsterTheme.textMuted(context) : AsterTheme.text(context),
+                                                                      ),
+                                                                    ),
+                                                                    if (height > 44)
+                                                                      Text(
+                                                                        '${_getCategoryLabel(category)} · $durStr',
+                                                                        maxLines: 1,
+                                                                        overflow: TextOverflow.ellipsis,
+                                                                        style: GoogleFonts.manrope(
+                                                                          fontSize: 9,
+                                                                          fontWeight: FontWeight.w700,
+                                                                          color: readableColor,
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+
+                                                              // Botão de Excluir Rápido (X no canto superior direito)
+                                                              if (!isFeedback)
+                                                                Positioned(
+                                                                  top: 2,
+                                                                  right: 2,
+                                                                  child: InkWell(
+                                                                    onTap: () => _confirmDeleteEvent(evt),
+                                                                    borderRadius: BorderRadius.circular(10),
+                                                                    child: Container(
+                                                                      width: 18,
+                                                                      height: 18,
+                                                                      decoration: BoxDecoration(
+                                                                        color: cardBg.withValues(alpha: 0.92),
+                                                                        shape: BoxShape.circle,
+                                                                        border: Border.all(color: _subtleBorderColor(context, 0.2), width: 0.8),
+                                                                      ),
+                                                                      child: Icon(
+                                                                        Icons.close_rounded,
+                                                                        size: 11,
+                                                                        color: _readableAccent(AsterConstants.coral, cardBg),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+
+                                                return Positioned(
+                                                  top: top,
+                                                  left: 2,
+                                                  right: 2,
+                                                  height: height,
+                                                  child: Listener(
+                                                    onPointerDown: (_) {
+                                                      if (!_isDraggingCalendarEvent) {
+                                                        setState(() => _isDraggingCalendarEvent = true);
+                                                      }
+                                                    },
+                                                    onPointerUp: (_) {
+                                                      if (_draggingEventId == null && _isDraggingCalendarEvent) {
+                                                        setState(() => _isDraggingCalendarEvent = false);
+                                                      }
+                                                    },
+                                                    onPointerCancel: (_) {
+                                                      if (_draggingEventId == null && _isDraggingCalendarEvent) {
+                                                        setState(() => _isDraggingCalendarEvent = false);
+                                                      }
+                                                    },
+                                                    child: MouseRegion(
+                                                      cursor: SystemMouseCursors.grab,
+                                                      child: Draggable<Map<String, dynamic>>(
+                                                        data: evt,
+                                                        maxSimultaneousDrags: 1,
+                                                        onDragStarted: () {
+                                                          setState(() {
+                                                            _isDraggingCalendarEvent = true;
+                                                            _draggingEventId = evt['id']?.toString();
+                                                          });
+                                                        },
+                                                        onDragEnd: (_) {
+                                                          _dragPreviewNotifier.value = null;
+                                                          if (mounted) {
+                                                            setState(() {
+                                                              _isDraggingCalendarEvent = false;
+                                                              _draggingEventId = null;
+                                                            });
+                                                          }
+                                                        },
+                                                        onDraggableCanceled: (_, _) {
+                                                          _dragPreviewNotifier.value = null;
+                                                          if (mounted) {
+                                                            setState(() {
+                                                              _isDraggingCalendarEvent = false;
+                                                              _draggingEventId = null;
+                                                            });
+                                                          }
+                                                        },
+                                                        onDragCompleted: () {
+                                                          _dragPreviewNotifier.value = null;
+                                                          if (mounted) {
+                                                            setState(() {
+                                                              _isDraggingCalendarEvent = false;
+                                                              _draggingEventId = null;
+                                                            });
+                                                          }
+                                                        },
+                                                        feedback: Material(
+                                                          color: Colors.transparent,
+                                                          elevation: 6,
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          child: SizedBox(
+                                                            width: (colWidth - 4).clamp(72.0, 220.0),
+                                                            height: height,
+                                                            child: buildEventCard(isFeedback: true),
+                                                          ),
+                                                        ),
+                                                        childWhenDragging: Opacity(
+                                                          opacity: 0.28,
+                                                          child: buildEventCard(isFeedback: false),
+                                                        ),
+                                                        child: buildEventCard(isFeedback: false),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     );
-                  }),
-                  ],
+                  },
                 ),
               ),
             ),
           ),
-        ),
         ],
       ),
     ),
@@ -2422,6 +2936,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildDayView(List<Map<String, dynamic>> allEvents) {
     final dayEvents = _getEventsForDay(allEvents, _selectedDay);
     final hours = List.generate(24, (i) => i);
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final rowLine = _subtleBorderColor(context, isDark ? 0.15 : 0.12);
 
     return SoftClayCard(
       padding: const EdgeInsets.all(24),
@@ -2452,113 +2969,248 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(),
+          Divider(color: rowLine, height: 1, thickness: 1),
           const SizedBox(height: 8),
 
           SizedBox(
             height: 480,
             child: ListView.builder(
+              physics: _isDraggingCalendarEvent
+                  ? const NeverScrollableScrollPhysics()
+                  : const ClampingScrollPhysics(),
               itemCount: hours.length,
               itemBuilder: (context, idx) {
                 final h = hours[idx];
                 final slotEvents = dayEvents.where((e) => _parseDateTime(e['start_time']).hour == h).toList();
+                final primaryCol = AsterTheme.primary(context);
 
-                return Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AsterTheme.surfaceInset(context), width: 0.5)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 52,
-                        child: Text(
-                          '${h.toString().padLeft(2, '0')}:00',
-                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterTheme.textMuted(context)),
-                        ),
+                return DragTarget<Map<String, dynamic>>(
+                  onWillAcceptWithDetails: (_) => true,
+                  onAcceptWithDetails: (details) {
+                    _rescheduleEventByDrag(
+                      details.data,
+                      DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day, h, 0),
+                    );
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isDropHovered = candidateData.isNotEmpty;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isDropHovered ? primaryCol.withValues(alpha: isDark ? 0.14 : 0.09) : Colors.transparent,
+                        border: Border(bottom: BorderSide(color: rowLine, width: 1.0)),
                       ),
-                      Expanded(
-                        child: slotEvents.isNotEmpty
-                            ? Column(
-                                children: slotEvents.map((evt) {
-                                  final color = _getEventColor(evt);
-                                  final isCompleted = evt['is_completed'] == true;
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 52,
+                            child: Text(
+                              '${h.toString().padLeft(2, '0')}:00',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: isDropHovered
+                                    ? _readableAccent(primaryCol, cardBg)
+                                    : AsterTheme.text(context).withValues(alpha: isDark ? 0.76 : 0.72),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: slotEvents.isNotEmpty
+                                ? Column(
+                                    children: slotEvents.map((evt) {
+                                      final color = _getEventColor(evt);
+                                      final readableColor = _readableAccent(color, cardBg);
+                                      final isCompleted = evt['is_completed'] == true;
 
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                                      border: Border(left: BorderSide(color: color, width: 4)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () => _showEventDetailsDialog(evt),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  evt['title'] ?? '',
-                                                  style: GoogleFonts.manrope(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w800,
-                                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                                    color: AsterTheme.text(context),
+                                      Widget buildDayEventCard({required bool isFeedback}) {
+                                        return Container(
+                                          margin: const EdgeInsets.only(bottom: 6),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: isFeedback
+                                                    ? Color.alphaBlend(
+                                                        color.withValues(alpha: isDark ? 0.34 : 0.24),
+                                                        cardBg,
+                                                      )
+                                                    : color.withValues(
+                                                        alpha: isDark ? (isCompleted ? 0.12 : 0.22) : (isCompleted ? 0.08 : 0.14),
+                                                      ),
+                                                borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                                border: Border.all(
+                                                  color: readableColor.withValues(
+                                                    alpha: isFeedback ? 0.85 : (isDark ? 0.42 : 0.34),
                                                   ),
+                                                  width: isFeedback ? 1.5 : 1.0,
                                                 ),
-                                                if ((evt['description'] ?? '').isNotEmpty)
-                                                  Text(
-                                                    evt['description'],
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
+                                              ),
+                                              child: Stack(
+                                                children: [
+                                                  Positioned(
+                                                    left: 0,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    width: 4,
+                                                    child: ColoredBox(color: readableColor),
                                                   ),
-                                              ],
+                                                  Padding(
+                                                    padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.drag_indicator_rounded, size: 16, color: readableColor.withValues(alpha: 0.75)),
+                                                        const SizedBox(width: 6),
+                                                        Expanded(
+                                                          child: InkWell(
+                                                            onTap: isFeedback ? null : () => _showEventDetailsDialog(evt),
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  evt['title'] ?? '',
+                                                                  style: GoogleFonts.manrope(
+                                                                    fontSize: 13,
+                                                                    fontWeight: FontWeight.w800,
+                                                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                                                    color: AsterTheme.text(context),
+                                                                  ),
+                                                                ),
+                                                                if ((evt['description'] ?? '').isNotEmpty)
+                                                                  Text(
+                                                                    evt['description'],
+                                                                    maxLines: 1,
+                                                                    overflow: TextOverflow.ellipsis,
+                                                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (!isFeedback) ...[
+                                                          IconButton(
+                                                            icon: Icon(
+                                                              isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                                              size: 20,
+                                                              color: isCompleted ? _readableAccent(AsterConstants.menta, cardBg) : AsterTheme.textMuted(context),
+                                                            ),
+                                                            onPressed: () {
+                                                              final id = evt['id']?.toString() ?? '';
+                                                              if (id.isNotEmpty) {
+                                                                SupabaseService.toggleCalendarEventCompleted(id, !isCompleted).catchError((_) {});
+                                                              }
+                                                            },
+                                                          ),
+                                                          IconButton(
+                                                            icon: Icon(Icons.delete_outline_rounded, size: 18, color: _readableAccent(AsterConstants.coral, cardBg)),
+                                                            tooltip: 'Excluir bloco',
+                                                            onPressed: () => _confirmDeleteEvent(evt),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                                            size: 20,
-                                            color: isCompleted ? AsterConstants.menta : AsterTheme.textMuted(context),
+                                        );
+                                      }
+
+                                      return Listener(
+                                        onPointerDown: (_) {
+                                          if (!_isDraggingCalendarEvent) {
+                                            setState(() => _isDraggingCalendarEvent = true);
+                                          }
+                                        },
+                                        onPointerUp: (_) {
+                                          if (_draggingEventId == null && _isDraggingCalendarEvent) {
+                                            setState(() => _isDraggingCalendarEvent = false);
+                                          }
+                                        },
+                                        onPointerCancel: (_) {
+                                          if (_draggingEventId == null && _isDraggingCalendarEvent) {
+                                            setState(() => _isDraggingCalendarEvent = false);
+                                          }
+                                        },
+                                        child: MouseRegion(
+                                          cursor: SystemMouseCursors.grab,
+                                          child: Draggable<Map<String, dynamic>>(
+                                            data: evt,
+                                            maxSimultaneousDrags: 1,
+                                            onDragStarted: () {
+                                              setState(() {
+                                                _isDraggingCalendarEvent = true;
+                                                _draggingEventId = evt['id']?.toString();
+                                              });
+                                            },
+                                            onDragEnd: (_) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _isDraggingCalendarEvent = false;
+                                                  _draggingEventId = null;
+                                                });
+                                              }
+                                            },
+                                            onDraggableCanceled: (_, _) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _isDraggingCalendarEvent = false;
+                                                  _draggingEventId = null;
+                                                });
+                                              }
+                                            },
+                                            onDragCompleted: () {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _isDraggingCalendarEvent = false;
+                                                  _draggingEventId = null;
+                                                });
+                                              }
+                                            },
+                                            feedback: Material(
+                                              color: Colors.transparent,
+                                              elevation: 6,
+                                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                                              child: SizedBox(
+                                                width: 320,
+                                                child: buildDayEventCard(isFeedback: true),
+                                              ),
+                                            ),
+                                            childWhenDragging: Opacity(
+                                              opacity: 0.3,
+                                              child: buildDayEventCard(isFeedback: false),
+                                            ),
+                                            child: buildDayEventCard(isFeedback: false),
                                           ),
-                                          onPressed: () {
-                                            final id = evt['id']?.toString() ?? '';
-                                            if (id.isNotEmpty) {
-                                              SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
-                                            }
-                                          },
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                          tooltip: 'Excluir bloco',
-                                          onPressed: () => _confirmDeleteEvent(evt),
+                                      );
+                                    }).toList(),
+                                  )
+                                : InkWell(
+                                    onTap: () => _openAddEventDialog(prefilledDate: _selectedDay, prefilledHour: h),
+                                    child: Container(
+                                      height: 32,
+                                      alignment: Alignment.centerLeft,
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Text(
+                                        isDropHovered
+                                            ? 'Soltar aqui para mover às ${h.toString().padLeft(2, '0')}:00'
+                                            : '+ toque para agendar às ${h.toString().padLeft(2, '0')}:00',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 11.5,
+                                          fontWeight: isDropHovered ? FontWeight.w700 : FontWeight.w500,
+                                          color: isDropHovered ? _readableAccent(primaryCol, cardBg) : AsterTheme.textMuted(context),
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  );
-                                }).toList(),
-                              )
-                            : InkWell(
-                                onTap: () => _openAddEventDialog(prefilledDate: _selectedDay, prefilledHour: h),
-                                child: Container(
-                                  height: 32,
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    '+ toque para agendar às ${h.toString().padLeft(2, '0')}:00',
-                                    style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context).withValues(alpha: 0.65)),
                                   ),
-                                ),
-                              ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             ),
@@ -2568,9 +3220,115 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  CalendarBuilders _buildTableCalendarBuilders({
+    required BuildContext context,
+    required double marginH,
+    required double marginV,
+    required double radius,
+    required double fontSize,
+    required double dotSize,
+  }) {
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final primaryCol = AsterTheme.primary(context);
+    final onPrimaryCol = AsterTheme.onPrimary(context);
+    final readablePrimary = _readableAccent(primaryCol, cardBg);
+
+    return CalendarBuilders(
+      selectedBuilder: (context, day, focusedDay) {
+        final isToday = isSameDay(DateTime.now(), day);
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: marginH, vertical: marginV),
+          decoration: BoxDecoration(
+            color: isToday ? primaryCol : primaryCol.withValues(alpha: isDark ? 0.25 : 0.16),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: isToday ? onPrimaryCol : readablePrimary,
+              width: 1.7,
+            ),
+            boxShadow: isToday
+                ? [
+                    BoxShadow(
+                      color: primaryCol.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '${day.day}',
+            style: GoogleFonts.manrope(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              color: isToday ? onPrimaryCol : readablePrimary,
+            ),
+          ),
+        );
+      },
+      todayBuilder: (context, day, focusedDay) {
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: marginH, vertical: marginV),
+          decoration: BoxDecoration(
+            color: primaryCol,
+            borderRadius: BorderRadius.circular(radius),
+            boxShadow: [
+              BoxShadow(
+                color: primaryCol.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '${day.day}',
+            style: GoogleFonts.manrope(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+              color: onPrimaryCol,
+            ),
+          ),
+        );
+      },
+      markerBuilder: (context, day, events) {
+        if (events.isEmpty) return const SizedBox.shrink();
+        final isToday = isSameDay(DateTime.now(), day);
+        final bgForDots = isToday ? primaryCol : cardBg;
+        final visibleEvents = events.take(3).toList();
+        return Positioned(
+          bottom: marginV + 2,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: visibleEvents.map((e) {
+              final rawCol = e is Map<String, dynamic> ? _getEventColor(e) : AsterConstants.coral;
+              final dotCol = isToday ? onPrimaryCol : _readableAccent(rawCol, bgForDots);
+              return Container(
+                width: dotSize,
+                height: dotSize,
+                margin: const EdgeInsets.symmetric(horizontal: 1.2),
+                decoration: BoxDecoration(
+                  color: dotCol,
+                  shape: BoxShape.circle,
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
   // ─── 3. Visão Mensal (Grid Expandido) ───
   Widget _buildMonthView(List<Map<String, dynamic>> allEvents) {
     final selectedEvents = _getEventsForDay(allEvents, _selectedDay);
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final primaryCol = AsterTheme.primary(context);
+    final onPrimaryCol = AsterTheme.onPrimary(context);
+    final readablePrimary = _readableAccent(primaryCol, cardBg);
+    final dividerCol = _subtleBorderColor(context, isDark ? 0.16 : 0.13);
 
     return SoftClayCard(
       padding: const EdgeInsets.all(22),
@@ -2579,132 +3337,81 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           RepaintBoundary(
             child: TableCalendar(
-            locale: 'pt_BR',
-            firstDay: DateTime.utc(2024, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            currentDay: DateTime.now(),
-            rowHeight: 46.0,
-            selectedDayPredicate: (day) => isSameDay(_selectedDayNotifier.value, day),
-            onDaySelected: (selectedDay, focusedDay) {
-              _selectedDay = selectedDay;
-              _selectedDayNotifier.value = selectedDay;
-              _focusedDay = focusedDay;
-            },
-            onPageChanged: (focusedDay) {
-              setState(() => _focusedDay = focusedDay);
-            },
-            eventLoader: (day) => _getEventsForDay(allEvents, day),
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextFormatter: (date, locale) {
-                final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
-                return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
+              locale: 'pt_BR',
+              firstDay: DateTime.utc(2024, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              currentDay: DateTime.now(),
+              rowHeight: 46.0,
+              selectedDayPredicate: (day) => isSameDay(_selectedDayNotifier.value, day),
+              onDaySelected: (selectedDay, focusedDay) {
+                _selectedDay = selectedDay;
+                _selectedDayNotifier.value = selectedDay;
+                _focusedDay = focusedDay;
               },
-              titleTextStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
-              leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 20, color: AsterTheme.text(context)),
-              rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 20, color: AsterTheme.text(context)),
-            ),
-            daysOfWeekStyle: DaysOfWeekStyle(
-              dowTextFormatter: (date, locale) {
-                final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
-                return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
+              onPageChanged: (focusedDay) {
+                setState(() => _focusedDay = focusedDay);
               },
-              weekdayStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
-              weekendStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
-            ),
-            calendarStyle: CalendarStyle(
-              cellMargin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-              todayDecoration: BoxDecoration(
-                color: AsterTheme.primary(context),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+              eventLoader: (day) => _getEventsForDay(allEvents, day),
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextFormatter: (date, locale) {
+                  final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
+                  return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
+                },
+                titleTextStyle: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
+                leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 20, color: AsterTheme.text(context)),
+                rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 20, color: AsterTheme.text(context)),
               ),
-              selectedDecoration: BoxDecoration(
-                color: AsterTheme.primary(context).withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AsterTheme.primary(context), width: 1.8),
+              daysOfWeekStyle: DaysOfWeekStyle(
+                dowTextFormatter: (date, locale) {
+                  final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
+                  return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
+                },
+                weekdayStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                weekendStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
               ),
-              todayTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterTheme.onPrimary(context)),
-              selectedTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: AsterTheme.primary(context)),
-              markerDecoration: BoxDecoration(
-                color: AsterConstants.coral,
-                borderRadius: BorderRadius.circular(3),
+              calendarStyle: CalendarStyle(
+                cellMargin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                todayDecoration: BoxDecoration(
+                  color: primaryCol,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryCol.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: primaryCol.withValues(alpha: isDark ? 0.25 : 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: readablePrimary, width: 1.8),
+                ),
+                todayTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: onPrimaryCol),
+                selectedTextStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: readablePrimary),
+                markerDecoration: BoxDecoration(
+                  color: _readableAccent(AsterConstants.coral, cardBg),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                defaultTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.text(context)),
+                weekendTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.text(context).withValues(alpha: isDark ? 0.76 : 0.70)),
+                outsideTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context).withValues(alpha: 0.58)),
               ),
-              defaultTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.text(context)),
-              weekendTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context)),
-              outsideTextStyle: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context).withValues(alpha: 0.45)),
-            ),
-            calendarBuilders: CalendarBuilders(
-              selectedBuilder: (context, day, focusedDay) {
-                final isToday = isSameDay(DateTime.now(), day);
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isToday ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
-                      width: 1.8,
-                    ),
-                    boxShadow: isToday
-                        ? [
-                            BoxShadow(
-                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${day.day}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
-                    ),
-                  ),
-                );
-              },
-              todayBuilder: (context, day, focusedDay) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AsterTheme.primary(context),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${day.day}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: AsterTheme.onPrimary(context),
-                    ),
-                  ),
-                );
-              },
+              calendarBuilders: _buildTableCalendarBuilders(
+                context: context,
+                marginH: 5,
+                marginV: 3,
+                radius: 10,
+                fontSize: 13,
+                dotSize: 5.5,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 18),
-          const Divider(),
+          const SizedBox(height: 18),
+          Divider(color: dividerCol, height: 1, thickness: 1),
           const SizedBox(height: 12),
 
           Row(
@@ -2736,38 +3443,66 @@ class _CalendarScreenState extends State<CalendarScreen> {
           else
             ...selectedEvents.map((evt) {
               final color = _getEventColor(evt);
+              final readableColor = _readableAccent(color, cardBg);
               final st = _parseDateTime(evt['start_time']);
               final et = _parseDateTime(evt['end_time']);
+              final isCompleted = evt['is_completed'] == true;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                  border: Border(left: BorderSide(color: color, width: 4)),
-                ),
-                child: InkWell(
-                  onTap: () => _showEventDetailsDialog(evt),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${DateFormat('HH:mm').format(st)} - ${DateFormat('HH:mm').format(et)}',
-                        style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: isDark ? (isCompleted ? 0.11 : 0.22) : (isCompleted ? 0.08 : 0.14)),
+                      borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                      border: Border.all(
+                        color: readableColor.withValues(alpha: isDark ? 0.42 : 0.34),
+                        width: 1,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          evt['title'] ?? '',
-                          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 4,
+                          child: ColoredBox(color: readableColor),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                        tooltip: 'Excluir bloco',
-                        onPressed: () => _confirmDeleteEvent(evt),
-                      ),
-                    ],
+                        InkWell(
+                          onTap: () => _showEventDetailsDialog(evt),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+                            child: Row(
+                              children: [
+                                Text(
+                                  '${DateFormat('HH:mm').format(st)} - ${DateFormat('HH:mm').format(et)}',
+                                  style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.w700, color: readableColor),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    evt['title'] ?? '',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                      color: AsterTheme.text(context),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline_rounded, size: 18, color: _readableAccent(AsterConstants.coral, cardBg)),
+                                  tooltip: 'Excluir bloco',
+                                  onPressed: () => _confirmDeleteEvent(evt),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -2779,6 +3514,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // ─── 4. Visão Timeline (Feed Cronológico de Agendamentos) ───
   Widget _buildTimelineView(List<Map<String, dynamic>> allEvents) {
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final dividerCol = _subtleBorderColor(context, isDark ? 0.16 : 0.13);
+
     if (allEvents.isEmpty) {
       return SoftClayCard(
         padding: const EdgeInsets.all(32),
@@ -2825,7 +3564,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(),
+          Divider(color: dividerCol, height: 1, thickness: 1),
           const SizedBox(height: 8),
 
           ...sorted.map((evt) {
@@ -2833,6 +3572,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             final et = _parseDateTime(evt['end_time']);
             final cat = evt['category'] ?? 'study';
             final color = _getEventColor(evt);
+            final readableColor = _readableAccent(color, cardBg);
             final isCompleted = evt['is_completed'] == true;
 
             final duration = et.difference(st);
@@ -2841,83 +3581,104 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: isCompleted ? 0.08 : 0.14),
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                border: Border(left: BorderSide(color: color, width: 4)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _showEventDetailsDialog(evt),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _getCategoryLabel(cat),
-                                  style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w800, color: color),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${DateFormat("d 'de' MMM", 'pt_BR').format(st)} · ${DateFormat('HH:mm').format(st)} às ${DateFormat('HH:mm').format(et)} ($durStr)',
-                                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterTheme.textMuted(context)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            evt['title'] ?? '',
-                            style: GoogleFonts.manrope(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                              color: AsterTheme.text(context),
-                            ),
-                          ),
-                          if ((evt['description'] ?? '').isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                evt['description'],
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
-                              ),
-                            ),
-                        ],
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: isDark ? (isCompleted ? 0.11 : 0.22) : (isCompleted ? 0.08 : 0.14)),
+                    borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                    border: Border.all(
+                      color: readableColor.withValues(alpha: isDark ? 0.42 : 0.34),
+                      width: 1,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 4,
+                        child: ColoredBox(color: readableColor),
                       ),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _showEventDetailsDialog(evt),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: color.withValues(alpha: isDark ? 0.28 : 0.18),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            _getCategoryLabel(cat),
+                                            style: GoogleFonts.manrope(fontSize: 9.5, fontWeight: FontWeight.w800, color: readableColor),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${DateFormat("d 'de' MMM", 'pt_BR').format(st)} · ${DateFormat('HH:mm').format(st)} às ${DateFormat('HH:mm').format(et)} ($durStr)',
+                                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: AsterTheme.textMuted(context)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      evt['title'] ?? '',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                        color: AsterTheme.text(context),
+                                      ),
+                                    ),
+                                    if ((evt['description'] ?? '').isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          evt['description'],
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                color: isCompleted ? _readableAccent(AsterConstants.menta, cardBg) : AsterTheme.textMuted(context),
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                final id = evt['id']?.toString() ?? '';
+                                if (id.isNotEmpty) {
+                                  SupabaseService.toggleCalendarEventCompleted(id, !isCompleted).catchError((_) {});
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline_rounded, size: 18, color: _readableAccent(AsterConstants.coral, cardBg)),
+                              tooltip: 'Excluir bloco',
+                              onPressed: () => _confirmDeleteEvent(evt),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(
-                      isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                      color: isCompleted ? AsterConstants.menta : AsterTheme.textMuted(context),
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      final id = evt['id']?.toString() ?? '';
-                      if (id.isNotEmpty) {
-                        SupabaseService.toggleCalendarEventCompleted(id, !isCompleted);
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                    tooltip: 'Excluir bloco',
-                    onPressed: () => _confirmDeleteEvent(evt),
-                  ),
-                ],
+                ),
               ),
             );
           }),
@@ -2933,6 +3694,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return st.isAfter(DateTime.now().subtract(const Duration(hours: 12))) || e['category'] == 'exam' || e['category'] == 'lab';
     }).toList();
     upcomingMilestones.sort((a, b) => _parseDateTime(a['start_time']).compareTo(_parseDateTime(b['start_time'])));
+
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final primaryCol = AsterTheme.primary(context);
+    final onPrimaryCol = AsterTheme.onPrimary(context);
+    final readablePrimary = _readableAccent(primaryCol, cardBg);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2960,123 +3727,72 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   onPageChanged: (focusedDay) {
                     setState(() => _focusedDay = focusedDay);
                   },
-            eventLoader: (day) => _getEventsForDay(allEvents, day),
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-              titleTextFormatter: (date, locale) {
-                final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
-                return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
-              },
-              titleTextStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
-              leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 18, color: AsterTheme.text(context)),
-              rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 18, color: AsterTheme.text(context)),
-            ),
-            daysOfWeekStyle: DaysOfWeekStyle(
-              dowTextFormatter: (date, locale) {
-                final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
-                return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
-              },
-              weekdayStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
-              weekendStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
-            ),
-            calendarStyle: CalendarStyle(
-              cellMargin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-              todayDecoration: BoxDecoration(
-                color: AsterTheme.primary(context),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
+                  eventLoader: (day) => _getEventsForDay(allEvents, day),
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextFormatter: (date, locale) {
+                      final m = DateFormat('MMMM yyyy', 'pt_BR').format(date);
+                      return m.isNotEmpty ? m[0].toUpperCase() + m.substring(1) : m;
+                    },
+                    titleTextStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: AsterTheme.text(context)),
+                    leftChevronIcon: Icon(Icons.chevron_left_rounded, size: 18, color: AsterTheme.text(context)),
+                    rightChevronIcon: Icon(Icons.chevron_right_rounded, size: 18, color: AsterTheme.text(context)),
                   ),
-                ],
-              ),
-              selectedDecoration: BoxDecoration(
-                color: AsterTheme.primary(context).withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AsterTheme.primary(context), width: 1.8),
-              ),
-              todayTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterTheme.onPrimary(context)),
-              selectedTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: AsterTheme.primary(context)),
-              markerDecoration: BoxDecoration(
-                color: AsterConstants.coral,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              defaultTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.text(context)),
-              weekendTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
-              outsideTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context).withValues(alpha: 0.45)),
-            ),
-            calendarBuilders: CalendarBuilders(
-              selectedBuilder: (context, day, focusedDay) {
-                final isToday = isSameDay(DateTime.now(), day);
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isToday ? AsterTheme.primary(context) : AsterTheme.primary(context).withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
-                      width: 1.6,
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    dowTextFormatter: (date, locale) {
+                      final dayStr = DateFormat.E('pt_BR').format(date).replaceAll('.', '');
+                      return dayStr.isNotEmpty ? dayStr[0].toUpperCase() + dayStr.substring(1) : dayStr;
+                    },
+                    weekdayStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.text(context)),
+                    weekendStyle: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: AsterTheme.textMuted(context)),
+                  ),
+                  calendarStyle: CalendarStyle(
+                    cellMargin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                    todayDecoration: BoxDecoration(
+                      color: primaryCol,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryCol.withValues(alpha: 0.35),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    boxShadow: isToday
-                        ? [
-                            BoxShadow(
-                              color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${day.day}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: isToday ? AsterTheme.onPrimary(context) : AsterTheme.primary(context),
+                    selectedDecoration: BoxDecoration(
+                      color: primaryCol.withValues(alpha: isDark ? 0.25 : 0.16),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: readablePrimary, width: 1.8),
                     ),
-                  ),
-                );
-              },
-              todayBuilder: (context, day, focusedDay) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AsterTheme.primary(context),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AsterTheme.primary(context).withValues(alpha: 0.35),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${day.day}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AsterTheme.onPrimary(context),
+                    todayTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: onPrimaryCol),
+                    selectedTextStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: readablePrimary),
+                    markerDecoration: BoxDecoration(
+                      color: _readableAccent(AsterConstants.coral, cardBg),
+                      borderRadius: BorderRadius.circular(2),
                     ),
+                    defaultTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.text(context)),
+                    weekendTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.text(context).withValues(alpha: isDark ? 0.76 : 0.70)),
+                    outsideTextStyle: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context).withValues(alpha: 0.58)),
+                  ),
+                  calendarBuilders: _buildTableCalendarBuilders(
+                    context: context,
+                    marginH: 3,
+                    marginV: 2,
+                    radius: 8,
+                    fontSize: 12,
+                    dotSize: 4.5,
                   ),
                 );
               },
             ),
-          );
-        },
-      ),
-    ),
-  ),
-      const SizedBox(height: 16),
+          ),
+        ),
+        const SizedBox(height: 16),
 
-      // Próximos Marcos (Extraídos Dinamicamente)
-      SoftClayCard.list(
-        padding: const EdgeInsets.all(20),
+        // Próximos Marcos (Extraídos Dinamicamente)
+        SoftClayCard.list(
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3106,6 +3822,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         setState(() {
                           _selectedDay = st;
                           _focusedDay = st;
+                          _selectedDayNotifier.value = st;
                         });
                       },
                       child: _buildMilestoneRow(
@@ -3129,28 +3846,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
               final rec = _aiRecommendations.isNotEmpty
                   ? _aiRecommendations[_aiRecommendationIndex % _aiRecommendations.length]
                   : null;
-              final primaryCol = AsterTheme.primary(context);
+              final aiCardBg = AsterTheme.surfaceAlt(context);
+              final aiAccent = _readableAccent(primaryCol, aiCardBg);
               return SoftClayCard.list(
                 key: const Key('calendar_ai_suggestion_card'),
                 padding: const EdgeInsets.all(20),
-                color: AsterTheme.surfaceAlt(context),
+                color: aiCardBg,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.auto_awesome, size: 14, color: primaryCol),
+                        Icon(Icons.auto_awesome, size: 14, color: aiAccent),
                         const SizedBox(width: 6),
                         Text(
                           'Noesis AI',
-                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: primaryCol),
+                          style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: aiAccent),
                         ),
                         const Spacer(),
                         if (!_aiSuggestionScheduled && _aiRecommendations.length > 1) ...[
                           IconButton(
                             key: const Key('calendar_ai_next_suggestion'),
                             tooltip: 'Ver outra sugestão',
-                            icon: Icon(Icons.refresh_rounded, size: 15, color: primaryCol),
+                            icon: Icon(Icons.refresh_rounded, size: 15, color: aiAccent),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
@@ -3205,6 +3923,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildMilestoneRow(String date, String title, String subtitle, Color color) {
+    final isDark = _isDarkTheme(context);
+    final cardBg = AsterTheme.card(context);
+    final readableColor = _readableAccent(color, cardBg);
+
     return Row(
       children: [
         Container(
@@ -3212,12 +3934,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
           padding: const EdgeInsets.symmetric(vertical: 4),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
+            color: color.withValues(alpha: isDark ? 0.22 : 0.14),
             borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: readableColor.withValues(alpha: 0.35), width: 0.8),
           ),
           child: Text(
             date,
-            style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: color),
+            style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: readableColor),
           ),
         ),
         const SizedBox(width: 12),
