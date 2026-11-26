@@ -37,43 +37,44 @@ Os instaladores/pacotes oficiais estão disponíveis na aba [**GitHub Releases**
 
 ## 📸 Fotos do Software
 
-Capturas reais da versão atual do **Noesis** sobre o Design System **Aster Soft Clay** (suporte nativo a **Modo Claro**, **Dark Mode**, **10 temas desbloqueáveis** na Loja e **Tema VIP customizável RGB**).
+Capturas reais da versão atual do **Noesis** em **Desktop (`1440×900`)** e **Mobile (`390×844`)** lado a lado, sobre o Design System **Aster Soft Clay** (com suporte a **Modo Claro**, **Dark Mode**, **10 temas desbloqueáveis** na Loja e **Tema VIP customizável RGB**).
 
-### Dashboard & Tracker de Estudos (Desktop)
+### Dashboard & Tracker de Estudos (Desktop + Mobile)
 Cronômetro dual (Stopwatch / Pomodoro), metas diária e semanal, gráficos analíticos (`fl_chart`), heatmap de consistência (`CustomPainter`) e insights do agente.
 
-![Noesis Dashboard Desktop](docs/screenshots/01-dashboard-desktop.png)
+![Noesis Dashboard Desktop e Mobile](docs/screenshots/01-dashboard-showcase.png)
 
-### Motor de Simulados com RAG & 39 Modelos Oficiais
+### Motor de Simulados com RAG & 39 Modelos Oficiais (Desktop + Mobile)
 Geração e resolução de provas por catálogo oficial de bancas (ENEM, FUVEST, OAB, CompTIA Security+, AWS, etc.) ou documentos anexados (`.pdf`, `.txt`, `.md`, `.json`).
 
-![Noesis Simulados RAG](docs/screenshots/02-simulados-rag.png)
+![Noesis Simulados RAG Desktop e Mobile](docs/screenshots/02-simulados-showcase.png)
 
-### Agente Cognitivo `Noesis AI` com 20 Ferramentas
+### Agente Cognitivo `Noesis AI` com 20 Ferramentas (Desktop + Mobile)
 Assistente multi-provedor conectado a todas as abas da conta para criar simulados, baralhos, trilhas, cadernos, sessões e agendamentos via Function Calling.
 
-![Noesis AI Agent](docs/screenshots/04-noesis-ai.png)
+![Noesis AI Agent Desktop e Mobile](docs/screenshots/04-noesis-ai-showcase.png)
 
-### Calendário & Timeline Cognitiva
+### Calendário & Timeline Cognitiva (Desktop + Mobile)
 Quatro modos de visualização (Dia, Semana, Mês e Timeline), categorias semânticas personalizadas e recomendações proativas de blocos pela IA.
 
-![Noesis Calendário e Timeline](docs/screenshots/05-calendario.png)
+![Noesis Calendário e Timeline Desktop e Mobile](docs/screenshots/05-calendario-showcase.png)
 
 ### Ranking Semanal (8 Elos) & Loja de Insights (`✦`)
-| Ranking & Ligas Semanais | Loja de Temas & Arsenal |
+| Ranking & Ligas Semanais (Desktop + Mobile) | Loja de Temas & Arsenal (Desktop + Mobile) |
 | :---: | :---: |
-| ![Ranking e Elos](docs/screenshots/06-ranking-elos.png) | ![Loja de Insights](docs/screenshots/07-loja-insights.png) |
+| ![Ranking e Elos](docs/screenshots/06-ranking-showcase.png) | ![Loja de Insights](docs/screenshots/07-loja-showcase.png) |
 
 <details>
-<summary>📱 Ver mais telas reais (Login SSO, Flashcards 3D, Desempenho e Mobile)</summary>
+<summary>📱 Ver mais telas reais (Flashcards 3D, Desempenho & Analytics e Login SSO)</summary>
 
-| Flashcards Cognitivos 3D | Desempenho & Analytics |
-| :---: | :---: |
-| ![Flashcards](docs/screenshots/03-flashcards-3d.png) | ![Desempenho](docs/screenshots/08-desempenho.png) |
+### Flashcards Cognitivos 3D (Desktop + Mobile)
+![Flashcards 3D](docs/screenshots/03-flashcards-showcase.png)
 
-| Aster Account SSO (Login) | Dashboard Mobile (`390×844`) |
-| :---: | :---: |
-| ![Login SSO](docs/screenshots/00-auth-sso.png) | ![Dashboard Mobile](docs/screenshots/09-dashboard-mobile.png) |
+### Desempenho & Reviews da IA (Desktop + Mobile)
+![Desempenho & Analytics](docs/screenshots/08-desempenho-showcase.png)
+
+### Aster Account SSO (Login)
+![Login SSO](docs/screenshots/00-auth-sso.png)
 
 </details>
 
