@@ -4094,46 +4094,51 @@ class _QuizScreenState extends State<QuizScreen> {
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: AsterConstants.menta.withValues(alpha: 0.18),
-                          shape: BoxShape.circle,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop ? 540 : MediaQuery.sizeOf(context).width - 68,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: AsterConstants.menta.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            size: 18,
+                            color: AsterConstants.menta,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          size: 18,
-                          color: AsterConstants.menta,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Modo Livre Ativo · Criação Personalizada',
-                              style: GoogleFonts.manrope(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: AsterTheme.text(context),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Modo Livre Ativo · Criação Personalizada',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AsterTheme.text(context),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Escolha livremente a área, tópico, profundidade e quantidade de questões logo abaixo.',
-                              style: GoogleFonts.manrope(
-                                fontSize: 12,
-                                color: AsterTheme.textMuted(context),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Escolha livremente a área, tópico, profundidade e quantidade de questões logo abaixo.',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  color: AsterTheme.textMuted(context),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _selectExamModel(ExamModelsCatalog.models.first),

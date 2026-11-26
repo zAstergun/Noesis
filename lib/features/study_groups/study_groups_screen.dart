@@ -1541,47 +1541,56 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GroupMemberAvatar(
-                              avatarKey: Key('group_settings_avatar_${m.userId}'),
-                              displayName: m.displayName,
-                              avatarUrl: m.avatarUrl,
-                              isVip: m.isVip,
-                              radius: 17,
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width >= 900
+                                ? 420
+                                : MediaQuery.sizeOf(context).width - 96,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GroupMemberAvatar(
+                                avatarKey: Key('group_settings_avatar_${m.userId}'),
+                                displayName: m.displayName,
+                                avatarUrl: m.avatarUrl,
+                                isVip: m.isVip,
+                                radius: 17,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Text(
+                                          '${m.displayName} (@${m.username})',
+                                          style: GoogleFonts.manrope(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: AsterTheme.text(context),
+                                          ),
+                                        ),
+                                        if (m.isVip)
+                                          const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
+                                      ],
+                                    ),
                                     Text(
-                                      '${m.displayName} (@${m.username})',
+                                      m.isLeader ? 'Criador / Líder do grupo' : 'Membro · Toque para ver perfil',
                                       style: GoogleFonts.manrope(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: AsterTheme.text(context),
+                                        fontSize: 11,
+                                        color: AsterTheme.textMuted(context),
                                       ),
                                     ),
-                                    if (m.isVip) ...[
-                                      const SizedBox(width: 6),
-                                      const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
-                                    ],
                                   ],
                                 ),
-                                Text(
-                                  m.isLeader ? 'Criador / Líder do grupo' : 'Membro · Toque para ver perfil',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 11,
-                                    color: AsterTheme.textMuted(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

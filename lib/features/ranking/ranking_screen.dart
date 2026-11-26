@@ -227,7 +227,7 @@ class _RankingScreenState extends State<RankingScreen> {
                   // ─── Pódio + Tabela da Competição Semanal ───
                   SoftClayCard(
                     key: const Key('ranking_leaderboard_list'),
-                    padding: const EdgeInsets.all(22),
+                    padding: EdgeInsets.all(isDesktop ? 22 : 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -274,29 +274,34 @@ class _RankingScreenState extends State<RankingScreen> {
 
                   // ─── Dica para subir de Elo ───
                   SoftClayCard(
-                    padding: const EdgeInsets.all(18),
+                    padding: EdgeInsets.all(isDesktop ? 18 : 16),
                     child: Wrap(
                       spacing: 12,
                       runSpacing: 10,
                       alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const InsightCoinIcon(size: 20),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                'Cada Insight obtido em Simulados (+${InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus}/questão), Flashcards e Metas soma na sua subida semanal.',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AsterTheme.textMuted(context),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktop ? 580 : MediaQuery.sizeOf(context).width - 64,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const InsightCoinIcon(size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Cada Insight obtido em Simulados (+${InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus}/questão), Flashcards e Metas soma na sua subida semanal.',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AsterTheme.textMuted(context),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         Wrap(
                           spacing: 8,
@@ -361,7 +366,7 @@ class _RankingScreenState extends State<RankingScreen> {
 
     return SoftClayCard(
       key: const Key('ranking_elo_track_card'),
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(isDesktop ? 22 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -595,54 +600,67 @@ class _RankingScreenState extends State<RankingScreen> {
           const SizedBox(height: 18),
 
           // 5. KPIs da Semana e Histórico
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _summaryKpiTile(
-                context,
-                label: 'POSIÇÃO NA LIGA',
-                value: '#${board.currentUserRank}',
-                subtitle: 'de ${standings.length} ativos nesta semana',
-                accent: elo.accentColor,
-                icon: Icons.emoji_events_rounded,
-              ),
-              _summaryKpiTile(
-                context,
-                key: const Key('ranking_weekly_insights_kpi'),
-                label: 'INSIGHTS DA SEMANA',
-                value: '+${board.currentUserWeeklyInsights}',
-                subtitle: _zoneHelperText(
-                  board.currentUserZone,
-                  nextElo: nextElo,
-                  prevElo: prevElo,
-                  promotionSlots: elo.promotionSlots,
-                  pointsToPromotion: pointsToPromotion,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final cols = w >= 760 ? 4 : (w >= 280 ? 2 : 1);
+              const gap = 10.0;
+              final tileW = (w - (cols - 1) * gap) / cols;
+
+              final tiles = [
+                _summaryKpiTile(
+                  context,
+                  label: 'POSIÇÃO NA LIGA',
+                  value: '#${board.currentUserRank}',
+                  subtitle: 'de ${standings.length} ativos nesta semana',
+                  accent: elo.accentColor,
+                  icon: Icons.emoji_events_rounded,
                 ),
-                accent: AsterConstants.menta,
-                icon: Icons.auto_awesome_rounded,
-                showCoin: true,
-              ),
-              _summaryKpiTile(
-                context,
-                key: const Key('ranking_accumulated_score_kpi'),
-                label: 'PONTUAÇÃO ACUMULADA',
-                value: '${board.accumulatedRankingScore} pts',
-                subtitle:
-                    '${board.retentionStreakWeeks} ${board.retentionStreakWeeks == 1 ? 'sem. seguida mantida' : 'sem. seguidas mantidas'} · próx. +${RankingEloCatalog.maintenancePointsForStreak(streakWeeks: board.retentionStreakWeeks + 1, eloIndex: board.currentEloIndex)} pts',
-                accent: AsterConstants.ambar,
-                icon: Icons.local_fire_department_rounded,
-              ),
-              _summaryKpiTile(
-                context,
-                label: 'MELHOR ELO',
-                value: board.bestElo.name,
-                subtitle:
-                    '${board.top3Finishes} ${board.top3Finishes == 1 ? 'pódio Top 3' : 'pódios Top 3'} · ${board.weeksCompeted} sem.',
-                accent: AsterTheme.primary(context),
-                icon: Icons.workspace_premium_rounded,
-              ),
-            ],
+                _summaryKpiTile(
+                  context,
+                  key: const Key('ranking_weekly_insights_kpi'),
+                  label: 'INSIGHTS DA SEMANA',
+                  value: '+${board.currentUserWeeklyInsights}',
+                  subtitle: _zoneHelperText(
+                    board.currentUserZone,
+                    nextElo: nextElo,
+                    prevElo: prevElo,
+                    promotionSlots: elo.promotionSlots,
+                    pointsToPromotion: pointsToPromotion,
+                  ),
+                  accent: AsterConstants.menta,
+                  icon: Icons.auto_awesome_rounded,
+                  showCoin: true,
+                ),
+                _summaryKpiTile(
+                  context,
+                  key: const Key('ranking_accumulated_score_kpi'),
+                  label: 'PONTUAÇÃO ACUMULADA',
+                  value: '${board.accumulatedRankingScore} pts',
+                  subtitle:
+                      '${board.retentionStreakWeeks} ${board.retentionStreakWeeks == 1 ? 'sem. seguida mantida' : 'sem. seguidas mantidas'} · próx. +${RankingEloCatalog.maintenancePointsForStreak(streakWeeks: board.retentionStreakWeeks + 1, eloIndex: board.currentEloIndex)} pts',
+                  accent: AsterConstants.ambar,
+                  icon: Icons.local_fire_department_rounded,
+                ),
+                _summaryKpiTile(
+                  context,
+                  label: 'MELHOR ELO',
+                  value: board.bestElo.name,
+                  subtitle:
+                      '${board.top3Finishes} ${board.top3Finishes == 1 ? 'pódio Top 3' : 'pódios Top 3'} · ${board.weeksCompeted} sem.',
+                  accent: AsterTheme.primary(context),
+                  icon: Icons.workspace_premium_rounded,
+                ),
+              ];
+
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final tile in tiles) SizedBox(width: tileW, child: tile),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -863,25 +881,34 @@ class _RankingScreenState extends State<RankingScreen> {
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  NoesisEloBadge(
-                    tier: tier,
-                    size: 28,
-                    locked: !isUnlocked,
-                    highlighted: isCurrent,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Elo ${tier.name} · ${tier.subtitle}',
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: AsterTheme.text(context),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width >= 900
+                      ? 580
+                      : MediaQuery.sizeOf(context).width - 88,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NoesisEloBadge(
+                      tier: tier,
+                      size: 28,
+                      locked: !isUnlocked,
+                      highlighted: isCurrent,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Elo ${tier.name} · ${tier.subtitle}',
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AsterTheme.text(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               SoftClayTag(label: statusText, color: statusColor),
             ],
@@ -1013,12 +1040,14 @@ class _RankingScreenState extends State<RankingScreen> {
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.manrope(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Flexible(
+            child: Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -1274,7 +1303,6 @@ class _RankingScreenState extends State<RankingScreen> {
   }) {
     return Container(
       key: key,
-      constraints: const BoxConstraints(minWidth: 210),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AsterTheme.surfaceAlt(context),

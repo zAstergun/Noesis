@@ -176,10 +176,79 @@ class _ShopScreenState extends State<ShopScreen> {
                   Builder(
                     builder: (context) {
                       final screenW = MediaQuery.sizeOf(context).width;
+                      final isCompactHeader = screenW < 600;
                       final contentLeft =
                           ((screenW - 1040).clamp(0.0, double.infinity) / 2) +
                               (isDesktop ? 36.0 : 16.0);
                       final neededGap = (108.0 - contentLeft).clamp(0.0, 82.0);
+                      final balanceBadge = Container(
+                        key: const Key('shop_balance_badge'),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isCompactHeader ? 12 : 16,
+                          vertical: isCompactHeader ? 8 : 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AsterTheme.card(context),
+                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                          border: Border.all(
+                            color: AsterConstants.ambar.withValues(alpha: 0.45),
+                            width: 1.4,
+                          ),
+                          boxShadow: Theme.of(context).brightness == Brightness.dark
+                              ? AsterConstants.claySubtleDarkShadow
+                              : AsterConstants.claySubtleShadow,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InsightCoinIcon(size: isCompactHeader ? 18 : 20),
+                            const SizedBox(width: 7),
+                            Text(
+                              '$balance ${ShopService.currencyName}',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: isCompactHeader ? 12.5 : 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: AsterTheme.text(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (isCompactHeader) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Loja do Noesis',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      color: AsterTheme.text(context),
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                balanceBadge,
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Desbloqueie temas, protetores de ofensiva e novidades com ${ShopService.currencyName}',
+                              style: GoogleFonts.manrope(
+                                fontSize: 13,
+                                color: AsterTheme.textMuted(context),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -209,46 +278,17 @@ class _ShopScreenState extends State<ShopScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Container(
-                            key: const Key('shop_balance_badge'),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AsterTheme.card(context),
-                              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                              border: Border.all(
-                                color: AsterConstants.ambar.withValues(alpha: 0.45),
-                                width: 1.4,
-                              ),
-                              boxShadow: Theme.of(context).brightness == Brightness.dark
-                                  ? AsterConstants.claySubtleDarkShadow
-                                  : AsterConstants.claySubtleShadow,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const InsightCoinIcon(size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '$balance ${ShopService.currencyName}',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: AsterTheme.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          balanceBadge,
                         ],
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Card Explicativo: Como ganhar moedas
                   SoftClayCard(
                     key: const Key('shop_how_to_earn_card'),
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(isDesktop ? 20 : 16),
                     child: Builder(
                       builder: (context) {
                         final todayEarned = shop.todayEarnedInsights;
@@ -310,7 +350,8 @@ class _ShopScreenState extends State<ShopScreen> {
                               )
                             : Container(
                                 key: const Key('shop_elo_cap_pill'),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                width: isDesktop ? null : double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                                 decoration: BoxDecoration(
                                   color: AsterTheme.surfaceAlt(context),
                                   borderRadius: BorderRadius.circular(14),
@@ -343,16 +384,16 @@ class _ShopScreenState extends State<ShopScreen> {
                                           ? 'Elo ${eloTier.name}: +$eloPct% ganho · +${eloIndex * InsightsEconomyConfig.dailySoftCapBonusPerElo} limite'
                                           : 'Elo ${eloTier.name}: suba de elo p/ +10% e +20 limite',
                                       style: GoogleFonts.manrope(
-                                        fontSize: 9.8,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w700,
                                         color: eloPct > 0
                                             ? eloTier.accentColor
                                             : AsterTheme.textMuted(context),
                                       ),
                                     ),
-                                    const SizedBox(height: 5),
+                                    const SizedBox(height: 6),
                                     SizedBox(
-                                      width: 148,
+                                      width: isDesktop ? 168 : double.infinity,
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(4),
                                         child: LinearProgressIndicator(
@@ -380,46 +421,53 @@ class _ShopScreenState extends State<ShopScreen> {
                               alignment: WrapAlignment.spaceBetween,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: AsterConstants.ambar.withValues(alpha: 0.14),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: AsterConstants.ambar.withValues(alpha: 0.32),
-                                        ),
-                                      ),
-                                      child: const Center(
-                                        child: InsightCoinIcon(size: 24),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Como ganhar ${ShopService.currencyName}',
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: AsterTheme.text(context),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 64,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: AsterConstants.ambar.withValues(alpha: 0.14),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: AsterConstants.ambar.withValues(alpha: 0.32),
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Estude com consistência para desbloquear novos temas na Loja',
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 12,
-                                            color: AsterTheme.textMuted(context),
-                                          ),
+                                        child: const Center(
+                                          child: InsightCoinIcon(size: 24),
                                         ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Como ganhar ${ShopService.currencyName}',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: AsterTheme.text(context),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Estude com consistência para desbloquear novos temas na Loja',
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 12,
+                                                color: AsterTheme.textMuted(context),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 dailyCounterPill,
                               ],
@@ -515,40 +563,64 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Barra de Seções da Loja
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _buildSectionTab(
-                        context,
-                        section: _ShopSection.all,
-                        key: const Key('shop_section_all'),
-                        icon: Icons.grid_view_rounded,
-                        label: 'Tudo',
-                      ),
-                      _buildSectionTab(
-                        context,
-                        section: _ShopSection.themes,
-                        key: const Key('shop_section_themes'),
-                        icon: Icons.palette_rounded,
-                        label: 'Temas & Visual',
-                      ),
-                      _buildSectionTab(
-                        context,
-                        section: _ShopSection.arsenal,
-                        key: const Key('shop_section_arsenal'),
-                        icon: Icons.shield_rounded,
-                        label: 'Arsenal de Estudo',
-                      ),
-                      _buildSectionTab(
-                        context,
-                        section: _ShopSection.identity,
-                        key: const Key('shop_section_identity'),
-                        icon: Icons.workspace_premium_rounded,
-                        label: 'Identidade & Status',
-                      ),
-                    ],
+                  // Barra de Seções da Loja (Grid 2x2 limpo no mobile, Wrap horizontal no desktop)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.maxWidth;
+                      final tabs = [
+                        _buildSectionTab(
+                          context,
+                          section: _ShopSection.all,
+                          key: const Key('shop_section_all'),
+                          icon: Icons.grid_view_rounded,
+                          label: 'Tudo',
+                          expand: w < 640,
+                        ),
+                        _buildSectionTab(
+                          context,
+                          section: _ShopSection.themes,
+                          key: const Key('shop_section_themes'),
+                          icon: Icons.palette_rounded,
+                          label: 'Temas & Visual',
+                          expand: w < 640,
+                        ),
+                        _buildSectionTab(
+                          context,
+                          section: _ShopSection.arsenal,
+                          key: const Key('shop_section_arsenal'),
+                          icon: Icons.shield_rounded,
+                          label: 'Arsenal de Estudo',
+                          expand: w < 640,
+                        ),
+                        _buildSectionTab(
+                          context,
+                          section: _ShopSection.identity,
+                          key: const Key('shop_section_identity'),
+                          icon: Icons.workspace_premium_rounded,
+                          label: 'Identidade & Status',
+                          expand: w < 640,
+                        ),
+                      ];
+
+                      if (w < 640) {
+                        final cols = w >= 290 ? 2 : 1;
+                        const gap = 8.0;
+                        final tabW = (w - (cols - 1) * gap) / cols;
+                        return Wrap(
+                          spacing: gap,
+                          runSpacing: gap,
+                          children: [
+                            for (final tab in tabs) SizedBox(width: tabW, child: tab),
+                          ],
+                        );
+                      }
+
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: tabs,
+                      );
+                    },
                   ),
                   const SizedBox(height: 22),
 
@@ -827,7 +899,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
     return SoftClayCard(
       key: const Key('shop_transactions_ledger_card'),
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width >= 900 ? 22 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -838,42 +910,49 @@ class _ShopScreenState extends State<ShopScreen> {
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: primaryCol.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width >= 900
+                      ? 520
+                      : MediaQuery.sizeOf(context).width - 64,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: primaryCol.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.receipt_long_rounded, size: 19, color: primaryCol),
                     ),
-                    child: Icon(Icons.receipt_long_rounded, size: 19, color: primaryCol),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Livro de transações (${ShopService.currencyName})',
-                          style: GoogleFonts.manrope(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w800,
-                            color: AsterTheme.text(context),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Livro de transações (${ShopService.currencyName})',
+                            style: GoogleFonts.manrope(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: AsterTheme.text(context),
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Acompanhe separadamente suas conquistas nos estudos e investimentos na Loja',
-                          style: GoogleFonts.manrope(
-                            fontSize: 11.5,
-                            color: AsterTheme.textMuted(context),
+                          Text(
+                            'Acompanhe separadamente suas conquistas nos estudos e investimentos na Loja',
+                            style: GoogleFonts.manrope(
+                              fontSize: 11.5,
+                              color: AsterTheme.textMuted(context),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.all(4),
@@ -1491,6 +1570,7 @@ class _ShopScreenState extends State<ShopScreen> {
     required Key key,
     required IconData icon,
     required String label,
+    bool expand = false,
   }) {
     final selected = _section == section;
     final primaryCol = AsterTheme.primary(context);
@@ -1502,10 +1582,15 @@ class _ShopScreenState extends State<ShopScreen> {
         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
+          padding: EdgeInsets.symmetric(
+            horizontal: expand ? 12 : 15,
+            vertical: expand ? 10 : 9,
+          ),
           decoration: BoxDecoration(
             color: selected ? primaryCol : AsterTheme.card(context),
-            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+            borderRadius: BorderRadius.circular(
+              expand ? AsterConstants.radiusMedium : AsterConstants.radiusPill,
+            ),
             border: Border.all(
               color: selected ? primaryCol : AsterTheme.surfaceInset(context),
             ),
@@ -1516,7 +1601,8 @@ class _ShopScreenState extends State<ShopScreen> {
                 : null,
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: expand ? MainAxisAlignment.center : MainAxisAlignment.start,
             children: [
               Icon(
                 icon,
@@ -1524,12 +1610,16 @@ class _ShopScreenState extends State<ShopScreen> {
                 color: selected ? AsterTheme.onPrimary(context) : AsterTheme.textMuted(context),
               ),
               const SizedBox(width: 7),
-              Text(
-                label,
-                style: GoogleFonts.manrope(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? AsterTheme.onPrimary(context) : AsterTheme.text(context),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(
+                    fontSize: expand ? 12 : 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? AsterTheme.onPrimary(context) : AsterTheme.text(context),
+                  ),
                 ),
               ),
             ],
@@ -1548,21 +1638,75 @@ class _ShopScreenState extends State<ShopScreen> {
     required String subtitle,
     required String badge,
   }) {
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final iconBox = Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.3)),
+      ),
+      child: Center(
+        child: customIcon ?? Icon(icon, size: 19, color: accent),
+      ),
+    );
+    final badgePill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+      ),
+      child: Text(
+        badge,
+        style: GoogleFonts.manrope(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: accent,
+        ),
+      ),
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              iconBox,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: AsterTheme.text(context),
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              badgePill,
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: GoogleFonts.manrope(
+              fontSize: 12,
+              color: AsterTheme.textMuted(context),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accent.withValues(alpha: 0.3)),
-          ),
-          child: Center(
-            child: customIcon ?? Icon(icon, size: 19, color: accent),
-          ),
-        ),
+        iconBox,
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1588,21 +1732,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-          ),
-          child: Text(
-            badge,
-            style: GoogleFonts.manrope(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: accent,
-            ),
-          ),
-        ),
+        badgePill,
       ],
     );
   }
@@ -1840,13 +1970,15 @@ class _ShopScreenState extends State<ShopScreen> {
                 children: [
                   Icon(Icons.auto_awesome_rounded, size: 13, color: secondaryCol),
                   const SizedBox(width: 5),
-                  Text(
-                    'COMO GANHAR SELOS GRÁTIS (MÁX. $maxShields GUARDADOS)',
-                    style: GoogleFonts.manrope(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                      color: secondaryCol,
+                  Expanded(
+                    child: Text(
+                      'COMO GANHAR SELOS GRÁTIS (MÁX. $maxShields GUARDADOS)',
+                      style: GoogleFonts.manrope(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: secondaryCol,
+                      ),
                     ),
                   ),
                 ],
@@ -1980,7 +2112,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
     return SoftClayCard(
       key: const Key('shop_streak_protector_card'),
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width >= 900 ? 22 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2049,14 +2181,16 @@ class _ShopScreenState extends State<ShopScreen> {
                     children: [
                       const VipCrownIcon(size: 11),
                       const SizedBox(width: 5),
-                      Text(
-                        isVip
-                            ? 'VIP ativo: até 10 guardados · $monthlyFreeCount/2 grátis no mês'
-                            : 'VIP: até 10 guardados (2×) + 2 grátis/mês',
-                        style: GoogleFonts.manrope(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: isVip ? AsterVipColors.goldDark : mutedCol,
+                      Flexible(
+                        child: Text(
+                          isVip
+                              ? 'VIP ativo: até 10 guardados · $monthlyFreeCount/2 grátis no mês'
+                              : 'VIP: até 10 guardados (2×) + 2 grátis/mês',
+                          style: GoogleFonts.manrope(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: isVip ? AsterVipColors.goldDark : mutedCol,
+                          ),
                         ),
                       ),
                     ],
@@ -2339,21 +2473,29 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ...swatches.map(
-                      (c) => Container(
-                        width: 14,
-                        height: 14,
-                        margin: const EdgeInsets.only(right: 5),
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.14)),
-                        ),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: swatches
+                          .map(
+                            (c) => Container(
+                              width: 14,
+                              height: 14,
+                              margin: const EdgeInsets.only(right: 5),
+                              decoration: BoxDecoration(
+                                color: c,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.black.withValues(alpha: 0.14)),
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
-                    const Spacer(),
                     if (equipped)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -2466,7 +2608,10 @@ class _ShopScreenState extends State<ShopScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
                                   customOpt.name,
@@ -2476,7 +2621,6 @@ class _ShopScreenState extends State<ShopScreen> {
                                     color: customOpt.textColor,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
                                 const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
                               ],
                             ),
@@ -3081,12 +3225,16 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                             children: [
                               Row(
                                 children: [
-                                  Text(
-                                    'Pré-visualização · ${option.name}',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: AsterTheme.text(context),
+                                  Flexible(
+                                    child: Text(
+                                      'Pré-visualização · ${option.name}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AsterTheme.text(context),
+                                      ),
                                     ),
                                   ),
                                   if (isCustom) ...[
@@ -3447,8 +3595,11 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                           const SizedBox(height: 16),
 
                           // Paleta das 6 cores do template
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 isCustom
@@ -3587,7 +3738,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
 
                   // Rodapé com ação direta de comprar / equipar / VIP
                   Container(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    padding: EdgeInsets.fromLTRB(compact ? 14 : 20, 12, compact ? 14 : 20, 14),
                     decoration: BoxDecoration(
                       color: AsterTheme.surfaceAlt(context),
                       borderRadius: const BorderRadius.vertical(
@@ -3597,7 +3748,11 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                         top: BorderSide(color: AsterTheme.surfaceInset(context)),
                       ),
                     ),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (!isCustom)
                           Row(
@@ -3616,7 +3771,8 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                             ],
                           )
                         else if (!compact)
-                          Expanded(
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
                             child: Text(
                               isVip
                                   ? 'Edite as cores acima e salve no tema VIP.'
@@ -3630,127 +3786,129 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                               ),
                             ),
                           ),
-                        if (!isCustom || compact) const Spacer(),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text(
-                            'Fechar',
-                            style: GoogleFonts.manrope(
-                              fontWeight: FontWeight.w700,
-                              color: AsterTheme.textMuted(context),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text(
+                                'Fechar',
+                                style: GoogleFonts.manrope(
+                                  fontWeight: FontWeight.w700,
+                                  color: AsterTheme.textMuted(context),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (isCustom) ...[
-                          if (!_showRgbEditor && !compact) ...[
-                            OutlinedButton.icon(
-                              key: const Key('preview_footer_rgb_button'),
-                              onPressed: () {
-                                setState(() => _showRgbEditor = true);
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AsterVipColors.goldDark,
-                                side: BorderSide(color: AsterVipColors.gold.withValues(alpha: 0.55)),
-                                shape: RoundedRectangleBorder(
+                            if (isCustom) ...[
+                              if (!_showRgbEditor && !compact)
+                                OutlinedButton.icon(
+                                  key: const Key('preview_footer_rgb_button'),
+                                  onPressed: () {
+                                    setState(() => _showRgbEditor = true);
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AsterVipColors.goldDark,
+                                    side: BorderSide(color: AsterVipColors.gold.withValues(alpha: 0.55)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.tune_rounded, size: 15),
+                                  label: Text(
+                                    'Abrir RGB',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ElevatedButton(
+                                key: isVip ? const Key('preview_apply_custom_button') : null,
+                                onPressed: () async {
+                                  if (isVip) {
+                                    await AsterTheme.updateCustomThemeColors(
+                                      _previewCustomColors,
+                                      activateIfVip: true,
+                                    );
+                                    if (!context.mounted) return;
+                                    Navigator.of(context).pop();
+                                  } else {
+                                    Navigator.of(context).pop();
+                                    showVipPrivilegesModal(context);
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AsterVipColors.gold,
+                                  foregroundColor: AsterVipColors.inkBase,
+                                ),
+                                child: Text(
+                                  isVip ? 'Salvar e Equipar' : 'Desbloquear VIP',
+                                  style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ] else if (equipped)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: AsterTheme.primary(context).withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                              ),
-                              icon: const Icon(Icons.tune_rounded, size: 15),
-                              label: Text(
-                                'Abrir RGB',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+                                child: Text(
+                                  'Em uso',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AsterTheme.primary(context),
+                                  ),
+                                ),
+                              )
+                            else if (unlocked)
+                              ElevatedButton(
+                                key: Key('preview_equip_${option.id}'),
+                                onPressed: () {
+                                  AsterTheme.selectThemeOption(option.id);
+                                  Navigator.of(context).pop();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AsterTheme.primary(context),
+                                  foregroundColor: AsterTheme.onPrimary(context),
+                                ),
+                                child: Text(
+                                  'Equipar ${option.name}',
+                                  style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+                                ),
+                              )
+                            else
+                              ElevatedButton.icon(
+                                key: Key('preview_buy_${option.id}'),
+                                onPressed: () async {
+                                  await widget.onPurchase();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: canAfford
+                                      ? AsterConstants.ambar
+                                      : AsterTheme.card(context),
+                                  foregroundColor: canAfford
+                                      ? const Color(0xFF141218)
+                                      : AsterTheme.textMuted(context),
+                                ),
+                                icon: Icon(
+                                  canAfford
+                                      ? Icons.shopping_cart_checkout_rounded
+                                      : Icons.lock_outline_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  canAfford
+                                      ? 'Comprar por $price ${ShopService.currencySymbol}'
+                                      : 'Faltam ${price - balance} ${ShopService.currencySymbol}',
+                                  style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
                           ],
-                          ElevatedButton(
-                            key: isVip ? const Key('preview_apply_custom_button') : null,
-                            onPressed: () async {
-                              if (isVip) {
-                                await AsterTheme.updateCustomThemeColors(
-                                  _previewCustomColors,
-                                  activateIfVip: true,
-                                );
-                                if (!context.mounted) return;
-                                Navigator.of(context).pop();
-                              } else {
-                                Navigator.of(context).pop();
-                                showVipPrivilegesModal(context);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AsterVipColors.gold,
-                              foregroundColor: AsterVipColors.inkBase,
-                            ),
-                            child: Text(
-                              isVip ? 'Salvar e Equipar' : 'Desbloquear VIP',
-                              style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ]
-                        else if (equipped)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                            decoration: BoxDecoration(
-                              color: AsterTheme.primary(context).withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'Em uso',
-                              style: GoogleFonts.manrope(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: AsterTheme.primary(context),
-                              ),
-                            ),
-                          )
-                        else if (unlocked)
-                          ElevatedButton(
-                            key: Key('preview_equip_${option.id}'),
-                            onPressed: () {
-                              AsterTheme.selectThemeOption(option.id);
-                              Navigator.of(context).pop();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AsterTheme.primary(context),
-                              foregroundColor: AsterTheme.onPrimary(context),
-                            ),
-                            child: Text(
-                              'Equipar ${option.name}',
-                              style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
-                            ),
-                          )
-                        else
-                          ElevatedButton.icon(
-                            key: Key('preview_buy_${option.id}'),
-                            onPressed: () async {
-                              await widget.onPurchase();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: canAfford
-                                  ? AsterConstants.ambar
-                                  : AsterTheme.card(context),
-                              foregroundColor: canAfford
-                                  ? const Color(0xFF141218)
-                                  : AsterTheme.textMuted(context),
-                            ),
-                            icon: Icon(
-                              canAfford
-                                  ? Icons.shopping_cart_checkout_rounded
-                                  : Icons.lock_outline_rounded,
-                              size: 16,
-                            ),
-                            label: Text(
-                              canAfford
-                                  ? 'Comprar por $price ${ShopService.currencySymbol}'
-                                  : 'Faltam ${price - balance} ${ShopService.currencySymbol}',
-                              style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
-                            ),
-                          ),
+                        ),
                       ],
                     ),
                   ),

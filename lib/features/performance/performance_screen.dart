@@ -111,46 +111,51 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                       alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: AsterTheme.primary(context).withValues(alpha: 0.14),
-                                shape: BoxShape.circle,
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktop ? 560 : MediaQuery.sizeOf(context).width - 72,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 46,
+                                height: 46,
+                                decoration: BoxDecoration(
+                                  color: AsterTheme.primary(context).withValues(alpha: 0.14),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.analytics_rounded,
+                                  size: 23,
+                                  color: AsterTheme.primary(context),
+                                ),
                               ),
-                              child: Icon(
-                                Icons.analytics_rounded,
-                                size: 23,
-                                color: AsterTheme.primary(context),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Flexible(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Desempenho & Analytics',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 21,
-                                      fontWeight: FontWeight.w900,
-                                      color: AsterTheme.text(context),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Desempenho & Analytics',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: isDesktop ? 21 : 19,
+                                        fontWeight: FontWeight.w900,
+                                        color: AsterTheme.text(context),
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    'Panorama analítico completo da conta, filtros por período e reviews da IA',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12.5,
-                                      color: AsterTheme.textMuted(context),
+                                    Text(
+                                      'Panorama analítico completo da conta, filtros por período e reviews da IA',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12.5,
+                                        color: AsterTheme.textMuted(context),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         IconButton(
                           tooltip: 'Atualizar métricas',
@@ -466,42 +471,49 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: primaryCol.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(12),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width >= 900
+                          ? 560
+                          : MediaQuery.sizeOf(context).width - 68,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: primaryCol.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.psychology_rounded, color: primaryCol, size: 22),
                         ),
-                        child: Icon(Icons.psychology_rounded, color: primaryCol, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Reviews da IA sobre sua Evolução',
-                              style: GoogleFonts.manrope(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: AsterTheme.text(context),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Reviews da IA sobre sua Evolução',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: AsterTheme.text(context),
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Diagnóstico longitudinal cruzando tempo estudado, simulados, flashcards, trilhas e hábitos',
-                              style: GoogleFonts.manrope(
-                                fontSize: 12,
-                                color: AsterTheme.textMuted(context),
+                              Text(
+                                'Diagnóstico longitudinal cruzando tempo estudado, simulados, flashcards, trilhas e hábitos',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  color: AsterTheme.textMuted(context),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   SoftClayPillButton(
                     key: const Key('performance_generate_ai_review_button'),
