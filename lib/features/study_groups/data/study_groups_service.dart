@@ -207,7 +207,7 @@ class StudyGroupsService {
 
   static String _generateInviteCode(int seedOffset) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rng = math.Random(DateTime.now().microsecondsSinceEpoch ^ seedOffset);
+    final rng = math.Random.secure();
     final code = List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
     return 'NOE-$code';
   }

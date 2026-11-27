@@ -383,16 +383,40 @@ class GeminiService {
     return true;
   }
 
+  static String _validateCustomEndpoint(String rawBase) {
+    final cleanBase = rawBase.trim().replaceAll(RegExp(r'/+$'), '');
+    if (cleanBase.isEmpty) {
+      throw Exception('Informe a URL base do provedor personalizado.');
+    }
+    final uri = Uri.tryParse(cleanBase);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw Exception('URL base personalizada inválida.');
+    }
+    final isLocalLoopback =
+        uri.host == '127.0.0.1' || uri.host == 'localhost' || uri.host == '::1';
+    if (uri.scheme != 'https' && !(uri.scheme == 'http' && isLocalLoopback)) {
+      throw Exception(
+        'Por segurança, provedores personalizados exigem HTTPS (ou HTTP apenas em localhost/127.0.0.1).',
+      );
+    }
+    return cleanBase.endsWith('/chat/completions')
+        ? cleanBase
+        : '$cleanBase/chat/completions';
+  }
+
   /// Testa se um modelo individual responde com status 200 para a chave informada
   static Future<({bool isWorking, String? error})> probeModelOperational(String mod, String key) async {
     final cleanMod = normalizeModel('google', mod);
     try {
       final endpoint = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$cleanMod:generateContent?key=$key',
+        'https://generativelanguage.googleapis.com/v1beta/models/$cleanMod:generateContent',
       );
       final resp = await http.post(
         endpoint,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
         body: jsonEncode({
           'contents': [
             {
@@ -431,9 +455,11 @@ class GeminiService {
 
     try {
       final endpoint = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models',
       );
-      final resp = await http.get(endpoint).timeout(const Duration(seconds: 10));
+      final resp = await http
+          .get(endpoint, headers: {'x-goog-api-key': apiKey})
+          .timeout(const Duration(seconds: 10));
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         final list = (data['models'] as List<dynamic>?) ?? [];
@@ -542,11 +568,14 @@ class GeminiService {
 
     if (providerId == 'google') {
       final endpoint = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent?key=$key',
+        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent',
       );
       final resp = await http.post(
         endpoint,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
         body: jsonEncode({
           'contents': [
             {
@@ -616,8 +645,7 @@ class GeminiService {
     };
 
     if (providerId == 'custom') {
-      if (urlBase.isEmpty) throw Exception('Informe a URL base do provedor personalizado.');
-      apiUrl = urlBase.endsWith('/chat/completions') ? urlBase : '$urlBase/chat/completions';
+      apiUrl = _validateCustomEndpoint(urlBase);
     } else {
       apiUrl = endpoints[providerId] ?? '';
     }
@@ -2053,7 +2081,7 @@ RETORNE ESTRITAMENTE um array JSON no formato:
     for (int mIdx = 0; mIdx < candidateModels.length; mIdx++) {
       final mod = candidateModels[mIdx];
       final endpoint = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent?key=$key',
+        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent',
       );
       final contents = List<Map<String, dynamic>>.from(baseContents);
       final executedTools = <ExecutedToolResult>[];
@@ -2064,7 +2092,10 @@ RETORNE ESTRITAMENTE um array JSON no formato:
           final resp = await http
               .post(
                 endpoint,
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': key,
+                },
                 body: jsonEncode({
                   'systemInstruction': {
                     'parts': [
@@ -2809,8 +2840,7 @@ Como posso acelerar seus estudos agora?
     };
 
     if (provider == 'custom') {
-      final cleanBase = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
-      apiUrl = cleanBase.endsWith('/chat/completions') ? cleanBase : '$cleanBase/chat/completions';
+      apiUrl = _validateCustomEndpoint(baseUrl);
     } else {
       apiUrl = endpoints[provider] ?? 'https://api.openai.com/v1/chat/completions';
     }
@@ -2897,13 +2927,16 @@ Como posso acelerar seus estudos agora?
     for (int i = 0; i < candidateModels.length; i++) {
       final mod = candidateModels[i];
       final endpoint = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent?key=$key',
+        'https://generativelanguage.googleapis.com/v1beta/models/$mod:generateContent',
       );
 
       try {
         final resp = await http.post(
           endpoint,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key,
+          },
           body: jsonEncode({
             'contents': [
               {

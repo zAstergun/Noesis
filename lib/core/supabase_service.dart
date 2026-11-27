@@ -232,7 +232,7 @@ class SupabaseService {
     }
     final user = currentUser;
     if (user == null) return false;
-    return user.userMetadata?['is_vip'] == true || user.appMetadata['is_vip'] == true;
+    return user.appMetadata['is_vip'] == true;
   }
 
   @visibleForTesting
@@ -393,7 +393,7 @@ class SupabaseService {
       'channel': meta['channel'],
       'avatar_url': meta['avatar_url'] ?? meta['picture'],
       'bio': meta['bio'],
-      'is_vip': meta['is_vip'] == true || user.appMetadata['is_vip'] == true,
+      'is_vip': user.appMetadata['is_vip'] == true,
     };
 
     try {

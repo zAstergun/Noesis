@@ -28,3 +28,4 @@ Este diretório documenta e versiona o esquema PostgreSQL, políticas de **Row L
 4. `20261125214519_grant_noesis_tables_and_enable_realtime.sql` — Grants DML e habilitação de `supabase_realtime`.
 5. `20261127092600_create_missing_noesis_tables_and_rls.sql` — Criação das 4 tabelas complementares (`noesis_flashcard_decks`, `noesis_study_notebooks`, `noesis_insight_ledger`, `noesis_study_groups`), índices, RLS e RPC seguro de entrada por convite (`noesis_join_study_group_by_code`).
 6. `20261127093000_revoke_anon_execute_on_noesis_join_study_group.sql` — Revoga `EXECUTE` de `PUBLIC`/`anon` na função `noesis_join_study_group_by_code`, liberando apenas para `authenticated` e `service_role`.
+7. `20261127095800_harden_noesis_study_groups_security.sql` — Sanitiza `p_member` em `noesis_join_study_group_by_code` (impede escalação de `is_leader`/`is_vip`/permissões) e protege `leader_id` e `invite_code` contra alterações por membros não-líderes via trigger.
