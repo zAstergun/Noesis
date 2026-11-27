@@ -83,7 +83,7 @@ flowchart TD
 
 1. **Regra de Prefixagem Estrita**: O banco PostgreSQL do Supabase é compartilhado por toda a rede Aster. **NENHUMA tabela, view, trigger ou função criada para este projeto pode ter nome genérico.** Toda tabela do Noesis DEVE obrigatoriamente iniciar com o prefixo **`noesis_`** (ex: `noesis_sessions`, `noesis_calendar_events`, `noesis_quizzes`).
 2. **Identidade Global Aster**: Não criar tabelas separadas de usuários. O usuário é identificado por `auth.users(id)` e seus dados públicos/estatísticas residem na tabela compartilhada `public.profiles` (incluindo chaves `noesis_*` no JSON de estatísticas e bucket `avatars`).
-3. **Catálogo CRM Aster**: O aplicativo está registrado em `public.crm_apps` com `id: noesis`, prefixo `noesis_` e cor primária `#6c63ff` / `#7C6CF0`.
+3. **Catálogo CRM Aster**: O aplicativo está registrado em `public.crm_apps` com `id: noesis`, prefixo `noesis_`, ícone `/logos/noesis.svg` e cor primária `#7C6CF0`, integrado ao painel administrativo do Aster CRM (`NoesisAppView` + `AccountDetailView`) com controle remoto via `public.noesis_platform_config` (`NoesisCrmService`).
 4. **Respeito ao Design System Aster Soft Clay**: Não utilizar bordas duras sólidas de alto contraste (`border: 1px solid black`), sombras secas ou paletas fora dos tokens em `lib/core/constants.dart` e `lib/core/theme.dart`.
 5. **Tolerância a Falhas / Modo Offline (`Modo Visitante`)**: Qualquer tela ou repositório deve possuir fallback in-memory / store local limpo para funcionar perfeitamente sem conexão ativa ou sem login (`currentUser == null`).
 
@@ -106,6 +106,7 @@ Todas as tabelas locais são protegidas com **Row Level Security (RLS)** vincula
 | **`public.noesis_roadmaps`** | Trilhas de aprendizado e etapas | `roadmaps`, `roadmaps_repository.dart` |
 | **`public.noesis_study_groups`** | Grupos colaborativos de estudo | `study_groups`, `study_groups_service.dart` |
 | **`public.noesis_insight_ledger`** | Razão contábil da Economia de Insights (`✦`) | `shop`, `shop_service.dart` |
+| **`public.noesis_platform_config`** | Governança remota controlada pelo CRM (manutenção, feature flags, avisos, versão e economia) | `noesis_crm_service.dart`, `NoesisAppView` |
 
 ### Definição Base das 4 Tabelas Centrais:
 

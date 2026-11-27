@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'core/constants.dart';
 import 'core/desktop_window_service.dart';
+import 'core/noesis_crm_service.dart';
 import 'core/notifications_service.dart';
 import 'core/shop_service.dart';
 import 'core/theme.dart';
@@ -320,6 +321,7 @@ class _RootScreenState extends State<RootScreen> {
   bool _dismissedEmailBanner = false;
   bool _isResendingEmailBanner = false;
   bool _isCheckingEmailBanner = false;
+  String? _dismissedAnnouncementFingerprint;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _studySessionsSubscription;
   Session? _session;
@@ -377,6 +379,7 @@ class _RootScreenState extends State<RootScreen> {
           _loadedTabs.add(_activeTabNotifier.value);
         });
         NotificationsService.instance.refresh();
+        NoesisCrmService.instance.updateRouteForTab(_activeTabNotifier.value);
       }
     });
     _session = SupabaseService.client.auth.currentSession;
@@ -399,6 +402,7 @@ class _RootScreenState extends State<RootScreen> {
           }
         });
         NotificationsService.instance.handleAuthUserChanged(newSession?.user.id);
+        NoesisCrmService.instance.onAuthChanged();
         if (newSession != null || RootScreen.bypassAuthForTesting) {
           unawaited(_initializeUserContext(forceShopReload: true));
         }
@@ -406,6 +410,9 @@ class _RootScreenState extends State<RootScreen> {
     });
     NotificationsService.instance.handleAuthUserChanged(_session?.user.id);
     NotificationsService.instance.start();
+    if (!RootScreen.bypassAuthForTesting) {
+      unawaited(NoesisCrmService.instance.start());
+    }
     if (_session != null || RootScreen.bypassAuthForTesting) {
       unawaited(_initializeUserContext());
     }
@@ -450,6 +457,7 @@ class _RootScreenState extends State<RootScreen> {
     SupabaseService.consistencyRevisionNotifier.removeListener(_onConsistencyActivityChanged);
     ShopService.instance.transactionsNotifier.removeListener(_onConsistencyActivityChanged);
     NotificationsService.instance.stop();
+    NoesisCrmService.instance.stop();
     AsterTheme.sidebarCollapsedNotifier.value = false;
     _authSubscription?.cancel();
     _studySessionsSubscription?.cancel();
@@ -1124,8 +1132,234 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
+  Widget _buildRemoteAnnouncementBanner({
+    required BuildContext context,
+    required NoesisAnnouncement announcement,
+    required bool isWideScreen,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color accent;
+    final IconData icon;
+    switch (announcement.type) {
+      case 'warning':
+        accent = AsterConstants.ambar;
+      case 'release':
+        accent = AsterConstants.menta;
+      case 'promo':
+        accent = AsterConstants.coral;
+      default:
+        accent = AsterConstants.lavanda;
+    }
+    switch (announcement.type) {
+      case 'warning':
+        icon = Icons.warning_amber_rounded;
+      case 'release':
+        icon = Icons.new_releases_rounded;
+      case 'promo':
+        icon = Icons.celebration_rounded;
+      default:
+        icon = Icons.campaign_rounded;
+    }
+
+    return Container(
+      key: const Key('crm_remote_announcement_banner'),
+      margin: EdgeInsets.fromLTRB(
+        isWideScreen ? 28 : 16,
+        isWideScreen ? 10 : 6,
+        isWideScreen ? 28 : 16,
+        4,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: isDark ? 0.16 : 0.11),
+        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+        border: Border.all(color: accent.withValues(alpha: 0.38)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (announcement.title.isNotEmpty)
+                  Text(
+                    announcement.title,
+                    style: GoogleFonts.manrope(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: AsterTheme.text(context),
+                    ),
+                  ),
+                if (announcement.message.isNotEmpty)
+                  Text(
+                    announcement.message,
+                    style: GoogleFonts.manrope(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AsterTheme.textMuted(context),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (announcement.ctaLabel.isNotEmpty && announcement.ctaUrl.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                final uri = Uri.tryParse(announcement.ctaUrl);
+                if (uri != null) {
+                  unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+                }
+              },
+              child: Text(
+                announcement.ctaLabel,
+                style: GoogleFonts.manrope(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
+              ),
+            ),
+          IconButton(
+            tooltip: 'Dispensar aviso',
+            onPressed: () => setState(() {
+              _dismissedAnnouncementFingerprint = announcement.fingerprint;
+            }),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
+            splashRadius: 16,
+            icon: Icon(Icons.close_rounded, size: 16, color: AsterTheme.textMuted(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModuleDisabledNotice(BuildContext context, int tabIndex) {
+    final navInfo = _findNavEntry(tabIndex);
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 440),
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: AsterTheme.card(context),
+          borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+          boxShadow: AsterTheme.isDarkMode
+              ? AsterConstants.clayDarkShadow
+              : AsterConstants.clayShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AsterConstants.ambar.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.construction_rounded, color: AsterConstants.ambar, size: 28),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${navInfo.entry.title} em manutenção',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AsterTheme.text(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Este módulo foi pausado temporariamente pela administração do ecossistema Aster.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                color: AsterTheme.textMuted(context),
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => RootScreen.switchTab(0),
+              icon: const Icon(Icons.home_rounded, size: 18),
+              label: const Text('Voltar ao Dashboard'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMaintenanceScreen(BuildContext context, String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      body: SoftClayBackground(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 480),
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AsterTheme.card(context),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
+              boxShadow: isDark ? AsterConstants.clayDarkShadow : AsterConstants.clayShadow,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const NoesisLogo(size: 56, withShadow: true),
+                const SizedBox(height: 18),
+                Text(
+                  'Noesis em Manutenção',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.manrope(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AsterTheme.text(context),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    height: 1.45,
+                    color: AsterTheme.textMuted(context),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: () => unawaited(NoesisCrmService.instance.fetchRemoteConfig()),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Verificar Novamente'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<NoesisRemotePlatformConfig>(
+      valueListenable: NoesisCrmService.instance.configNotifier,
+      builder: (context, remoteConfig, _) {
+        if (remoteConfig.maintenanceMode && !RootScreen.bypassAuthForTesting) {
+          return _buildMaintenanceScreen(context, remoteConfig.maintenanceMessage);
+        }
+        return _buildRootContent(context, remoteConfig);
+      },
+    );
+  }
+
+  Widget _buildRootContent(BuildContext context, NoesisRemotePlatformConfig remoteConfig) {
     final session = _session ?? SupabaseService.client.auth.currentSession;
 
     if (session == null && !RootScreen.bypassAuthForTesting) {
@@ -1139,6 +1373,7 @@ class _RootScreenState extends State<RootScreen> {
         );
       }
       return AuthScreen(
+        allowRegistration: remoteConfig.allowRegistration,
         onAuthenticated: () {
           final newSession = SupabaseService.client.auth.currentSession;
           final changed = _session?.user.id != newSession?.user.id;
@@ -1546,6 +1781,17 @@ class _RootScreenState extends State<RootScreen> {
               },
             ),
 
+            if (remoteConfig.announcement.enabled &&
+                (remoteConfig.announcement.title.isNotEmpty ||
+                    remoteConfig.announcement.message.isNotEmpty) &&
+                _dismissedAnnouncementFingerprint !=
+                    remoteConfig.announcement.fingerprint)
+              _buildRemoteAnnouncementBanner(
+                context: context,
+                announcement: remoteConfig.announcement,
+                isWideScreen: isWideScreen,
+              ),
+
             if (!_dismissedEmailBanner &&
                 SupabaseService.shouldShowEmailVerificationReminder)
               _buildEmailVerificationReminderBanner(
@@ -1571,7 +1817,11 @@ class _RootScreenState extends State<RootScreen> {
                               offstage: index != activeIndex,
                               child: TickerMode(
                                 enabled: index == activeIndex,
-                                child: RepaintBoundary(child: _buildScreen(index)),
+                                child: RepaintBoundary(
+                                  child: NoesisCrmService.instance.isModuleEnabledForTab(index)
+                                      ? _buildScreen(index)
+                                      : _buildModuleDisabledNotice(context, index),
+                                ),
                               ),
                             ),
                           ),

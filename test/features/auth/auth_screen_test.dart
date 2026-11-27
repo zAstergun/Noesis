@@ -223,5 +223,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('email_verification_reminder_banner')), findsNothing);
     });
+
+    testWidgets('blocks sign-up mode when allowRegistration is false', (tester) async {
+      await TestAppHarness.pumpInHarness(
+        tester,
+        AuthScreen(
+          onAuthenticated: () {},
+          allowRegistration: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Criar Conta'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Novos cadastros estão temporariamente pausados pela administração.'),
+        findsOneWidget,
+      );
+      expect(find.text('Criar Conta Aster'), findsNothing);
+    });
   });
 }

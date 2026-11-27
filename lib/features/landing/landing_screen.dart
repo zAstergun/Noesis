@@ -41,10 +41,10 @@ class _LandingScreenState extends State<LandingScreen> {
   final GlobalKey _platformsKey = GlobalKey();
 
   static const String _githubUrl = 'https://github.com/zAstergun/Noesis';
-  static const String _windowsZipUrl =
-      'https://github.com/zAstergun/Noesis/raw/main/releases/windows/noesis-v1.0.0-windows-x64.zip';
+  static const String _windowsSetupUrl =
+      'https://github.com/zAstergun/Noesis/releases/download/v1.0.0/noesis-v1.0.0-windows-x64-setup.exe';
   static const String _androidApkUrl =
-      'https://github.com/zAstergun/Noesis/raw/main/releases/android/noesis-v1.0.0-android.apk';
+      'https://github.com/zAstergun/Noesis/releases/download/v1.0.0/noesis-v1.0.0-android.apk';
 
   late final ValueNotifier<String> _demoThemeIdNotifier =
       ValueNotifier<String>(AsterTheme.activeThemeIdNotifier.value);
@@ -944,11 +944,11 @@ class _LandingScreenState extends State<LandingScreen> {
                   liftY: -4.0,
                   child: _DownloadOptionCard(
                     icon: Icons.desktop_windows_rounded,
-                    badge: 'x64 · ~15,5 MB',
+                    badge: 'x64 · ~13,0 MB',
                     title: 'Windows Desktop',
-                    subtitle: 'Aplicativo portátil com noesis.exe nativo pronto para executar.',
-                    ctaLabel: 'Baixar para Windows (.zip)',
-                    onTap: () => _openExternalUrl(_windowsZipUrl),
+                    subtitle: 'Instalador oficial (.exe) com atalho automático e desinstalador.',
+                    ctaLabel: 'Baixar Instalador Windows (.exe)',
+                    onTap: () => _openExternalUrl(_windowsSetupUrl),
                   ),
                 );
                 final androidCard = LandingHoverLift(

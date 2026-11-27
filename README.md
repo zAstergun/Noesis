@@ -24,13 +24,13 @@ Os instaladores/pacotes oficiais estão disponíveis na aba [**GitHub Releases**
 
 | Plataforma | Pacote | Versão | Tamanho | Download Direto |
 | :--- | :--- | :---: | :---: | :--- |
-| **Android** | APK Release (`noesis-v1.0.0-android.apk`) | `v1.0.0+1` | ~70,5 MB | [⬇️ Baixar APK](releases/android/noesis-v1.0.0-android.apk?raw=true) |
-| **Windows (x64)** | Aplicativo Desktop Portátil (`.zip`) | `v1.0.0+1` | ~15,4 MB | [⬇️ Baixar Windows x64](releases/windows/noesis-v1.0.0-windows-x64.zip?raw=true) |
+| **Android** | APK Release (`noesis-v1.0.0-android.apk`) | `v1.0.0+1` | ~70,6 MB | [⬇️ Baixar APK](https://github.com/zAstergun/Noesis/releases/download/v1.0.0/noesis-v1.0.0-android.apk) |
+| **Windows (x64)** | Instalador Oficial (`noesis-v1.0.0-windows-x64-setup.exe`) | `v1.0.0+1` | ~13,0 MB | [⬇️ Baixar Instalador (.exe)](https://github.com/zAstergun/Noesis/releases/download/v1.0.0/noesis-v1.0.0-windows-x64-setup.exe) |
 | **GitHub Releases** | Página oficial de lançamentos (`APKs` + `Desktop`) | `v1.0.0+1` | — | [🏷️ Abrir Releases](https://github.com/zAstergun/Noesis/releases) |
 
 > **Como usar:**
 > - **Android:** baixe `noesis-v1.0.0-android.apk` e instale no aparelho.
-> - **Windows:** baixe `noesis-v1.0.0-windows-x64.zip`, extraia a pasta `Noesis-Windows-x64/` e execute `noesis.exe` mantendo os arquivos `.dll` e a pasta `data/` juntos.
+> - **Windows:** baixe `noesis-v1.0.0-windows-x64-setup.exe` e conclua o assistente de instalação.
 > - Consulte hashes **SHA-256** e instruções completas em [`releases/README.md`](releases/README.md).
 
 ---

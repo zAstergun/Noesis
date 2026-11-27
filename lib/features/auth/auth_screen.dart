@@ -12,12 +12,14 @@ class AuthScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
   final Uri? initialCallbackUri;
   final VoidCallback? onBackToLanding;
+  final bool allowRegistration;
 
   const AuthScreen({
     super.key,
     required this.onAuthenticated,
     this.initialCallbackUri,
     this.onBackToLanding,
+    this.allowRegistration = true,
   });
 
   @override
@@ -45,6 +47,16 @@ class _AuthScreenState extends State<AuthScreen> {
     _errorMessage = SupabaseService.extractOAuthCallbackError(
       widget.initialCallbackUri ?? Uri.base,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.allowRegistration && _isSignUp) {
+      setState(() {
+        _isSignUp = false;
+      });
+    }
   }
 
   Future<void> _handleOAuth(OAuthProvider provider) async {
@@ -84,6 +96,15 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSignUp && !widget.allowRegistration) {
+      setState(() {
+        _isSignUp = false;
+        _errorMessage =
+            'Novos cadastros estão temporariamente pausados pela administração.';
+      });
+      return;
+    }
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final fullName = _fullNameController.text.trim();
@@ -659,6 +680,15 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {
+                        if (!widget.allowRegistration) {
+                          setState(() {
+                            _isSignUp = false;
+                            _successMessage = null;
+                            _errorMessage =
+                                'Novos cadastros estão temporariamente pausados pela administração.';
+                          });
+                          return;
+                        }
                         if (!_isSignUp) {
                           setState(() {
                             _isSignUp = true;
@@ -673,7 +703,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: _isSignUp ? FontWeight.w800 : FontWeight.w600,
-                            color: _isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted,
+                            color: !widget.allowRegistration
+                                ? AsterConstants.textFaint
+                                : (_isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted),
                           ),
                           child: const Text('Criar Conta'),
                         ),

@@ -11,7 +11,7 @@ Esta pasta armazena os binários distribuíveis oficiais gerados a partir do có
 | Plataforma | Arquivo | Tamanho | SHA-256 |
 | :--- | :--- | :---: | :--- |
 | **Android (APK Release)** | [`noesis-v1.0.0-android.apk`](android/noesis-v1.0.0-android.apk) | ~70,6 MB (`73.991.395 bytes`) | `D13CA0695F4578BE4C7C196A838E7D1DAFC796E56F63D29FCDE5FC812A19ED0E` |
-| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64.zip`](windows/noesis-v1.0.0-windows-x64.zip) | ~15,5 MB (`16.204.294 bytes`) | `E1664305E0C9F232ADA00C8827E063D281B9D65F336B87F0AAA95B52767F76FB` |
+| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64-setup.exe`](windows/noesis-v1.0.0-windows-x64-setup.exe) | ~13,0 MB (`13.661.776 bytes`) | `AFEA8F93BF72B7E58C4E96C8E08BE07B7C413F602F8842650B0ABE5E9BC6C98D` |
 
 ---
 
@@ -23,9 +23,8 @@ Esta pasta armazena os binários distribuíveis oficiais gerados a partir do có
 3. Abra o APK e conclua a instalação.
 
 ### Windows (x64)
-1. Baixe [`noesis-v1.0.0-windows-x64.zip`](windows/noesis-v1.0.0-windows-x64.zip).
-2. Extraia todo o conteúdo do arquivo `.zip` (mantenha `noesis.exe`, as `.dll` e a pasta `data/` juntos dentro de `Noesis-Windows-x64/`).
-3. Execute `noesis.exe`.
+1. Baixe [`noesis-v1.0.0-windows-x64-setup.exe`](windows/noesis-v1.0.0-windows-x64-setup.exe).
+2. Execute o instalador e siga o assistente (ele cria os atalhos no Menu Iniciar e na Área de Trabalho automaticamente).
 
 ---
 

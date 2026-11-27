@@ -7,7 +7,7 @@ Este diretório documenta e versiona o esquema PostgreSQL, políticas de **Row L
 - **RLS Ativo em 100% das Tabelas**: Todas as 9 tabelas `noesis_*` possuem `ROW LEVEL SECURITY` habilitado e restrito a `auth.uid()`.
 - **Identidade Global**: Usuários autenticados usam `auth.users(id)` e `public.profiles`, com avatar armazenado no bucket `avatars` (`owner = auth.uid()`).
 
-## Tabelas `noesis_*` (9/9 Ativas)
+## Tabelas `noesis_*` (10/10 Ativas)
 
 | Tabela | Chave Primária | Acesso RLS | Realtime | Finalidade |
 | :--- | :--- | :--- | :---: | :--- |
@@ -20,6 +20,7 @@ Este diretório documenta e versiona o esquema PostgreSQL, políticas de **Row L
 | `public.noesis_study_notebooks` | `(user_id, id)` | `auth.uid() = user_id` | — | Cadernos e anotações em Markdown |
 | `public.noesis_insight_ledger` | `(user_id, id)` | `auth.uid() = user_id` | — | Razão contábil da Economia de Insights (`✦`) |
 | `public.noesis_study_groups` | `id (text)` | Líder ou membro (`noesis_is_study_group_member`) | — | Grupos colaborativos (entrada via RPC `noesis_join_study_group_by_code`) |
+| `public.noesis_platform_config` | `id (text)` | Leitura pública; escrita `crm_is_staff()` | ✅ | Governança remota controlada pelo Aster CRM |
 
 ## Ordem das Migrations (`supabase/migrations/`)
 1. `20261120081403_create_noesis_base_schema.sql` — Schema base (`noesis_sessions`, `noesis_calendar_events`, `noesis_documents`, `noesis_quizzes`) + RLS + catálogo `crm_apps`.
@@ -29,3 +30,4 @@ Este diretório documenta e versiona o esquema PostgreSQL, políticas de **Row L
 5. `20261127092600_create_missing_noesis_tables_and_rls.sql` — Criação das 4 tabelas complementares (`noesis_flashcard_decks`, `noesis_study_notebooks`, `noesis_insight_ledger`, `noesis_study_groups`), índices, RLS e RPC seguro de entrada por convite (`noesis_join_study_group_by_code`).
 6. `20261127093000_revoke_anon_execute_on_noesis_join_study_group.sql` — Revoga `EXECUTE` de `PUBLIC`/`anon` na função `noesis_join_study_group_by_code`, liberando apenas para `authenticated` e `service_role`.
 7. `20261127095800_harden_noesis_study_groups_security.sql` — Sanitiza `p_member` em `noesis_join_study_group_by_code` (impede escalação de `is_leader`/`is_vip`/permissões) e protege `leader_id` e `invite_code` contra alterações por membros não-líderes via trigger.
+8. `20261127103500_configure_noesis_crm_and_platform_control.sql` — Configura Noesis oficial em `crm_apps`, cria `noesis_platform_config` com RLS + Realtime e adiciona RPCs administrativos (`crm_get_noesis_platform_overview`, `crm_get_user_noesis_data`, `crm_update_noesis_platform_config`, `crm_grant_noesis_insights`, `crm_update_user_noesis_stats`, `crm_moderate_noesis_record`, `crm_touch_user_app`) além de estender `crm_get_app_table_data`, `crm_get_ecosystem_metrics` e `crm_get_users_directory`.

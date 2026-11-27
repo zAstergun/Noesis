@@ -162,7 +162,7 @@ void main() {
       expect(find.text('PLATAFORMAS & DOWNLOADS · v1.0.0'), findsOneWidget);
       expect(find.byKey(const Key('landing_github_button')), findsOneWidget);
       expect(find.text('GitHub (zAstergun/Noesis)'), findsOneWidget);
-      expect(find.text('Baixar para Windows (.zip)'), findsOneWidget);
+      expect(find.text('Baixar Instalador Windows (.exe)'), findsOneWidget);
       expect(find.text('Baixar APK Android'), findsOneWidget);
       expect(find.text('Abrir Web App'), findsNothing);
       expect(find.text('Ver Releases'), findsNothing);

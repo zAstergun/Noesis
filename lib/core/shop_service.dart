@@ -506,7 +506,7 @@ class ShopService {
     _ledger.add(
       ShopTransaction(
         id: welcomeId,
-        amount: InsightsEconomyConfig.welcomeBonus,
+        amount: InsightsEconomyConfig.effectiveWelcomeBonus,
         description: 'Bônus de boas-vindas',
         source: 'welcome',
         reference: 'onboarding',
@@ -704,9 +704,9 @@ class ShopService {
     const mults = InsightsEconomyConfig.examRepeatMultipliers;
     final multiplier = priorCount < mults.length ? mults[priorCount] : mults.last;
 
-    final baseRaw = InsightsEconomyConfig.examCompleted +
+    final baseRaw = InsightsEconomyConfig.effectiveExamCompleted +
         (scorePercentage >= InsightsEconomyConfig.examHighScoreThresholdPct
-            ? InsightsEconomyConfig.examHighScoreBonus
+            ? InsightsEconomyConfig.effectiveExamHighScoreBonus
             : 0);
     final decayedRaw = (baseRaw * multiplier).round();
     final pctInt = scorePercentage.round();
@@ -806,7 +806,7 @@ class ShopService {
     if (dailyTargetMinutes != null && todayMinutes >= dailyTargetMinutes) {
       earned += _appendStudyReward(
         idempotentId: 'daily_goal:$todayIso',
-        rawAmount: InsightsEconomyConfig.dailyGoalHit,
+        rawAmount: InsightsEconomyConfig.effectiveDailyGoalHit,
         description: 'Meta do dia batida',
         source: 'daily_goal',
         reference: 'daily_goal:$todayIso',
@@ -821,7 +821,7 @@ class ShopService {
     if (weeklyGoalMinutes > 0 && weekMinutes >= weeklyGoalMinutes) {
       earned += _appendStudyReward(
         idempotentId: 'weekly_goal:$mondayIso',
-        rawAmount: InsightsEconomyConfig.weeklyGoalHit,
+        rawAmount: InsightsEconomyConfig.effectiveWeeklyGoalHit,
         description: 'Meta semanal batida',
         source: 'weekly_goal',
         reference: 'weekly_goal:$mondayIso',

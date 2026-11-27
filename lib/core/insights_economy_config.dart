@@ -50,12 +50,61 @@ class InsightsEconomyConfig {
   static const double softCapMultiplier = 0.5;
   static const int vipGainMultiplier = 2;
 
+  // Overrides remotos controlados pelo Aster CRM (noesis_platform_config)
+  static int? _remoteWelcomeBonus;
+  static int? _remoteDailySoftCap;
+  static int? _remoteVipGainMultiplier;
+  static int? _remoteDailyGoalHit;
+  static int? _remoteWeeklyGoalHit;
+  static int? _remoteExamCompleted;
+  static int? _remoteExamHighScoreBonus;
+
+  static int get effectiveWelcomeBonus => _remoteWelcomeBonus ?? welcomeBonus;
+  static int get effectiveDailySoftCap => _remoteDailySoftCap ?? dailySoftCap;
+  static int get effectiveVipGainMultiplier => _remoteVipGainMultiplier ?? vipGainMultiplier;
+  static int get effectiveDailyGoalHit => _remoteDailyGoalHit ?? dailyGoalHit;
+  static int get effectiveWeeklyGoalHit => _remoteWeeklyGoalHit ?? weeklyGoalHit;
+  static int get effectiveExamCompleted => _remoteExamCompleted ?? examCompleted;
+  static int get effectiveExamHighScoreBonus =>
+      _remoteExamHighScoreBonus ?? examHighScoreBonus;
+
+  static void applyRemoteOverrides(Map<String, dynamic>? economyJson) {
+    if (economyJson == null || economyJson.isEmpty) return;
+    int? asPosInt(String key) {
+      final raw = economyJson[key];
+      if (raw is num) {
+        final v = raw.toInt();
+        return v >= 0 ? v : null;
+      }
+      return null;
+    }
+
+    _remoteWelcomeBonus = asPosInt('welcome_bonus');
+    _remoteDailySoftCap = asPosInt('daily_soft_cap');
+    final vipMult = asPosInt('vip_multiplier');
+    _remoteVipGainMultiplier = vipMult != null && vipMult >= 1 ? vipMult : null;
+    _remoteDailyGoalHit = asPosInt('daily_goal_hit');
+    _remoteWeeklyGoalHit = asPosInt('weekly_goal_hit');
+    _remoteExamCompleted = asPosInt('exam_completed');
+    _remoteExamHighScoreBonus = asPosInt('exam_high_score_bonus');
+  }
+
+  static void resetRemoteOverrides() {
+    _remoteWelcomeBonus = null;
+    _remoteDailySoftCap = null;
+    _remoteVipGainMultiplier = null;
+    _remoteDailyGoalHit = null;
+    _remoteWeeklyGoalHit = null;
+    _remoteExamCompleted = null;
+    _remoteExamHighScoreBonus = null;
+  }
+
   /// Limite diário suave escalado pelo Elo atual (+20 por ranking acima de Faísca;
-  /// se [isVip] for consultado como referência de escala, dobra o teto do Elo).
+  /// se [isVip] for consultado como referência de escala, multiplica o teto do Elo).
   static int dailySoftCapForElo(int eloIndex, {bool isVip = false}) {
     final safeElo = eloIndex.clamp(0, maxEloIndex);
-    final baseWithElo = dailySoftCap + (safeElo * dailySoftCapBonusPerElo);
-    return isVip ? baseWithElo * vipGainMultiplier : baseWithElo;
+    final baseWithElo = effectiveDailySoftCap + (safeElo * dailySoftCapBonusPerElo);
+    return isVip ? baseWithElo * effectiveVipGainMultiplier : baseWithElo;
   }
 
   /// Bônus percentual de ganho de Insights conferido pelo Elo (+10% por ranking subido).
@@ -63,13 +112,13 @@ class InsightsEconomyConfig {
       eloIndex.clamp(0, maxEloIndex) * eloGainBonusPercentPerTier;
 
   /// Multiplicador exato em décimos para evitar perda de frações em ganhos unitários:
-  /// ((10 + eloIndex) * (isVip ? 2 : 1)), onde 10 décimos = 1.0×.
+  /// ((10 + eloIndex) * (isVip ? vipMultiplier : 1)), onde 10 décimos = 1.0×.
   static int gainTenthsMultiplier({
     required int eloIndex,
     required bool isVip,
   }) {
     final safeElo = eloIndex.clamp(0, maxEloIndex);
-    return (10 + safeElo) * (isVip ? vipGainMultiplier : 1);
+    return (10 + safeElo) * (isVip ? effectiveVipGainMultiplier : 1);
   }
 
   /// Multiplicador total efetivo: (1.0 + 0.10 * eloIndex) × (isVip ? 2 : 1).
