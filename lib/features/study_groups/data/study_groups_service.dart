@@ -460,6 +460,44 @@ class StudyGroupsService {
     }
 
     int idx = _groups.indexWhere((g) => g.inviteCode.toUpperCase() == code);
+    final uid = actorUserId ?? currentUserId;
+    final handle = SupabaseService.sanitizeUsername(actorUsername ?? currentUserHandle);
+    final profileAvatar = SupabaseService.userProfileNotifier.value?['avatar_url']?.toString();
+    final profileBio = SupabaseService.userProfileNotifier.value?['bio']?.toString();
+    final member = StudyGroupMember(
+      userId: uid,
+      username: handle,
+      displayName: (actorDisplayName ?? currentUserDisplayName).trim(),
+      avatarUrl: actorUserId == null ? profileAvatar : null,
+      bio: actorUserId == null ? profileBio : null,
+      isVip: actorUserId == null ? SupabaseService.isCurrentUserVip : false,
+      insightsScore: actorInsightsScore ?? 0,
+      joinedAt: DateTime.now(),
+    );
+
+    if (idx == -1 && SupabaseService.isAuthenticated && actorUserId == null) {
+      try {
+        final rpcPayload = await SupabaseService.client.rpc(
+          'noesis_join_study_group_by_code',
+          params: {
+            'p_invite_code': code,
+            'p_member': member.toJson(),
+          },
+        );
+        if (rpcPayload is Map) {
+          final joined = StudyGroup.fromJson(Map<String, dynamic>.from(rpcPayload));
+          _groups.insert(0, joined);
+          _publish();
+          await _persist();
+          return StudyGroupActionResult(
+            ok: true,
+            message: 'Você entrou no grupo "${joined.name}"!',
+            group: joined,
+          );
+        }
+      } catch (_) {}
+    }
+
     if (idx == -1 && SupabaseService.isAuthenticated) {
       try {
         final row = await SupabaseService.client
@@ -482,7 +520,6 @@ class StudyGroupsService {
       );
     }
 
-    final uid = actorUserId ?? currentUserId;
     final group = _groups[idx];
     if (group.members.any((m) => m.userId == uid)) {
       return StudyGroupActionResult(
@@ -491,20 +528,6 @@ class StudyGroupsService {
         group: group,
       );
     }
-
-    final handle = SupabaseService.sanitizeUsername(actorUsername ?? currentUserHandle);
-    final profileAvatar = SupabaseService.userProfileNotifier.value?['avatar_url']?.toString();
-    final profileBio = SupabaseService.userProfileNotifier.value?['bio']?.toString();
-    final member = StudyGroupMember(
-      userId: uid,
-      username: handle,
-      displayName: (actorDisplayName ?? currentUserDisplayName).trim(),
-      avatarUrl: actorUserId == null ? profileAvatar : null,
-      bio: actorUserId == null ? profileBio : null,
-      isVip: actorUserId == null ? SupabaseService.isCurrentUserVip : false,
-      insightsScore: actorInsightsScore ?? 0,
-      joinedAt: DateTime.now(),
-    );
 
     final updated = group.copyWith(
       members: [...group.members, member],

@@ -1651,159 +1651,196 @@ class _TrackerScreenState extends State<TrackerScreen> {
     final bestStr = consistency.bestDayMinutes > 0
         ? DashboardAnalytics.formatCompactDuration(consistency.bestDayMinutes)
         : '0m';
+    final mutedCol = isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted;
+    final textCol = isDark ? AsterConstants.textLight : AsterConstants.textDark;
+
+    Widget buildStreakStat() => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'STREAK ATUAL',
+              style: GoogleFonts.manrope(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: mutedCol,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              streakStr,
+              key: const Key('dashboard_streak_value'),
+              style: GoogleFonts.manrope(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: textCol,
+              ),
+            ),
+          ],
+        );
+
+    Widget buildBestDayStat() => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'MELHOR DIA',
+              style: GoogleFonts.manrope(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: mutedCol,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Text(
+              bestStr,
+              key: const Key('dashboard_best_day_value'),
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: textCol,
+              ),
+            ),
+          ],
+        );
+
+    final heatmapWidget = ConsistencyHeatmap(
+      columns: consistency.levels.length,
+      rows: 7,
+      levels: consistency.levels,
+      datesGrid: consistency.datesGrid,
+      minutesGrid: consistency.minutesGrid,
+      activitiesGrid: consistency.activitiesGrid,
+      protectedGrid: consistency.protectedGrid,
+      onDayInspected: (label) {
+        _hoveredDayLabel.value = label;
+      },
+    );
 
     return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Consistência',
-                    style: GoogleFonts.manrope(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Consistência',
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: textCol,
+                      ),
                     ),
-                  ),
-                  ValueListenableBuilder<String?>(
-                    valueListenable: _hoveredDayLabel,
-                    builder: (context, hovered, _) {
-                      return Text(
-                        hovered ??
-                            '${consistency.activeDaysCount} dia${consistency.activeDaysCount == 1 ? '' : 's'} ativo${consistency.activeDaysCount == 1 ? '' : 's'} · toque nos pontos',
-                        style: GoogleFonts.manrope(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: hovered != null
-                              ? AsterConstants.menta
-                              : (isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Menos ',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    ValueListenableBuilder<String?>(
+                      valueListenable: _hoveredDayLabel,
+                      builder: (context, hovered, _) {
+                        return Text(
+                          hovered ??
+                              '${consistency.activeDaysCount} dia${consistency.activeDaysCount == 1 ? '' : 's'} ativo${consistency.activeDaysCount == 1 ? '' : 's'} · toque nos blocos',
+                          style: GoogleFonts.manrope(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: hovered != null ? AsterConstants.menta : mutedCol,
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                  _buildDot(0, isDark: isDark),
-                  _buildDot(1, isDark: isDark),
-                  _buildDot(2, isDark: isDark),
-                  _buildDot(3, isDark: isDark),
-                  _buildDot(4, isDark: isDark),
-                  Text(
-                    ' Mais',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Menos ',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        color: mutedCol,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  ConsistencySlotRing(
-                    filled: true,
-                    size: 10,
-                    strokeWidth: 1.9,
-                    activeColor: AsterTheme.secondary(context),
-                  ),
-                  Text(
-                    ' Protegido',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                    _buildDot(0, isDark: isDark),
+                    _buildDot(1, isDark: isDark),
+                    _buildDot(2, isDark: isDark),
+                    _buildDot(3, isDark: isDark),
+                    _buildDot(4, isDark: isDark),
+                    Text(
+                      ' Mais',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        color: mutedCol,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 10),
+                    ConsistencySlotRing(
+                      filled: true,
+                      size: 10,
+                      strokeWidth: 1.9,
+                      activeColor: AsterTheme.secondary(context),
+                    ),
+                    Text(
+                      ' Protegido',
+                      style: GoogleFonts.manrope(
+                        fontSize: 10,
+                        color: mutedCol,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
 
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 110,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConsistencyHeatmap(
-                      columns: consistency.levels.length,
-                      rows: 7,
-                      levels: consistency.levels,
-                      datesGrid: consistency.datesGrid,
-                      minutesGrid: consistency.minutesGrid,
-                      activitiesGrid: consistency.activitiesGrid,
-                      protectedGrid: consistency.protectedGrid,
-                      onDayInspected: (label) {
-                        _hoveredDayLabel.value = label;
-                      },
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 500) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    heatmapWidget,
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 20,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.start,
+                      children: [
+                        buildStreakStat(),
+                        buildBestDayStat(),
+                        _buildConsistencySealsSummary(context, isDark: isDark),
+                      ],
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
+                  ],
+                );
+              }
 
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    'STREAK ATUAL',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                      letterSpacing: 0.5,
-                    ),
+                  Expanded(child: heatmapWidget),
+                  const SizedBox(width: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      buildStreakStat(),
+                      const SizedBox(height: 10),
+                      buildBestDayStat(),
+                      const SizedBox(height: 12),
+                      _buildConsistencySealsSummary(context, isDark: isDark),
+                    ],
                   ),
-                  Text(
-                    streakStr,
-                    key: const Key('dashboard_streak_value'),
-                    style: GoogleFonts.manrope(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'MELHOR DIA',
-                    style: GoogleFonts.manrope(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Text(
-                    bestStr,
-                    key: const Key('dashboard_best_day_value'),
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildConsistencySealsSummary(context, isDark: isDark),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -1869,8 +1906,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
   Widget _buildDot(int level, {bool isDark = false}) {
     return Container(
-      width: 9,
-      height: 9,
+      width: 10,
+      height: 10,
       margin: const EdgeInsets.symmetric(horizontal: 1.5),
       decoration: BoxDecoration(
         color: ConsistencyHeatmap.colorForLevel(
@@ -1879,7 +1916,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           activeColor: AsterTheme.secondary(context),
           emptyColor: AsterTheme.surfaceInset(context),
         ),
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(3),
       ),
     );
   }
@@ -2688,8 +2725,9 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
   }
 }
 
-/// Widget de Heatmap de Consistência Otimizado com CustomPainter e inspeção por toque/hover.
-class ConsistencyHeatmap extends StatelessWidget {
+/// Widget de Heatmap de Consistência Otimizado com CustomPainter, células em blocos arredondados
+/// inspirados na landing page, preenchimento responsivo em telas largas e inspeção por toque/hover.
+class ConsistencyHeatmap extends StatefulWidget {
   final int columns;
   final int rows;
   final List<List<int>>? levels;
@@ -2732,72 +2770,175 @@ class ConsistencyHeatmap extends StatelessWidget {
     }
   }
 
-  void _inspectOffset(Offset localPos, Size size) {
-    if (onDayInspected == null || datesGrid == null || minutesGrid == null) return;
-    const double colStep = 17.0;
-    const double dotDiameter = 9.0;
-    final double rowStep = (size.height - dotDiameter) / (rows - 1);
+  @override
+  State<ConsistencyHeatmap> createState() => _ConsistencyHeatmapState();
+}
 
-    final col = (localPos.dx / colStep).floor();
-    final row = ((localPos.dy - dotDiameter / 2) / rowStep).round();
+class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
+  ({int col, int row})? _selectedCell;
 
-    if (col >= 0 && col < columns && row >= 0 && row < rows) {
-      final date = datesGrid![col][row];
-      final mins = minutesGrid![col][row];
-      final acts = activitiesGrid != null &&
-              col < activitiesGrid!.length &&
-              row < activitiesGrid![col].length
-          ? activitiesGrid![col][row]
-          : 0;
-      final isProtected = protectedGrid != null &&
-          col < protectedGrid!.length &&
-          row < protectedGrid![col].length &&
-          protectedGrid![col][row];
-      final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
-      final String durStr;
-      if (mins > 0 && acts > 1) {
-        durStr = '${DashboardAnalytics.formatReadableDuration(mins)} · $acts atividades';
-      } else if (mins > 0) {
-        durStr = '${DashboardAnalytics.formatReadableDuration(mins)} estudados';
-      } else if (acts > 0) {
-        durStr = '$acts ${acts == 1 ? 'atividade registrada' : 'atividades registradas'}';
-      } else if (isProtected) {
-        durStr = 'Dia protegido (Selo de Consistência)';
-      } else {
-        durStr = 'Sem registro';
-      }
-      onDayInspected!('$dateStr: $durStr');
+  void _inspectOffset(
+    Offset localPos,
+    Size size, {
+    required double cellSize,
+    required double gap,
+  }) {
+    if (localPos.dx < 0 ||
+        localPos.dy < 0 ||
+        localPos.dx > size.width ||
+        localPos.dy > size.height) {
+      return;
     }
+    final double step = cellSize + gap;
+    final col = (localPos.dx / step).floor().clamp(0, widget.columns - 1);
+    final row = (localPos.dy / step).floor().clamp(0, widget.rows - 1);
+
+    if (_selectedCell?.col != col || _selectedCell?.row != row) {
+      setState(() {
+        _selectedCell = (col: col, row: row);
+      });
+    }
+
+    if (widget.onDayInspected == null ||
+        widget.datesGrid == null ||
+        widget.minutesGrid == null) {
+      return;
+    }
+
+    final date = widget.datesGrid![col][row];
+    final mins = widget.minutesGrid![col][row];
+    final acts = widget.activitiesGrid != null &&
+            col < widget.activitiesGrid!.length &&
+            row < widget.activitiesGrid![col].length
+        ? widget.activitiesGrid![col][row]
+        : 0;
+    final isProtected = widget.protectedGrid != null &&
+        col < widget.protectedGrid!.length &&
+        row < widget.protectedGrid![col].length &&
+        widget.protectedGrid![col][row];
+    final dateStr =
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+    final String durStr;
+    if (mins > 0 && acts > 1) {
+      durStr = '${DashboardAnalytics.formatReadableDuration(mins)} · $acts atividades';
+    } else if (mins > 0) {
+      durStr = '${DashboardAnalytics.formatReadableDuration(mins)} estudados';
+    } else if (acts > 0) {
+      durStr = '$acts ${acts == 1 ? 'atividade registrada' : 'atividades registradas'}';
+    } else if (isProtected) {
+      durStr = 'Dia protegido (Selo de Consistência)';
+    } else {
+      durStr = 'Sem registro';
+    }
+    widget.onDayInspected!('$dateStr: $durStr');
+  }
+
+  void _clearInspection() {
+    if (_selectedCell != null) {
+      setState(() => _selectedCell = null);
+    }
+    widget.onDayInspected?.call(null);
   }
 
   @override
   Widget build(BuildContext context) {
-    const double colWidth = 17.0;
-    final size = Size(columns * colWidth, 110);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeCol = AsterTheme.secondary(context);
     final emptyCol = AsterTheme.surfaceInset(context);
+    final textCol = isDark ? AsterConstants.textLight : AsterConstants.textDark;
 
-    return RepaintBoundary(
-      child: MouseRegion(
-        onHover: (event) => _inspectOffset(event.localPosition, size),
-        onExit: (_) => onDayInspected?.call(null),
-        child: GestureDetector(
-          onTapDown: (details) => _inspectOffset(details.localPosition, size),
-          child: CustomPaint(
-            size: size,
-            painter: _HeatmapPainter(
-              columns: columns,
-              rows: rows,
-              levels: levels,
-              protectedGrid: protectedGrid,
-              isDark: isDark,
-              activeColor: activeCol,
-              emptyColor: emptyCol,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = widget.columns.clamp(1, 53);
+        final rows = widget.rows.clamp(1, 7);
+        const double minCellSize = 11.5;
+        const double maxCellSize = 26.0;
+        const double minGap = 3.5;
+        final double minGridWidth = cols * minCellSize + (cols - 1) * minGap;
+
+        final bool hasBoundedWidth = constraints.hasBoundedWidth && constraints.maxWidth.isFinite;
+        final bool needsScroll = !hasBoundedWidth || constraints.maxWidth < minGridWidth;
+
+        double cellSize;
+        double gap;
+
+        if (!hasBoundedWidth) {
+          cellSize = 13.0;
+          gap = 4.0;
+        } else if (needsScroll) {
+          cellSize = 12.5;
+          gap = 3.5;
+        } else {
+          final availW = constraints.maxWidth;
+          final baseGap = (availW * 0.0075).clamp(4.0, 8.0);
+          final rawCell = (availW - baseGap * (cols - 1)) / cols;
+          if (rawCell <= maxCellSize) {
+            cellSize = rawCell.clamp(minCellSize, maxCellSize);
+            gap = baseGap;
+          } else {
+            cellSize = maxCellSize;
+            gap = cols > 1
+                ? ((availW - cols * cellSize) / (cols - 1)).clamp(4.0, 12.0)
+                : 4.0;
+          }
+        }
+
+        final double gridWidth = cols * cellSize + (cols - 1) * gap;
+        final double gridHeight = rows * cellSize + (rows - 1) * gap;
+        final size = Size(gridWidth, gridHeight);
+
+        final painterWidget = RepaintBoundary(
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onHover: (event) => _inspectOffset(
+              event.localPosition,
+              size,
+              cellSize: cellSize,
+              gap: gap,
+            ),
+            onExit: (_) => _clearInspection(),
+            child: GestureDetector(
+              onTapDown: (details) => _inspectOffset(
+                details.localPosition,
+                size,
+                cellSize: cellSize,
+                gap: gap,
+              ),
+              child: CustomPaint(
+                size: size,
+                painter: _HeatmapPainter(
+                  columns: cols,
+                  rows: rows,
+                  cellSize: cellSize,
+                  gap: gap,
+                  levels: widget.levels,
+                  protectedGrid: widget.protectedGrid,
+                  selectedCol: _selectedCell?.col,
+                  selectedRow: _selectedCell?.row,
+                  isDark: isDark,
+                  activeColor: activeCol,
+                  emptyColor: emptyCol,
+                  textColor: textCol,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+
+        if (needsScroll && hasBoundedWidth) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: painterWidget,
+          );
+        }
+        if (hasBoundedWidth && constraints.maxWidth > gridWidth + 2) {
+          return Align(
+            alignment: Alignment.center,
+            child: painterWidget,
+          );
+        }
+        return painterWidget;
+      },
     );
   }
 }
@@ -2805,40 +2946,52 @@ class ConsistencyHeatmap extends StatelessWidget {
 class _HeatmapPainter extends CustomPainter {
   final int columns;
   final int rows;
+  final double cellSize;
+  final double gap;
   final List<List<int>>? levels;
   final List<List<bool>>? protectedGrid;
+  final int? selectedCol;
+  final int? selectedRow;
   final bool isDark;
   final Color activeColor;
   final Color emptyColor;
+  final Color textColor;
 
   _HeatmapPainter({
     required this.columns,
     required this.rows,
+    required this.cellSize,
+    required this.gap,
     this.levels,
     this.protectedGrid,
+    this.selectedCol,
+    this.selectedRow,
     this.isDark = false,
     required this.activeColor,
     required this.emptyColor,
+    required this.textColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double dotDiameter = 9.0;
-    const double dotRadius = dotDiameter / 2.0;
-    const double colStep = 17.0;
-    const double startX = 1.5 + dotRadius;
-    final double rowStep = (size.height - dotDiameter) / (rows - 1);
+    final double step = cellSize + gap;
+    final double cornerRadius = (cellSize * 0.28).clamp(3.0, 6.0);
+    final double ringStroke = (cellSize * 0.13).clamp(1.4, 2.2);
 
     final paint = Paint()..style = PaintingStyle.fill;
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
+      ..strokeWidth = ringStroke
       ..color = activeColor;
+    final selectionBorderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = Color.lerp(activeColor, textColor, 0.28) ?? activeColor;
 
     for (int col = 0; col < columns; col++) {
-      final double cx = col * colStep + startX;
+      final double x = col * step;
       for (int row = 0; row < rows; row++) {
-        final double cy = row * rowStep + dotRadius;
+        final double y = row * step;
         final int level;
         if (levels != null && col < levels!.length && row < levels![col].length) {
           level = levels![col][row];
@@ -2850,11 +3003,18 @@ class _HeatmapPainter extends CustomPainter {
             col < protectedGrid!.length &&
             row < protectedGrid![col].length &&
             protectedGrid![col][row];
+        final isSelected = selectedCol == col && selectedRow == row;
+
+        final rect = Rect.fromLTWH(x, y, cellSize, cellSize);
+        final rrect = RRect.fromRectAndRadius(
+          isSelected ? rect.inflate(1.0) : rect,
+          Radius.circular(cornerRadius),
+        );
 
         if (isProtected && level == 0) {
           paint.color = activeColor.withValues(alpha: 0.14);
-          canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
-          canvas.drawCircle(Offset(cx, cy), dotRadius - 0.6, ringPaint);
+          canvas.drawRRect(rrect, paint);
+          canvas.drawRRect(rrect.deflate(ringStroke / 2), ringPaint);
         } else {
           paint.color = ConsistencyHeatmap.colorForLevel(
             level,
@@ -2862,7 +3022,11 @@ class _HeatmapPainter extends CustomPainter {
             activeColor: activeColor,
             emptyColor: emptyColor,
           );
-          canvas.drawCircle(Offset(cx, cy), dotRadius, paint);
+          canvas.drawRRect(rrect, paint);
+        }
+
+        if (isSelected) {
+          canvas.drawRRect(rrect, selectionBorderPaint);
         }
       }
     }
@@ -2872,10 +3036,15 @@ class _HeatmapPainter extends CustomPainter {
   bool shouldRepaint(covariant _HeatmapPainter oldDelegate) {
     return oldDelegate.columns != columns ||
         oldDelegate.rows != rows ||
+        oldDelegate.cellSize != cellSize ||
+        oldDelegate.gap != gap ||
         oldDelegate.levels != levels ||
         oldDelegate.protectedGrid != protectedGrid ||
+        oldDelegate.selectedCol != selectedCol ||
+        oldDelegate.selectedRow != selectedRow ||
         oldDelegate.isDark != isDark ||
         oldDelegate.activeColor != activeColor ||
-        oldDelegate.emptyColor != emptyColor;
+        oldDelegate.emptyColor != emptyColor ||
+        oldDelegate.textColor != textColor;
   }
 }

@@ -42,6 +42,7 @@ void main() {
       final questions = await GeminiService.generateQuiz(
         subject: 'Criptografia',
         topic: 'Modos de Operação',
+        numberOfQuestions: 3,
       );
 
       expect(questions.length, equals(3));
@@ -88,6 +89,7 @@ void main() {
       final questions = await GeminiService.generateQuiz(
         subject: 'Criptografia',
         topic: 'Nested Schema',
+        numberOfQuestions: 1,
       );
 
       expect(questions.length, equals(1));

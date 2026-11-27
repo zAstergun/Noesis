@@ -1181,7 +1181,7 @@ class _RankingScreenState extends State<RankingScreen> {
                 '+${competitor.weeklyInsights}',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: AsterConstants.menta,
                 ),
               ),
@@ -1203,7 +1203,7 @@ class _RankingScreenState extends State<RankingScreen> {
               '#$rank',
               style: GoogleFonts.jetBrainsMono(
                 fontSize: rank == 1 ? 15 : 13,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 color: medalColor,
               ),
             ),
@@ -1336,7 +1336,7 @@ class _RankingScreenState extends State<RankingScreen> {
                 value,
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 19,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: accent,
                 ),
               ),
@@ -1533,7 +1533,7 @@ class _RankingScreenState extends State<RankingScreen> {
                     '#$rank',
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: rank <= 3 ? 14 : 13,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       color: medalColor,
                     ),
                   ),
@@ -1598,7 +1598,7 @@ class _RankingScreenState extends State<RankingScreen> {
                         '+${c.weeklyInsights}',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           color: zoneCol,
                         ),
                       ),

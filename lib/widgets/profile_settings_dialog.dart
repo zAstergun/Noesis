@@ -94,6 +94,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
   bool _uploadingAvatar = false;
   bool _loadingIdentities = false;
   bool _linkingOAuth = false;
+  bool _resendingEmailVerification = false;
 
   String? _avatarUrl;
   String? _currentSavedChannel;
@@ -1136,8 +1137,10 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                   color: primaryCol,
                 ),
               ),
-              if (isUsernameLockedByVerification) ...[
+              if (SupabaseService.currentUser != null &&
+                  !SupabaseService.isCurrentUserEmailConfirmed) ...[
                 Container(
+                  key: const Key('profile_email_unconfirmed_banner'),
                   margin: const EdgeInsets.only(top: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
@@ -1145,20 +1148,89 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AsterConstants.ambar.withValues(alpha: 0.3)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.lock_outline_rounded, size: 15, color: AsterConstants.ambar),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Confirme seu e-mail na caixa de entrada para poder alterar seu @usuario.',
-                          style: GoogleFonts.manrope(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
+                      Row(
+                        children: [
+                          Icon(
+                            isUsernameLockedByVerification
+                                ? Icons.lock_outline_rounded
+                                : Icons.mark_email_unread_outlined,
+                            size: 15,
                             color: AsterConstants.ambar,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isUsernameLockedByVerification
+                                  ? 'Confirme seu e-mail na caixa de entrada para poder alterar seu @usuario.'
+                                  : 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada para validar a conta.',
+                              style: GoogleFonts.manrope(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AsterConstants.ambar,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      if ((SupabaseService.currentUser?.email ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            TextButton.icon(
+                              key: const Key('profile_resend_email_verification_button'),
+                              onPressed: _resendingEmailVerification
+                                  ? null
+                                  : () async {
+                                      final email = SupabaseService.currentUser!.email!.trim();
+                                      setState(() => _resendingEmailVerification = true);
+                                      try {
+                                        await SupabaseService.resendSignupConfirmation(email);
+                                        if (mounted) {
+                                          _showNotice(
+                                            'Confirmação Reenviada',
+                                            'Enviamos um novo link de confirmação para $email.',
+                                            _ProfileNoticeTone.success,
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          _showNotice(
+                                            'Erro ao Reenviar',
+                                            SupabaseService.translateAuthError(e),
+                                            _ProfileNoticeTone.error,
+                                          );
+                                        }
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() => _resendingEmailVerification = false);
+                                        }
+                                      }
+                                    },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: AsterConstants.ambar,
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 14),
+                              label: Text(
+                                _resendingEmailVerification
+                                    ? 'Reenviando...'
+                                    : 'Reenviar confirmação',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

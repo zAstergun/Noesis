@@ -1350,7 +1350,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 13.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -2097,7 +2097,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             count,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 12.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: accent,
             ),
           ),

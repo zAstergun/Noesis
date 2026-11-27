@@ -56,7 +56,7 @@ void main() {
       expect(find.byType(TrackerScreen), findsOneWidget);
 
       // Step 4: Verify core Tracker elements rendered
-      expect(find.textContaining('Consistência · '), findsOneWidget);
+      expect(find.text('Consistência'), findsOneWidget);
       expect(find.text('Iniciar'), findsOneWidget);
       expect(find.text('Criptografia'), findsWidgets);
 

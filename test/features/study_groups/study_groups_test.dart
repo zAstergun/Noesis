@@ -371,7 +371,9 @@ void main() {
     await tester.tap(find.text('Caderno Compartilhável'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Abrir Caderno 📖').first);
+    final openNotebookBtn = find.text('Abrir Caderno 📖').first;
+    await tester.ensureVisible(openNotebookBtn);
+    await tester.tap(openNotebookBtn);
     await tester.pumpAndSettle();
     expect(find.text('Handshake', findRichText: true), findsOneWidget);
     expect(find.text('### Handshake', findRichText: true), findsNothing);

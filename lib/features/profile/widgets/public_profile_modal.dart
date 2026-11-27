@@ -627,7 +627,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
             value,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 15.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -674,7 +674,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                   '$followers',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: primaryCol,
                   ),
                 ),
@@ -706,7 +706,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                   '$following',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: AsterTheme.text(context),
                   ),
                 ),

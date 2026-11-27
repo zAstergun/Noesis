@@ -73,6 +73,28 @@ class NoesisLogoPalette {
   }
 }
 
+/// Permite aplicar um tema de demonstração local (ex.: na Landing Page)
+/// sem alterar o tema global do aplicativo.
+class NoesisLogoThemeScope extends InheritedWidget {
+  const NoesisLogoThemeScope({
+    super.key,
+    required this.themeOption,
+    required super.child,
+  });
+
+  final NoesisThemeOption themeOption;
+
+  static NoesisThemeOption? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<NoesisLogoThemeScope>()
+        ?.themeOption;
+  }
+
+  @override
+  bool updateShouldNotify(NoesisLogoThemeScope oldWidget) =>
+      oldWidget.themeOption.id != themeOption.id;
+}
+
 /// Logo vetorial oficial do Noesis sincronizado com as cores do tema ativo.
 class NoesisLogo extends StatelessWidget {
   const NoesisLogo({
@@ -114,36 +136,41 @@ class NoesisLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final override = NoesisLogoThemeScope.maybeOf(context);
+    if (override != null) {
+      return _buildLogoForTheme(override);
+    }
     return ValueListenableBuilder<String>(
       valueListenable: AsterTheme.activeThemeIdNotifier,
-      builder: (context, _, _) {
-        final themeOption = AsterTheme.currentTheme;
-        final palette = NoesisLogoPalette.forTheme(themeOption);
+      builder: (context, _, _) => _buildLogoForTheme(AsterTheme.currentTheme),
+    );
+  }
 
-        final painter = CustomPaint(
-          size: Size(size, size),
-          painter: _NoesisLogoPainter(
-            palette: palette,
-            sparkProgress: sparkProgress,
+  Widget _buildLogoForTheme(NoesisThemeOption themeOption) {
+    final palette = NoesisLogoPalette.forTheme(themeOption);
+
+    final painter = CustomPaint(
+      size: Size(size, size),
+      painter: _NoesisLogoPainter(
+        palette: palette,
+        sparkProgress: sparkProgress,
+      ),
+    );
+
+    if (!withShadow) return painter;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.25),
+        boxShadow: [
+          BoxShadow(
+            color: palette.bgBottomRight.withValues(alpha: 0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
-        );
-
-        if (!withShadow) return painter;
-
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(size * 0.25),
-            boxShadow: [
-              BoxShadow(
-                color: palette.bgBottomRight.withValues(alpha: 0.30),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: painter,
-        );
-      },
+        ],
+      ),
+      child: painter,
     );
   }
 }

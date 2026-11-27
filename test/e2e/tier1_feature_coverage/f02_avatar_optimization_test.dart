@@ -63,7 +63,7 @@ void main() {
       expect(find.text('ES'), findsOneWidget);
     });
 
-    testWidgets('4. Real TopBar CircleAvatar in RootScreen renders with 18 radius and lavanda alpha 0.15',
+    testWidgets('4. Real TopBar CircleAvatar in RootScreen renders with 17 radius and lavanda alpha 0.15',
         (WidgetTester tester) async {
       await TestAppHarness.pumpInHarness(
         tester,
@@ -75,7 +75,7 @@ void main() {
       expect(avatarFinder, findsOneWidget);
 
       final avatar = tester.widget<CircleAvatar>(avatarFinder);
-      expect(avatar.radius, equals(18));
+      expect(avatar.radius, equals(17));
       expect(avatar.backgroundColor, equals(AsterConstants.lavanda.withValues(alpha: 0.15)));
 
       await TestAppHarness.drainAsync(tester);

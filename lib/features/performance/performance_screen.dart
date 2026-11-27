@@ -140,7 +140,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                       'Desempenho & Analytics',
                                       style: GoogleFonts.manrope(
                                         fontSize: isDesktop ? 21 : 19,
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w800,
                                         color: AsterTheme.text(context),
                                       ),
                                     ),
@@ -420,7 +420,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: AsterTheme.text(context),
                   ),
                 ),
@@ -498,7 +498,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                 'Reviews da IA sobre sua Evolução',
                                 style: GoogleFonts.manrope(
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w800,
                                   color: AsterTheme.text(context),
                                 ),
                               ),

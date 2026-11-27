@@ -86,8 +86,8 @@ class _InsightCoinPainter extends CustomPainter {
 
 /// Ícone vetorial exclusivo do **Selo de Consistência** do Noesis.
 ///
-/// Matriz de pontos no estilo do painel de consistência (estilo GitHub)
-/// com um anel vazado em destaque no centro, simbolizando um dia protegido
+/// Grade 3×3 de blocos arredondados no estilo do novo heatmap de consistência
+/// com um bloco protegido em destaque no centro, simbolizando um dia protegido
 /// sem quebrar a sequência de estudos.
 class ConsistencySealIcon extends StatelessWidget {
   const ConsistencySealIcon({
@@ -138,60 +138,56 @@ class _ConsistencySealPainter extends CustomPainter {
     );
     canvas.drawRRect(
       tile,
-      Paint()..color = accent.withValues(alpha: 0.14),
+      Paint()..color = accent.withValues(alpha: 0.12),
     );
     canvas.drawRRect(
       tile,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0
-        ..color = accent.withValues(alpha: 0.34),
+        ..color = accent.withValues(alpha: 0.32),
     );
 
-    // 4 pontos de consistência nos cantos (simulando grade de atividade)
-    const corners = [
-      Offset(18, 18),
-      Offset(46, 18),
-      Offset(18, 46),
-      Offset(46, 46),
+    // Grade 3×3 de blocos arredondados alinhada ao novo heatmap
+    const double cell = 11.0;
+    const double gap = 3.5;
+    const double start = 12.0; // (64 - (3*11 + 2*3.5)) / 2
+    const double radius = 3.2;
+
+    const intensities = <List<double>>[
+      [0.24, 0.46, 0.22],
+      [0.40, 1.00, 0.72],
+      [0.62, 0.30, 0.48],
     ];
-    for (int i = 0; i < corners.length; i++) {
-      canvas.drawCircle(
-        corners[i],
-        3.8,
-        Paint()..color = accent.withValues(alpha: i == 1 || i == 2 ? 0.55 : 0.28),
-      );
-    }
 
-    // 4 pontos intermediários sutis
-    const mids = [
-      Offset(32, 16),
-      Offset(16, 32),
-      Offset(48, 32),
-      Offset(32, 48),
-    ];
-    for (final p in mids) {
-      canvas.drawCircle(
-        p,
-        3.1,
-        Paint()..color = accent.withValues(alpha: 0.22),
-      );
-    }
+    final fillPaint = Paint()..style = PaintingStyle.fill;
+    for (int row = 0; row < 3; row++) {
+      for (int col = 0; col < 3; col++) {
+        final rect = Rect.fromLTWH(
+          start + col * (cell + gap),
+          start + row * (cell + gap),
+          cell,
+          cell,
+        );
+        final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(radius));
 
-    // Anel central vazado = Selo de dia protegido na consistência
-    canvas.drawCircle(
-      const Offset(32, 32),
-      8.6,
-      Paint()..color = accent.withValues(alpha: 0.18),
-    );
-    canvas.drawCircle(
-      const Offset(32, 32),
-      8.6,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.8
-        ..color = accent,
-    );
+        if (row == 1 && col == 1) {
+          // Bloco central = Selo de dia protegido na consistência
+          fillPaint.color = accent.withValues(alpha: 0.16);
+          canvas.drawRRect(rrect, fillPaint);
+          canvas.drawRRect(
+            rrect,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.4
+              ..color = accent,
+          );
+        } else {
+          fillPaint.color = accent.withValues(alpha: intensities[row][col]);
+          canvas.drawRRect(rrect, fillPaint);
+        }
+      }
+    }
 
     canvas.restore();
   }
@@ -201,8 +197,8 @@ class _ConsistencySealPainter extends CustomPainter {
       oldDelegate.accent != accent;
 }
 
-/// Slot circular para representar cada **Selo de Consistência** guardado:
-/// anel sólido/vazado em destaque quando preenchido, ou tracejado quando vazio.
+/// Slot em bloco arredondado para representar cada **Selo de Consistência** guardado:
+/// borda sólida com preenchimento suave quando preenchido, ou tracejado quando vazio.
 class ConsistencySlotRing extends StatelessWidget {
   const ConsistencySlotRing({
     super.key,
@@ -251,18 +247,23 @@ class _ConsistencySlotRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
+    final inset = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      math.max(0.0, size.width - strokeWidth),
+      math.max(0.0, size.height - strokeWidth),
+    );
+    final cornerRadius = (size.width * 0.28).clamp(2.5, 6.5);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cornerRadius));
 
     if (filled) {
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()..color = activeColor.withValues(alpha: 0.12),
+      canvas.drawRRect(
+        rrect,
+        Paint()..color = activeColor.withValues(alpha: 0.14),
       );
-      canvas.drawCircle(
-        center,
-        radius,
+      canvas.drawRRect(
+        rrect,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth
@@ -271,19 +272,25 @@ class _ConsistencySlotRingPainter extends CustomPainter {
       return;
     }
 
-    // Círculo tracejado para vaga disponível
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    const dashCount = 8;
-    const step = (math.pi * 2) / dashCount;
-    const sweep = step * 0.56;
+    // Bloco arredondado tracejado para vaga disponível
+    final outlinePath = Path()..addRRect(rrect);
     final dashPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = strokeWidth * 0.85
       ..color = emptyColor.withValues(alpha: 0.55);
 
-    for (int i = 0; i < dashCount; i++) {
-      canvas.drawArc(rect, i * step, sweep, false, dashPaint);
+    for (final metric in outlinePath.computeMetrics()) {
+      final totalLen = metric.length;
+      if (totalLen <= 0) continue;
+      const int dashCount = 8;
+      final double step = totalLen / dashCount;
+      final double dashLen = step * 0.54;
+      for (int i = 0; i < dashCount; i++) {
+        final start = i * step;
+        final end = math.min(start + dashLen, totalLen);
+        canvas.drawPath(metric.extractPath(start, end), dashPaint);
+      }
     }
   }
 

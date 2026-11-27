@@ -295,4 +295,47 @@ void main() {
     expect(consistency.activeDaysCount, 4);
     expect(consistency.currentStreakDays, 4);
   });
+
+  testWidgets('ConsistencyHeatmap fills wide containers responsively and stays overflow-free on narrow viewports', (tester) async {
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const Center(
+        child: SizedBox(
+          width: 760,
+          child: ConsistencyHeatmap(columns: 26, rows: 7),
+        ),
+      ),
+      screenSize: const Size(1920, 1080),
+    );
+    await tester.pumpAndSettle();
+
+    final widePaint = tester.widget<CustomPaint>(
+      find.descendant(
+        of: find.byType(ConsistencyHeatmap),
+        matching: find.byType(CustomPaint),
+      ),
+    );
+    expect(widePaint.size.width, closeTo(760, 2));
+
+    await TestAppHarness.pumpInHarness(
+      tester,
+      const Center(
+        child: SizedBox(
+          width: 280,
+          child: ConsistencyHeatmap(columns: 26, rows: 7),
+        ),
+      ),
+      screenSize: const Size(360, 780),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(ConsistencyHeatmap),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

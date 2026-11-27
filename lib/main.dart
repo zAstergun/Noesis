@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,7 @@ import 'core/shop_service.dart';
 import 'core/theme.dart';
 import 'core/supabase_service.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/landing/landing_screen.dart';
 import 'features/tracker/tracker_screen.dart';
 import 'features/calendar/calendar_screen.dart';
 import 'features/ai_agent/ai_assistant_screen.dart';
@@ -138,6 +140,11 @@ class RootScreen extends StatefulWidget {
 
   @visibleForTesting
   static bool bypassAuthForTesting = false;
+
+  @visibleForTesting
+  static bool? isWebOverrideForTesting;
+
+  static bool get _isWebEntry => isWebOverrideForTesting ?? kIsWeb;
 
   static late ValueNotifier<int> activeTabNotifier;
   static ValueNotifier<int>? activeTabListenable;
@@ -309,6 +316,10 @@ class _RootScreenState extends State<RootScreen> {
   late final ValueNotifier<int> _activeTabNotifier;
   Map<String, dynamic>? _userProfile;
   bool _isSidebarCollapsed = false;
+  bool _showAuthScreen = false;
+  bool _dismissedEmailBanner = false;
+  bool _isResendingEmailBanner = false;
+  bool _isCheckingEmailBanner = false;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _studySessionsSubscription;
   Session? _session;
@@ -369,31 +380,46 @@ class _RootScreenState extends State<RootScreen> {
       }
     });
     _session = SupabaseService.client.auth.currentSession;
+    _showAuthScreen =
+        !RootScreen._isWebEntry ||
+        SupabaseService.extractOAuthCallbackError(Uri.base) != null;
     SupabaseService.userProfileNotifier.addListener(_onUserProfileChanged);
     SupabaseService.isVipNotifier.addListener(_onUserProfileChanged);
     SupabaseService.consistencyRevisionNotifier.addListener(_onConsistencyActivityChanged);
     ShopService.instance.transactionsNotifier.addListener(_onConsistencyActivityChanged);
     _authSubscription = SupabaseService.authStateChanges.listen((data) {
-      if (mounted) {
-        final newSession = data.session;
-        if (_session?.user.id != newSession?.user.id) {
-          setState(() {
-            _session = newSession;
-          });
-          _loadProfile();
-          _loadWeeklyGoalAndSessions();
-          ShopService.instance.init(force: true).then((_) {
-            if (mounted) NotificationsService.instance.refresh();
-          });
+      if (!mounted) return;
+      final newSession = data.session;
+      if (_session?.user.id != newSession?.user.id) {
+        setState(() {
+          _session = newSession;
+          _dismissedEmailBanner = false;
+          if (newSession == null) {
+            _showAuthScreen = !RootScreen._isWebEntry;
+          }
+        });
+        NotificationsService.instance.handleAuthUserChanged(newSession?.user.id);
+        if (newSession != null || RootScreen.bypassAuthForTesting) {
+          unawaited(_initializeUserContext(forceShopReload: true));
         }
       }
     });
-    _loadProfile();
-    _loadWeeklyGoalAndSessions();
-    ShopService.instance.init().then((_) {
-      if (mounted) NotificationsService.instance.refresh();
-    });
+    NotificationsService.instance.handleAuthUserChanged(_session?.user.id);
     NotificationsService.instance.start();
+    if (_session != null || RootScreen.bypassAuthForTesting) {
+      unawaited(_initializeUserContext());
+    }
+  }
+
+  Future<void> _initializeUserContext({bool forceShopReload = false}) async {
+    await Future.wait([
+      _loadProfile(),
+      _loadWeeklyGoalAndSessions(),
+      ShopService.instance.init(force: forceShopReload),
+    ]);
+    if (mounted) {
+      await NotificationsService.instance.refresh();
+    }
   }
 
   void _onUserProfileChanged() {
@@ -501,6 +527,204 @@ class _RootScreenState extends State<RootScreen> {
     showProfileSettingsDialog(
       context,
       streakDays: _currentStreakDays,
+    );
+  }
+
+  Future<void> _resendBannerVerificationEmail(String email) async {
+    if (_isResendingEmailBanner || email.trim().isEmpty) return;
+    setState(() => _isResendingEmailBanner = true);
+    try {
+      await SupabaseService.resendSignupConfirmation(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              backgroundColor: AsterConstants.menta,
+              content: Text(
+                'Link de confirmação reenviado para $email!',
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              backgroundColor: AsterConstants.coral,
+              content: Text(
+                SupabaseService.translateAuthError(e),
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) setState(() => _isResendingEmailBanner = false);
+    }
+  }
+
+  Future<void> _checkBannerVerificationStatus() async {
+    if (_isCheckingEmailBanner) return;
+    setState(() => _isCheckingEmailBanner = true);
+    try {
+      final refreshed = await SupabaseService.refreshCurrentUser();
+      if (!mounted) return;
+      final confirmed = refreshed?.emailConfirmedAt != null ||
+          SupabaseService.isCurrentUserEmailConfirmed;
+      if (confirmed) {
+        setState(() {
+          _session = SupabaseService.client.auth.currentSession;
+          _dismissedEmailBanner = true;
+        });
+        unawaited(NotificationsService.instance.refresh());
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              backgroundColor: AsterConstants.menta,
+              content: Text(
+                'E-mail confirmado com sucesso!',
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          );
+      } else {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              backgroundColor: AsterConstants.ambar,
+              content: Text(
+                'Ainda não detectamos a confirmação. Clique no link enviado para seu e-mail.',
+                style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingEmailBanner = false);
+    }
+  }
+
+  Widget _buildEmailVerificationReminderBanner({
+    required BuildContext context,
+    required String email,
+    required bool isWideScreen,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textCol = AsterTheme.text(context);
+    final mutedCol = AsterTheme.textMuted(context);
+    final hasEmail = email.trim().isNotEmpty;
+
+    return Container(
+      key: const Key('email_verification_reminder_banner'),
+      margin: EdgeInsets.fromLTRB(
+        isWideScreen ? 28 : 16,
+        isWideScreen ? 10 : 6,
+        isWideScreen ? 28 : 16,
+        4,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AsterConstants.ambar.withValues(alpha: isDark ? 0.14 : 0.12),
+        borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+        border: Border.all(
+          color: AsterConstants.ambar.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.mark_email_unread_rounded,
+                size: 18,
+                color: AsterConstants.ambar,
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  hasEmail
+                      ? 'Confirme seu e-mail ($email) para validar e proteger sua conta.'
+                      : 'Confirme seu e-mail na caixa de entrada para validar sua conta.',
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: textCol,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasEmail)
+                TextButton.icon(
+                  key: const Key('email_verification_resend_button'),
+                  onPressed: _isResendingEmailBanner
+                      ? null
+                      : () => _resendBannerVerificationEmail(email),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: AsterConstants.ambar,
+                  ),
+                  icon: _isResendingEmailBanner
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 15),
+                  label: Text(
+                    _isResendingEmailBanner ? 'Reenviando...' : 'Reenviar e-mail',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              TextButton(
+                key: const Key('email_verification_refresh_button'),
+                onPressed: _isCheckingEmailBanner ? null : _checkBannerVerificationStatus,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: textCol,
+                ),
+                child: Text(
+                  _isCheckingEmailBanner ? 'Verificando...' : 'Já confirmei',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const Key('email_verification_dismiss_button'),
+                tooltip: 'Lembrar depois',
+                onPressed: () => setState(() => _dismissedEmailBanner = true),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                splashRadius: 16,
+                icon: Icon(Icons.close_rounded, size: 16, color: mutedCol),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -905,17 +1129,36 @@ class _RootScreenState extends State<RootScreen> {
     final session = _session ?? SupabaseService.client.auth.currentSession;
 
     if (session == null && !RootScreen.bypassAuthForTesting) {
+      if (RootScreen._isWebEntry && !_showAuthScreen) {
+        return LandingScreen(
+          onOpenLogin: () {
+            setState(() {
+              _showAuthScreen = true;
+            });
+          },
+        );
+      }
       return AuthScreen(
         onAuthenticated: () {
+          final newSession = SupabaseService.client.auth.currentSession;
+          final changed = _session?.user.id != newSession?.user.id;
           setState(() {
-            _session = SupabaseService.client.auth.currentSession;
+            _session = newSession;
+            _dismissedEmailBanner = false;
+            _showAuthScreen = !RootScreen._isWebEntry;
           });
-          _loadProfile();
-          _loadWeeklyGoalAndSessions();
-          ShopService.instance.init(force: true).then((_) {
-            if (mounted) NotificationsService.instance.refresh();
-          });
+          if (changed) {
+            NotificationsService.instance.handleAuthUserChanged(newSession?.user.id);
+            unawaited(_initializeUserContext(forceShopReload: true));
+          }
         },
+        onBackToLanding: RootScreen._isWebEntry
+            ? () {
+                setState(() {
+                  _showAuthScreen = false;
+                });
+              }
+            : null,
       );
     }
 
@@ -1302,6 +1545,15 @@ class _RootScreenState extends State<RootScreen> {
                 );
               },
             ),
+
+            if (!_dismissedEmailBanner &&
+                SupabaseService.shouldShowEmailVerificationReminder)
+              _buildEmailVerificationReminderBanner(
+                context: context,
+                email: session?.user.email ??
+                    (_userProfile?['email']?.toString() ?? ''),
+                isWideScreen: isWideScreen,
+              ),
 
             // Telas do App com Offstage (apenas a aba ativa executa layout/paint)
             Expanded(

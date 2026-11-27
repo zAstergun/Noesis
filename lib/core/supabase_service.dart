@@ -7,6 +7,7 @@ import '../features/notebooks/models/notebook_model.dart';
 import '../features/quizzes/data/saved_exams_store_stub.dart'
     if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
     if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
+import 'notifications_service.dart';
 import 'oauth_loopback_stub.dart'
     if (dart.library.io) 'oauth_loopback_io.dart' as oauth_loopback;
 
@@ -51,12 +52,21 @@ class SupabaseService {
   static User? get currentUser => client.auth.currentUser;
   static bool get isAuthenticated => currentUser != null;
 
+  @visibleForTesting
+  static String? currentUserIdOverrideForTesting;
+
+  static String? get currentEffectiveUserId =>
+      currentUserIdOverrideForTesting ?? currentUser?.id;
+
   static Stream<AuthState> get authStateChanges => client.auth.onAuthStateChange;
 
   static Future<AuthResponse> signIn({
     required String email,
     required String password,
   }) async {
+    if (signInOverrideForTesting != null) {
+      return await signInOverrideForTesting!(email: email, password: password);
+    }
     return await client.auth.signInWithPassword(
       email: email,
       password: password,
@@ -84,6 +94,13 @@ class SupabaseService {
     required String password,
     String? fullName,
   }) async {
+    if (signUpOverrideForTesting != null) {
+      return await signUpOverrideForTesting!(
+        email: email,
+        password: password,
+        fullName: fullName,
+      );
+    }
     final response = await client.auth.signUp(
       email: email,
       password: password,
@@ -91,6 +108,78 @@ class SupabaseService {
       emailRedirectTo: authRedirectUrl(),
     );
     return response;
+  }
+
+  /// Reenvia o e-mail de confirmação de cadastro para o endereço informado.
+  static Future<void> resendSignupConfirmation(String email) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      throw Exception('Por favor, informe um e-mail válido.');
+    }
+    if (resendSignupConfirmationOverrideForTesting != null) {
+      await resendSignupConfirmationOverrideForTesting!(cleanEmail);
+      return;
+    }
+    await client.auth.resend(
+      type: OtpType.signup,
+      email: cleanEmail,
+      emailRedirectTo: authRedirectUrl(),
+    );
+  }
+
+  /// Atualiza os dados do usuário autenticado a partir do Supabase Auth (ex.: após confirmar e-mail).
+  static Future<User?> refreshCurrentUser() async {
+    if (currentUser == null) return null;
+    try {
+      final res = await client.auth.getUser();
+      return res.user;
+    } catch (_) {
+      return currentUser;
+    }
+  }
+
+  @visibleForTesting
+  static bool? isEmailConfirmedOverrideForTesting;
+
+  @visibleForTesting
+  static Future<AuthResponse> Function({
+    required String email,
+    required String password,
+  })? signInOverrideForTesting;
+
+  @visibleForTesting
+  static Future<AuthResponse> Function({
+    required String email,
+    required String password,
+    String? fullName,
+  })? signUpOverrideForTesting;
+
+  @visibleForTesting
+  static Future<void> Function(String email)?
+      resendSignupConfirmationOverrideForTesting;
+
+  static bool get isCurrentUserEmailConfirmed {
+    if (isEmailConfirmedOverrideForTesting != null) {
+      return isEmailConfirmedOverrideForTesting!;
+    }
+    final user = currentUser;
+    if (user == null) return true;
+    return user.emailConfirmedAt != null;
+  }
+
+  static bool isUserEmailConfirmed(User? user) {
+    if (isEmailConfirmedOverrideForTesting != null) {
+      return isEmailConfirmedOverrideForTesting!;
+    }
+    return user?.emailConfirmedAt != null;
+  }
+
+  static bool get shouldShowEmailVerificationReminder {
+    if (isEmailConfirmedOverrideForTesting != null) {
+      return !isEmailConfirmedOverrideForTesting!;
+    }
+    final user = currentUser;
+    return user != null && user.emailConfirmedAt == null;
   }
 
   static Future<void> cancelPendingOAuth() async {
@@ -117,7 +206,12 @@ class SupabaseService {
   }
 
   static Future<void> signOut() async {
+    await NotificationsService.instance.flushPendingSync();
     await client.auth.signOut();
+    if (currentUserIdOverrideForTesting != null) {
+      currentUserIdOverrideForTesting = null;
+    }
+    NotificationsService.instance.handleAuthUserChanged(currentEffectiveUserId);
   }
 
   static const String _localProfileStorageKey = 'noesis_local_profile_v1';
@@ -156,12 +250,91 @@ class SupabaseService {
   static List<LinkedIdentity>? linkedIdentitiesOverrideForTesting;
 
   @visibleForTesting
+  static Future<Map<String, dynamic>?> Function(String userId)?
+      notificationsStateLoaderOverrideForTesting;
+
+  @visibleForTesting
+  static Future<void> Function(String userId, Map<String, dynamic> state)?
+      notificationsStateSaverOverrideForTesting;
+
+  @visibleForTesting
   static Future<void> resetProfileForTesting() async {
     linkedIdentitiesOverrideForTesting = null;
+    notificationsStateLoaderOverrideForTesting = null;
+    notificationsStateSaverOverrideForTesting = null;
+    currentUserIdOverrideForTesting = null;
+    isEmailConfirmedOverrideForTesting = null;
+    signInOverrideForTesting = null;
+    signUpOverrideForTesting = null;
+    resendSignupConfirmationOverrideForTesting = null;
     isVipOverrideForTesting = null;
     isVipNotifier.value = false;
     userProfileNotifier.value = null;
     await _writeLocalProfileCache(const {});
+  }
+
+  /// Carrega o estado persistido das notificações (lidas/dispensadas) do usuário autenticado.
+  static Future<Map<String, dynamic>?> loadNotificationsState() async {
+    final uid = currentEffectiveUserId;
+    if (uid == null) return null;
+    if (notificationsStateLoaderOverrideForTesting != null) {
+      return await notificationsStateLoaderOverrideForTesting!(uid);
+    }
+    try {
+      final res = await client
+          .from('profiles')
+          .select('stats')
+          .eq('id', uid)
+          .maybeSingle();
+      final stats = res?['stats'];
+      if (stats is Map && stats['noesis_notifications_state'] is Map) {
+        return Map<String, dynamic>.from(
+          stats['noesis_notifications_state'] as Map,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar estado de notificações do Supabase: $e');
+    }
+    return null;
+  }
+
+  /// Persiste o estado das notificações (lidas/dispensadas) no perfil do usuário autenticado.
+  static Future<void> saveNotificationsState(Map<String, dynamic> state) async {
+    final uid = currentEffectiveUserId;
+    if (uid == null) return;
+    if (notificationsStateSaverOverrideForTesting != null) {
+      await notificationsStateSaverOverrideForTesting!(uid, state);
+      return;
+    }
+    try {
+      final res = await client
+          .from('profiles')
+          .select('stats')
+          .eq('id', uid)
+          .maybeSingle();
+      final currentStats = res != null && res['stats'] is Map
+          ? Map<String, dynamic>.from(res['stats'] as Map)
+          : <String, dynamic>{};
+      currentStats['noesis_notifications_state'] = state;
+
+      if (res != null) {
+        await client
+            .from('profiles')
+            .update({
+              'stats': currentStats,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', uid);
+      } else {
+        await client.from('profiles').upsert({
+          'id': uid,
+          'stats': currentStats,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao salvar estado de notificações no Supabase: $e');
+    }
   }
 
   static Future<Map<String, dynamic>?> getProfile() async {
@@ -1987,7 +2160,10 @@ class SupabaseService {
           'icon_code': deck.iconCode,
           'updated_at': DateTime.now().toIso8601String(),
         };
-        await client.from('noesis_flashcard_decks').upsert(payload);
+        await client.from('noesis_flashcard_decks').upsert(
+              payload,
+              onConflict: 'user_id,id',
+            );
       } catch (e) {
         debugPrint('Erro ao salvar baralho no Supabase: $e');
       }
@@ -2000,7 +2176,11 @@ class SupabaseService {
     _inMemoryFlashcardDecks.removeWhere((d) => d.id == deckId);
     if (currentUser != null) {
       try {
-        await client.from('noesis_flashcard_decks').delete().eq('id', deckId);
+        await client
+            .from('noesis_flashcard_decks')
+            .delete()
+            .eq('id', deckId)
+            .eq('user_id', currentUser!.id);
       } catch (e) {
         debugPrint('Erro ao excluir baralho no Supabase: $e');
       }
@@ -2074,7 +2254,10 @@ class SupabaseService {
           'created_at': notebook.createdAt.toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         };
-        await client.from('noesis_study_notebooks').upsert(payload);
+        await client.from('noesis_study_notebooks').upsert(
+              payload,
+              onConflict: 'user_id,id',
+            );
       } catch (e) {
         debugPrint('Erro ao salvar caderno no Supabase: $e');
       }
@@ -2088,7 +2271,11 @@ class SupabaseService {
     _inMemoryNotebooks.removeWhere((n) => n.id == notebookId);
     if (currentUser != null) {
       try {
-        await client.from('noesis_study_notebooks').delete().eq('id', notebookId);
+        await client
+            .from('noesis_study_notebooks')
+            .delete()
+            .eq('id', notebookId)
+            .eq('user_id', currentUser!.id);
       } catch (e) {
         debugPrint('Erro ao excluir caderno no Supabase: $e');
       }

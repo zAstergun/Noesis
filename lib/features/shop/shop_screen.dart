@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
@@ -1233,7 +1234,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 amountText,
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 17,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: accent,
                 ),
               ),
@@ -1394,7 +1395,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     '+1 Selo',
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       color: color,
                     ),
                   )
@@ -1405,7 +1406,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         '${isEarned ? '+' : ''}${tx.amount}',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 12,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           color: color,
                         ),
                       ),
@@ -1891,7 +1892,7 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 82,
+          height: 112,
           width: double.infinity,
           child: CustomPaint(
             painter: _ConsistencySealPreviewPainter(
@@ -1910,9 +1911,12 @@ class _ShopScreenState extends State<ShopScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: insetCol, shape: BoxShape.circle),
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: insetCol,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
                 const SizedBox(width: 5),
                 Text('sem estudo', style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
@@ -1922,9 +1926,12 @@ class _ShopScreenState extends State<ShopScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: secondaryCol, shape: BoxShape.circle),
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: secondaryCol,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
                 const SizedBox(width: 5),
                 Text('estudou', style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
@@ -1935,7 +1942,7 @@ class _ShopScreenState extends State<ShopScreen> {
               children: [
                 ConsistencySlotRing(
                   filled: true,
-                  size: 9,
+                  size: 10,
                   strokeWidth: 1.8,
                   activeColor: secondaryCol,
                 ),
@@ -3953,42 +3960,61 @@ class _ConsistencySealPreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const int cols = 14;
+    const int cols = 18;
     const int rows = 7;
-    final double cellW = size.width / cols;
-    final double cellH = size.height / rows;
-    final double radius = (cellW < cellH ? cellW : cellH) * 0.34;
+    final double baseGap = (size.width * 0.01).clamp(3.0, 5.0);
+    final double maxWCell = (size.width - baseGap * (cols - 1)) / cols;
+    final double maxHCell = (size.height - baseGap * (rows - 1)) / rows;
+    final double cellSize = math.min(maxWCell, maxHCell).clamp(6.0, 16.0);
+    final double gapX = cols > 1
+        ? ((size.width - cols * cellSize) / (cols - 1)).clamp(baseGap, 7.5)
+        : baseGap;
+    final double gapY = baseGap;
+
+    final double totalW = cols * cellSize + (cols - 1) * gapX;
+    final double totalH = rows * cellSize + (rows - 1) * gapY;
+    final double offsetX = math.max(0.0, (size.width - totalW) / 2);
+    final double offsetY = math.max(0.0, (size.height - totalH) / 2);
+
+    final double stepX = cellSize + gapX;
+    final double stepY = cellSize + gapY;
+    final double cornerRadius = (cellSize * 0.28).clamp(2.5, 5.0);
+    final double ringStroke = (cellSize * 0.14).clamp(1.5, 2.2);
 
     final fillPaint = Paint()..style = PaintingStyle.fill;
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
+      ..strokeWidth = ringStroke
       ..color = activeColor;
 
-    // Pontos estudados estilizados na direita do mini heatmap
+    // Blocos estudados estilizados na direita do mini heatmap (alinhados ao último dia)
+    const int lastCol = cols - 1;
     const activeCoords = <(int, int, double)>[
-      (9, 2, 0.45),
-      (10, 1, 0.7),
-      (10, 4, 0.35),
-      (11, 2, 0.55),
-      (12, 3, 0.7),
-      (12, 5, 0.45),
-      (13, 0, 0.9),
-      (13, 1, 0.75),
-      (13, 2, 1.0),
-      (13, 4, 0.9),
-      (13, 5, 0.75),
-      (13, 6, 0.5),
+      (lastCol - 4, 2, 0.45),
+      (lastCol - 3, 1, 0.7),
+      (lastCol - 3, 4, 0.35),
+      (lastCol - 2, 2, 0.55),
+      (lastCol - 1, 3, 0.7),
+      (lastCol - 1, 5, 0.45),
+      (lastCol, 0, 0.9),
+      (lastCol, 1, 0.75),
+      (lastCol, 2, 1.0),
+      (lastCol, 4, 0.9),
+      (lastCol, 5, 0.75),
+      (lastCol, 6, 0.5),
     ];
 
     for (int col = 0; col < cols; col++) {
-      final cx = col * cellW + cellW / 2;
+      final x = offsetX + col * stepX;
       for (int row = 0; row < rows; row++) {
-        final cy = row * cellH + cellH / 2;
-        if (col == 13 && row == 3) {
+        final y = offsetY + row * stepY;
+        final rect = Rect.fromLTWH(x, y, cellSize, cellSize);
+        final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cornerRadius));
+
+        if (col == lastCol && row == 3) {
           fillPaint.color = activeColor.withValues(alpha: 0.14);
-          canvas.drawCircle(Offset(cx, cy), radius, fillPaint);
-          canvas.drawCircle(Offset(cx, cy), radius - 0.5, ringPaint);
+          canvas.drawRRect(rrect, fillPaint);
+          canvas.drawRRect(rrect.deflate(ringStroke / 2), ringPaint);
           continue;
         }
         double? intensity;
@@ -4000,8 +4026,8 @@ class _ConsistencySealPreviewPainter extends CustomPainter {
         }
         fillPaint.color = intensity != null
             ? activeColor.withValues(alpha: intensity)
-            : emptyColor.withValues(alpha: 0.75);
-        canvas.drawCircle(Offset(cx, cy), radius, fillPaint);
+            : emptyColor.withValues(alpha: 0.85);
+        canvas.drawRRect(rrect, fillPaint);
       }
     }
   }

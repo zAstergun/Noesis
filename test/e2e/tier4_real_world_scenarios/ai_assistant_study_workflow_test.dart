@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noesis/core/gemini_service.dart';
+import 'package:noesis/core/supabase_service.dart';
 import 'package:noesis/features/ai_agent/ai_assistant_screen.dart';
+import 'package:noesis/features/flashcards/models/flashcard_model.dart';
 import '../harness/test_app_harness.dart';
 
 void main() {
@@ -14,11 +16,25 @@ void main() {
         'Autonomous AI assistant loads real screen, shows conversation history, triggers action chip and sends message',
         (WidgetTester tester) async {
       GeminiService.initialize('dummy-gemini-key');
+      await SupabaseService.saveFlashcardDeck(
+        FlashcardDeck(
+          id: 'ai-test-deck-1',
+          title: 'Segurança de Redes',
+          subject: 'Segurança',
+          description: 'Baralho de teste para sugestões contextuais',
+          cards: [
+            Flashcard(id: 'c1', front: 'TLS?', back: 'Transport Layer Security'),
+          ],
+          createdAt: DateTime(2026, 11, 25),
+        ),
+      );
+      await SupabaseService.saveWeeklyGoalMinutes(600);
 
       await TestAppHarness.pumpInHarness(
         tester,
         const AiAssistantScreen(),
       );
+      await tester.pumpAndSettle();
 
       // Verify real AiAssistantScreen mounts
       expect(find.byType(AiAssistantScreen), findsOneWidget);

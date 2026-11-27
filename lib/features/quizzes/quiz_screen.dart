@@ -3309,7 +3309,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                       '#${idx + 1}',
                                       style: GoogleFonts.jetBrainsMono(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w800,
                                         color: idx == 0
                                             ? AsterConstants.ambar
                                             : AsterTheme.textMuted(context),

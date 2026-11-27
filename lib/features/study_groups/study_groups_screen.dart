@@ -1340,7 +1340,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                         '#${i + 1}',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           color: i == 0 ? AsterVipColors.goldDark : AsterTheme.textMuted(context),
                         ),
                       ),

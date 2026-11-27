@@ -626,15 +626,18 @@ class ShopService {
     final user = SupabaseService.currentUser;
     if (user == null) return; // Garante zero requisições de rede no modo Visitante/Offline
     try {
-      await SupabaseService.client.from('noesis_insight_ledger').upsert({
-        'id': tx.id,
-        'user_id': user.id,
-        'amount': tx.amount,
-        'description': tx.description,
-        'source': tx.source,
-        'reference': tx.reference,
-        'created_at': tx.createdAt.toIso8601String(),
-      });
+      await SupabaseService.client.from('noesis_insight_ledger').upsert(
+        {
+          'id': tx.id,
+          'user_id': user.id,
+          'amount': tx.amount,
+          'description': tx.description,
+          'source': tx.source,
+          'reference': tx.reference,
+          'created_at': tx.createdAt.toIso8601String(),
+        },
+        onConflict: 'user_id,id',
+      );
     } catch (_) {}
   }
 

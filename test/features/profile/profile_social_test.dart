@@ -144,7 +144,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(ShopService.instance.balance, beforeBalance - 220);
 
-    await tester.tap(find.byKey(const Key('shop_identity_tab_title')));
+    final titleTabBtn = find.byKey(const Key('shop_identity_tab_title'));
+    await tester.ensureVisible(titleTabBtn);
+    await tester.tap(titleTabBtn);
     await tester.pumpAndSettle();
     final buyTitleBtn = find.byKey(const Key('shop_identity_btn_title_curious'));
     await tester.ensureVisible(buyTitleBtn);
@@ -153,7 +155,9 @@ void main() {
     expect(ShopService.instance.balance, beforeBalance - 220 - 200);
 
     // Volta para Perfil -> Editar permite trocar Capa, Moldura e Título desbloqueados
-    await tester.tap(find.text('Perfil').first);
+    final backToPerfilNav = find.text('Perfil').first;
+    await tester.ensureVisible(backToPerfilNav);
+    await tester.tap(backToPerfilNav);
     await tester.pumpAndSettle();
 
     // Clicar em Seguidores / Seguindo abre uma modal limpa (e não uma seção abaixo)

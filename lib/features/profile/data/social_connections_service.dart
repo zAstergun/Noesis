@@ -176,8 +176,10 @@ class SocialConnectionsService {
     if (cleanQ.length < 2) return;
 
     try {
-      final safe = cleanQ.replaceAll('%', '').replaceAll(',', '');
-      if (safe.isEmpty) return;
+      final safe = cleanQ
+          .replaceAll(RegExp(r'[^a-zA-Z0-9_\-\sÀ-ÿ]'), '')
+          .trim();
+      if (safe.length < 2) return;
       final rows = await SupabaseService.client
           .from('profiles')
           .select('id, full_name, channel, avatar_url, bio, is_vip, stats')

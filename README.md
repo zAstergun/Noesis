@@ -139,7 +139,7 @@ Noesis/
 ├── exemplos_simulados/       # Catálogo de simulados e exames por área
 ├── lib/
 │   ├── core/                 # Serviços base (Supabase, Multi-AI, Agent Tools, Shop, Desktop, TTS)
-│   ├── features/             # 16 domínios feature-first (tracker, quizzes, flashcards, ranking, etc.)
+│   ├── features/             # 17 domínios feature-first (landing, tracker, quizzes, flashcards, ranking, etc.)
 │   ├── widgets/              # Componentes reutilizáveis (DesktopTopBar, Logo, VIP RGB Editor, etc.)
 │   └── main.dart             # Ponto de entrada e shell responsivo de 14 abas
 ├── releases/                 # Binários oficiais prontos para download (APK & Windows ZIP)
@@ -148,6 +148,9 @@ Noesis/
 │   └── README.md
 ├── scripts/                  # Utilitários de empacotamento de release
 │   └── package_releases.ps1
+├── supabase/                 # Migrations SQL versionadas, políticas RLS e documentação do schema
+│   ├── migrations/
+│   └── README.md
 ├── test/                     # Suíte de testes unitários, widget e E2E (Tiers 1–4)
 ├── PROJECT_CONTEXT.md        # Documento mestre de contexto para IAs e devs
 └── pubspec.yaml              # Dependências e declaração de assets Flutter

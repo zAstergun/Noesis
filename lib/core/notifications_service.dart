@@ -79,25 +79,65 @@ class NotificationsService {
 
   static final NotificationsService instance = NotificationsService._();
   static const String _stateStorageKey = 'noesis_notifications_state_v1';
+  static const int _maxStoredDatedIds = 300;
+
+  static String _storageKeyForUser(String? userId) {
+    final clean = userId?.trim() ?? '';
+    return clean.isEmpty ? '${_stateStorageKey}_guest' : '${_stateStorageKey}_$clean';
+  }
 
   final ValueNotifier<List<NoesisNotification>> notificationsNotifier =
       ValueNotifier<List<NoesisNotification>>(const []);
 
   final Set<String> _readIds = {};
   final Set<String> _dismissedIds = {};
+  DateTime? _stateUpdatedAt;
   bool _stateLoaded = false;
+  String? _stateUserId;
+  String? _streamUserId;
   bool _started = false;
+  int _mutationEpoch = 0;
+  int _restoredInEpoch = 0;
+  Future<void>? _inFlightStateLoad;
+  Future<void>? _pendingRemoteSync;
   Future<void>? _inFlightRefresh;
+  bool _refreshNeedsRerun = false;
+  DateTime? _pendingReferenceDate;
 
   StreamSubscription<List<Map<String, dynamic>>>? _sessionsSub;
   StreamSubscription<List<Map<String, dynamic>>>? _calendarSub;
 
   int get unreadCount => notificationsNotifier.value.where((n) => !n.isRead).length;
 
+  /// Notifica o serviço quando a conta autenticada muda (login, logout ou troca de conta).
+  void handleAuthUserChanged(String? newUserId) {
+    final normalized =
+        (newUserId != null && newUserId.trim().isNotEmpty) ? newUserId.trim() : null;
+    if (_stateUserId != normalized) {
+      _readIds.clear();
+      _dismissedIds.clear();
+      _stateUpdatedAt = null;
+      _stateLoaded = false;
+      _stateUserId = normalized;
+      _mutationEpoch++;
+      _refreshNeedsRerun = true;
+      notificationsNotifier.value = const [];
+    }
+    if (_started && _streamUserId != normalized) {
+      stop();
+      start();
+    }
+  }
+
   /// Inicia observadores em tempo real nos dados do usuário.
   void start() {
+    final uid = SupabaseService.currentEffectiveUserId;
+    if (_started && _streamUserId != uid) {
+      stop();
+    }
     if (!_started) {
       _started = true;
+      _streamUserId = uid;
       _sessionsSub = SupabaseService.studySessionsStream().listen((_) {
         refresh();
       });
@@ -105,6 +145,7 @@ class NotificationsService {
         refresh();
       });
       SupabaseService.weeklyGoalMinutesNotifier.addListener(_onGoalChanged);
+      SupabaseService.dailyGoalMinutesNotifier.addListener(_onGoalChanged);
     }
     refresh();
   }
@@ -120,55 +161,275 @@ class NotificationsService {
     _calendarSub?.cancel();
     _calendarSub = null;
     SupabaseService.weeklyGoalMinutesNotifier.removeListener(_onGoalChanged);
+    SupabaseService.dailyGoalMinutesNotifier.removeListener(_onGoalChanged);
     _started = false;
+    _streamUserId = null;
+  }
+
+  /// Aguarda sincronizações pendentes antes de encerrar a sessão (signOut).
+  Future<void> flushPendingSync() async {
+    final load = _inFlightStateLoad;
+    if (load != null) {
+      try {
+        await load;
+      } catch (_) {}
+    }
+    final sync = _pendingRemoteSync;
+    if (sync != null) {
+      try {
+        await sync;
+      } catch (_) {}
+    }
+  }
+
+  static ({Set<String> readIds, Set<String> dismissedIds, DateTime? updatedAt})?
+      _parseStateMap(dynamic decoded) {
+    if (decoded is! Map) return null;
+    final reads = <String>{};
+    final dismissed = <String>{};
+    final rawReads = decoded['read_ids'];
+    final rawDismissed = decoded['dismissed_ids'];
+    if (rawReads is List) {
+      for (final e in rawReads) {
+        final s = e.toString().trim();
+        if (s.isNotEmpty) reads.add(s);
+      }
+    }
+    if (rawDismissed is List) {
+      for (final e in rawDismissed) {
+        final s = e.toString().trim();
+        if (s.isNotEmpty) dismissed.add(s);
+      }
+    }
+    final rawTs = decoded['updated_at']?.toString();
+    final updatedAt = rawTs != null ? DateTime.tryParse(rawTs)?.toUtc() : null;
+    return (readIds: reads, dismissedIds: dismissed, updatedAt: updatedAt);
   }
 
   Future<void> _ensureStateLoaded() async {
+    final targetUid = SupabaseService.currentEffectiveUserId;
+    if (_stateUserId != targetUid) {
+      _readIds.clear();
+      _dismissedIds.clear();
+      _stateUpdatedAt = null;
+      _stateLoaded = false;
+      _stateUserId = targetUid;
+      _mutationEpoch++;
+      notificationsNotifier.value = const [];
+    }
     if (_stateLoaded) return;
-    _stateLoaded = true;
-    try {
-      final raw = await local_store.readSavedExamsRaw(_stateStorageKey);
-      if (raw != null && raw.trim().isNotEmpty) {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          final reads = decoded['read_ids'];
-          final dismissed = decoded['dismissed_ids'];
-          if (reads is List) {
-            _readIds.addAll(reads.map((e) => e.toString()));
-          }
-          if (dismissed is List) {
-            _dismissedIds.addAll(dismissed.map((e) => e.toString()));
-          }
-        }
+
+    final existingLoad = _inFlightStateLoad;
+    if (existingLoad != null) {
+      await existingLoad;
+      if (_stateLoaded && _stateUserId == SupabaseService.currentEffectiveUserId) {
+        return;
       }
-    } catch (_) {}
+    }
+
+    final future = _loadStateForUser(targetUid);
+    _inFlightStateLoad = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_inFlightStateLoad, future)) {
+        _inFlightStateLoad = null;
+      }
+    }
   }
 
-  Future<void> _persistState() async {
+  Future<void> _loadStateForUser(String? targetUid) async {
+    final loadEpoch = _mutationEpoch;
+
+    ({Set<String> readIds, Set<String> dismissedIds, DateTime? updatedAt})? localState;
     try {
-      await local_store.writeSavedExamsRaw(
-        _stateStorageKey,
-        jsonEncode({
-          'read_ids': _readIds.toList(),
-          'dismissed_ids': _dismissedIds.toList(),
-        }),
-      );
+      String? raw = await local_store.readSavedExamsRaw(_storageKeyForUser(targetUid));
+      if ((raw == null || raw.trim().isEmpty) && targetUid == null) {
+        raw = await local_store.readSavedExamsRaw(_stateStorageKey);
+      }
+      if (raw != null && raw.trim().isNotEmpty) {
+        localState = _parseStateMap(jsonDecode(raw));
+      }
     } catch (_) {}
+
+    ({Set<String> readIds, Set<String> dismissedIds, DateTime? updatedAt})? remoteState;
+    if (targetUid != null) {
+      try {
+        final remoteMap = await SupabaseService.loadNotificationsState();
+        remoteState = _parseStateMap(remoteMap);
+      } catch (_) {}
+    }
+
+    // Se a conta mudou durante o carregamento assíncrono, descarta este resultado.
+    if (SupabaseService.currentEffectiveUserId != targetUid) {
+      return;
+    }
+
+    ({Set<String> readIds, Set<String> dismissedIds, DateTime? updatedAt})? resolved;
+    bool shouldWriteLocal = false;
+    bool shouldWriteRemote = false;
+
+    if (remoteState != null && localState == null) {
+      resolved = remoteState;
+      shouldWriteLocal = true;
+    } else if (localState != null && remoteState == null) {
+      resolved = localState;
+      shouldWriteRemote = targetUid != null;
+    } else if (localState != null && remoteState != null) {
+      final localTs = localState.updatedAt;
+      final remoteTs = remoteState.updatedAt;
+      final localIsNewer = localTs != null &&
+          (remoteTs == null || localTs.isAfter(remoteTs));
+      if (localIsNewer) {
+        resolved = localState;
+        shouldWriteRemote = targetUid != null;
+      } else {
+        resolved = remoteState;
+        shouldWriteLocal = true;
+      }
+    }
+
+    if (resolved != null) {
+      if (_mutationEpoch == loadEpoch) {
+        _readIds
+          ..clear()
+          ..addAll(resolved.readIds);
+        _dismissedIds
+          ..clear()
+          ..addAll(resolved.dismissedIds);
+        _stateUpdatedAt = resolved.updatedAt;
+      } else {
+        _readIds.addAll(resolved.readIds);
+        if (_restoredInEpoch != _mutationEpoch) {
+          _dismissedIds.addAll(resolved.dismissedIds);
+        }
+        shouldWriteRemote = true;
+        shouldWriteLocal = true;
+      }
+    }
+
+    _stateUserId = targetUid;
+    _stateLoaded = true;
+
+    if (shouldWriteRemote) {
+      await _persistState();
+    } else if (shouldWriteLocal && resolved != null) {
+      try {
+        await local_store.writeSavedExamsRaw(
+          _storageKeyForUser(targetUid),
+          jsonEncode({
+            'read_ids': _readIds.toList(),
+            'dismissed_ids': _dismissedIds.toList(),
+            if (_stateUpdatedAt != null)
+              'updated_at': _stateUpdatedAt!.toIso8601String(),
+          }),
+        );
+      } catch (_) {}
+    }
+  }
+
+  static void _trimIdSet(Set<String> ids) {
+    if (ids.length <= _maxStoredDatedIds + 50) return;
+    final datedPattern = RegExp(r'\d{4}-\d{1,2}-\d{1,2}|_\d{1,2}_\d{1,2}$');
+    final permanent = <String>[];
+    final dated = <String>[];
+    for (final id in ids) {
+      if (datedPattern.hasMatch(id)) {
+        dated.add(id);
+      } else {
+        permanent.add(id);
+      }
+    }
+    if (dated.length > _maxStoredDatedIds) {
+      dated.removeRange(0, dated.length - _maxStoredDatedIds);
+    }
+    ids
+      ..clear()
+      ..addAll(permanent)
+      ..addAll(dated);
+  }
+
+  Future<void> _persistState() {
+    final targetUid = SupabaseService.currentEffectiveUserId;
+    _stateUserId = targetUid;
+    _stateLoaded = true;
+    _trimIdSet(_readIds);
+    _trimIdSet(_dismissedIds);
+    _stateUpdatedAt = DateTime.now().toUtc();
+    final payload = <String, dynamic>{
+      'read_ids': _readIds.toList(),
+      'dismissed_ids': _dismissedIds.toList(),
+      'updated_at': _stateUpdatedAt!.toIso8601String(),
+    };
+    final encoded = jsonEncode(payload);
+
+    final previous = _pendingRemoteSync ?? Future<void>.value();
+    final next = previous.catchError((_) {}).then((_) async {
+      try {
+        await local_store.writeSavedExamsRaw(
+          _storageKeyForUser(targetUid),
+          encoded,
+        );
+      } catch (_) {}
+      if (targetUid != null &&
+          SupabaseService.currentEffectiveUserId == targetUid) {
+        await SupabaseService.saveNotificationsState(payload);
+      }
+    });
+    late final Future<void> tracked;
+    tracked = next.whenComplete(() {
+      if (identical(_pendingRemoteSync, tracked)) {
+        _pendingRemoteSync = null;
+      }
+    });
+    _pendingRemoteSync = tracked;
+    return tracked;
   }
 
   /// Recalcula todas as notificações a partir dos dados reais atuais.
   Future<void> refresh({DateTime? referenceDate}) {
     final existing = _inFlightRefresh;
-    if (existing != null) return existing;
+    if (existing != null) {
+      _refreshNeedsRerun = true;
+      if (referenceDate != null) {
+        _pendingReferenceDate = referenceDate;
+      }
+      return existing;
+    }
 
-    final future = _runRefresh(referenceDate: referenceDate).whenComplete(() {
+    final future = _runRefreshLoop(referenceDate: referenceDate).whenComplete(() {
       _inFlightRefresh = null;
     });
     _inFlightRefresh = future;
     return future;
   }
 
+  Future<void> _runRefreshLoop({DateTime? referenceDate}) async {
+    DateTime? nextRef = referenceDate;
+    do {
+      _refreshNeedsRerun = false;
+      await _runRefresh(referenceDate: nextRef);
+      nextRef = _pendingReferenceDate;
+      _pendingReferenceDate = null;
+    } while (_refreshNeedsRerun);
+  }
+
   Future<void> _runRefresh({DateTime? referenceDate}) async {
+    final uidAtStart = SupabaseService.currentEffectiveUserId;
+    if (_started && _streamUserId != uidAtStart) {
+      stop();
+      _started = true;
+      _streamUserId = uidAtStart;
+      _sessionsSub = SupabaseService.studySessionsStream().listen((_) {
+        refresh();
+      });
+      _calendarSub = SupabaseService.calendarEventsStream().listen((_) {
+        refresh();
+      });
+      SupabaseService.weeklyGoalMinutesNotifier.addListener(_onGoalChanged);
+      SupabaseService.dailyGoalMinutesNotifier.addListener(_onGoalChanged);
+    }
+
     await _ensureStateLoaded();
     await ShopService.instance.init();
     final now = referenceDate ?? DateTime.now();
@@ -182,6 +443,11 @@ class NotificationsService {
       RoadmapsRepository.loadAll(),
     ]);
 
+    if (SupabaseService.currentEffectiveUserId != uidAtStart) {
+      _refreshNeedsRerun = true;
+      return;
+    }
+
     final events = results[0] as List<Map<String, dynamic>>;
     final sessions = results[1] as List<Map<String, dynamic>>;
     final decks = results[2] as List<FlashcardDeck>;
@@ -189,7 +455,16 @@ class NotificationsService {
     final exams = results[4] as List<SavedExamAttempt>;
     final roadmaps = results[5] as List<StudyRoadmap>;
 
-    await ShopService.instance.reconcileStreakProtectors(sessions, referenceDate: now);
+    final extraActiveDates = <DateTime>{
+      ...SupabaseService.recordedConsistencyDates,
+      ...ShopService.instance.studyActivityDates,
+    };
+
+    await ShopService.instance.reconcileStreakProtectors(
+      sessions,
+      referenceDate: now,
+      extraActiveDates: extraActiveDates,
+    );
 
     final built = buildNotificationsFromData(
       now: now,
@@ -205,7 +480,9 @@ class NotificationsService {
           (GeminiService.apiKey?.trim().isNotEmpty ?? false) ||
           GeminiService.provider == 'custom',
       hasWelcomeBonus: ShopService.instance.hasWelcomeBonus,
+      isEmailConfirmed: SupabaseService.isCurrentUserEmailConfirmed,
       protectedDates: ShopService.instance.protectedStreakDates,
+      extraActiveDates: extraActiveDates,
     );
 
     final visible = built
@@ -234,11 +511,30 @@ class NotificationsService {
     required List<StudyRoadmap> roadmaps,
     required bool hasConfiguredAiKey,
     bool hasWelcomeBonus = false,
+    bool isEmailConfirmed = true,
     Set<DateTime> protectedDates = const {},
+    Set<DateTime> extraActiveDates = const {},
   }) {
     final list = <NoesisNotification>[];
     final todayStart = DateTime(now.year, now.month, now.day);
     final windowEnd = now.add(const Duration(hours: 48));
+
+    // -1. Confirmação de e-mail pendente
+    if (!isEmailConfirmed) {
+      list.add(
+        const NoesisNotification(
+          id: 'email_verification_pending',
+          title: 'Confirme seu e-mail',
+          message:
+              'Verifique sua caixa de entrada e clique no link de validação para proteger sua conta Aster e liberar alterações de @usuário.',
+          timeLabel: 'Conta',
+          icon: Icons.mark_email_unread_rounded,
+          tone: NotificationTone.coral,
+          targetTab: 6,
+          priority: 1,
+        ),
+      );
+    }
 
     // 0. Bônus de boas-vindas ao entrar pela primeira vez no Noesis (+100 Insights)
     if (hasWelcomeBonus) {
@@ -263,8 +559,9 @@ class NotificationsService {
 
     for (final evt in events) {
       if (evt['is_completed'] == true) continue;
-      final start = DateTime.tryParse((evt['start_time'] ?? '').toString());
-      if (start == null) continue;
+      final rawStart = DateTime.tryParse((evt['start_time'] ?? '').toString());
+      if (rawStart == null) continue;
+      final start = rawStart.toLocal();
       if (!start.isBefore(now.subtract(const Duration(minutes: 15))) &&
           !start.isAfter(windowEnd)) {
         upcoming.add((event: evt, start: start));
@@ -376,8 +673,10 @@ class NotificationsService {
       sessions,
       referenceDate: now,
       protectedDates: protectedDates,
+      extraActiveDates: extraActiveDates,
     );
-    final weekId = '${todayStart.year}-${todayStart.month}-${todayStart.day - (todayStart.weekday - 1)}';
+    final monday = todayStart.subtract(Duration(days: todayStart.weekday - 1));
+    final weekId = '${monday.year}-${monday.month}-${monday.day}';
     final dayId = '${todayStart.year}-${todayStart.month}-${todayStart.day}';
 
     if (dailyGoalMinutes != null && dailyGoalMinutes > 0) {
@@ -549,7 +848,7 @@ class NotificationsService {
   static bool _hasSessionToday(List<Map<String, dynamic>> sessions, DateTime todayStart) {
     for (final s in sessions) {
       final raw = (s['study_date'] ?? s['created_at'] ?? '').toString();
-      final dt = DateTime.tryParse(raw);
+      final dt = DateTime.tryParse(raw)?.toLocal();
       if (dt == null) continue;
       if (dt.year == todayStart.year && dt.month == todayStart.month && dt.day == todayStart.day) {
         return true;
@@ -594,43 +893,66 @@ class NotificationsService {
 
   /// Marca uma notificação específica como lida e persiste.
   Future<void> markAsRead(String id) async {
+    _mutationEpoch++;
     _readIds.add(id);
     notificationsNotifier.value = notificationsNotifier.value
         .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
         .toList();
+    if (!_stateLoaded || _stateUserId != SupabaseService.currentEffectiveUserId) {
+      await _ensureStateLoaded();
+      _readIds.add(id);
+    }
     await _persistState();
   }
 
   /// Marca todas as notificações atuais como lidas e persiste.
   Future<void> markAllAsRead() async {
-    for (final n in notificationsNotifier.value) {
-      _readIds.add(n.id);
-    }
+    _mutationEpoch++;
+    final currentIds = notificationsNotifier.value.map((n) => n.id).toList();
+    _readIds.addAll(currentIds);
     notificationsNotifier.value = notificationsNotifier.value
         .map((n) => n.copyWith(isRead: true))
         .toList();
+    if (!_stateLoaded || _stateUserId != SupabaseService.currentEffectiveUserId) {
+      await _ensureStateLoaded();
+      _readIds.addAll(currentIds);
+    }
     await _persistState();
   }
 
   /// Oculta uma notificação específica e persiste o descarte.
   Future<void> dismiss(String id) async {
+    _mutationEpoch++;
     _dismissedIds.add(id);
     notificationsNotifier.value =
         notificationsNotifier.value.where((n) => n.id != id).toList();
+    if (!_stateLoaded || _stateUserId != SupabaseService.currentEffectiveUserId) {
+      await _ensureStateLoaded();
+      _dismissedIds.add(id);
+    }
     await _persistState();
   }
 
   /// Oculta todas as notificações atualmente exibidas.
   Future<void> dismissAll() async {
-    for (final n in notificationsNotifier.value) {
-      _dismissedIds.add(n.id);
-    }
+    _mutationEpoch++;
+    final currentIds = notificationsNotifier.value.map((n) => n.id).toList();
+    _dismissedIds.addAll(currentIds);
     notificationsNotifier.value = const [];
+    if (!_stateLoaded || _stateUserId != SupabaseService.currentEffectiveUserId) {
+      await _ensureStateLoaded();
+      _dismissedIds.addAll(currentIds);
+    }
     await _persistState();
   }
 
   /// Restaura notificações descartadas e atualiza a lista a partir dos dados reais.
   Future<void> restoreAndRefresh() async {
+    _mutationEpoch++;
+    _restoredInEpoch = _mutationEpoch;
+    if (!_stateLoaded || _stateUserId != SupabaseService.currentEffectiveUserId) {
+      await _ensureStateLoaded();
+    }
     _dismissedIds.clear();
     await _persistState();
     await refresh();
@@ -640,10 +962,30 @@ class NotificationsService {
   @visibleForTesting
   Future<void> resetForTesting() async {
     stop();
+    final prevUid = _stateUserId;
+    final currentUid = SupabaseService.currentEffectiveUserId;
     _readIds.clear();
     _dismissedIds.clear();
+    _stateUpdatedAt = null;
     _stateLoaded = false;
+    _stateUserId = null;
+    _mutationEpoch++;
+    _restoredInEpoch = 0;
+    _refreshNeedsRerun = false;
+    _pendingReferenceDate = null;
+    _pendingRemoteSync = null;
+    _inFlightStateLoad = null;
     notificationsNotifier.value = const [];
-    await _persistState();
+    const emptyPayload = '{"read_ids":[],"dismissed_ids":[]}';
+    for (final key in {
+      _stateStorageKey,
+      _storageKeyForUser(null),
+      if (prevUid != null) _storageKeyForUser(prevUid),
+      if (currentUid != null) _storageKeyForUser(currentUid),
+    }) {
+      try {
+        await local_store.writeSavedExamsRaw(key, emptyPayload);
+      } catch (_) {}
+    }
   }
 }

@@ -67,14 +67,24 @@ void main() {
       );
 
       final indicatorFinder = find.byType(LinearProgressIndicator);
-      expect(indicatorFinder, findsOneWidget);
+      expect(indicatorFinder, findsAtLeastNWidgets(1));
 
-      // Verify that no ancestor ClipRRect wraps the progress indicator in real TrackerScreen
-      expect(find.ancestor(of: indicatorFinder, matching: find.byType(ClipRRect)), findsNothing,
-          reason: 'Unnecessary ClipRRect parent in TrackerScreen should be eliminated to avoid raster clipping cost');
-
-      final indicator = tester.widget<LinearProgressIndicator>(indicatorFinder);
-      expect(indicator.borderRadius, equals(BorderRadius.circular(AsterConstants.radiusPill)));
+      // Verify that no ancestor ClipRRect wraps any progress indicator in real TrackerScreen
+      for (final indicator in tester.widgetList<LinearProgressIndicator>(indicatorFinder)) {
+        expect(indicator.borderRadius, equals(BorderRadius.circular(AsterConstants.radiusPill)));
+      }
+      expect(
+        find.ancestor(of: indicatorFinder.first, matching: find.byType(ClipRRect)),
+        findsNothing,
+        reason: 'Unnecessary ClipRRect parent in TrackerScreen should be eliminated to avoid raster clipping cost',
+      );
+      if (indicatorFinder.evaluate().length > 1) {
+        expect(
+          find.ancestor(of: indicatorFinder.last, matching: find.byType(ClipRRect)),
+          findsNothing,
+          reason: 'Unnecessary ClipRRect parent in TrackerScreen should be eliminated to avoid raster clipping cost',
+        );
+      }
 
       await TestAppHarness.drainAsync(tester);
     });

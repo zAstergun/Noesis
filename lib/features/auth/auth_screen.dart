@@ -11,11 +11,13 @@ import '../../widgets/noesis_logo.dart';
 class AuthScreen extends StatefulWidget {
   final VoidCallback onAuthenticated;
   final Uri? initialCallbackUri;
+  final VoidCallback? onBackToLanding;
 
   const AuthScreen({
     super.key,
     required this.onAuthenticated,
     this.initialCallbackUri,
+    this.onBackToLanding,
   });
 
   @override
@@ -28,10 +30,13 @@ class _AuthScreenState extends State<AuthScreen> {
   final _fullNameController = TextEditingController();
   bool _isSignUp = false;
   bool _isLoading = false;
+  bool _isResendingConfirmation = false;
   bool _obscurePassword = true;
   bool _rememberMe = true;
   String? _errorMessage;
   String? _successMessage;
+  String? _pendingConfirmationEmail;
+  String? _unconfirmedLoginEmail;
   OAuthProvider? _oauthLoading;
 
   @override
@@ -108,6 +113,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _isLoading = true;
       _errorMessage = null;
       _successMessage = null;
+      _unconfirmedLoginEmail = null;
     });
 
     try {
@@ -125,14 +131,19 @@ class _AuthScreenState extends State<AuthScreen> {
           }
           return;
         }
-        if (response.session != null) {
+        final isConfirmed = SupabaseService.isUserEmailConfirmed(response.user);
+        if (response.session != null && isConfirmed) {
           widget.onAuthenticated();
           return;
         }
+        if (response.session != null && !isConfirmed) {
+          await SupabaseService.signOut();
+        }
         if (mounted) {
           setState(() {
+            _pendingConfirmationEmail = email;
             _successMessage =
-                'Conta Aster criada com sucesso! Verifique seu e-mail para confirmar e entrar.';
+                'Enviamos um link de confirmação para $email.';
             _isSignUp = false;
           });
         }
@@ -145,6 +156,38 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final translated = SupabaseService.translateAuthError(e);
+        final isUnconfirmed = e.toString().toLowerCase().contains('email not confirmed');
+        setState(() {
+          _errorMessage = translated;
+          _unconfirmedLoginEmail = isUnconfirmed ? email : null;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resendConfirmationEmail(String email) async {
+    if (_isResendingConfirmation) return;
+    setState(() {
+      _isResendingConfirmation = true;
+      _errorMessage = null;
+    });
+    try {
+      await SupabaseService.resendSignupConfirmation(email);
+      if (mounted) {
+        setState(() {
+          _successMessage =
+              'Novo link de confirmação enviado para $email! Verifique sua caixa de entrada e o spam.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           _errorMessage = SupabaseService.translateAuthError(e);
         });
@@ -152,7 +195,7 @@ class _AuthScreenState extends State<AuthScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isResendingConfirmation = false;
         });
       }
     }
@@ -403,6 +446,151 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               suffixIcon: suffixIcon,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingConfirmationSection(String email) {
+    final primaryCol = AsterTheme.primary(context);
+    return Column(
+      key: const Key('auth_pending_confirmation_card'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AsterConstants.menta.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+            border: Border.all(
+              color: AsterConstants.menta.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AsterConstants.menta.withValues(alpha: 0.16),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.mark_email_unread_rounded,
+                      size: 20,
+                      color: Color(0xFF1F9D70),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Confirme seu e-mail',
+                      style: GoogleFonts.manrope(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: AsterConstants.textDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _successMessage ?? 'Enviamos um link de confirmação para $email.',
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F9D70),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Abra sua caixa de entrada e clique no link para validar sua conta antes de entrar. Se não encontrar, confira a pasta de spam ou promoções.',
+                style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  color: AsterConstants.textMuted,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AsterConstants.coral.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+              border: Border.all(color: AsterConstants.coral.withValues(alpha: 0.25)),
+            ),
+            child: Text(
+              _errorMessage!,
+              style: GoogleFonts.manrope(
+                color: AsterConstants.coral,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          key: const Key('auth_resend_confirmation_button'),
+          onPressed: _isResendingConfirmation
+              ? null
+              : () => _resendConfirmationEmail(email),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryCol,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+            ),
+          ),
+          icon: _isResendingConfirmation
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.refresh_rounded, size: 17),
+          label: Text(
+            _isResendingConfirmation
+                ? 'Reenviando...'
+                : 'Reenviar e-mail de confirmação',
+            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: const Key('auth_back_from_confirmation_button'),
+          onPressed: () {
+            setState(() {
+              _pendingConfirmationEmail = null;
+              _errorMessage = null;
+              _successMessage = null;
+              _isSignUp = false;
+            });
+          },
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AsterConstants.textDark,
+            side: const BorderSide(color: AsterConstants.surfaceInset),
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+            ),
+          ),
+          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+          label: Text(
+            'Voltar para o login',
+            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -693,6 +881,44 @@ class _AuthScreenState extends State<AuthScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (widget.onBackToLanding != null) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: InkWell(
+                            key: const Key('auth_back_to_landing_button'),
+                            onTap: widget.onBackToLanding,
+                            borderRadius: BorderRadius.circular(
+                              AsterConstants.radiusPill,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.arrow_back_rounded,
+                                    size: 15,
+                                    color: AsterConstants.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Voltar ao início',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AsterConstants.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       // Logo Oficial Noesis
                       const Center(
                         child: NoesisLogo(size: 68, withShadow: true),
@@ -771,6 +997,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 24),
 
+                        if (_pendingConfirmationEmail != null) ...[
+                          _buildPendingConfirmationSection(_pendingConfirmationEmail!),
+                        ] else ...[
                         // Seletor Entrar / Criar Conta
                         _buildModeSwitcher(),
                         const SizedBox(height: 22),
@@ -789,21 +1018,56 @@ class _AuthScreenState extends State<AuthScreen> {
                                 width: 1,
                               ),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    size: 18, color: AsterConstants.coral),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: GoogleFonts.manrope(
-                                      color: AsterConstants.coral,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                Row(
+                                  children: [
+                                    const Icon(Icons.error_outline_rounded,
+                                        size: 18, color: AsterConstants.coral),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: GoogleFonts.manrope(
+                                          color: AsterConstants.coral,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_unconfirmedLoginEmail != null) ...[
+                                  const SizedBox(height: 8),
+                                  TextButton.icon(
+                                    key: const Key('auth_login_resend_confirmation_button'),
+                                    onPressed: _isResendingConfirmation
+                                        ? null
+                                        : () => _resendConfirmationEmail(_unconfirmedLoginEmail!),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    icon: _isResendingConfirmation
+                                        ? const SizedBox(
+                                            width: 13,
+                                            height: 13,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.mark_email_read_outlined, size: 15),
+                                    label: Text(
+                                      _isResendingConfirmation
+                                          ? 'Reenviando...'
+                                          : 'Reenviar e-mail de confirmação',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
@@ -1070,6 +1334,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ],
                         ),
+                        ],
                       ],
                     ),
                   ),

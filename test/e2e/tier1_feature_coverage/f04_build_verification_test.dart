@@ -29,8 +29,8 @@ void main() {
       expect(pubspec, contains('assets/fonts/'));
       expect(Directory('assets/fonts').existsSync(), isTrue);
       final fontFiles = Directory('assets/fonts').listSync().whereType<File>().toList();
-      expect(fontFiles.length, equals(9),
-          reason: 'All 9 font assets must be available for web packaging');
+      expect(fontFiles.length, equals(10),
+          reason: 'All 10 font assets (Manrope, JetBrainsMono, SpaceGrotesk) must be available for web packaging');
     });
 
     test('5. web/manifest.json exists and specifies valid standalone PWA configuration', () {

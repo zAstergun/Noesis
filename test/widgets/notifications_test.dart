@@ -17,8 +17,14 @@ void main() {
   });
 
   setUp(() async {
+    await SupabaseService.resetProfileForTesting();
     await NotificationsService.instance.resetForTesting();
     GeminiService.initialize('');
+  });
+
+  tearDown(() async {
+    await SupabaseService.resetProfileForTesting();
+    await NotificationsService.instance.resetForTesting();
   });
 
   test('NotificationsService builds real notifications from user study data without fake mocks', () {
@@ -124,6 +130,24 @@ void main() {
 
     // Notificações reais derivadas dos dados
     expect(notifications.any((n) => n.id == 'welcome_insights_bonus' && n.title.contains('+100 Insights') && n.targetTab == 9), isTrue);
+    expect(notifications.any((n) => n.id == 'email_verification_pending'), isFalse);
+
+    final unconfirmedNotes = NotificationsService.buildNotificationsFromData(
+      now: now,
+      events: const [],
+      sessions: const [],
+      weeklyGoalMinutes: 60,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+      isEmailConfirmed: false,
+    );
+    expect(
+      unconfirmedNotes.any((n) => n.id == 'email_verification_pending' && n.title == 'Confirme seu e-mail'),
+      isTrue,
+    );
     expect(notifications.any((n) => n.title == 'Prova / Marco Próximo' && n.message.contains('Prova de Redes & Segurança')), isTrue);
     expect(notifications.any((n) => n.title.contains('2 cards para revisar') && n.targetTab == 2), isTrue);
     expect(notifications.any((n) => n.title.contains('1 anotação para revisar') && n.targetTab == 3), isTrue);
@@ -195,5 +219,160 @@ void main() {
     expect(find.text('Preferências de tema, chave de IA, idiomas do ecossistema e perfil'), findsOneWidget);
 
     await TestAppHarness.drainAsync(tester);
+  });
+
+  test('Calendar event IDs stay identical between local ISO and UTC ISO and weekId is stable across month boundary', () {
+    final localStart = DateTime(2026, 11, 26, 22, 0);
+    final nowLocal = DateTime(2026, 11, 26, 20, 0);
+
+    final fromLocal = NotificationsService.buildNotificationsFromData(
+      now: nowLocal,
+      events: [
+        {
+          'id': 'evt-utc-test',
+          'title': 'Revisão de Física',
+          'category': 'study',
+          'start_time': localStart.toIso8601String(),
+          'is_completed': false,
+        },
+      ],
+      sessions: const [],
+      weeklyGoalMinutes: 60,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+    );
+
+    final fromUtc = NotificationsService.buildNotificationsFromData(
+      now: nowLocal,
+      events: [
+        {
+          'id': 'evt-utc-test',
+          'title': 'Revisão de Física',
+          'category': 'study',
+          'start_time': localStart.toUtc().toIso8601String(),
+          'is_completed': false,
+        },
+      ],
+      sessions: const [],
+      weeklyGoalMinutes: 60,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+    );
+
+    expect(fromLocal.first.id, fromUtc.first.id);
+    expect(fromLocal.first.timeLabel, fromUtc.first.timeLabel);
+
+    // Segunda (30/11/2026) e Terça (01/12/2026) devem gerar o mesmo ID de meta semanal
+    final mondayNotes = NotificationsService.buildNotificationsFromData(
+      now: DateTime(2026, 11, 30, 18, 0),
+      events: const [],
+      sessions: [
+        {'id': 's1', 'duration_minutes': 60, 'study_date': '2026-11-30'},
+      ],
+      weeklyGoalMinutes: 60,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+    );
+    final tuesdayNotes = NotificationsService.buildNotificationsFromData(
+      now: DateTime(2026, 12, 1, 18, 0),
+      events: const [],
+      sessions: [
+        {'id': 's1', 'duration_minutes': 60, 'study_date': '2026-11-30'},
+      ],
+      weeklyGoalMinutes: 60,
+      decks: const [],
+      notebooks: const [],
+      exams: const [],
+      roadmaps: const [],
+      hasConfiguredAiKey: true,
+    );
+    final monGoalId = mondayNotes.firstWhere((n) => n.id.startsWith('goal_reached_')).id;
+    final tueGoalId = tuesdayNotes.firstWhere((n) => n.id.startsWith('goal_reached_')).id;
+    expect(monGoalId, tueGoalId);
+  });
+
+  test('Read, dismissed, cleared and restored notification states persist across relogin and isolate accounts', () async {
+    final remoteDb = <String, Map<String, dynamic>>{};
+    SupabaseService.notificationsStateLoaderOverrideForTesting = (uid) async {
+      final entry = remoteDb[uid];
+      return entry == null ? null : Map<String, dynamic>.from(entry);
+    };
+    SupabaseService.notificationsStateSaverOverrideForTesting = (uid, state) async {
+      remoteDb[uid] = Map<String, dynamic>.from(state);
+    };
+
+    // 1. Login como User A
+    SupabaseService.currentUserIdOverrideForTesting = 'user-a';
+    NotificationsService.instance.handleAuthUserChanged('user-a');
+    await NotificationsService.instance.refresh();
+
+    final initialA = NotificationsService.instance.notificationsNotifier.value;
+    expect(initialA.any((n) => n.id == 'welcome_insights_bonus' && !n.isRead), isTrue);
+    expect(initialA.any((n) => n.id == 'ai_key_missing' && !n.isRead), isTrue);
+
+    // Marca 'ai_key_missing' como lida e dispensa 'welcome_insights_bonus', depois sai imediatamente
+    await NotificationsService.instance.markAsRead('ai_key_missing');
+    await NotificationsService.instance.dismiss('welcome_insights_bonus');
+    await SupabaseService.signOut();
+
+    // 2. Reloga como User A em um ambiente sem cache local (ex: novo navegador / porta diferente)
+    await NotificationsService.instance.resetForTesting();
+    SupabaseService.currentUserIdOverrideForTesting = 'user-a';
+    NotificationsService.instance.handleAuthUserChanged('user-a');
+    await NotificationsService.instance.refresh();
+
+    final reloggedA = NotificationsService.instance.notificationsNotifier.value;
+    expect(reloggedA.any((n) => n.id == 'welcome_insights_bonus'), isFalse);
+    final aiNoteAfterRelogin = reloggedA.firstWhere((n) => n.id == 'ai_key_missing');
+    expect(aiNoteAfterRelogin.isRead, isTrue);
+
+    // 3. Troca para User B -> não deve herdar estado lido/dispensado do User A
+    await SupabaseService.signOut();
+    SupabaseService.currentUserIdOverrideForTesting = 'user-b';
+    NotificationsService.instance.handleAuthUserChanged('user-b');
+    await NotificationsService.instance.refresh();
+
+    final listB = NotificationsService.instance.notificationsNotifier.value;
+    expect(listB.any((n) => n.id == 'welcome_insights_bonus' && !n.isRead), isTrue);
+    expect(listB.any((n) => n.id == 'ai_key_missing' && !n.isRead), isTrue);
+
+    // 4. Volta para User A, limpa todas sem await imediato antes do signOut (testa flushPendingSync)
+    await SupabaseService.signOut();
+    SupabaseService.currentUserIdOverrideForTesting = 'user-a';
+    NotificationsService.instance.handleAuthUserChanged('user-a');
+    await NotificationsService.instance.refresh();
+
+    // Dispara dismissAll sem aguardar e chama signOut logo em seguida
+    // ignore: unawaited_futures
+    NotificationsService.instance.dismissAll();
+    await SupabaseService.signOut();
+
+    // Reloga como User A sem cache local -> lista deve permanecer vazia
+    await NotificationsService.instance.resetForTesting();
+    SupabaseService.currentUserIdOverrideForTesting = 'user-a';
+    NotificationsService.instance.handleAuthUserChanged('user-a');
+    await NotificationsService.instance.refresh();
+    expect(NotificationsService.instance.notificationsNotifier.value, isEmpty);
+
+    // 5. Restaura notificações e reloga -> restauradas voltam, e a que já era lida continua lida
+    await NotificationsService.instance.restoreAndRefresh();
+    await SupabaseService.signOut();
+    await NotificationsService.instance.resetForTesting();
+    SupabaseService.currentUserIdOverrideForTesting = 'user-a';
+    NotificationsService.instance.handleAuthUserChanged('user-a');
+    await NotificationsService.instance.refresh();
+
+    final restoredA = NotificationsService.instance.notificationsNotifier.value;
+    expect(restoredA.any((n) => n.id == 'welcome_insights_bonus' && !n.isRead), isTrue);
+    expect(restoredA.any((n) => n.id == 'ai_key_missing' && n.isRead), isTrue);
   });
 }

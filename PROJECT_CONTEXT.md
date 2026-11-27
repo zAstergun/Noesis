@@ -211,6 +211,7 @@ c:\Users\User\Desktop\Project\Noesis\
 ├── exemplos_simulados/           # Catálogo de simulados e exames de referência
 ├── releases/                     # Binários oficiais versionados (Android APK & Windows ZIP)
 ├── scripts/                      # Utilitários de empacotamento (package_releases.ps1)
+├── supabase/                     # Migrations SQL versionadas, RLS e guia do schema (9 tabelas noesis_*)
 ├── lib/
 │   ├── core/
 │   │   ├── audio_service.dart           # Efeitos sonoros táteis (audioplayers)
@@ -232,6 +233,7 @@ c:\Users\User\Desktop\Project\Noesis\
 │   │   ├── auth/                        # Aster Account SSO, OAuth e Modo Visitante
 │   │   ├── calendar/                    # Agenda 4 vistas (Dia/Sem/Mês/Timeline) + sugestões IA
 │   │   ├── flashcards/                  # Hub de baralhos, importador de arquivos e flip 3D
+│   │   ├── landing/                     # Landing page Web interativa (Hero, Bento, Showcase, Comunidade)
 │   │   ├── notebooks/                   # Cadernos de estudo e anotações
 │   │   ├── performance/                 # Análises de desempenho e evolução
 │   │   ├── profile/                     # Perfil social, seguidores, conquistas e cosméticos

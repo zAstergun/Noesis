@@ -301,7 +301,7 @@ class _InsightGainToastCardState extends State<_InsightGainToastCard>
                             '+${event.amount} $unit',
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 13.5,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               color: AsterConstants.menta,
                             ),
                           ),
