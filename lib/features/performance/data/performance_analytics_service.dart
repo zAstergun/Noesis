@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/gemini_service.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/shop_service.dart';
 import '../../../core/supabase_service.dart';
 import '../../flashcards/models/flashcard_model.dart';
@@ -50,21 +51,21 @@ class PerformanceAnalyticsService {
           period: period,
           start: todayStart.subtract(const Duration(days: 6)),
           end: todayEnd,
-          label: 'Últimos 7 dias',
+          label: NoesisL10n.tr('Últimos 7 dias'),
         );
       case PerformancePeriod.days30:
         return PerformancePeriodRange(
           period: period,
           start: todayStart.subtract(const Duration(days: 29)),
           end: todayEnd,
-          label: 'Últimos 30 dias',
+          label: NoesisL10n.tr('Últimos 30 dias'),
         );
       case PerformancePeriod.days90:
         return PerformancePeriodRange(
           period: period,
           start: todayStart.subtract(const Duration(days: 89)),
           end: todayEnd,
-          label: 'Últimos 90 dias',
+          label: NoesisL10n.tr('Últimos 90 dias'),
         );
       case PerformancePeriod.custom:
         if (customRange != null) {
@@ -85,7 +86,7 @@ class PerformanceAnalyticsService {
           period: period,
           start: todayStart.subtract(const Duration(days: 29)),
           end: todayEnd,
-          label: 'Personalizado (30d)',
+          label: NoesisL10n.tr('Personalizado (30d)'),
         );
       case PerformancePeriod.allTime:
         DateTime earliest = todayStart.subtract(const Duration(days: 29));
@@ -97,7 +98,7 @@ class PerformanceAnalyticsService {
           period: period,
           start: earliest,
           end: todayEnd,
-          label: 'Todo o histórico',
+          label: NoesisL10n.tr('Todo o histórico'),
         );
     }
   }
@@ -248,8 +249,8 @@ class PerformanceAnalyticsService {
         sessionsCount++;
         final day = DateTime(dt.year, dt.month, dt.day);
         minutesByDay[day] = (minutesByDay[day] ?? 0) + mins;
-        final rawSubj = (s['subject'] ?? 'Geral').toString().trim();
-        final subj = rawSubj.isEmpty ? 'Geral' : rawSubj;
+        final rawSubj = (s['subject'] ?? '').toString().trim();
+        final subj = rawSubj.isEmpty ? NoesisL10n.tr('Geral') : rawSubj;
         minutesBySubject[subj] = (minutesBySubject[subj] ?? 0) + mins;
         sessionsBySubject[subj] = (sessionsBySubject[subj] ?? 0) + 1;
       } else if (hasPreviousWindow && _inRange(dt, prevStartDay, prevEnd)) {
@@ -301,7 +302,7 @@ class PerformanceAnalyticsService {
       if (bestExamScore == null || e.scorePercentage > bestExamScore) {
         bestExamScore = e.scorePercentage;
       }
-      final sKey = e.subject.trim().isEmpty ? 'Geral' : e.subject.trim();
+      final sKey = e.subject.trim().isEmpty ? NoesisL10n.tr('Geral') : e.subject.trim();
       examScoresBySubject.putIfAbsent(sKey, () => []).add(e.scorePercentage);
     }
 
@@ -578,7 +579,9 @@ class PerformanceAnalyticsService {
     await loadAiReviews();
     final subjectSummaries = report.subjectBreakdowns.take(5).map((s) {
       final h = (s.minutes / 60.0).toStringAsFixed(1);
-      final examPart = s.averageExamScore != null ? ' · média ${s.averageExamScore!.round()}%' : '';
+      final examPart = s.averageExamScore != null
+          ? NoesisL10n.tr(' · média {pct}%', {'pct': s.averageExamScore!.round()})
+          : '';
       return '${s.subject}: ${h}h$examPart';
     }).toList();
 

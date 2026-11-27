@@ -6,6 +6,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
@@ -36,7 +38,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
   late final ValueNotifier<int> _sessionGoalMinutesNotifier;
   final List<String> _laps = [];
   bool _isTimerRunning = false;
-  String _activeSubject = 'Geral';
+  String _activeSubject = NoesisL10n.tr('Geral');
   int _sessionGoalMinutes = 90;
 
   // ─── Streams e Snapshot Integrado do Ecossistema ───
@@ -108,7 +110,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
         sessions: sessions,
         ecosystem: snapshot,
       );
-      if (subjects.isNotEmpty && (_activeSubject == 'Geral' || !subjects.contains(_activeSubject))) {
+      if (subjects.isNotEmpty &&
+          (_activeSubject == NoesisL10n.tr('Geral', null, 'br') ||
+              _activeSubject == NoesisL10n.tr('Geral') ||
+              !subjects.contains(_activeSubject))) {
         _activeSubject = subjects.first;
         _activeSubjectNotifier.value = _activeSubject;
       }
@@ -151,12 +156,26 @@ class _TrackerScreenState extends State<TrackerScreen> {
     final hh = now.hour.toString().padLeft(2, '0');
     final mm = now.minute.toString().padLeft(2, '0');
     setState(() {
-      _laps.add('Checkpoint ${_laps.length + 1} às $hh:$mm ($formatted)');
+      _laps.add(
+        NoesisL10n.tr(
+          'Checkpoint {num} às {time} ({formatted})',
+          {
+            'num': '${_laps.length + 1}',
+            'time': '$hh:$mm',
+            'formatted': formatted,
+          },
+        ),
+      );
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: AsterTheme.primary(context),
-        content: Text('Checkpoint #${_laps.length} registrado em $formatted.'),
+        content: Text(
+          context.tr(
+            'Checkpoint #{num} registrado em {formatted}.',
+            {'num': '${_laps.length}', 'formatted': formatted},
+          ),
+        ),
       ),
     );
   }
@@ -198,7 +217,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
           title: Text(
-            'Disciplina da Sessão',
+            ctx.tr('Disciplina da Sessão'),
             style: GoogleFonts.manrope(
               fontWeight: FontWeight.w800,
               color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -230,9 +249,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: customController,
-                  decoration: const InputDecoration(
-                    labelText: 'Ou digite outra disciplina',
-                    hintText: 'Ex.: Cálculo II, Direito Constitucional...',
+                  decoration: InputDecoration(
+                    labelText: ctx.tr('Ou digite outra disciplina'),
+                    hintText: ctx.tr('Ex.: Cálculo II, Direito Constitucional...'),
                   ),
                 ),
               ],
@@ -241,10 +260,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
+              child: Text(ctx.tr('Cancelar')),
             ),
             SoftClayPillButton(
-              text: 'Aplicar',
+              text: ctx.tr('Aplicar'),
               onPressed: () {
                 final custom = customController.text.trim();
                 if (custom.isNotEmpty) {
@@ -271,7 +290,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
           title: Text(
-            'Meta da Sessão Atual',
+            ctx.tr('Meta da Sessão Atual'),
             style: GoogleFonts.manrope(
               fontWeight: FontWeight.w800,
               color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -325,7 +344,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusLarge),
               ),
               title: Text(
-                'Registrar Sessão de Estudo',
+                ctx.tr('Registrar Sessão de Estudo'),
                 style: GoogleFonts.manrope(
                   fontWeight: FontWeight.w800,
                   color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -360,23 +379,23 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       ],
                       TextField(
                         controller: _subjectController,
-                        decoration: const InputDecoration(
-                          labelText: 'Disciplina (ex: Matemática, Cloud, Idiomas)',
+                        decoration: InputDecoration(
+                          labelText: ctx.tr('Disciplina (ex: Matemática, Cloud, Idiomas)'),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _topicController,
-                        decoration: const InputDecoration(
-                          labelText: 'Tópico estudado',
+                        decoration: InputDecoration(
+                          labelText: ctx.tr('Tópico estudado'),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _durationController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Duração em Minutos (ex: 60)',
+                        decoration: InputDecoration(
+                          labelText: ctx.tr('Duração em Minutos (ex: 60)'),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -401,7 +420,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       TextField(
                         controller: _notesController,
                         maxLines: 3,
-                        decoration: const InputDecoration(labelText: 'Anotações e Insights'),
+                        decoration: InputDecoration(labelText: ctx.tr('Anotações e Insights')),
                       ),
                     ],
                   ),
@@ -411,14 +430,14 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: Text(
-                    'Cancelar',
+                    ctx.tr('Cancelar'),
                     style: GoogleFonts.manrope(
                       color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                     ),
                   ),
                 ),
                 SoftClayPillButton(
-                  text: 'Salvar Sessão',
+                  text: ctx.tr('Salvar Sessão'),
                   onPressed: () {
                     final subject = _subjectController.text.trim();
                     final topic = _topicController.text.trim();
@@ -438,9 +457,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             backgroundColor: AsterConstants.menta,
-                            content: Text('Sessão registrada e métricas atualizadas!'),
+                            content: Text(
+                              NoesisL10n.tr('Sessão registrada e métricas atualizadas!'),
+                            ),
                           ),
                         );
                       }
@@ -709,13 +730,19 @@ class _TrackerScreenState extends State<TrackerScreen> {
             final tiles = [
               _EcosystemTileData(
                 key: const Key('dashboard_kpi_weekly_goal'),
-                title: 'Meta Semanal',
+                title: context.tr('Meta Semanal'),
                 value: hasWeeklyGoal
                     ? '${SupabaseService.formatGoalDuration(weekStudied)} / ${SupabaseService.formatGoalDuration(goalMinutes)}'
-                    : '${SupabaseService.formatGoalDuration(weekStudied)} na sem.',
+                    : context.tr(
+                        '{duration} na sem.',
+                        {'duration': SupabaseService.formatGoalDuration(weekStudied)},
+                      ),
                 subtitle: hasWeeklyGoal
-                    ? '$goalPct% concluído · clique p/ editar'
-                    : 'Sem meta fixa · clique p/ definir',
+                    ? context.tr(
+                        '{pct}% concluído · clique p/ editar',
+                        {'pct': '$goalPct'},
+                      )
+                    : context.tr('Sem meta fixa · clique p/ definir'),
                 icon: Icons.track_changes_rounded,
                 color: AsterConstants.menta,
                 onTap: () => showWeeklyGoalEditorDialog(
@@ -726,31 +753,49 @@ class _TrackerScreenState extends State<TrackerScreen> {
               ),
               _EcosystemTileData(
                 key: const Key('dashboard_kpi_exams'),
-                title: 'Simulados',
-                value: '${ecosystem.examsCount} ${ecosystem.examsCount == 1 ? 'feito' : 'feitos'}',
+                title: context.tr('Simulados'),
+                value: ecosystem.examsCount == 1
+                    ? context.tr('{count} feito', {'count': '${ecosystem.examsCount}'})
+                    : context.tr('{count} feitos', {'count': '${ecosystem.examsCount}'}),
                 subtitle: avgExam != null
-                    ? 'Média ${avgExam.round()}% de acerto'
-                    : 'Crie um simulado com IA',
+                    ? context.tr('Média {avg}% de acerto', {'avg': '${avgExam.round()}'})
+                    : context.tr('Crie um simulado com IA'),
                 icon: Icons.assignment_turned_in_rounded,
                 color: AsterTheme.primary(context),
                 onTap: () => RootScreen.switchTab(1),
               ),
               _EcosystemTileData(
                 key: const Key('dashboard_kpi_cards_notebooks'),
-                title: 'Flashcards & Cadernos',
-                value: '${ecosystem.cardsNeedingReview} p/ revisar',
-                subtitle:
-                    '${ecosystem.notebooksCount} cadernos · ${ecosystem.notesCount} notas',
+                title: context.tr('Flashcards & Cadernos'),
+                value: context.tr(
+                  '{count} p/ revisar',
+                  {'count': '${ecosystem.cardsNeedingReview}'},
+                ),
+                subtitle: context.tr(
+                  '{notebooks} cadernos · {notes} notas',
+                  {
+                    'notebooks': '${ecosystem.notebooksCount}',
+                    'notes': '${ecosystem.notesCount}',
+                  },
+                ),
                 icon: Icons.style_rounded,
                 color: AsterConstants.ambar,
                 onTap: () => RootScreen.switchTab(2),
               ),
               _EcosystemTileData(
                 key: const Key('dashboard_kpi_roadmaps_calendar'),
-                title: 'Trilhas & Agenda',
-                value: '${ecosystem.overallRoadmapProgressPct}% das trilhas',
-                subtitle:
-                    '${ecosystem.roadmapsCount} trilha${ecosystem.roadmapsCount == 1 ? '' : 's'} · ${upcoming.length} evento${upcoming.length == 1 ? '' : 's'} próx.',
+                title: context.tr('Trilhas & Agenda'),
+                value: context.tr(
+                  '{pct}% das trilhas',
+                  {'pct': '${ecosystem.overallRoadmapProgressPct}'},
+                ),
+                subtitle: context.tr(
+                  '{roadmaps} trilha(s) · {events} evento(s) próx.',
+                  {
+                    'roadmaps': '${ecosystem.roadmapsCount}',
+                    'events': '${upcoming.length}',
+                  },
+                ),
                 icon: Icons.route_rounded,
                 color: AsterConstants.coral,
                 onTap: () => RootScreen.switchTab(8),
@@ -789,7 +834,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                               Icon(Icons.edit_rounded, size: 12, color: AsterTheme.primary(context)),
                               const SizedBox(width: 4),
                               Text(
-                                hasDailyGoal ? 'Editar Diária' : 'Definir Diária',
+                                hasDailyGoal
+                                    ? context.tr('Editar Diária')
+                                    : context.tr('Definir Diária'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -800,7 +847,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                           ),
                         );
                         final pctBadge = Text(
-                          hasDailyGoal ? '$dailyPct% hoje' : 'Modo livre',
+                          hasDailyGoal
+                              ? context.tr('{pct}% hoje', {'pct': '$dailyPct'})
+                              : context.tr('Modo livre'),
                           style: GoogleFonts.manrope(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w800,
@@ -840,8 +889,19 @@ class _TrackerScreenState extends State<TrackerScreen> {
                                       Expanded(
                                         child: Text(
                                           hasDailyGoal
-                                              ? 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} / ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}'
-                                              : 'Meta Diária · ${SupabaseService.formatGoalDuration(dayStudied)} hoje',
+                                              ? context.tr(
+                                                  'Meta Diária · {studied} / {goal}',
+                                                  {
+                                                    'studied': SupabaseService.formatGoalDuration(dayStudied),
+                                                    'goal': SupabaseService.formatGoalDuration(dailyGoalMinutes),
+                                                  },
+                                                )
+                                              : context.tr(
+                                                  'Meta Diária · {studied} hoje',
+                                                  {
+                                                    'studied': SupabaseService.formatGoalDuration(dayStudied),
+                                                  },
+                                                ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.manrope(
@@ -1035,7 +1095,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                'SESSÃO EM ANDAMENTO',
+                context.tr('SESSÃO EM ANDAMENTO'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -1052,7 +1112,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                   child: Text(
-                    '${_laps.length} checkpoint${_laps.length == 1 ? '' : 's'}',
+                    _laps.length == 1
+                        ? context.tr('{count} checkpoint', {'count': '${_laps.length}'})
+                        : context.tr('{count} checkpoints', {'count': '${_laps.length}'}),
                     style: GoogleFonts.manrope(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
@@ -1112,7 +1174,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: IconButton(
-                      tooltip: 'Marcar checkpoint na sessão',
+                      tooltip: context.tr('Marcar checkpoint na sessão'),
                       padding: EdgeInsets.zero,
                       icon: Icon(
                         Icons.flag_outlined,
@@ -1138,7 +1200,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         ),
                         child: IconButton(
-                          tooltip: 'Reiniciar cronômetro',
+                          tooltip: context.tr('Reiniciar cronômetro'),
                           padding: EdgeInsets.zero,
                           icon: Icon(
                             Icons.refresh_rounded,
@@ -1183,7 +1245,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    isRunning ? 'Pausar' : 'Iniciar',
+                                    isRunning ? context.tr('Pausar') : context.tr('Iniciar'),
                                     style: GoogleFonts.manrope(
                                       color: onPrimaryCol,
                                       fontWeight: FontWeight.w800,
@@ -1210,7 +1272,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       icon: Icon(Icons.check_rounded, size: 20, color: AsterTheme.secondary(context)),
-                      tooltip: 'Concluir & Registrar no Diário',
+                      tooltip: context.tr('Concluir & Registrar no Diário'),
                       onPressed: () {
                         final mins = (_secondsElapsed / 60).ceil();
                         _openAddSessionModal(
@@ -1255,7 +1317,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 valueListenable: _activeSubjectNotifier,
                 builder: (context, activeSubject, _) {
                   return SoftClayTag(
-                    label: activeSubject,
+                    label: activeSubject == NoesisL10n.tr('Geral', null, 'br') ? context.tr('Geral') : activeSubject,
                     color: AsterTheme.primary(context),
                     onTap: () => _openSubjectPicker(sessions),
                   );
@@ -1273,7 +1335,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Meta da sessão: ${DashboardAnalytics.formatCompactDuration(goalMins)}',
+                            context.tr(
+                              'Meta da sessão: {duration}',
+                              {'duration': DashboardAnalytics.formatCompactDuration(goalMins)},
+                            ),
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1332,7 +1397,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Horas estudadas',
+                context.tr('Horas estudadas'),
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1340,7 +1405,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 ),
               ),
               Text(
-                'últimos 7 dias',
+                context.tr('últimos 7 dias'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1467,7 +1532,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Distribuição',
+                    context.tr('Distribuição'),
                     style: GoogleFonts.manrope(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -1475,7 +1540,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     ),
                   ),
                   Text(
-                    'por disciplina',
+                    context.tr('por disciplina'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1492,9 +1557,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildWindowToggleChip('7d', 7, daysWindow == 7, isDark),
-                    _buildWindowToggleChip('30d', 30, daysWindow == 30, isDark),
-                    _buildWindowToggleChip('Tudo', null, daysWindow == null, isDark),
+                    _buildWindowToggleChip(context.tr('7d'), 7, daysWindow == 7, isDark),
+                    _buildWindowToggleChip(context.tr('30d'), 30, daysWindow == 30, isDark),
+                    _buildWindowToggleChip(context.tr('Tudo'), null, daysWindow == null, isDark),
                   ],
                 ),
               ),
@@ -1511,7 +1576,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
               ),
               child: Center(
                 child: Text(
-                  'Nenhum estudo registrado neste período ainda.',
+                  context.tr('Nenhum estudo registrado neste período ainda.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 12.5,
@@ -1560,7 +1625,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
                             ),
                           ),
                           Text(
-                            subjectMinutes.length == 1 ? 'área' : 'áreas',
+                            subjectMinutes.length == 1
+                                ? context.tr('área')
+                                : context.tr('áreas'),
                             style: GoogleFonts.manrope(
                               fontSize: 10,
                               color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1659,7 +1726,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'STREAK ATUAL',
+              context.tr('STREAK ATUAL'),
               style: GoogleFonts.manrope(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -1684,7 +1751,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'MELHOR DIA',
+              context.tr('MELHOR DIA'),
               style: GoogleFonts.manrope(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -1734,7 +1801,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Consistência',
+                      context.tr('Consistência'),
                       style: GoogleFonts.manrope(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
@@ -1746,7 +1813,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       builder: (context, hovered, _) {
                         return Text(
                           hovered ??
-                              '${consistency.activeDaysCount} dia${consistency.activeDaysCount == 1 ? '' : 's'} ativo${consistency.activeDaysCount == 1 ? '' : 's'} · toque nos blocos',
+                              context.tr(
+                                '{count} dia(s) ativo(s) · toque nos blocos',
+                                {'count': '${consistency.activeDaysCount}'},
+                              ),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
@@ -1761,7 +1831,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Menos ',
+                      '${context.tr('Menos')} ',
                       style: GoogleFonts.manrope(
                         fontSize: 10,
                         color: mutedCol,
@@ -1773,7 +1843,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     _buildDot(3, isDark: isDark),
                     _buildDot(4, isDark: isDark),
                     Text(
-                      ' Mais',
+                      ' ${context.tr('Mais')}',
                       style: GoogleFonts.manrope(
                         fontSize: 10,
                         color: mutedCol,
@@ -1787,7 +1857,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       activeColor: AsterTheme.secondary(context),
                     ),
                     Text(
-                      ' Protegido',
+                      ' ${context.tr('Protegido')}',
                       style: GoogleFonts.manrope(
                         fontSize: 10,
                         color: mutedCol,
@@ -1855,14 +1925,16 @@ class _TrackerScreenState extends State<TrackerScreen> {
     final mutedCol = isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted;
 
     return Tooltip(
-      message:
-          'Selos de Consistência preservam sua sequência automaticamente. Ganhe +1 grátis a cada 100 questões respondidas ou a cada 10h estudadas na semana (máx. $maxSeals guardados).',
+      message: context.tr(
+        'Selos de Consistência preservam sua sequência automaticamente. Ganhe +1 grátis a cada 100 questões respondidas ou a cada 10h estudadas na semana (máx. {max} guardados).',
+        {'max': '$maxSeals'},
+      ),
       child: Column(
         key: const Key('dashboard_consistency_seals'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'SELOS',
+            context.tr('SELOS'),
             style: GoogleFonts.manrope(
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -1946,7 +2018,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                'Sessões recentes',
+                context.tr('Sessões recentes'),
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -1964,7 +2036,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: Text(
-                      'Abrir Diário',
+                      context.tr('Abrir Diário'),
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
@@ -1979,7 +2051,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                       child: Text(
-                        '+ Nova Sessão',
+                        context.tr('+ Nova Sessão'),
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -2010,7 +2082,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Você ainda não registrou sessões de estudo.',
+                    context.tr('Você ainda não registrou sessões de estudo.'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -2019,7 +2091,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Use o cronômetro acima ou clique em + Nova Sessão para iniciar seu histórico.',
+                    context.tr('Use o cronômetro acima ou clique em + Nova Sessão para iniciar seu histórico.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
@@ -2033,7 +2105,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
             ...realSessions.take(4).toList().asMap().entries.map((entry) {
               final idx = entry.key;
               final s = entry.value;
-              final sub = (s['subject'] ?? 'Estudo').toString();
+              final rawSub = (s['subject'] ?? '').toString().trim();
+              final sub = rawSub.isEmpty ? context.tr('Estudo') : rawSub;
               final top = (s['topic'] ?? '').toString();
               final mins = (s['duration_minutes'] as num?)?.toInt() ?? 0;
               final notes = (s['notes'] ?? '').toString();
@@ -2164,8 +2237,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }) {
     final spots = insight.accuracySpots;
     final hasChart = spots.length >= 2;
-    final accuracyLabel =
-        insight.latestAccuracyPct != null ? '${insight.latestAccuracyPct}%' : 'Sem simulados';
+    final accuracyLabel = insight.latestAccuracyPct != null
+        ? '${insight.latestAccuracyPct}%'
+        : context.tr('Sem simulados');
 
     return SoftClayCard.list(
       padding: const EdgeInsets.all(24),
@@ -2179,7 +2253,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                'Sugestão do agente',
+                context.tr('Sugestão do agente'),
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -2220,7 +2294,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
             runSpacing: 8,
             children: [
               SoftClayPillButton(
-                text: _scheduledReviewThisSession ? 'Revisão agendada ✓' : 'Agendar revisão',
+                text: _scheduledReviewThisSession
+                    ? context.tr('Revisão agendada ✓')
+                    : context.tr('Agendar revisão'),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 color: _scheduledReviewThisSession ? AsterTheme.secondary(context) : null,
                 onPressed: _scheduledReviewThisSession
@@ -2228,7 +2304,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     : () => _scheduleRecommendedReview(insight),
               ),
               SoftClayPillButton(
-                text: 'Ver análise',
+                text: context.tr('Ver análise'),
                 isSecondary: true,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 onPressed: () => _openFullAnalysisModal(
@@ -2251,7 +2327,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ACURÁCIA NOS SIMULADOS',
+                      context.tr('ACURÁCIA NOS SIMULADOS'),
                       style: GoogleFonts.manrope(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -2303,7 +2379,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                 TextButton(
                   onPressed: () => RootScreen.switchTab(1),
                   child: Text(
-                    'Fazer simulado →',
+                    context.tr('Fazer simulado →'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
@@ -2346,11 +2422,14 @@ class _TrackerScreenState extends State<TrackerScreen> {
           duration: const Duration(seconds: 4),
           backgroundColor: AsterConstants.menta,
           content: Text(
-            '"${insight.recommendedReviewTitle}" agendada para amanhã às 14:00!',
+            NoesisL10n.tr(
+              '"{title}" agendada para amanhã às 14:00!',
+              {'title': insight.recommendedReviewTitle},
+            ),
             style: const TextStyle(color: Colors.white),
           ),
           action: SnackBarAction(
-            label: 'Ver Agenda',
+            label: NoesisL10n.tr('Ver Agenda'),
             textColor: Colors.white,
             onPressed: () {
               messenger.hideCurrentSnackBar();
@@ -2427,15 +2506,30 @@ class _CognitiveAnalysisDialogState extends State<_CognitiveAnalysisDialog> {
   Future<void> _generateAiRecommendations() async {
     setState(() => _isGeneratingAi = true);
     try {
-      final prompt = '''
-Com base nos dados reais deste estudante no Noesis, gere um plano prático curto (3 tópicos objetivos em português):
-- Meta semanal: ${SupabaseService.formatGoalDuration(widget.currentWeekMinutes)} / ${SupabaseService.formatGoalDuration(widget.weeklyGoalMinutes)}
-- Streak atual: ${widget.consistency.currentStreakDays} dias | Melhor dia: ${DashboardAnalytics.formatReadableDuration(widget.consistency.bestDayMinutes)}
-- Simulados feitos: ${widget.ecosystem.examsCount} | Média: ${widget.ecosystem.averageExamScore?.round() ?? 0}%
-- Flashcards pendentes: ${widget.ecosystem.cardsNeedingReview} de ${widget.ecosystem.totalCards}
-- Trilhas ativas: ${widget.ecosystem.roadmapsCount} (${widget.ecosystem.overallRoadmapProgressPct}% concluído)
-- Principal alerta atual: ${widget.insight.message}
-''';
+      final aiLang = NoesisLocaleService.activeAiLanguageName;
+      final prompt = NoesisL10n.tr(
+        'Com base nos dados reais deste estudante no Noesis, gere um plano prático curto (3 tópicos objetivos obrigatoriamente no idioma {aiLang}):\n'
+        '- Meta semanal: {week} / {goal}\n'
+        '- Streak atual: {streak} dias | Melhor dia: {bestDay}\n'
+        '- Simulados feitos: {exams} | Média: {avg}%\n'
+        '- Flashcards pendentes: {pending} de {totalCards}\n'
+        '- Trilhas ativas: {roadmaps} ({pct}% concluído)\n'
+        '- Principal alerta atual: {insight}',
+        {
+          'aiLang': aiLang,
+          'week': SupabaseService.formatGoalDuration(widget.currentWeekMinutes),
+          'goal': SupabaseService.formatGoalDuration(widget.weeklyGoalMinutes),
+          'streak': widget.consistency.currentStreakDays,
+          'bestDay': DashboardAnalytics.formatReadableDuration(widget.consistency.bestDayMinutes),
+          'exams': widget.ecosystem.examsCount,
+          'avg': widget.ecosystem.averageExamScore?.round() ?? 0,
+          'pending': widget.ecosystem.cardsNeedingReview,
+          'totalCards': widget.ecosystem.totalCards,
+          'roadmaps': widget.ecosystem.roadmapsCount,
+          'pct': widget.ecosystem.overallRoadmapProgressPct,
+          'insight': widget.insight.message,
+        },
+      );
       final response = await GeminiService.executeAgentChat(
         userMessage: prompt,
         history: [],
@@ -2449,7 +2543,10 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
     } catch (e) {
       if (mounted) {
         setState(() {
-          _aiPlan = 'Não foi possível gerar a análise com IA agora: $e';
+          _aiPlan = NoesisL10n.tr(
+            'Não foi possível gerar a análise com IA agora: {error}',
+            {'error': '$e'},
+          );
           _isGeneratingAi = false;
         });
       }
@@ -2490,7 +2587,7 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Diagnóstico Completo de Estudos',
+                          context.tr('Diagnóstico Completo de Estudos'),
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -2498,7 +2595,7 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
                           ),
                         ),
                         Text(
-                          'Visão consolidada do seu desempenho no ecossistema Noesis',
+                          context.tr('Visão consolidada do seu desempenho no ecossistema Noesis'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2518,41 +2615,68 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
               _buildMetricBlock(
                 isDark: isDark,
                 color: AsterConstants.menta,
-                title: 'Ritmo Semanal & Consistência',
-                body:
-                    'Semana atual: ${SupabaseService.formatGoalDuration(widget.currentWeekMinutes)} / '
-                    '${SupabaseService.formatGoalDuration(widget.weeklyGoalMinutes)} · '
-                    'Streak: ${widget.consistency.currentStreakDays}d · '
-                    'Melhor dia: ${DashboardAnalytics.formatReadableDuration(widget.consistency.bestDayMinutes)}',
+                title: context.tr('Ritmo Semanal & Consistência'),
+                body: context.tr(
+                  'Semana atual: {current} / {goal} · Streak: {streak}d · Melhor dia: {best}',
+                  {
+                    'current': SupabaseService.formatGoalDuration(widget.currentWeekMinutes),
+                    'goal': SupabaseService.formatGoalDuration(widget.weeklyGoalMinutes),
+                    'streak': '${widget.consistency.currentStreakDays}',
+                    'best': DashboardAnalytics.formatReadableDuration(widget.consistency.bestDayMinutes),
+                  },
+                ),
               ),
               const SizedBox(height: 10),
               _buildMetricBlock(
                 isDark: isDark,
                 color: AsterTheme.primary(context),
-                title: 'Simulados',
+                title: context.tr('Simulados'),
                 body: widget.ecosystem.examsCount == 0
-                    ? 'Nenhum simulado concluído ainda.'
-                    : '${widget.ecosystem.examsCount} simulado${widget.ecosystem.examsCount == 1 ? '' : 's'} concluído${widget.ecosystem.examsCount == 1 ? '' : 's'} · '
-                        'Média geral de ${avgExam?.round() ?? 0}%',
+                    ? context.tr('Nenhum simulado concluído ainda.')
+                    : context.tr(
+                        '{count} simulado(s) concluído(s) · Média geral de {avg}%',
+                        {
+                          'count': '${widget.ecosystem.examsCount}',
+                          'avg': '${avgExam?.round() ?? 0}',
+                        },
+                      ),
               ),
               const SizedBox(height: 10),
               _buildMetricBlock(
                 isDark: isDark,
                 color: AsterConstants.ambar,
-                title: 'Flashcards & Cadernos',
-                body:
-                    '${widget.ecosystem.cardsNeedingReview} cards pendentes de ${widget.ecosystem.totalCards} totais · '
-                    '${widget.ecosystem.notebooksCount} cadernos com ${widget.ecosystem.notesCount} anotações.',
+                title: context.tr('Flashcards & Cadernos'),
+                body: context.tr(
+                  '{pending} cards pendentes de {total} totais · {notebooks} cadernos com {notes} anotações.',
+                  {
+                    'pending': '${widget.ecosystem.cardsNeedingReview}',
+                    'total': '${widget.ecosystem.totalCards}',
+                    'notebooks': '${widget.ecosystem.notebooksCount}',
+                    'notes': '${widget.ecosystem.notesCount}',
+                  },
+                ),
               ),
               const SizedBox(height: 10),
               _buildMetricBlock(
                 isDark: isDark,
                 color: AsterConstants.coral,
-                title: 'Trilhas (Roadmap)',
+                title: context.tr('Trilhas (Roadmap)'),
                 body: nextStep == null
-                    ? '${widget.ecosystem.roadmapsCount} trilha${widget.ecosystem.roadmapsCount == 1 ? '' : 's'} · ${widget.ecosystem.overallRoadmapProgressPct}% concluído.'
-                    : '${widget.ecosystem.overallRoadmapProgressPct}% concluído · Próxima etapa: '
-                        '"${nextStep.step.title}" (${nextStep.roadmap.title}).',
+                    ? context.tr(
+                        '{count} trilha(s) · {pct}% concluído.',
+                        {
+                          'count': '${widget.ecosystem.roadmapsCount}',
+                          'pct': '${widget.ecosystem.overallRoadmapProgressPct}',
+                        },
+                      )
+                    : context.tr(
+                        '{pct}% concluído · Próxima etapa: "{step}" ({roadmap}).',
+                        {
+                          'pct': '${widget.ecosystem.overallRoadmapProgressPct}',
+                          'step': nextStep.step.title,
+                          'roadmap': nextStep.roadmap.title,
+                        },
+                      ),
               ),
 
               if (_aiPlan != null) ...[
@@ -2645,7 +2769,9 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
                             )
                           : const Icon(Icons.auto_awesome_rounded, size: 16),
                       label: Text(
-                        _isGeneratingAi ? 'Analisando...' : 'Gerar plano com Noesis AI',
+                        _isGeneratingAi
+                            ? context.tr('Analisando...')
+                            : context.tr('Gerar plano com Noesis AI'),
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(
                           fontSize: 12.5,
@@ -2657,7 +2783,7 @@ Com base nos dados reais deste estudante no Noesis, gere um plano prático curto
                   const SizedBox(width: 10),
                   IntrinsicWidth(
                     child: SoftClayPillButton(
-                      text: 'Ir para módulo',
+                      text: context.tr('Ir para módulo'),
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
                       onPressed: () {
                         Navigator.of(context).pop();
@@ -2820,15 +2946,26 @@ class _ConsistencyHeatmapState extends State<ConsistencyHeatmap> {
         '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
     final String durStr;
     if (mins > 0 && acts > 1) {
-      durStr = '${DashboardAnalytics.formatReadableDuration(mins)} · $acts atividades';
+      durStr = NoesisL10n.tr(
+        '{duration} · {count} atividades',
+        {
+          'duration': DashboardAnalytics.formatReadableDuration(mins),
+          'count': '$acts',
+        },
+      );
     } else if (mins > 0) {
-      durStr = '${DashboardAnalytics.formatReadableDuration(mins)} estudados';
+      durStr = NoesisL10n.tr(
+        '{duration} estudados',
+        {'duration': DashboardAnalytics.formatReadableDuration(mins)},
+      );
     } else if (acts > 0) {
-      durStr = '$acts ${acts == 1 ? 'atividade registrada' : 'atividades registradas'}';
+      durStr = acts == 1
+          ? NoesisL10n.tr('{count} atividade registrada', {'count': '$acts'})
+          : NoesisL10n.tr('{count} atividades registradas', {'count': '$acts'});
     } else if (isProtected) {
-      durStr = 'Dia protegido (Selo de Consistência)';
+      durStr = NoesisL10n.tr('Dia protegido (Selo de Consistência)');
     } else {
-      durStr = 'Sem registro';
+      durStr = NoesisL10n.tr('Sem registro');
     }
     widget.onDayInspected!('$dateStr: $durStr');
   }

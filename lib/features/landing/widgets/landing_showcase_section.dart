@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
 import '../../../widgets/noesis_logo.dart';
@@ -25,7 +26,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
   String? _lastCardRating;
   int _activeRoadmapStep = 2; // Etapa 3 de 5 em andamento
 
-  static const List<
+  static List<
       ({
         IconData icon,
         String label,
@@ -33,70 +34,70 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
         String title,
         String description,
         List<String> checks,
-      })> _pillars = [
+      })> get _pillars => [
     (
       icon: Icons.timer_rounded,
-      label: 'Foco & Consistência',
+      label: NoesisL10n.tr('Foco & Consistência'),
       num: '01 / 05',
-      title: 'Foco que vira hábito mensurável',
-      description:
-          'Cronômetro dual (Stopwatch e Pomodoro), metas diária e semanal, Diário de Estudos, análise de Desempenho e Protetores de Ofensiva para proteger sua sequência.',
+      title: NoesisL10n.tr('Foco que vira hábito mensurável'),
+      description: NoesisL10n.tr(
+          'Cronômetro dual (Stopwatch e Pomodoro), metas diária e semanal, Diário de Estudos, análise de Desempenho e Protetores de Ofensiva para proteger sua sequência.'),
       checks: [
-        'Timer Stopwatch e Pomodoro por disciplina',
-        'Meta semanal, Diário de Estudos e Desempenho',
-        'Heatmap de consistência e Protetores de Ofensiva',
+        NoesisL10n.tr('Timer Stopwatch e Pomodoro por disciplina'),
+        NoesisL10n.tr('Meta semanal, Diário de Estudos e Desempenho'),
+        NoesisL10n.tr('Heatmap de consistência e Protetores de Ofensiva'),
       ],
     ),
     (
       icon: Icons.assignment_rounded,
-      label: 'Simulados RAG',
+      label: NoesisL10n.tr('Simulados RAG'),
       num: '02 / 05',
-      title: 'Simulados ancorados no seu material',
-      description:
-          'Escolha entre 39 modelos oficiais (ENEM, FUVEST, OAB, AWS, Security+, USMLE) ou envie seus próprios arquivos (.pdf, .txt, .md, .json) para gerar questões inéditas via RAG.',
+      title: NoesisL10n.tr('Simulados ancorados no seu material'),
+      description: NoesisL10n.tr(
+          'Escolha entre 39 modelos oficiais (ENEM, FUVEST, OAB, AWS, Security+, USMLE) ou envie seus próprios arquivos (.pdf, .txt, .md, .json) para gerar questões inéditas via RAG.'),
       checks: [
-        '39 modelos oficiais em 7 áreas do conhecimento',
-        'Ingestão RAG de .pdf, .txt, .md e .json',
-        'Flag de revisão, gabarito comentado e Insights',
+        NoesisL10n.tr('39 modelos oficiais em 7 áreas do conhecimento'),
+        NoesisL10n.tr('Ingestão RAG de .pdf, .txt, .md e .json'),
+        NoesisL10n.tr('Flag de revisão, gabarito comentado e Insights'),
       ],
     ),
     (
       icon: Icons.style_rounded,
-      label: 'Flashcards & Trilhas',
+      label: NoesisL10n.tr('Flashcards & Trilhas'),
       num: '03 / 05',
-      title: 'Memorização ativa e caminho claro',
-      description:
-          'Revise com cartões 3D e avaliação espaçada (Difícil, Bom, Fácil), importe baralhos prontos e conecte tudo a Cadernos e Trilhas de aprendizado por etapas.',
+      title: NoesisL10n.tr('Memorização ativa e caminho claro'),
+      description: NoesisL10n.tr(
+          'Revise com cartões 3D e avaliação espaçada (Difícil, Bom, Fácil), importe baralhos prontos e conecte tudo a Cadernos e Trilhas de aprendizado por etapas.'),
       checks: [
-        'Flashcards 3D com revisão espaçada (Difícil / Bom / Fácil)',
-        'Importação de baralhos e geração via IA',
-        'Cadernos de estudo e Trilhas com metas semanais',
+        NoesisL10n.tr('Flashcards 3D com revisão espaçada (Difícil / Bom / Fácil)'),
+        NoesisL10n.tr('Importação de baralhos e geração via IA'),
+        NoesisL10n.tr('Cadernos de estudo e Trilhas com metas semanais'),
       ],
     ),
     (
       icon: Icons.auto_awesome_rounded,
-      label: 'Noesis AI & Agenda',
+      label: NoesisL10n.tr('Noesis AI & Agenda'),
       num: '04 / 05',
-      title: 'Um agente que age direto na sua conta',
-      description:
-          'Com 20 ações integradas e suporte a anexos, o Noesis AI cria simulados, baralhos, trilhas e agenda revisões no Calendário em 4 visões.',
+      title: NoesisL10n.tr('Um agente que age direto na sua conta'),
+      description: NoesisL10n.tr(
+          'Com 20 ações integradas e suporte a anexos, o Noesis AI cria simulados, baralhos, trilhas e agenda revisões no Calendário em 4 visões.'),
       checks: [
-        '20 ferramentas autônomas no agente cognitivo',
-        'Calendário em 4 visões: Dia, Semana, Mês e Timeline',
-        'Sugestões proativas de blocos pela IA + 7 provedores',
+        NoesisL10n.tr('20 ferramentas autônomas no agente cognitivo'),
+        NoesisL10n.tr('Calendário em 4 visões: Dia, Semana, Mês e Timeline'),
+        NoesisL10n.tr('Sugestões proativas de blocos pela IA + 7 provedores'),
       ],
     ),
     (
       icon: Icons.groups_rounded,
-      label: 'Comunidade & Elos',
+      label: NoesisL10n.tr('Comunidade & Elos'),
       num: '05 / 05',
-      title: 'Estudar junto, subir nos 8 Elos',
-      description:
-          'Compartilhe cadernos, simulados, baralhos e trilhas em Grupos de Estudo, dispute a Liga semanal de Faísca até Noesis e desbloqueie temas na Loja.',
+      title: NoesisL10n.tr('Estudar junto, subir nos 8 Elos'),
+      description: NoesisL10n.tr(
+          'Compartilhe cadernos, simulados, baralhos e trilhas em Grupos de Estudo, dispute a Liga semanal de Faísca até Noesis e desbloqueie temas na Loja.'),
       checks: [
-        'Grupos colaborativos com Chat, Materiais e Ranking',
-        'Liga semanal com 8 Elos reais (Faísca → Noesis)',
-        'Economia de Insights, 10 temas e VIP RGB',
+        NoesisL10n.tr('Grupos colaborativos com Chat, Materiais e Ranking'),
+        NoesisL10n.tr('Liga semanal com 8 Elos reais (Faísca → Noesis)'),
+        NoesisL10n.tr('Economia de Insights, 10 temas e VIP RGB'),
       ],
     ),
   ];
@@ -137,7 +138,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                         : AsterConstants.claySubtleShadow,
                   ),
                   child: Text(
-                    'Fluxo cognitivo completo',
+                    context.tr('Fluxo cognitivo completo'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -156,7 +157,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       color: textCol,
                     ),
                     children: [
-                      const TextSpan(text: 'Do foco à comunidade, '),
+                      TextSpan(text: context.tr('Do foco à comunidade, ')),
                       WidgetSpan(
                         alignment: PlaceholderAlignment.baseline,
                         baseline: TextBaseline.alphabetic,
@@ -165,7 +166,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                             colors: [primary, AsterConstants.menta],
                           ).createShader(bounds),
                           child: Text(
-                            'um fluxo contínuo.',
+                            context.tr('um fluxo contínuo.'),
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: isWide ? 50 : (isCompact ? 30 : 38),
                               fontWeight: FontWeight.w700,
@@ -182,7 +183,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Cada pilar conversa com os outros: o que você estuda alimenta a agenda, os simulados e a sua posição na Liga.',
+                  context.tr('Cada pilar conversa com os outros: o que você estuda alimenta a agenda, os simulados e a sua posição na Liga.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: isCompact ? 15 : 17,
@@ -210,7 +211,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
               ),
               child: LandingSlidingPillTabs(
                 items: _pillars
-                    .map((p) => (icon: p.icon, label: p.label))
+                    .map((p) => (icon: p.icon, label: context.tr(p.label)))
                     .toList(growable: false),
                 selectedIndex: _activeIndex,
                 onSelect: (i) => setState(() => _activeIndex = i),
@@ -237,8 +238,8 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
           child: Stack(
             children: [
               // Brilho radial suave no canto superior direito (.sc::before)
-              Positioned(
-                right: -110,
+              PositionedDirectional(
+                end: -110,
                 top: -110,
                 width: 360,
                 height: 360,
@@ -340,7 +341,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
         ),
         const SizedBox(height: 10),
         Text(
-          pillar.title,
+          context.tr(pillar.title),
           style: GoogleFonts.spaceGrotesk(
             fontSize: isCompact ? 24 : 34,
             fontWeight: FontWeight.w700,
@@ -351,7 +352,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
         ),
         const SizedBox(height: 14),
         Text(
-          pillar.description,
+          context.tr(pillar.description),
           style: GoogleFonts.manrope(
             fontSize: isCompact ? 14.5 : 16,
             height: 1.55,
@@ -382,7 +383,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    item,
+                    context.tr(item),
                     style: GoogleFonts.manrope(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
@@ -460,7 +461,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'SESSÃO EM ANDAMENTO',
+                        context.tr('SESSÃO EM ANDAMENTO'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -480,7 +481,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         ),
                         child: Text(
-                          '1 checkpoint',
+                          context.tr('1 checkpoint'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
@@ -555,7 +556,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                           ),
                           child: Text(
-                            'Estruturas de Dados · Pomodoro',
+                            context.tr('Estruturas de Dados · Pomodoro'),
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
@@ -596,7 +597,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Horas estudadas',
+                    context.tr('Horas estudadas'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -615,7 +616,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                         const ConsistencySealIcon(size: 13, accentColor: AsterConstants.ambar),
                         const SizedBox(width: 5),
                         Text(
-                          '2 Selos · 14 dias',
+                          context.tr('2 Selos · 14 dias'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -644,7 +645,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      '+2h15m vs semana anterior',
+                      context.tr('+2h15m vs semana anterior'),
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
@@ -743,7 +744,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: Text(
-                      'Simulado RAG · 39 Bancas',
+                      context.tr('Simulado RAG · 39 Bancas'),
                       style: GoogleFonts.manrope(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -764,7 +765,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
               ),
               const SizedBox(height: 10),
               Text(
-                'SELECIONE UMA ALTERNATIVA',
+                context.tr('SELECIONE UMA ALTERNATIVA'),
                 style: GoogleFonts.manrope(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
@@ -774,16 +775,16 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Qual organela realiza a respiração celular e síntese de ATP?',
+                context.tr('Qual organela realiza a respiração celular e síntese de ATP?'),
                 style: GoogleFonts.manrope(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w800,
                   color: textCol,
                 ),
               ),
-              optRow('A', 'Ribossomo'),
-              optRow('B', 'Mitocôndria', isCorrect: true),
-              optRow('C', 'Lisossomo'),
+              optRow('A', context.tr('Ribossomo')),
+              optRow('B', context.tr('Mitocôndria'), isCorrect: true),
+              optRow('C', context.tr('Lisossomo')),
             ],
           ),
         ),
@@ -797,7 +798,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'caderno_biologia.pdf · p. 12',
+                  context.tr('caderno_biologia.pdf · p. 12'),
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11.5,
@@ -818,7 +819,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                     const InsightCoinIcon(size: 13),
                     const SizedBox(width: 5),
                     Text(
-                      'Gabarito +3',
+                      context.tr('Gabarito +3'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -940,7 +941,9 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                   ),
                                   child: Text(
-                                    isBack ? 'VERSO · EXPLICAÇÃO' : 'FRENTE · ACTIVE RECALL',
+                                    isBack
+                                        ? context.tr('VERSO · EXPLICAÇÃO')
+                                        : context.tr('FRENTE · ACTIVE RECALL'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
@@ -957,7 +960,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                   ),
                                   child: Text(
-                                    'Editar',
+                                    context.tr('Editar'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
@@ -976,8 +979,8 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                             Center(
                               child: Text(
                                 isBack
-                                    ? 'Estrutura que mapeia chaves a valores em O(1) médio usando função de espalhamento.'
-                                    : 'O que é uma tabela hash?',
+                                    ? context.tr('Estrutura que mapeia chaves a valores em O(1) médio usando função de espalhamento.')
+                                    : context.tr('O que é uma tabela hash?'),
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.manrope(
                                   fontSize: 17.5,
@@ -1005,7 +1008,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
           children: [
             Expanded(
               child: _RatingPill(
-                label: 'Difícil 🔴',
+                label: context.tr('Difícil 🔴'),
                 color: AsterConstants.coral,
                 selected: _lastCardRating == 'Difícil',
                 onTap: () => setState(() => _lastCardRating = 'Difícil'),
@@ -1014,7 +1017,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
             const SizedBox(width: 8),
             Expanded(
               child: _RatingPill(
-                label: 'Bom 🟡',
+                label: context.tr('Bom 🟡'),
                 color: AsterConstants.ambar,
                 selected: _lastCardRating == 'Bom',
                 onTap: () => setState(() => _lastCardRating = 'Bom'),
@@ -1023,7 +1026,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
             const SizedBox(width: 8),
             Expanded(
               child: _RatingPill(
-                label: 'Fácil 🟢',
+                label: context.tr('Fácil 🟢'),
                 color: AsterConstants.menta,
                 selected: _lastCardRating == 'Fácil',
                 onTap: () => setState(() => _lastCardRating = 'Fácil'),
@@ -1039,12 +1042,12 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
           insetCol: insetCol,
           child: Builder(
             builder: (context) {
-              const stepTitles = [
-                'Fundamentos & Complexidade',
-                'Tabela Hash & Colisões',
-                'Árvores AVL & Simulado',
-                'Grafos & Caminho Mínimo',
-                'Revisão Espaçada 3D',
+              final stepTitles = [
+                context.tr('Fundamentos & Complexidade'),
+                context.tr('Tabela Hash & Colisões'),
+                context.tr('Árvores AVL & Simulado'),
+                context.tr('Grafos & Caminho Mínimo'),
+                context.tr('Revisão Espaçada 3D'),
               ];
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1063,7 +1066,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'TRILHA · ESTRUTURAS DE DADOS',
+                          context.tr('TRILHA · ESTRUTURAS DE DADOS'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
@@ -1081,7 +1084,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         ),
                         child: Text(
-                          'Etapa ${_activeRoadmapStep + 1}/5',
+                          context.tr('Etapa {step}/5', {'step': _activeRoadmapStep + 1}),
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -1173,7 +1176,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                     children: [
                       Expanded(
                         child: Text(
-                          stepTitles[_activeRoadmapStep],
+                          context.tr(stepTitles[_activeRoadmapStep]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
@@ -1185,7 +1188,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Clique na etapa',
+                        context.tr('Clique na etapa'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1303,7 +1306,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Noesis AI · Agente Cognitivo',
+                      context.tr('Noesis AI · Agente Cognitivo'),
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -1318,9 +1321,9 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  doneBadge('Simulado gerado'),
-                  doneBadge('Baralho 3D criado'),
-                  doneBadge('Agenda atualizada'),
+                  doneBadge(context.tr('Simulado gerado')),
+                  doneBadge(context.tr('Baralho 3D criado')),
+                  doneBadge(context.tr('Agenda atualizada')),
                 ],
               ),
             ],
@@ -1334,7 +1337,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'AGENDA · SEXTA',
+                context.tr('AGENDA · SEXTA'),
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
@@ -1342,9 +1345,9 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                   color: mutedCol,
                 ),
               ),
-              eventRow(primary, 'Bloco de foco', '08:00'),
-              eventRow(AsterConstants.coral, 'Simulado RAG', '14:00'),
-              eventRow(AsterConstants.menta, 'Revisão · flashcards', '19:00'),
+              eventRow(primary, context.tr('Bloco de foco'), '08:00'),
+              eventRow(AsterConstants.coral, context.tr('Simulado RAG'), '14:00'),
+              eventRow(AsterConstants.menta, context.tr('Revisão · flashcards'), '19:00'),
             ],
           ),
         ),
@@ -1469,7 +1472,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Elo ${sophiaTier.name} · Chave da Semana',
+                      context.tr('Elo {elo} · Chave da Semana', {'elo': context.tr(sophiaTier.name)}),
                       style: GoogleFonts.manrope(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
@@ -1477,7 +1480,7 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
                       ),
                     ),
                     Text(
-                      'Zona de Promoção · +50% Insights',
+                      context.tr('Zona de Promoção · +50% Insights'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1512,9 +1515,9 @@ class _LandingShowcaseSectionState extends State<LandingShowcaseSection> {
             ],
           ),
           const SizedBox(height: 6),
-          rankRow(1, 'Marina', '@marina · Zona de Promoção', '420', 'assets/images/avatar_marina.jpg', isPromoted: true),
-          rankRow(2, 'Caio', '@caio.dev · Zona de Promoção', '365', 'assets/images/avatar_davi.jpg', isPromoted: true),
-          rankRow(3, 'Luna', '@luna · Zona Segura', '310', 'assets/images/avatar_luna.jpg'),
+          rankRow(1, 'Marina', context.tr('@marina · Zona de Promoção'), '420', 'assets/images/avatar_marina.jpg', isPromoted: true),
+          rankRow(2, 'Caio', context.tr('@caio.dev · Zona de Promoção'), '365', 'assets/images/avatar_davi.jpg', isPromoted: true),
+          rankRow(3, 'Luna', context.tr('@luna · Zona Segura'), '310', 'assets/images/avatar_luna.jpg'),
         ],
       ),
     );
@@ -1623,7 +1626,7 @@ class _ShowcaseWeekBars extends StatelessWidget {
         final isToday = i == _bars.length - 1;
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: i == _bars.length - 1 ? 0 : 8),
+            padding: EdgeInsetsDirectional.only(end: i == _bars.length - 1 ? 0 : 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1654,7 +1657,7 @@ class _ShowcaseWeekBars extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  b.day,
+                  context.tr(b.day),
                   style: GoogleFonts.manrope(
                     fontSize: 10.5,
                     fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,

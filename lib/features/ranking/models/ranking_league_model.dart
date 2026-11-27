@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/localization/noesis_l10n.dart';
 
 enum RankingZone { promotion, safe, demotion }
 
@@ -26,6 +27,10 @@ class RankingEloTier {
   final IconData icon;
   final int promotionSlots;
   final int demotionSlots;
+
+  String get localizedName => NoesisL10n.tr(name);
+  String get localizedSubtitle => NoesisL10n.tr(subtitle);
+  String get localizedMilestoneDescription => NoesisL10n.tr(milestoneDescription);
 }
 
 class RankingCompetitor {
@@ -207,16 +212,16 @@ class RankingBoardState {
 class RankingEloCatalog {
   RankingEloCatalog._();
 
-  static const List<RankingEloTier> tiers = [
+  static List<RankingEloTier> get tiers => [
     RankingEloTier(
       index: 0,
       id: 'faisca',
-      name: 'Faísca',
-      subtitle: 'Primeiro contato e curiosidade ativa',
-      milestoneDescription:
-          'Porta de entrada no Noesis. Todo Insight obtido em simulados, flashcards e metas já conta para subir de elo.',
-      accentColor: Color(0xFFD97706),
-      badgeColor: Color(0xFFF5A623),
+      name: NoesisL10n.tr('Faísca'),
+      subtitle: NoesisL10n.tr('Primeiro contato e curiosidade ativa'),
+      milestoneDescription: NoesisL10n.tr(
+          'Porta de entrada no Noesis. Todo Insight obtido em simulados, flashcards e metas já conta para subir de elo.'),
+      accentColor: const Color(0xFFD97706),
+      badgeColor: const Color(0xFFF5A623),
       icon: Icons.bolt_rounded,
       promotionSlots: 5,
       demotionSlots: 0,
@@ -224,12 +229,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 1,
       id: 'vigilia',
-      name: 'Vigília',
-      subtitle: 'Atenção ativa e presença nos estudos',
-      milestoneDescription:
-          'Consolida o hábito semanal. Sessões regulares e revisões em dia mantêm seu ritmo acima da linha de corte.',
-      accentColor: Color(0xFF475569),
-      badgeColor: Color(0xFF64748B),
+      name: NoesisL10n.tr('Vigília'),
+      subtitle: NoesisL10n.tr('Atenção ativa e presença nos estudos'),
+      milestoneDescription: NoesisL10n.tr(
+          'Consolida o hábito semanal. Sessões regulares e revisões em dia mantêm seu ritmo acima da linha de corte.'),
+      accentColor: const Color(0xFF475569),
+      badgeColor: const Color(0xFF64748B),
       icon: Icons.visibility_rounded,
       promotionSlots: 5,
       demotionSlots: 3,
@@ -237,12 +242,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 2,
       id: 'logos',
-      name: 'Logos',
-      subtitle: 'Raciocínio estruturado e método',
-      milestoneDescription:
-          'Representa clareza analítica. Combinar cadernos organizados com simulados acelera os ganhos da semana.',
-      accentColor: Color(0xFF0284C7),
-      badgeColor: Color(0xFF38BDF8),
+      name: NoesisL10n.tr('Logos'),
+      subtitle: NoesisL10n.tr('Raciocínio estruturado e método'),
+      milestoneDescription: NoesisL10n.tr(
+          'Representa clareza analítica. Combinar cadernos organizados com simulados acelera os ganhos da semana.'),
+      accentColor: const Color(0xFF0284C7),
+      badgeColor: const Color(0xFF38BDF8),
       icon: Icons.menu_book_rounded,
       promotionSlots: 5,
       demotionSlots: 3,
@@ -250,12 +255,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 3,
       id: 'sintese',
-      name: 'Síntese',
-      subtitle: 'Conexão madura entre teoria e prática',
-      milestoneDescription:
-          'A disputa aperta no Top 4. Aqui se destacam estudantes que unem trilhas, mapas mentais e revisão espaçada.',
-      accentColor: Color(0xFF059669),
-      badgeColor: Color(0xFF3CCF9A),
+      name: NoesisL10n.tr('Síntese'),
+      subtitle: NoesisL10n.tr('Conexão madura entre teoria e prática'),
+      milestoneDescription: NoesisL10n.tr(
+          'A disputa aperta no Top 4. Aqui se destacam estudantes que unem trilhas, mapas mentais e revisão espaçada.'),
+      accentColor: const Color(0xFF059669),
+      badgeColor: const Color(0xFF3CCF9A),
       icon: Icons.hub_rounded,
       promotionSlots: 4,
       demotionSlots: 3,
@@ -263,12 +268,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 4,
       id: 'episteme',
-      name: 'Episteme',
-      subtitle: 'Conhecimento sólido e fundamentado',
-      milestoneDescription:
-          'Patamar avançado de domínio. Exige alta precisão em simulados e constância durante toda a semana.',
-      accentColor: Color(0xFF6D28D9),
-      badgeColor: Color(0xFF7C6CF0),
+      name: NoesisL10n.tr('Episteme'),
+      subtitle: NoesisL10n.tr('Conhecimento sólido e fundamentado'),
+      milestoneDescription: NoesisL10n.tr(
+          'Patamar avançado de domínio. Exige alta precisão em simulados e constância durante toda a semana.'),
+      accentColor: const Color(0xFF6D28D9),
+      badgeColor: const Color(0xFF7C6CF0),
       icon: Icons.psychology_rounded,
       promotionSlots: 4,
       demotionSlots: 3,
@@ -276,12 +281,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 5,
       id: 'apice',
-      name: 'Ápice',
-      subtitle: 'Alta performance e ritmo competitivo',
-      milestoneDescription:
-          'Apenas o pódio (Top 3) avança. Cada meta cumprida e cada bloco de estudo define sua subida.',
-      accentColor: Color(0xFFE11D48),
-      badgeColor: Color(0xFFFF7A90),
+      name: NoesisL10n.tr('Ápice'),
+      subtitle: NoesisL10n.tr('Alta performance e ritmo competitivo'),
+      milestoneDescription: NoesisL10n.tr(
+          'Apenas o pódio (Top 3) avança. Cada meta cumprida e cada bloco de estudo define sua subida.'),
+      accentColor: const Color(0xFFE11D48),
+      badgeColor: const Color(0xFFFF7A90),
       icon: Icons.trending_up_rounded,
       promotionSlots: 3,
       demotionSlots: 3,
@@ -289,12 +294,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 6,
       id: 'sophia',
-      name: 'Sophia',
-      subtitle: 'Maestria acadêmica entre a elite',
-      milestoneDescription:
-          'Antecâmara do topo cognitivo. Disputa acirrada entre os estudantes mais consistentes da comunidade.',
-      accentColor: Color(0xFFB45309),
-      badgeColor: Color(0xFFFBBF24),
+      name: NoesisL10n.tr('Sophia'),
+      subtitle: NoesisL10n.tr('Maestria acadêmica entre a elite'),
+      milestoneDescription: NoesisL10n.tr(
+          'Antecâmara do topo cognitivo. Disputa acirrada entre os estudantes mais consistentes da comunidade.'),
+      accentColor: const Color(0xFFB45309),
+      badgeColor: const Color(0xFFFBBF24),
       icon: Icons.auto_awesome_rounded,
       promotionSlots: 3,
       demotionSlots: 3,
@@ -302,12 +307,12 @@ class RankingEloCatalog {
     RankingEloTier(
       index: 7,
       id: 'noesis',
-      name: 'Noesis',
-      subtitle: 'Intelecto pleno · Elo máximo da semana',
-      milestoneDescription:
-          'O auge da jornada no Noesis. Sem elos acima — aqui a disputa é pelo pódio semanal e pela permanência.',
-      accentColor: Color(0xFF4F46E5),
-      badgeColor: Color(0xFF8B5CF6),
+      name: NoesisL10n.tr('Noesis'),
+      subtitle: NoesisL10n.tr('Intelecto pleno · Elo máximo da semana'),
+      milestoneDescription: NoesisL10n.tr(
+          'O auge da jornada no Noesis. Sem elos acima — aqui a disputa é pelo pódio semanal e pela permanência.'),
+      accentColor: const Color(0xFF4F46E5),
+      badgeColor: const Color(0xFF8B5CF6),
       icon: Icons.workspace_premium_rounded,
       promotionSlots: 0,
       demotionSlots: 3,

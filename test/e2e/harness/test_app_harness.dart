@@ -7,6 +7,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:noesis/core/constants.dart';
+import 'package:noesis/core/localization/noesis_l10n.dart';
+import 'package:noesis/core/localization/noesis_locale_service.dart';
 import 'package:noesis/core/theme.dart';
 import 'package:noesis/main.dart';
 import 'mock_http_overrides.dart';
@@ -24,6 +26,9 @@ class TestAppHarness {
     TestWidgetsFlutterBinding.ensureInitialized();
     MockHttpOverrides.install();
     await initializeDateFormatting('pt_BR', null);
+    await NoesisLocaleService.resetForTesting(
+      platformLocalesOverride: const [Locale('pt', 'BR')],
+    );
     GoogleFonts.config.allowRuntimeFetching = false;
 
     // Filter framework cosmetic warnings and Ahem font text overflows in test mode
@@ -116,34 +121,50 @@ class TestAppHarness {
     Locale locale = const Locale('pt', 'BR'),
     NavigatorObserver? navigatorObserver,
   }) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AsterTheme.softClayTheme,
-      darkTheme: AsterTheme.darkTheme,
-      themeMode: themeMode,
-      locale: locale,
-      supportedLocales: const [
-        Locale('pt', 'BR'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      navigatorObservers: navigatorObserver != null ? [navigatorObserver] : const [],
-      home: Directionality(
-        textDirection: TextDirection.ltr,
-        child: MediaQuery(
-          data: MediaQueryData(
-            size: screenSize,
-            devicePixelRatio: 1.0,
+    return ListenableBuilder(
+      listenable: NoesisLocaleService.currentCodeNotifier,
+      builder: (context, _) {
+        final effectiveLocale = locale == const Locale('pt', 'BR')
+            ? NoesisLocaleService.currentLocale
+            : locale;
+        final effectiveDirection =
+            effectiveLocale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr;
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AsterTheme.softClayTheme,
+          darkTheme: AsterTheme.darkTheme,
+          themeMode: themeMode,
+          locale: effectiveLocale,
+          supportedLocales: NoesisLocaleService.supportedFlutterLocales,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          navigatorObservers: navigatorObserver != null ? [navigatorObserver] : const [],
+          builder: (context, inner) {
+            return NoesisLocaleScope(
+              notifier: NoesisLocaleService.currentCodeNotifier,
+              child: Directionality(
+                textDirection: effectiveDirection,
+                child: inner ?? const SizedBox.shrink(),
+              ),
+            );
+          },
+          home: Directionality(
+            textDirection: effectiveDirection,
+            child: MediaQuery(
+              data: MediaQueryData(
+                size: screenSize,
+                devicePixelRatio: 1.0,
+              ),
+              child: Scaffold(
+                body: child,
+              ),
+            ),
           ),
-          child: Scaffold(
-            body: child,
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 

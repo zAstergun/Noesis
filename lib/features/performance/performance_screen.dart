@@ -2,7 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/theme.dart';
 import '../../widgets/insight_icon.dart';
 import '../tracker/dashboard_analytics.dart';
@@ -137,7 +140,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Desempenho & Analytics',
+                                      context.tr('Desempenho & Analytics'),
                                       style: GoogleFonts.manrope(
                                         fontSize: isDesktop ? 21 : 19,
                                         fontWeight: FontWeight.w800,
@@ -145,7 +148,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                       ),
                                     ),
                                     Text(
-                                      'Panorama analítico completo da conta, filtros por período e reviews da IA',
+                                      context.tr('Panorama analítico completo da conta, filtros por período e reviews da IA'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12.5,
                                         color: AsterTheme.textMuted(context),
@@ -158,7 +161,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Atualizar métricas',
+                          tooltip: context.tr('Atualizar métricas'),
                           onPressed: _refreshReport,
                           icon: const Icon(Icons.refresh_rounded, size: 20),
                         ),
@@ -185,7 +188,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'PERÍODO:',
+                          context.tr('PERÍODO:'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -195,28 +198,28 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                         ),
                         SoftClayChoiceChip(
                           key: const Key('perf_period_7d'),
-                          label: '7 dias',
+                          label: context.tr('7 dias'),
                           selected: _period == PerformancePeriod.days7,
                           compact: true,
                           onTap: () => _selectPeriod(PerformancePeriod.days7),
                         ),
                         SoftClayChoiceChip(
                           key: const Key('perf_period_30d'),
-                          label: '30 dias',
+                          label: context.tr('30 dias'),
                           selected: _period == PerformancePeriod.days30,
                           compact: true,
                           onTap: () => _selectPeriod(PerformancePeriod.days30),
                         ),
                         SoftClayChoiceChip(
                           key: const Key('perf_period_90d'),
-                          label: '90 dias',
+                          label: context.tr('90 dias'),
                           selected: _period == PerformancePeriod.days90,
                           compact: true,
                           onTap: () => _selectPeriod(PerformancePeriod.days90),
                         ),
                         SoftClayChoiceChip(
                           key: const Key('perf_period_all'),
-                          label: 'Todo o histórico',
+                          label: context.tr('Todo o histórico'),
                           selected: _period == PerformancePeriod.allTime,
                           compact: true,
                           onTap: () => _selectPeriod(PerformancePeriod.allTime),
@@ -224,8 +227,8 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                         SoftClayChoiceChip(
                           key: const Key('perf_period_custom'),
                           label: _period == PerformancePeriod.custom && report != null
-                              ? report.range.label
-                              : 'Personalizado',
+                              ? context.tr(report.range.label)
+                              : context.tr('Personalizado'),
                           icon: Icons.date_range_rounded,
                           selected: _period == PerformancePeriod.custom,
                           compact: true,
@@ -235,7 +238,12 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                     ),
                     if (report != null)
                       SoftClayTag(
-                        label: '${report.range.spanDays} ${report.range.spanDays == 1 ? 'dia analisado' : 'dias analisados'}',
+                        label: report.range.spanDays == 1
+                            ? context.tr('1 dia analisado')
+                            : context.tr(
+                                '{days} dias analisados',
+                                {'days': '${report.range.spanDays}'},
+                              ),
                         color: AsterTheme.primary(context),
                       ),
                   ],
@@ -297,22 +305,47 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     final hoursStr = DashboardAnalytics.formatReadableDuration(report.periodMinutes);
     final delta = report.minutesDeltaPct;
     final deltaSub = delta == null
-        ? '${report.sessionsCount} sessões · média ${DashboardAnalytics.formatCompactDuration(report.dailyAverageMinutes)}/dia'
-        : '${delta >= 0 ? '+' : ''}$delta% vs ciclo anterior · ${report.sessionsCount} sessões';
+        ? context.tr(
+            '{sessions} sessões · média {avg}/dia',
+            {
+              'sessions': '${report.sessionsCount}',
+              'avg': DashboardAnalytics.formatCompactDuration(report.dailyAverageMinutes),
+            },
+          )
+        : context.tr(
+            '{delta}% vs ciclo anterior · {sessions} sessões',
+            {
+              'delta': '${delta >= 0 ? '+' : ''}$delta',
+              'sessions': '${report.sessionsCount}',
+            },
+          );
 
     final examAvg = report.averageExamScore != null ? '${report.averageExamScore!.round()}%' : '—';
     final examSub = report.examsCount == 0
-        ? 'Nenhum simulado no período'
-        : '${report.examsCount} provas · ${report.totalQuestionsAnswered} questões · máx ${report.bestExamScore?.round() ?? 0}%';
+        ? context.tr('Nenhum simulado no período')
+        : context.tr(
+            '{exams} provas · {questions} questões · máx {best}%',
+            {
+              'exams': '${report.examsCount}',
+              'questions': '${report.totalQuestionsAnswered}',
+              'best': '${report.bestExamScore?.round() ?? 0}',
+            },
+          );
 
     final retentionVal = report.totalCards > 0 ? '${report.retentionRatePct}%' : '—';
-    final retentionSub = '${report.cardsReviewedInPeriod} revisados no período · ${report.cardsDueCount} pendentes';
+    final retentionSub = context.tr(
+      '{reviewed} revisados no período · {due} pendentes',
+      {
+        'reviewed': '${report.cardsReviewedInPeriod}',
+        'due': '${report.cardsDueCount}',
+      },
+    );
 
     final cards = [
       _kpiCard(
         context,
         key: const Key('perf_kpi_hours'),
-        title: 'TEMPO ESTUDADO',
+        title: context.tr('TEMPO ESTUDADO'),
         value: hoursStr,
         subtitle: deltaSub,
         icon: Icons.schedule_rounded,
@@ -321,7 +354,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       _kpiCard(
         context,
         key: const Key('perf_kpi_exams'),
-        title: 'ACURÁCIA EM SIMULADOS',
+        title: context.tr('ACURÁCIA EM SIMULADOS'),
         value: examAvg,
         subtitle: examSub,
         icon: Icons.assignment_turned_in_rounded,
@@ -330,7 +363,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       _kpiCard(
         context,
         key: const Key('perf_kpi_flashcards'),
-        title: 'RETENÇÃO FLASHCARDS',
+        title: context.tr('RETENÇÃO FLASHCARDS'),
         value: retentionVal,
         subtitle: retentionSub,
         icon: Icons.style_rounded,
@@ -339,9 +372,16 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       _kpiCard(
         context,
         key: const Key('perf_kpi_insights'),
-        title: 'INSIGHTS NO PERÍODO',
+        title: context.tr('INSIGHTS NO PERÍODO'),
         value: '+${report.insightsEarnedInPeriod}',
-        subtitle: '-${report.insightsInvestedInPeriod} investidos · Elo ${report.currentEloName} (#${report.currentWeeklyRank})',
+        subtitle: context.tr(
+          '-{invested} investidos · Elo {elo} (#{rank})',
+          {
+            'invested': '${report.insightsInvestedInPeriod}',
+            'elo': context.tr(report.currentEloName),
+            'rank': '${report.currentWeeklyRank}',
+          },
+        ),
         icon: Icons.auto_awesome_rounded,
         accent: AsterConstants.coral,
         showCoin: true,
@@ -448,6 +488,30 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     );
   }
 
+  String _formatShortDate(DateTime dt) {
+    try {
+      return DateFormat.Md(NoesisLocaleService.intlLocale).format(dt);
+    } catch (_) {
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+    }
+  }
+
+  String _formatNumericDate(DateTime dt) {
+    try {
+      return DateFormat.yMd(NoesisLocaleService.intlLocale).format(dt);
+    } catch (_) {
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    try {
+      return DateFormat.Hm(NoesisLocaleService.intlLocale).format(dt);
+    } catch (_) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
   Widget _buildAiReviewsSection(BuildContext context, AccountPerformanceReport report) {
     final primaryCol = AsterTheme.primary(context);
 
@@ -495,7 +559,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Reviews da IA sobre sua Evolução',
+                                context.tr('Reviews da IA sobre sua Evolução'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -503,7 +567,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                                 ),
                               ),
                               Text(
-                                'Diagnóstico longitudinal cruzando tempo estudado, simulados, flashcards, trilhas e hábitos',
+                                context.tr('Diagnóstico longitudinal cruzando tempo estudado, simulados, flashcards, trilhas e hábitos'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   color: AsterTheme.textMuted(context),
@@ -517,7 +581,9 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                   ),
                   SoftClayPillButton(
                     key: const Key('performance_generate_ai_review_button'),
-                    text: _generatingAiReview ? 'Analisando...' : 'Gerar Review com IA',
+                    text: _generatingAiReview
+                        ? context.tr('Analisando...')
+                        : context.tr('Gerar Review com IA'),
                     icon: Icons.auto_awesome_rounded,
                     onPressed: _generatingAiReview ? null : _generateAiReview,
                   ),
@@ -527,7 +593,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
 
               if (savedReviews.isNotEmpty) ...[
                 Text(
-                  'HISTÓRICO DE REVIEWS AO LONGO DO TEMPO (${savedReviews.length})',
+                  context.tr(
+                    'HISTÓRICO DE REVIEWS AO LONGO DO TEMPO ({count})',
+                    {'count': '${savedReviews.length}'},
+                  ),
                   style: GoogleFonts.manrope(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
@@ -546,7 +615,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                         SoftClayChoiceChip(
                           key: Key('perf_review_chip_${i}_${savedReviews[i].id}'),
                           label:
-                              '${savedReviews[i].createdAt.day.toString().padLeft(2, '0')}/${savedReviews[i].createdAt.month.toString().padLeft(2, '0')} · ${savedReviews[i].periodLabel}',
+                              '${_formatShortDate(savedReviews[i].createdAt)} · ${context.tr(savedReviews[i].periodLabel)}',
                           icon: savedReviews[i].generatedWithLlm
                               ? Icons.auto_awesome_rounded
                               : Icons.analytics_outlined,
@@ -580,11 +649,17 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           SoftClayTag(
-                            label: activeReview.summaryHeadline,
+                            label: context.tr(activeReview.summaryHeadline),
                             color: primaryCol,
                           ),
                           Text(
-                            'Gerado em ${activeReview.createdAt.day.toString().padLeft(2, '0')}/${activeReview.createdAt.month.toString().padLeft(2, '0')}/${activeReview.createdAt.year} às ${activeReview.createdAt.hour.toString().padLeft(2, '0')}:${activeReview.createdAt.minute.toString().padLeft(2, '0')}',
+                            context.tr(
+                              'Gerado em {date} às {time}',
+                              {
+                                'date': _formatNumericDate(activeReview.createdAt),
+                                'time': _formatTime(activeReview.createdAt),
+                              },
+                            ),
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               color: AsterTheme.textMuted(context),
@@ -630,7 +705,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Clique em "Gerar Review com IA" para criar uma análise completa do período "${report.range.label}" e salvar na sua linha do tempo evolutiva.',
+                          context.tr(
+                            'Clique em "Gerar Review com IA" para criar uma análise completa do período "{period}" e salvar na sua linha do tempo evolutiva.',
+                            {'period': context.tr(report.range.label)},
+                          ),
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             color: AsterTheme.textMuted(context),
@@ -686,7 +764,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'RITMO DE ESTUDO NO PERÍODO',
+            context.tr('RITMO DE ESTUDO NO PERÍODO'),
             style: GoogleFonts.manrope(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
@@ -696,7 +774,10 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Distribuição de tempo estudado (${report.range.label})',
+            context.tr(
+              'Distribuição de tempo estudado ({period})',
+              {'period': context.tr(report.range.label)},
+            ),
             style: GoogleFonts.manrope(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
@@ -709,7 +790,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
             child: buckets.isEmpty
                 ? Center(
                     child: Text(
-                      'Sem registros no período.',
+                      context.tr('Sem registros no período.'),
                       style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
                     ),
                   )
@@ -817,7 +898,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'EVOLUÇÃO EM SIMULADOS',
+            context.tr('EVOLUÇÃO EM SIMULADOS'),
             style: GoogleFonts.manrope(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
@@ -828,8 +909,13 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
           const SizedBox(height: 4),
           Text(
             points.isEmpty
-                ? 'Sem simulados neste recorte'
-                : 'Curva de acurácia (${points.length} ${points.length == 1 ? 'prova' : 'provas'})',
+                ? context.tr('Sem simulados neste recorte')
+                : (points.length == 1
+                    ? context.tr('Curva de acurácia (1 prova)')
+                    : context.tr(
+                        'Curva de acurácia ({count} provas)',
+                        {'count': '${points.length}'},
+                      )),
             style: GoogleFonts.manrope(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
@@ -847,7 +933,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        'Conclua simulados no período para acompanhar sua curva de acerto.',
+                        context.tr('Conclua simulados no período para acompanhar sua curva de acerto.'),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.manrope(
                           fontSize: 12,
@@ -898,7 +984,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: Text(
-                                  'S${idx + 1}',
+                                  context.tr('S{index}', {'index': '${idx + 1}'}),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
@@ -945,7 +1031,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'DESEMPENHO POR DISCIPLINA',
+            context.tr('DESEMPENHO POR DISCIPLINA'),
             style: GoogleFonts.manrope(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
@@ -955,7 +1041,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Esforço dedicado e aproveitamento em simulados por matéria',
+            context.tr('Esforço dedicado e aproveitamento em simulados por matéria'),
             style: GoogleFonts.manrope(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
@@ -965,7 +1051,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
           const SizedBox(height: 14),
           if (items.isEmpty)
             Text(
-              'Nenhuma disciplina registrada neste período ainda.',
+              context.tr('Nenhuma disciplina registrada neste período ainda.'),
               style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
             )
           else
@@ -990,7 +1076,13 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
                         ),
                         if (item.averageExamScore != null) ...[
                           SoftClayTag(
-                            label: 'Média ${item.averageExamScore!.round()}% (${item.examCount})',
+                            label: context.tr(
+                              'Média {avg}% ({count})',
+                              {
+                                'avg': '${item.averageExamScore!.round()}',
+                                'count': '${item.examCount}',
+                              },
+                            ),
                             color: AsterConstants.menta,
                           ),
                           const SizedBox(width: 8),
@@ -1030,35 +1122,90 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         context,
         icon: Icons.style_rounded,
         accent: AsterConstants.ambar,
-        title: 'Flashcards & Memória',
+        title: context.tr('Flashcards & Memória'),
         rows: [
-          ('Baralhos / Cartões', '${report.totalDecks} baralhos · ${report.totalCards} cards'),
-          ('Domínio (Fácil / Bom)', '${report.easyCards} fáceis · ${report.goodCards} bons'),
-          ('Difíceis / Pendentes', '${report.hardCards} difíceis · ${report.cardsDueCount} p/ revisar'),
+          (
+            context.tr('Baralhos / Cartões'),
+            context.tr(
+              '{decks} baralhos · {cards} cards',
+              {'decks': '${report.totalDecks}', 'cards': '${report.totalCards}'},
+            ),
+          ),
+          (
+            context.tr('Domínio (Fácil / Bom)'),
+            context.tr(
+              '{easy} fáceis · {good} bons',
+              {'easy': '${report.easyCards}', 'good': '${report.goodCards}'},
+            ),
+          ),
+          (
+            context.tr('Difíceis / Pendentes'),
+            context.tr(
+              '{hard} difíceis · {due} p/ revisar',
+              {'hard': '${report.hardCards}', 'due': '${report.cardsDueCount}'},
+            ),
+          ),
         ],
       ),
       _ecoBlock(
         context,
         icon: Icons.menu_book_rounded,
         accent: AsterConstants.menta,
-        title: 'Cadernos & Trilhas',
+        title: context.tr('Cadernos & Trilhas'),
         rows: [
-          ('Cadernos & Anotações', '${report.totalNotebooks} cadernos · ${report.totalNotes} notas'),
-          ('Notas no período / Revisão', '${report.notesUpdatedInPeriod} no período · ${report.notesNeedingReview} p/ revisar'),
-          ('Trilhas de Estudo', '${report.completedRoadmapSteps}/${report.totalRoadmapSteps} etapas (${report.roadmapProgressPct}%)'),
+          (
+            context.tr('Cadernos & Anotações'),
+            context.tr(
+              '{notebooks} cadernos · {notes} notas',
+              {'notebooks': '${report.totalNotebooks}', 'notes': '${report.totalNotes}'},
+            ),
+          ),
+          (
+            context.tr('Notas no período / Revisão'),
+            context.tr(
+              '{updated} no período · {review} p/ revisar',
+              {
+                'updated': '${report.notesUpdatedInPeriod}',
+                'review': '${report.notesNeedingReview}',
+              },
+            ),
+          ),
+          (
+            context.tr('Trilhas de Estudo'),
+            context.tr(
+              '{done}/{total} etapas ({pct}%)',
+              {
+                'done': '${report.completedRoadmapSteps}',
+                'total': '${report.totalRoadmapSteps}',
+                'pct': '${report.roadmapProgressPct}',
+              },
+            ),
+          ),
         ],
       ),
       _ecoBlock(
         context,
         icon: Icons.calendar_today_rounded,
         accent: AsterTheme.primary(context),
-        title: 'Agenda & Metas',
+        title: context.tr('Agenda & Metas'),
         rows: [
-          ('Eventos no período', '${report.calendarCompletedInPeriod}/${report.calendarEventsInPeriod} concluídos'),
-          ('Próximos agendamentos', '${report.calendarPendingUpcoming} pendentes'),
           (
-            'Meta diária / semanal',
-            '${report.dailyGoalMinutes > 0 ? DashboardAnalytics.formatCompactDuration(report.dailyGoalMinutes) : 'Livre'} · ${report.weeklyGoalMinutes > 0 ? DashboardAnalytics.formatCompactDuration(report.weeklyGoalMinutes) : 'Livre'}',
+            context.tr('Eventos no período'),
+            context.tr(
+              '{done}/{total} concluídos',
+              {
+                'done': '${report.calendarCompletedInPeriod}',
+                'total': '${report.calendarEventsInPeriod}',
+              },
+            ),
+          ),
+          (
+            context.tr('Próximos agendamentos'),
+            context.tr('{count} pendentes', {'count': '${report.calendarPendingUpcoming}'}),
+          ),
+          (
+            context.tr('Meta diária / semanal'),
+            '${report.dailyGoalMinutes > 0 ? DashboardAnalytics.formatCompactDuration(report.dailyGoalMinutes) : context.tr('Livre')} · ${report.weeklyGoalMinutes > 0 ? DashboardAnalytics.formatCompactDuration(report.weeklyGoalMinutes) : context.tr('Livre')}',
           ),
         ],
       ),
@@ -1066,11 +1213,38 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         context,
         icon: Icons.emoji_events_rounded,
         accent: AsterConstants.coral,
-        title: 'Ranking, Economia & Rede',
+        title: context.tr('Ranking, Economia & Rede'),
         rows: [
-          ('Elo Atual / Recorde', '${report.currentEloName} · Melhor: ${report.bestEloName}'),
-          ('Saldo & Selos', '${report.currentInsightsBalance} Insights · ${report.consistencySealsCount} selos'),
-          ('Comunidade', '${report.joinedGroupsCount} grupos · ${report.mutualConnectionsCount} conexões mútuas'),
+          (
+            context.tr('Elo Atual / Recorde'),
+            context.tr(
+              '{current} · Melhor: {best}',
+              {
+                'current': context.tr(report.currentEloName),
+                'best': context.tr(report.bestEloName),
+              },
+            ),
+          ),
+          (
+            context.tr('Saldo & Selos'),
+            context.tr(
+              '{balance} Insights · {seals} selos',
+              {
+                'balance': '${report.currentInsightsBalance}',
+                'seals': '${report.consistencySealsCount}',
+              },
+            ),
+          ),
+          (
+            context.tr('Comunidade'),
+            context.tr(
+              '{groups} grupos · {connections} conexões mútuas',
+              {
+                'groups': '${report.joinedGroupsCount}',
+                'connections': '${report.mutualConnectionsCount}',
+              },
+            ),
+          ),
         ],
       ),
     ];
@@ -1082,7 +1256,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'UTILIZAÇÃO COMPLETA DA CONTA',
+            context.tr('UTILIZAÇÃO COMPLETA DA CONTA'),
             style: GoogleFonts.manrope(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,

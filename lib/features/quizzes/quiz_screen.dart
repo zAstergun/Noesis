@@ -6,7 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
+import '../../core/localization/quiz_text_markers.dart';
 import '../../core/theme.dart';
 import '../../core/gemini_service.dart';
 import '../../core/shop_service.dart';
@@ -56,18 +60,18 @@ class QuizScreen extends StatefulWidget {
 
     for (final deck in decks) {
       if (buffer.length >= maxChars) break;
-      buffer.writeln('=== BARALHO DE FLASHCARDS ANEXADO: ${deck.title} (Matéria: ${deck.subject}) ===');
+      buffer.writeln(NoesisL10n.tr('=== BARALHO DE FLASHCARDS ANEXADO: {title} (Matéria: {subject}) ===', {'title': deck.title, 'subject': deck.subject}));
       if (deck.description.trim().isNotEmpty) {
-        buffer.writeln('Resumo: ${deck.description.trim()}');
+        buffer.writeln(NoesisL10n.tr('Resumo: {text}', {'text': deck.description.trim()}));
       }
       for (final card in deck.cards) {
         if (buffer.length >= maxChars) break;
         final front = card.front.trim();
         final back = card.back.trim();
         if (front.isEmpty && back.isEmpty) continue;
-        buffer.writeln('- Frente: $front');
+        buffer.writeln(NoesisL10n.tr('- Frente: {text}', {'text': front}));
         if (back.isNotEmpty) {
-          buffer.writeln('  Verso/Resposta: $back');
+          buffer.writeln(NoesisL10n.tr('  Verso/Resposta: {text}', {'text': back}));
         }
         if (card.tags.isNotEmpty) {
           buffer.writeln('  Tags: ${card.tags.join(', ')}');
@@ -78,13 +82,13 @@ class QuizScreen extends StatefulWidget {
 
     for (final nb in notebooks) {
       if (buffer.length >= maxChars) break;
-      buffer.writeln('=== CADERNO DE ESTUDOS ANEXADO: ${nb.title} (Matéria: ${nb.subject}) ===');
+      buffer.writeln(NoesisL10n.tr('=== CADERNO DE ESTUDOS ANEXADO: {title} (Matéria: {subject}) ===', {'title': nb.title, 'subject': nb.subject}));
       if (nb.description.trim().isNotEmpty) {
-        buffer.writeln('Descrição: ${nb.description.trim()}');
+        buffer.writeln(NoesisL10n.tr('Descrição: {text}', {'text': nb.description.trim()}));
       }
       for (final note in nb.notes) {
         if (buffer.length >= maxChars) break;
-        buffer.writeln('--- Anotação: ${note.title} ---');
+        buffer.writeln(NoesisL10n.tr('--- Anotação: {title} ---', {'title': note.title}));
         if (note.tags.isNotEmpty) {
           buffer.writeln('Tags: ${note.tags.join(', ')}');
         }
@@ -98,14 +102,14 @@ class QuizScreen extends StatefulWidget {
 
     final extraDoc = documentText?.trim() ?? '';
     if (extraDoc.isNotEmpty && buffer.length < maxChars) {
-      buffer.writeln('=== APOSTILA / DOCUMENTO ANEXADO ===');
+      buffer.writeln(NoesisL10n.tr('=== APOSTILA / DOCUMENTO ANEXADO ==='));
       buffer.writeln(extraDoc);
     }
 
     final result = buffer.toString().trim();
     if (result.isEmpty) return null;
     if (result.length <= maxChars) return result;
-    return '${result.substring(0, maxChars)}\n...[conteúdo truncado pelo limite do prompt]';
+    return '${result.substring(0, maxChars)}${NoesisL10n.tr('\n...[conteúdo truncado pelo limite do prompt]')}';
   }
 
   static void startQuiz({
@@ -130,7 +134,7 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> {
   // ─── Configuração da Geração ───
-  final _subjectController = TextEditingController(text: 'Cybersegurança');
+  final _subjectController = TextEditingController(text: NoesisL10n.tr('Cybersegurança'));
   final _topicController = TextEditingController(text: 'CompTIA Security+ SY0-701 & OWASP Top 10');
   final _documentTextController = TextEditingController();
   final _examSearchController = TextEditingController();
@@ -140,7 +144,7 @@ class _QuizScreenState extends State<QuizScreen> {
   ExamModelTemplate? _selectedExamModel = ExamModelsCatalog.models.first;
   bool _applyExamBlueprint = true;
   int _questionCount = 90;
-  String _difficulty = 'Avançado / Nível Certificação';
+  String _difficulty = NoesisL10n.tr('Avançado / Nível Certificação');
   bool _useDocument = false;
   String? _uploadedFileName;
   List<FlashcardDeck> _availableDecks = [];
@@ -150,28 +154,28 @@ class _QuizScreenState extends State<QuizScreen> {
   String? _cachedReferenceContextText;
 
   // ─── Níveis de Dificuldade Interativos ───
-  final List<Map<String, dynamic>> _difficultyLevels = [
+  List<Map<String, dynamic>> get _difficultyLevels => [
     {
-      'id': 'Iniciante / Fundamentos',
-      'label': 'Iniciante',
-      'title': 'Fundamentos & Conceitos',
-      'desc': 'Foco em definições, vocabulário e princípios teóricos essenciais.',
+      'id': NoesisL10n.tr('Iniciante / Fundamentos'),
+      'label': NoesisL10n.tr('Iniciante'),
+      'title': NoesisL10n.tr('Fundamentos & Conceitos'),
+      'desc': NoesisL10n.tr('Foco em definições, vocabulário e princípios teóricos essenciais.'),
       'icon': Icons.school_outlined,
       'color': AsterConstants.menta,
     },
     {
-      'id': 'Médio / Prático',
-      'label': 'Prático',
-      'title': 'Cenários & Hands-On',
-      'desc': 'Análise de snippets de código, logs de erro e arquitetura real.',
+      'id': NoesisL10n.tr('Médio / Prático'),
+      'label': NoesisL10n.tr('Prático'),
+      'title': NoesisL10n.tr('Cenários & Hands-On'),
+      'desc': NoesisL10n.tr('Análise de snippets de código, logs de erro e arquitetura real.'),
       'icon': Icons.terminal_rounded,
       'color': AsterConstants.ambar,
     },
     {
-      'id': 'Avançado / Nível Certificação',
-      'label': 'Certificação',
-      'title': 'Exame Oficial & Pegadinhas',
-      'desc': 'Nível de exigência idêntico a bancas examinadoras profissionais.',
+      'id': NoesisL10n.tr('Avançado / Nível Certificação'),
+      'label': NoesisL10n.tr('Certificação'),
+      'title': NoesisL10n.tr('Exame Oficial & Pegadinhas'),
+      'desc': NoesisL10n.tr('Nível de exigência idêntico a bancas examinadoras profissionais.'),
       'icon': Icons.verified_user_outlined,
       'color': null,
     },
@@ -246,8 +250,8 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _selectedExamModel = model;
       if (model != null) {
-        _subjectController.text = model.subject;
-        _topicController.text = model.topic;
+        _subjectController.text = model.localizedSubject;
+        _topicController.text = model.localizedTopic;
         _difficulty = model.difficulty;
         _applyExamBlueprint = true;
         _questionCount = model.recommendedCount.clamp(3, GeminiService.quizMaxQuestions);
@@ -272,9 +276,9 @@ class _QuizScreenState extends State<QuizScreen> {
         _timeExpiredThisSession = false;
         _isReviewingSavedAttempt = false;
         _selectedExamModel = null;
-        _subjectController.text = data['subject'] ?? 'Geral';
-        _topicController.text = data['title'] ?? 'Simulado Noesis AI';
-        _difficulty = data['difficulty'] ?? 'Médio / Prático';
+        _subjectController.text = data['subject'] ?? NoesisL10n.tr('Geral');
+        _topicController.text = data['title'] ?? NoesisL10n.tr('Simulado Noesis AI');
+        _difficulty = data['difficulty'] ?? NoesisL10n.tr('Médio / Prático');
         _activeQuestions = loadedQuestions;
         _targetQuestionCount = loadedQuestions.length;
         _questionCount = count.clamp(3, GeminiService.quizMaxQuestions);
@@ -335,7 +339,7 @@ class _QuizScreenState extends State<QuizScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Tempo Esgotado!',
+                ctx.tr('Tempo Esgotado!'),
                 style: GoogleFonts.manrope(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -346,13 +350,13 @@ class _QuizScreenState extends State<QuizScreen> {
           ],
         ),
         content: Text(
-          'O tempo previsto para este simulado chegou ao fim (00:00). Você pode finalizar agora para salvar o resultado e ver o comparativo com a IA, ou continuar revisando.',
+          ctx.tr('O tempo previsto para este simulado chegou ao fim (00:00). Você pode finalizar agora para salvar o resultado e ver o comparativo com a IA, ou continuar revisando.'),
           style: GoogleFonts.manrope(fontSize: 13.5, height: 1.5, color: AsterTheme.textMuted(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Continuar Revisando'),
+            child: Text(ctx.tr('Continuar Revisando')),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -360,7 +364,7 @@ class _QuizScreenState extends State<QuizScreen> {
               _showExamCompletionDialog();
             },
             icon: const Icon(Icons.analytics_outlined, size: 17),
-            label: const Text('Ver Resultado & Review IA'),
+            label: Text(ctx.tr('Ver Resultado & Review IA')),
           ),
         ],
       ),
@@ -439,7 +443,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Anexar Baralhos de Flashcards',
+                    ctx.tr('Anexar Baralhos de Flashcards'),
                     style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -453,10 +457,10 @@ class _QuizScreenState extends State<QuizScreen> {
                 children: [
                   TextField(
                     onChanged: (v) => setDialogState(() => search = v),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Icon(Icons.search_rounded, size: 18),
-                      hintText: 'Filtrar baralhos por nome ou matéria...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText: ctx.tr('Filtrar baralhos por nome ou matéria...'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -464,7 +468,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: filtered.isEmpty
                         ? Center(
                             child: Text(
-                              'Nenhum baralho de flashcards encontrado.',
+                              ctx.tr('Nenhum baralho de flashcards encontrado.'),
                               style: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context)),
                             ),
                           )
@@ -490,7 +494,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w800),
                                 ),
                                 subtitle: Text(
-                                  '${deck.subject} · ${deck.cards.length} cartões',
+                                  ctx.tr('{subject} · {count} cartões', {'subject': deck.subject, 'count': deck.cards.length}),
                                   style: GoogleFonts.manrope(fontSize: 11.5, color: AsterTheme.textMuted(context)),
                                 ),
                               );
@@ -503,7 +507,7 @@ class _QuizScreenState extends State<QuizScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
+                child: Text(ctx.tr('Cancelar')),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -514,7 +518,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   });
                   Navigator.of(ctx).pop();
                 },
-                child: Text('Aplicar (${tempSelected.length})'),
+                child: Text(ctx.tr('Aplicar ({count})', {'count': tempSelected.length})),
               ),
             ],
           );
@@ -549,7 +553,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Anexar Cadernos de Estudo',
+                    ctx.tr('Anexar Cadernos de Estudo'),
                     style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -563,10 +567,10 @@ class _QuizScreenState extends State<QuizScreen> {
                 children: [
                   TextField(
                     onChanged: (v) => setDialogState(() => search = v),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Icon(Icons.search_rounded, size: 18),
-                      hintText: 'Filtrar cadernos por título ou matéria...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      hintText: ctx.tr('Filtrar cadernos por título ou matéria...'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -574,7 +578,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: filtered.isEmpty
                         ? Center(
                             child: Text(
-                              'Nenhum caderno encontrado.',
+                              ctx.tr('Nenhum caderno encontrado.'),
                               style: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context)),
                             ),
                           )
@@ -600,7 +604,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w800),
                                 ),
                                 subtitle: Text(
-                                  '${nb.subject} · ${nb.notes.length} anotações',
+                                  ctx.tr('{subject} · {count} anotações', {'subject': nb.subject, 'count': nb.notes.length}),
                                   style: GoogleFonts.manrope(fontSize: 11.5, color: AsterTheme.textMuted(context)),
                                 ),
                               );
@@ -613,7 +617,7 @@ class _QuizScreenState extends State<QuizScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancelar'),
+                child: Text(ctx.tr('Cancelar')),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -624,7 +628,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   });
                   Navigator.of(ctx).pop();
                 },
-                child: Text('Aplicar (${tempSelected.length})'),
+                child: Text(ctx.tr('Aplicar ({count})', {'count': tempSelected.length})),
               ),
             ],
           );
@@ -639,8 +643,8 @@ class _QuizScreenState extends State<QuizScreen> {
     _currentAttemptId = attemptId;
     final existing = _savedAttempts.where((a) => a.id == attemptId).firstOrNull;
     final elapsedSeconds = (_initialTotalSeconds - _remainingSeconds).clamp(0, _initialTotalSeconds);
-    final subjectText = _subjectController.text.trim().isEmpty ? 'Geral' : _subjectController.text.trim();
-    final topicText = _topicController.text.trim().isEmpty ? 'Simulado' : _topicController.text.trim();
+    final subjectText = _subjectController.text.trim().isEmpty ? NoesisL10n.tr('Geral') : _subjectController.text.trim();
+    final topicText = _topicController.text.trim().isEmpty ? NoesisL10n.tr('Simulado') : _topicController.text.trim();
 
     final attempt = SavedExamsRepository.buildAttempt(
       id: attemptId,
@@ -745,7 +749,10 @@ class _QuizScreenState extends State<QuizScreen> {
       context: context,
       builder: (ctx) => _ExamCompletionDialog(
         attemptId: attempt.id,
-        examModelName: attempt.examModelName == 'Modo Livre' ? null : attempt.examModelName,
+        examModelName: (attempt.examModelName == NoesisL10n.tr('Modo Livre') ||
+                attempt.examModelName == NoesisL10n.tr('Modo Livre', null, 'br'))
+            ? null
+            : attempt.examModelName,
         subject: attempt.subject,
         topic: attempt.topic,
         questions: attempt.questions,
@@ -813,10 +820,17 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   String _formatEstimatedMinutes(int totalMinutes) {
-    if (totalMinutes < 60) return '~$totalMinutes min estimados';
+    if (totalMinutes < 60) {
+      return NoesisL10n.tr('~{minutes} min estimados', {'minutes': totalMinutes});
+    }
     final h = totalMinutes ~/ 60;
     final m = totalMinutes % 60;
-    return m == 0 ? '~${h}h estimadas' : '~${h}h ${m.toString().padLeft(2, '0')}min estimados';
+    return m == 0
+        ? NoesisL10n.tr('~{hours}h estimadas', {'hours': h})
+        : NoesisL10n.tr('~{hours}h {minutes}min estimados', {
+            'hours': h,
+            'minutes': m.toString().padLeft(2, '0'),
+          });
   }
 
   Future<void> _pickDocumentFile() async {
@@ -836,14 +850,17 @@ class _QuizScreenState extends State<QuizScreen> {
           _documentTextController.text = text;
         } catch (_) {
           final len = file.lengthSync() ?? 0;
-          _documentTextController.text = '[Arquivo "${file.name}" carregado (${(len / 1024).toStringAsFixed(1)} KB)]';
+          _documentTextController.text = NoesisL10n.tr(
+            '[Arquivo "{name}" carregado ({kb} KB)]',
+            {'name': file.name, 'kb': (len / 1024).toStringAsFixed(1)},
+          );
         }
         if (mounted) setState(() {});
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao carregar arquivo: $e')),
+          SnackBar(content: Text(NoesisL10n.tr('Erro ao carregar arquivo: {error}', {'error': e}))),
         );
       }
     }
@@ -897,7 +914,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              model.name,
+                              model.localizedName,
                               style: GoogleFonts.manrope(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
@@ -905,7 +922,13 @@ class _QuizScreenState extends State<QuizScreen> {
                               ),
                             ),
                             Text(
-                              '${model.category.label} · ${model.optionsFormat} · Guia Oficial (.md)',
+                              ctx.tr(
+                                '{category} · {format} · Guia Oficial (.md)',
+                                {
+                                  'category': model.category.localizedLabel,
+                                  'format': model.localizedOptionsFormat,
+                                },
+                              ),
                               style: GoogleFonts.manrope(fontSize: 11, color: mutedCol),
                             ),
                           ],
@@ -928,7 +951,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       child: content == null
                           ? Center(
                               child: Text(
-                                'Não foi possível carregar o guia ${model.assetPath}.',
+                                ctx.tr('Não foi possível carregar o guia {path}.', {'path': model.assetPath}),
                                 style: GoogleFonts.manrope(color: mutedCol),
                               ),
                             )
@@ -947,8 +970,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   blockquote: GoogleFonts.manrope(fontSize: 12.5, height: 1.45, color: textCol),
                                   blockquoteDecoration: BoxDecoration(
                                     color: primaryCol.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border(left: BorderSide(color: primaryCol, width: 3.5)),
+                                    border: BorderDirectional(start: BorderSide(color: primaryCol, width: 3.5)),
                                   ),
                                   blockquotePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                   tableHead: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: textCol),
@@ -977,7 +999,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       SoftClayPillButton(
-                        text: 'Aplicar Modelo (${model.recommendedCount} Q)',
+                        text: ctx.tr('Aplicar Modelo ({count} Q)', {'count': model.recommendedCount}),
                         icon: Icons.check_circle_outline_rounded,
                         onPressed: () {
                           _selectExamModel(model);
@@ -1019,7 +1041,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Mapa da Prova ($totalQ questões)',
+                          ctx.tr('Mapa da Prova ({count} questões)', {'count': totalQ}),
                           style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w900, color: AsterTheme.text(context)),
                         ),
                       ),
@@ -1034,10 +1056,10 @@ class _QuizScreenState extends State<QuizScreen> {
                     spacing: 12,
                     runSpacing: 6,
                     children: [
-                      _buildLegendDot('Atual', AsterTheme.primary(context)),
-                      _buildLegendDot('Respondida (${_userAnswers.length})', AsterConstants.menta),
-                      _buildLegendDot('Revisão (${_flaggedQuestions.length})', AsterConstants.ambar),
-                      _buildLegendDot('Pendente (${totalQ - _userAnswers.length})', AsterTheme.surfaceInset(context)),
+                      _buildLegendDot(ctx.tr('Atual'), AsterTheme.primary(context)),
+                      _buildLegendDot(ctx.tr('Respondida ({count})', {'count': _userAnswers.length}), AsterConstants.menta),
+                      _buildLegendDot(ctx.tr('Revisão ({count})', {'count': _flaggedQuestions.length}), AsterConstants.ambar),
+                      _buildLegendDot(ctx.tr('Pendente ({count})', {'count': totalQ - _userAnswers.length}), AsterTheme.surfaceInset(context)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1137,7 +1159,12 @@ class _QuizScreenState extends State<QuizScreen> {
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 5),
-            content: Text('Configure sua chave de API para ${GeminiService.currentProvider.label} em Configurações.'),
+            content: Text(
+              NoesisL10n.tr(
+                'Configure sua chave de API para {provider} em Configurações.',
+                {'provider': GeminiService.currentProvider.label},
+              ),
+            ),
           ),
         );
       return;
@@ -1191,8 +1218,8 @@ class _QuizScreenState extends State<QuizScreen> {
           _targetQuestionCount > GeminiService.quizBatchSize ? GeminiService.quizBatchSize : _targetQuestionCount;
 
       final firstBatch = await GeminiService.generateQuizBatch(
-        subject: _subjectController.text.trim().isEmpty ? 'Geral' : _subjectController.text.trim(),
-        topic: _topicController.text.trim().isEmpty ? 'Conhecimentos Gerais' : _topicController.text.trim(),
+        subject: _subjectController.text.trim().isEmpty ? NoesisL10n.tr('Geral') : _subjectController.text.trim(),
+        topic: _topicController.text.trim().isEmpty ? NoesisL10n.tr('Conhecimentos Gerais') : _topicController.text.trim(),
         referenceDocumentText: _cachedReferenceContextText,
         examModelName: _selectedExamModel?.name,
         examBlueprintText: blueprintText,
@@ -1220,7 +1247,7 @@ class _QuizScreenState extends State<QuizScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao gerar simulado: $e')),
+          SnackBar(content: Text(NoesisL10n.tr('Erro ao gerar simulado: {error}', {'error': e}))),
         );
       }
     } finally {
@@ -1263,8 +1290,8 @@ class _QuizScreenState extends State<QuizScreen> {
             .toList();
 
         final nextBatch = await GeminiService.generateQuizBatch(
-          subject: _subjectController.text.trim().isEmpty ? 'Geral' : _subjectController.text.trim(),
-          topic: _topicController.text.trim().isEmpty ? 'Conhecimentos Gerais' : _topicController.text.trim(),
+          subject: _subjectController.text.trim().isEmpty ? NoesisL10n.tr('Geral') : _subjectController.text.trim(),
+          topic: _topicController.text.trim().isEmpty ? NoesisL10n.tr('Conhecimentos Gerais') : _topicController.text.trim(),
           referenceDocumentText: _cachedReferenceContextText,
           examModelName: _selectedExamModel?.name,
           examBlueprintText: _cachedBlueprintText,
@@ -1304,9 +1331,14 @@ class _QuizScreenState extends State<QuizScreen> {
             SnackBar(
               persist: false,
               duration: const Duration(seconds: 6),
-              content: Text('Pausa no lote ${_activeQuestions?.length ?? 0}/$_targetQuestionCount: $e'),
+              content: Text(
+                NoesisL10n.tr(
+                  'Pausa no lote {loaded}/{total}: {error}',
+                  {'loaded': _activeQuestions?.length ?? 0, 'total': _targetQuestionCount, 'error': e},
+                ),
+              ),
               action: SnackBarAction(
-                label: 'Tentar Próximo Lote',
+                label: NoesisL10n.tr('Tentar Próximo Lote'),
                 onPressed: () {
                   messenger.hideCurrentSnackBar();
                   _continueLoadingRemainingBatches(sessionToken);
@@ -1327,8 +1359,8 @@ class _QuizScreenState extends State<QuizScreen> {
     if (questions.isEmpty) return;
 
     final elapsedSeconds = (_initialTotalSeconds - _remainingSeconds).clamp(0, _initialTotalSeconds);
-    final subjectText = _subjectController.text.trim().isEmpty ? 'Geral' : _subjectController.text.trim();
-    final topicText = _topicController.text.trim().isEmpty ? 'Simulado' : _topicController.text.trim();
+    final subjectText = _subjectController.text.trim().isEmpty ? NoesisL10n.tr('Geral') : _subjectController.text.trim();
+    final topicText = _topicController.text.trim().isEmpty ? NoesisL10n.tr('Simulado') : _topicController.text.trim();
 
     String? attemptId = _currentAttemptId;
     String? savedAiReview;
@@ -1486,8 +1518,12 @@ class _QuizScreenState extends State<QuizScreen> {
     final currQ = _currentQuestionIndex + 1;
     final progress = currQ / targetQ;
 
-    final subjectStr = _subjectController.text.trim().isEmpty ? 'GERAL' : _subjectController.text.trim().toUpperCase();
-    final topicStr = _topicController.text.trim().isEmpty ? 'SIMULADO TÉCNICO' : _topicController.text.trim().toUpperCase();
+    final subjectStr = _subjectController.text.trim().isEmpty
+        ? context.tr('GERAL')
+        : _subjectController.text.trim().toUpperCase();
+    final topicStr = _topicController.text.trim().isEmpty
+        ? context.tr('SIMULADO TÉCNICO')
+        : _topicController.text.trim().toUpperCase();
     final isFlagged = _flaggedQuestions.contains(_currentQuestionIndex);
     final hasMoreBatches = loadedQ < targetQ;
 
@@ -1501,7 +1537,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SIMULADO · $subjectStr · $topicStr',
+                    context.tr('SIMULADO · {subject} · {topic}', {'subject': subjectStr, 'topic': topicStr}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
@@ -1518,7 +1554,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     runSpacing: 4,
                     children: [
                       Text(
-                        'Questão $currQ / $targetQ',
+                        context.tr('Questão {curr} / {total}', {'curr': currQ, 'total': targetQ}),
                         style: GoogleFonts.manrope(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -1556,10 +1592,10 @@ class _QuizScreenState extends State<QuizScreen> {
                                 const SizedBox(width: 6),
                                 Text(
                                   _isLoadingNextBatch
-                                      ? 'Carregando $loadedQ/$targetQ...'
+                                      ? context.tr('Carregando {loaded}/{total}...', {'loaded': loadedQ, 'total': targetQ})
                                       : (_batchErrorMessage != null
-                                          ? 'Pausado em $loadedQ/$targetQ · Retomar'
-                                          : '$loadedQ/$targetQ carregadas · +Lote'),
+                                          ? context.tr('Pausado em {loaded}/{total} · Retomar', {'loaded': loadedQ, 'total': targetQ})
+                                          : context.tr('{loaded}/{total} carregadas · +Lote', {'loaded': loadedQ, 'total': targetQ})),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -1571,21 +1607,23 @@ class _QuizScreenState extends State<QuizScreen> {
                           ),
                         ),
                       if (_isReviewingSavedAttempt)
-                        const SoftClayTag(
-                          label: 'Modo Revisão',
+                        SoftClayTag(
+                          label: context.tr('Modo Revisão'),
                           color: AsterConstants.menta,
                         ),
                       if (_selectedExamModel != null)
                         SoftClayTag(
-                          label: _selectedExamModel!.name,
+                          label: _selectedExamModel!.localizedName,
                           color: _selectedExamModel!.accent,
                         ),
                       SoftClayTag(
-                        label: _subjectController.text.trim().isNotEmpty ? _subjectController.text.trim() : 'Geral',
+                        label: _subjectController.text.trim().isNotEmpty
+                            ? _subjectController.text.trim()
+                            : context.tr('Geral'),
                         color: AsterConstants.ambar,
                       ),
                       SoftClayTag(
-                        label: _difficulty.split(' / ').first,
+                        label: context.tr(_difficulty.split(' / ').first),
                         color: AsterTheme.primary(context),
                       ),
                     ],
@@ -1596,7 +1634,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             // Botão Finalizar / Revisão IA antecipada
             Tooltip(
-              message: 'Ver comparativo de acertos e análise da IA',
+              message: context.tr('Ver comparativo de acertos e análise da IA'),
               child: InkWell(
                 onTap: _showExamCompletionDialog,
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -1612,7 +1650,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       if (isDesktop) ...[
                         const SizedBox(width: 6),
                         Text(
-                          'Encerrar & Review',
+                          context.tr('Encerrar & Review'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1629,7 +1667,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             // Botão Mapa de Questões (Essencial para simulados de 30 a 120 questões)
             Tooltip(
-              message: 'Abrir mapa completo das questões',
+              message: context.tr('Abrir mapa completo das questões'),
               child: InkWell(
                 onTap: _showQuestionNavigatorDialog,
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -1646,7 +1684,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       if (isDesktop) ...[
                         const SizedBox(width: 6),
                         Text(
-                          'Mapa ($currQ/$loadedQ)',
+                          context.tr('Mapa ({curr}/{loaded})', {'curr': currQ, 'loaded': loadedQ}),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1692,7 +1730,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isExpired ? '00:00 · Esgotado' : _formatTimer(secs),
+                        isExpired ? context.tr('00:00 · Esgotado') : _formatTimer(secs),
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
@@ -1708,7 +1746,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             // Botão Flag (Marcar para Revisão)
             Tooltip(
-              message: isFlagged ? 'Desmarcar revisão' : 'Marcar para revisão',
+              message: isFlagged ? context.tr('Desmarcar revisão') : context.tr('Marcar para revisão'),
               child: InkWell(
                 onTap: () {
                   setState(() {
@@ -1741,7 +1779,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             // Botão Fechar Simulado
             Tooltip(
-              message: 'Sair do Simulado e voltar ao Gerador',
+              message: context.tr('Sair do Simulado e voltar ao Gerador'),
               child: Container(
                 width: 36,
                 height: 36,
@@ -1758,15 +1796,15 @@ class _QuizScreenState extends State<QuizScreen> {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-                        title: Text('Sair do Simulado?', style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
+                        title: Text(ctx.tr('Sair do Simulado?'), style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
                         content: Text(
-                          'Seu progresso atual nesta sessão será encerrado e você voltará ao menu de geração.',
+                          ctx.tr('Seu progresso atual nesta sessão será encerrado e você voltará ao menu de geração.'),
                           style: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(context)),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Continuar Prova'),
+                            child: Text(ctx.tr('Continuar Prova')),
                           ),
                           if (!_isReviewingSavedAttempt && _userAnswers.isNotEmpty)
                             TextButton(
@@ -1783,7 +1821,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   _examTimer?.cancel();
                                 });
                               },
-                              child: const Text('Salvar e Sair'),
+                              child: Text(ctx.tr('Salvar e Sair')),
                             ),
                           ElevatedButton(
                             onPressed: () {
@@ -1798,7 +1836,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                 _examTimer?.cancel();
                               });
                             },
-                            child: const Text('Sair'),
+                            child: Text(ctx.tr('Sair')),
                           ),
                         ],
                       ),
@@ -1824,7 +1862,10 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              '${(progress * 100).toInt()}% (${_userAnswers.length}/$targetQ resp.)',
+              context.tr(
+                '{pct}% ({answered}/{total} resp.)',
+                {'pct': (progress * 100).toInt(), 'answered': _userAnswers.length, 'total': targetQ},
+              ),
               style: GoogleFonts.manrope(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -1919,7 +1960,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF27C93F), shape: BoxShape.circle)),
                           const SizedBox(width: 12),
                           Text(
-                            'material / código de referência',
+                            context.tr('material / código de referência'),
                             style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterTheme.textMuted(context)),
                           ),
                         ],
@@ -1963,7 +2004,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           const Icon(Icons.check_circle_rounded, size: 14, color: AsterConstants.menta),
                           const SizedBox(width: 6),
                           Text(
-                            'Gabarito: $correctLetter',
+                            context.tr('Gabarito: {letter}', {'letter': correctLetter}),
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -1981,7 +2022,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       ),
                       child: Text(
-                        '+10 XP',
+                        context.tr('+{xp} XP', {'xp': 10}),
                         style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: AsterTheme.primary(context)),
                       ),
                     ),
@@ -2005,7 +2046,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      'FONTES RAG: ',
+                      context.tr('FONTES RAG: '),
                       style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: AsterTheme.textMuted(context)),
                     ),
                     ...rawSources.map(_buildRagChip),
@@ -2061,8 +2102,7 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
       blockquoteDecoration: BoxDecoration(
         color: AsterTheme.surfaceAlt(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border(left: BorderSide(color: AsterTheme.primary(context), width: 3)),
+        border: BorderDirectional(start: BorderSide(color: AsterTheme.primary(context), width: 3)),
       ),
       blockquotePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       code: GoogleFonts.jetBrainsMono(
@@ -2099,7 +2139,7 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     final subj = _subjectController.text.trim();
-    return subj.isNotEmpty ? subj : 'Conhecimentos Gerais';
+    return subj.isNotEmpty ? subj : context.tr('Conhecimentos Gerais');
   }
 
   /// Separa dinamicamente Texto de Apoio / Contexto / Fonte / Enunciado para exibição editorial.
@@ -2120,7 +2160,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (cleanSupport.isNotEmpty) {
       parsed.add(
         _extractSourceCitation(
-          label: 'Texto de Apoio',
+          label: context.tr('Texto de Apoio'),
           isSupporting: true,
           rawBody: cleanSupport,
           explicitSource: cleanSource,
@@ -2156,59 +2196,61 @@ class _QuizScreenState extends State<QuizScreen> {
 
       if (block.isSupportingText) {
         widgets.add(
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            decoration: BoxDecoration(
-              color: AsterTheme.surfaceAlt(context),
-              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-              border: Border(
-                left: BorderSide(
-                  color: (_selectedExamModel?.accent ?? AsterTheme.primary(context)).withValues(alpha: 0.75),
-                  width: 3.5,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: AsterTheme.surfaceAlt(context),
+                border: BorderDirectional(
+                  start: BorderSide(
+                    color: (_selectedExamModel?.accent ?? AsterTheme.primary(context)).withValues(alpha: 0.75),
+                    width: 3.5,
+                  ),
                 ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (block.label != null) ...[
-                  Text(
-                    block.label!.toUpperCase(),
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
-                      color: _selectedExamModel?.accent ?? AsterTheme.primary(context),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                MarkdownBody(
-                  data: block.body,
-                  selectable: true,
-                  styleSheet: _buildMarkdownStyle(
-                    fontSize: 14.2,
-                    height: 1.65,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (block.sourceCitation != null) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      block.sourceCitation!,
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: AsterTheme.textMuted(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (block.label != null) ...[
+                    Text(
+                      block.label!.toUpperCase(),
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                        color: _selectedExamModel?.accent ?? AsterTheme.primary(context),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                  ],
+                  MarkdownBody(
+                    data: block.body,
+                    selectable: true,
+                    styleSheet: _buildMarkdownStyle(
+                      fontSize: 14.2,
+                      height: 1.65,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
+                  if (block.sourceCitation != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Text(
+                        block.sourceCitation!,
+                        textAlign: TextAlign.end,
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: AsterTheme.textMuted(context),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         );
@@ -2248,10 +2290,10 @@ class _QuizScreenState extends State<QuizScreen> {
               if (block.sourceCitation != null) ...[
                 const SizedBox(height: 6),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: Text(
                     block.sourceCitation!,
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.end,
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontStyle: FontStyle.italic,
@@ -2281,26 +2323,7 @@ class _QuizScreenState extends State<QuizScreen> {
       caseSensitive: false,
     );
 
-    const supportingKeys = {
-      'texto-base',
-      'texto base',
-      'texto de apoio',
-      'passage',
-      'stimulus',
-      'estímulo',
-      'estimulo',
-      'vignette',
-      'vinheta',
-      'cenário',
-      'cenario',
-      'scenario',
-      'contexto',
-      'context',
-      'caso clínico',
-      'caso clinico',
-      'extrait',
-      'fragmento',
-    };
+    const supportingKeys = kQuizSupportingHeaderKeys;
 
     final lines = text.split('\n');
     final explicitSections = <({String? label, bool isSupporting, List<String> lines})>[];
@@ -2403,61 +2426,7 @@ class _QuizScreenState extends State<QuizScreen> {
       final earlier = paragraphs.sublist(0, paragraphs.length - 1).join('\n\n');
       final lastLower = last.toLowerCase();
 
-      const stemOpeners = [
-        'considerando',
-        'com base',
-        'assinale',
-        'diante',
-        'segundo ',
-        'de acordo',
-        'infere-se',
-        'conclui-se',
-        'depreende-se',
-        'identifica-se',
-        'evidencia-se',
-        'observa-se',
-        'nota-se',
-        'verifica-se',
-        'a partir',
-        'tendo em vista',
-        'analisando',
-        'no texto',
-        'o texto',
-        'o trecho',
-        'no trecho',
-        'o fragmento',
-        'a leitura',
-        'a linguagem',
-        'o poema',
-        'a crônica',
-        'a charge',
-        'o gráfico',
-        'a tabela',
-        'na situação',
-        'nessa perspectiva',
-        'nesse contexto',
-        'nesse sentido',
-        'dessa forma',
-        'qual ',
-        'quais ',
-        'como ',
-        'por que ',
-        'em relação',
-        'acerca d',
-        'indique ',
-        'marque ',
-        'aponte ',
-        'determine ',
-        'calcule ',
-        'which of the following',
-        'based on',
-        'according to',
-        'what ',
-        'why ',
-        'how ',
-        'según ',
-        'selon ',
-      ];
+      const stemOpeners = kQuizInterrogativeStemOpeners;
 
       final incompleteStemSuffixRegex = RegExp(
         r'\b(o|a|os|as|um|uma|de|do|da|dos|das|em|no|na|nos|nas|ao|à|aos|às|para|por|pelo|pela|pelos|pelas|com|sobre|entre|que|como|qual|quando|onde|é|são|foi|eram|ser|se|revela|revelam|indica|indicam|permite|permitem|constitui|constituem|representa|representam|evidencia|evidenciam|demonstra|demonstram|of|to|the|a|an|in|by|for|with|from|that)$',
@@ -2619,7 +2588,7 @@ class _QuizScreenState extends State<QuizScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'SELECIONE UMA ALTERNATIVA',
+          context.tr('SELECIONE UMA ALTERNATIVA'),
           style: GoogleFonts.manrope(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -2770,21 +2739,21 @@ class _QuizScreenState extends State<QuizScreen> {
     final nextBatchSize =
         remainingToLoad > GeminiService.quizBatchSize ? GeminiService.quizBatchSize : remainingToLoad;
 
-    String rightBtnText = 'Próxima';
+    String rightBtnText = context.tr('Próxima');
     IconData? rightBtnIcon = Icons.arrow_forward_rounded;
     VoidCallback? rightBtnAction = () => setState(() => _currentQuestionIndex++);
 
     if (isLastOverall) {
-      rightBtnText = 'Finalizar Prova';
+      rightBtnText = context.tr('Finalizar Prova');
       rightBtnIcon = Icons.check_circle_rounded;
       rightBtnAction = _showExamCompletionDialog;
     } else if (isAtLoadedEnd && hasMoreBatches) {
       if (_isLoadingNextBatch) {
-        rightBtnText = 'Carregando +$nextBatchSize Q...';
+        rightBtnText = context.tr('Carregando +{count} Q...', {'count': nextBatchSize});
         rightBtnIcon = null;
         rightBtnAction = null;
       } else {
-        rightBtnText = 'Próximo Lote (+$nextBatchSize Q)';
+        rightBtnText = context.tr('Próximo Lote (+{count} Q)', {'count': nextBatchSize});
         rightBtnIcon = Icons.auto_awesome_rounded;
         rightBtnAction = () => _continueLoadingRemainingBatches(
               _examSessionToken,
@@ -2796,7 +2765,7 @@ class _QuizScreenState extends State<QuizScreen> {
     return Row(
       children: [
         SoftClayPillButton(
-          text: 'Anterior',
+          text: context.tr('Anterior'),
           icon: Icons.arrow_back_rounded,
           isSecondary: true,
           onPressed: _currentQuestionIndex > 0
@@ -2820,7 +2789,7 @@ class _QuizScreenState extends State<QuizScreen> {
               children: [
                 if (windowStart > 0)
                   Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsetsDirectional.only(end: 4),
                     child: Text('…', style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterTheme.textMuted(context))),
                   ),
                 ...List.generate(windowEnd - windowStart, (offset) {
@@ -2850,13 +2819,16 @@ class _QuizScreenState extends State<QuizScreen> {
                 }),
                 if (windowEnd < loadedQ)
                   Padding(
-                    padding: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsetsDirectional.only(start: 4),
                     child: Text('…', style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AsterTheme.textMuted(context))),
                   ),
                 const SizedBox(width: 8),
                 Text(
                   hasMoreBatches
-                      ? '${_currentQuestionIndex + 1}/$targetQ ($loadedQ pr.)'
+                      ? context.tr(
+                          '{curr}/{total} ({loaded} pr.)',
+                          {'curr': _currentQuestionIndex + 1, 'total': targetQ, 'loaded': loadedQ},
+                        )
                       : '${_currentQuestionIndex + 1}/$targetQ',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11,
@@ -2891,14 +2863,14 @@ class _QuizScreenState extends State<QuizScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _modeToggleOption(
-            label: 'Novo Simulado',
+            label: context.tr('Novo Simulado'),
             icon: Icons.auto_awesome,
             selected: !_showSavedHistory,
             onTap: () => setState(() => _showSavedHistory = false),
           ),
           const SizedBox(width: 4),
           _modeToggleOption(
-            label: savedCount > 0 ? 'Realizados ($savedCount)' : 'Realizados',
+            label: savedCount > 0 ? context.tr('Realizados ({count})', {'count': savedCount}) : context.tr('Realizados'),
             icon: Icons.history_rounded,
             selected: _showSavedHistory,
             onTap: () {
@@ -2946,12 +2918,8 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   String _formatDateTimeShort(DateTime dt) {
-    final d = dt.day.toString().padLeft(2, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final y = dt.year.toString();
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    return '$d/$m/$y · $hh:$mm';
+    final loc = NoesisLocaleService.intlLocale;
+    return '${DateFormat.yMd(loc).format(dt)} · ${DateFormat.Hm(loc).format(dt)}';
   }
 
   Widget _buildSavedHistoryCard(bool isDesktop) {
@@ -2977,10 +2945,10 @@ class _QuizScreenState extends State<QuizScreen> {
       final meta = metaByAttemptId[attempt.id];
       final uid = meta?.sharedByUserId ?? '';
       final member = group?.memberFor(uid);
-      final name = member?.displayName ?? meta?.sharedByName ?? 'Estudante';
+      final name = member?.displayName ?? meta?.sharedByName ?? context.tr('Estudante');
       final handle = (member?.username.isNotEmpty == true)
           ? member!.username
-          : (meta?.sharedByHandle.isNotEmpty == true ? meta!.sharedByHandle : 'estudante');
+          : (meta?.sharedByHandle.isNotEmpty == true ? meta!.sharedByHandle : context.tr('estudante'));
       return (
         userId: uid,
         displayName: name,
@@ -3019,12 +2987,12 @@ class _QuizScreenState extends State<QuizScreen> {
       final attempts = entry.value;
       final member = group?.memberFor(uid);
       final firstMeta = groupExamItems.where((e) => e.sharedByUserId == uid).firstOrNull;
-      final name = member?.displayName ?? firstMeta?.sharedByName ?? 'Estudante';
+      final name = member?.displayName ?? firstMeta?.sharedByName ?? context.tr('Estudante');
       final handle = (member?.username.isNotEmpty == true)
           ? member!.username
           : (firstMeta?.sharedByHandle.isNotEmpty == true
               ? firstMeta!.sharedByHandle
-              : 'estudante');
+              : context.tr('estudante'));
       final avgPct = (attempts.fold<double>(0, (acc, a) => acc + a.scorePercentage) /
               attempts.length)
           .round();
@@ -3128,8 +3096,8 @@ class _QuizScreenState extends State<QuizScreen> {
                               children: [
                                 Text(
                                   widget.groupScope != null
-                                      ? 'SIMULADOS DO GRUPO & EVOLUÇÃO'
-                                      : 'SIMULADOS REALIZADOS & EVOLUÇÃO',
+                                      ? context.tr('SIMULADOS DO GRUPO & EVOLUÇÃO')
+                                      : context.tr('SIMULADOS REALIZADOS & EVOLUÇÃO'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w900,
@@ -3139,7 +3107,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Revise questões, consulte o gabarito e compare seu desempenho ao longo das tentativas',
+                              context.tr('Revise questões, consulte o gabarito e compare seu desempenho ao longo das tentativas'),
                               style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                             ),
                           ],
@@ -3160,7 +3128,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             key: const Key('group_attach_exam_button'),
                             onPressed: widget.groupScope!.onAttachExisting,
                             icon: const Icon(Icons.attach_file_rounded, size: 16),
-                            label: const Text('Anexar Meu Simulado'),
+                            label: Text(context.tr('Anexar Meu Simulado')),
                           ),
                         _buildTopModeToggle(),
                       ],
@@ -3190,7 +3158,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       size: 40, color: AsterTheme.primary(context).withValues(alpha: 0.65)),
                   const SizedBox(height: 12),
                   Text(
-                    'Nenhum simulado salvo ainda',
+                    context.tr('Nenhum simulado salvo ainda'),
                     style: GoogleFonts.manrope(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -3199,13 +3167,13 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Ao finalizar qualquer simulado (ou clicar em "Encerrar & Review"), ele fica salvo aqui automaticamente para você revisar e acompanhar sua evolução.',
+                    context.tr('Ao finalizar qualquer simulado (ou clicar em "Encerrar & Review"), ele fica salvo aqui automaticamente para você revisar e acompanhar sua evolução.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
                   ),
                   const SizedBox(height: 16),
                   SoftClayPillButton(
-                    text: 'Gerar Primeiro Simulado',
+                    text: context.tr('Gerar Primeiro Simulado'),
                     icon: Icons.auto_awesome,
                     onPressed: () => setState(() => _showSavedHistory = false),
                   ),
@@ -3225,20 +3193,20 @@ class _QuizScreenState extends State<QuizScreen> {
                 runSpacing: 12,
                 alignment: WrapAlignment.spaceAround,
                 children: [
-                  _historyMetricTile('Simulados Salvos', '${all.length}', AsterTheme.primary(context)),
-                  _historyMetricTile('Provas Distintas', '${grouped.length}', AsterConstants.ambar),
+                  _historyMetricTile(context.tr('Simulados Salvos'), '${all.length}', AsterTheme.primary(context)),
+                  _historyMetricTile(context.tr('Provas Distintas'), '${grouped.length}', AsterConstants.ambar),
                   _historyMetricTile(
-                    group != null ? 'Média do Grupo' : 'Média Geral',
+                    group != null ? context.tr('Média do Grupo') : context.tr('Média Geral'),
                     '$avgScore%',
                     AsterConstants.menta,
                   ),
                   if (group != null)
                     _historyMetricTile(
-                      'Participantes',
+                      context.tr('Participantes'),
                       '${memberPerformances.length}',
                       AsterTheme.secondary(context),
                     ),
-                  _historyMetricTile('Questões Respondidas', '$totalQuestionsAnswered', AsterTheme.text(context)),
+                  _historyMetricTile(context.tr('Questões Respondidas'), '$totalQuestionsAnswered', AsterTheme.text(context)),
                 ],
               ),
             ),
@@ -3249,7 +3217,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'DESEMPENHO POR MEMBRO NOS REALIZADOS (${memberPerformances.length})',
+                      context.tr('DESEMPENHO POR MEMBRO NOS REALIZADOS ({count})', {'count': memberPerformances.length}),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -3261,7 +3229,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   if (_historyMemberFilter != null)
                     TextButton(
                       onPressed: () => setState(() => _historyMemberFilter = null),
-                      child: const Text('Mostrar todos os membros'),
+                      child: Text(context.tr('Mostrar todos os membros')),
                     ),
                 ],
               ),
@@ -3345,7 +3313,19 @@ class _QuizScreenState extends State<QuizScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '${entry.attempts.length} ${entry.attempts.length == 1 ? 'simulado realizado' : 'simulados realizados'} · ${entry.totalCorrect}/${entry.totalLoaded} acertos',
+                                          entry.attempts.length == 1
+                                              ? context.tr(
+                                                  '1 simulado realizado · {correct}/{loaded} acertos',
+                                                  {'correct': entry.totalCorrect, 'loaded': entry.totalLoaded},
+                                                )
+                                              : context.tr(
+                                                  '{count} simulados realizados · {correct}/{loaded} acertos',
+                                                  {
+                                                    'count': entry.attempts.length,
+                                                    'correct': entry.totalCorrect,
+                                                    'loaded': entry.totalLoaded,
+                                                  },
+                                                ),
                                           style: GoogleFonts.manrope(
                                             fontSize: 11,
                                             color: AsterTheme.textMuted(context),
@@ -3360,11 +3340,11 @@ class _QuizScreenState extends State<QuizScreen> {
                                     runSpacing: 4,
                                     children: [
                                       SoftClayTag(
-                                        label: 'Média ${entry.avgPct}%',
+                                        label: context.tr('Média {pct}%', {'pct': entry.avgPct}),
                                         color: avgColor,
                                       ),
                                       SoftClayTag(
-                                        label: 'Melhor ${entry.bestPct}%',
+                                        label: context.tr('Melhor {pct}%', {'pct': entry.bestPct}),
                                         color: AsterTheme.primary(context),
                                       ),
                                     ],
@@ -3387,7 +3367,7 @@ class _QuizScreenState extends State<QuizScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'DESEMPENHO POR SIMULADO (ÚLTIMAS REALIZAÇÕES)',
+                    context.tr('DESEMPENHO POR SIMULADO (ÚLTIMAS REALIZAÇÕES)'),
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -3399,7 +3379,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 if (_historyGroupFilter != null)
                   TextButton(
                     onPressed: () => setState(() => _historyGroupFilter = null),
-                    child: const Text('Mostrar todos'),
+                    child: Text(context.tr('Mostrar todos')),
                   ),
               ],
             ),
@@ -3417,7 +3397,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   final isSelected = _historyGroupFilter == entry.key;
 
                   return Padding(
-                    padding: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsetsDirectional.only(end: 10),
                     child: InkWell(
                       onTap: () => setState(() {
                         _historyGroupFilter = isSelected ? null : entry.key;
@@ -3476,7 +3456,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             Row(
                               children: [
                                 Text(
-                                  'Última: ${latest.scorePercentage.round()}%',
+                                  context.tr('Última: {pct}%', {'pct': latest.scorePercentage.round()}),
                                   style: GoogleFonts.manrope(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
@@ -3488,7 +3468,10 @@ class _QuizScreenState extends State<QuizScreen> {
                                 if (delta != null) ...[
                                   const SizedBox(width: 8),
                                   Text(
-                                    delta >= 0 ? '+$delta% vs ant.' : '$delta% vs ant.',
+                                    context.tr(
+                                      '{delta}% vs ant.',
+                                      {'delta': delta >= 0 ? '+$delta' : '$delta'},
+                                    ),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -3500,7 +3483,10 @@ class _QuizScreenState extends State<QuizScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Últimas: ${groupAttempts.take(4).map((a) => "${a.scorePercentage.round()}%").join(" · ")}',
+                              context.tr(
+                                'Últimas: {scores}',
+                                {'scores': groupAttempts.take(4).map((a) => '${a.scorePercentage.round()}%').join(' · ')},
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.jetBrainsMono(
@@ -3541,7 +3527,7 @@ class _QuizScreenState extends State<QuizScreen> {
             const SizedBox(height: 22),
 
             Text(
-              'HISTÓRICO DE TENTATIVAS (${filtered.length})',
+              context.tr('HISTÓRICO DE TENTATIVAS ({count})', {'count': filtered.length}),
               style: GoogleFonts.manrope(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -3572,15 +3558,17 @@ class _QuizScreenState extends State<QuizScreen> {
                   (author?.userId == StudyGroupsService.currentUserId) ||
                   group.canUserRemoveContent(StudyGroupsService.currentUserId);
 
-              return Container(
-                key: group != null ? Key('group_exam_attempt_${attempt.id}') : null,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AsterTheme.surfaceAlt(context),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                  border: Border(left: BorderSide(color: scoreColor, width: 4)),
-                ),
+                  child: Container(
+                    key: group != null ? Key('group_exam_attempt_${attempt.id}') : null,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AsterTheme.surfaceAlt(context),
+                      border: BorderDirectional(start: BorderSide(color: scoreColor, width: 4)),
+                    ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -3655,21 +3643,33 @@ class _QuizScreenState extends State<QuizScreen> {
                                   ),
                                   if (deltaVsPrev != null)
                                     SoftClayTag(
-                                      label: deltaVsPrev >= 0
-                                          ? '+$deltaVsPrev% vs última'
-                                          : '$deltaVsPrev% vs última',
+                                      label: context.tr(
+                                        '{delta}% vs última',
+                                        {'delta': deltaVsPrev >= 0 ? '+$deltaVsPrev' : '$deltaVsPrev'},
+                                      ),
                                       color: deltaVsPrev >= 0 ? AsterConstants.menta : AsterConstants.coral,
                                     ),
                                   if (attempt.timeExpired)
-                                    const SoftClayTag(
-                                      label: 'Tempo Esgotado',
+                                    SoftClayTag(
+                                      label: context.tr('Tempo Esgotado'),
                                       color: AsterConstants.coral,
                                     ),
                                 ],
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${attempt.subject} · ${_formatDateTimeShort(attempt.createdAt)} · Duração: ${mins}m ${secs.toString().padLeft(2, "0")}s · ${attempt.correctCount} acertos, ${attempt.wrongCount} erros, ${attempt.blankCount} em branco',
+                                context.tr(
+                                  '{subject} · {date} · Duração: {mins}m {secs}s · {correct} acertos, {wrong} erros, {blank} em branco',
+                                  {
+                                    'subject': attempt.subject,
+                                    'date': _formatDateTimeShort(attempt.createdAt),
+                                    'mins': mins,
+                                    'secs': secs.toString().padLeft(2, '0'),
+                                    'correct': attempt.correctCount,
+                                    'wrong': attempt.wrongCount,
+                                    'blank': attempt.blankCount,
+                                  },
+                                ),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   color: AsterTheme.textMuted(context),
@@ -3683,7 +3683,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
-                                      'Notas nesta prova:',
+                                      context.tr('Notas nesta prova:'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
@@ -3707,7 +3707,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         ),
                         if (canDelete)
                           IconButton(
-                            tooltip: 'Excluir do histórico',
+                            tooltip: context.tr('Excluir do histórico'),
                             onPressed: () => _deleteSavedAttempt(attempt.id),
                             icon: Icon(Icons.delete_outline_rounded, size: 18, color: AsterTheme.textMuted(context)),
                           ),
@@ -3721,25 +3721,27 @@ class _QuizScreenState extends State<QuizScreen> {
                         OutlinedButton.icon(
                           onPressed: () => _openSavedAttemptForReview(attempt),
                           icon: const Icon(Icons.visibility_outlined, size: 15),
-                          label: const Text('Revisar Questões'),
+                          label: Text(context.tr('Revisar Questões')),
                         ),
                         OutlinedButton.icon(
                           onPressed: () => _openSavedAttemptCompletionReport(attempt),
                           icon: const Icon(Icons.analytics_outlined, size: 15),
-                          label: const Text('Ver Comparativo & Review IA'),
+                          label: Text(context.tr('Ver Comparativo & Review IA')),
                         ),
                         ElevatedButton.icon(
                           onPressed: () => _retakeSavedAttempt(attempt),
                           icon: const Icon(Icons.replay_rounded, size: 15),
                           label: Text(
                             group != null && author?.userId != StudyGroupsService.currentUserId
-                                ? 'Responder Simulado'
-                                : 'Refazer Simulado',
+                                ? context.tr('Responder Simulado')
+                                : context.tr('Refazer Simulado'),
                           ),
                         ),
                       ],
                     ),
                   ],
+                ),
+                  ),
                 ),
               );
             }),
@@ -3773,9 +3775,12 @@ class _QuizScreenState extends State<QuizScreen> {
     final filteredModels = ExamModelsCatalog.byCategory(_selectedCategory).where((m) {
       if (query.isEmpty) return true;
       return m.name.toLowerCase().contains(query) ||
+          m.localizedName.toLowerCase().contains(query) ||
           m.badge.toLowerCase().contains(query) ||
           m.topic.toLowerCase().contains(query) ||
-          m.subject.toLowerCase().contains(query);
+          m.localizedTopic.toLowerCase().contains(query) ||
+          m.subject.toLowerCase().contains(query) ||
+          m.localizedSubject.toLowerCase().contains(query);
     }).toList();
 
     final estimatedMinutes = _questionCount * 2;
@@ -3819,8 +3824,8 @@ class _QuizScreenState extends State<QuizScreen> {
                               children: [
                                 Text(
                                   widget.groupScope != null
-                                      ? 'SIMULADOS DO GRUPO COM IA'
-                                      : 'GERAR NOVO SIMULADO COM IA',
+                                      ? context.tr('SIMULADOS DO GRUPO COM IA')
+                                      : context.tr('GERAR NOVO SIMULADO COM IA'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w900,
@@ -3830,7 +3835,13 @@ class _QuizScreenState extends State<QuizScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Escolha o modelo oficial da prova (38 bancas), defina até ${GeminiService.quizMaxQuestions} questões ou anexe apostilas RAG',
+                                  context.tr(
+                                    'Escolha o modelo oficial da prova ({count} bancas), defina até {max} questões ou anexe apostilas RAG',
+                                    {
+                                      'count': ExamModelsCatalog.models.length,
+                                      'max': GeminiService.quizMaxQuestions,
+                                    },
+                                  ),
                                   style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                                 ),
                               ],
@@ -3851,7 +3862,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             key: const Key('group_attach_exam_button'),
                             onPressed: widget.groupScope!.onAttachExisting,
                             icon: const Icon(Icons.attach_file_rounded, size: 16),
-                            label: const Text('Anexar Meu Simulado'),
+                            label: Text(context.tr('Anexar Meu Simulado')),
                           ),
                         _buildTopModeToggle(),
                         Container(
@@ -4023,11 +4034,11 @@ class _QuizScreenState extends State<QuizScreen> {
                 selected: !isFreeMode,
                 accent: primaryCol,
                 icon: Icons.verified_rounded,
-                title: 'Modelo de Prova Oficial (${ExamModelsCatalog.models.length})',
+                title: context.tr('Modelo de Prova Oficial ({count})', {'count': ExamModelsCatalog.models.length}),
                 subtitle: _selectedExamModel != null
-                    ? 'Ativo: ${_selectedExamModel!.name}'
-                    : 'ENEM, FUVEST, OAB, Certificações e mais',
-                badge: !isFreeMode ? 'Ativo' : 'Bancas',
+                    ? context.tr('Ativo: {name}', {'name': _selectedExamModel!.localizedName})
+                    : context.tr('ENEM, FUVEST, OAB, Certificações e mais'),
+                badge: !isFreeMode ? context.tr('Ativo') : context.tr('Bancas'),
                 onTap: () {
                   if (_selectedExamModel == null) {
                     _selectExamModel(ExamModelsCatalog.models.first);
@@ -4040,9 +4051,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 selected: isFreeMode,
                 accent: freeAccent,
                 icon: Icons.auto_awesome_rounded,
-                title: 'Modo Livre (Sem Modelo)',
-                subtitle: 'Matéria, tópico, nível e quantidade 100% livres',
-                badge: isFreeMode ? 'Ativo' : 'Personalizado',
+                title: context.tr('Modo Livre (Sem Modelo)'),
+                subtitle: context.tr('Matéria, tópico, nível e quantidade 100% livres'),
+                badge: isFreeMode ? context.tr('Ativo') : context.tr('Personalizado'),
                 onTap: () => _selectExamModel(null),
               );
 
@@ -4051,7 +4062,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'FORMATO DO SIMULADO',
+                    context.tr('FORMATO DO SIMULADO'),
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -4119,7 +4130,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Modo Livre Ativo · Criação Personalizada',
+                                context.tr('Modo Livre Ativo · Criação Personalizada'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w800,
@@ -4128,7 +4139,7 @@ class _QuizScreenState extends State<QuizScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Escolha livremente a área, tópico, profundidade e quantidade de questões logo abaixo.',
+                                context.tr('Escolha livremente a área, tópico, profundidade e quantidade de questões logo abaixo.'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   color: AsterTheme.textMuted(context),
@@ -4143,7 +4154,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   OutlinedButton.icon(
                     onPressed: () => _selectExamModel(ExamModelsCatalog.models.first),
                     icon: const Icon(Icons.verified_outlined, size: 15),
-                    label: const Text('Usar Modelo Oficial'),
+                    label: Text(context.tr('Usar Modelo Oficial')),
                   ),
                 ],
               ),
@@ -4162,7 +4173,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       final catColor = _resolveExamAccent(cat.color);
                       final catOnColor = _onAccentColor(catColor);
                       return Padding(
-                        padding: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsetsDirectional.only(end: 6),
                         child: InkWell(
                           onTap: () => setState(() => _selectedCategory = cat),
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -4178,7 +4189,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                 Icon(cat.icon, size: 13, color: isSelected ? catOnColor : AsterTheme.textMuted(context)),
                                 const SizedBox(width: 5),
                                 Text(
-                                  '${cat.label} ($count)',
+                                  '${cat.localizedLabel} ($count)',
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -4204,7 +4215,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      hintText: 'Filtrar prova (ENEM, SAT, OAB...)',
+                      hintText: context.tr('Filtrar prova (ENEM, SAT, OAB...)'),
                       prefixIcon: Icon(Icons.search_rounded, size: 16, color: AsterTheme.textMuted(context)),
                       suffixIcon: _examSearchController.text.isNotEmpty
                           ? IconButton(
@@ -4229,7 +4240,7 @@ class _QuizScreenState extends State<QuizScreen> {
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                hintText: 'Filtrar prova (ENEM, FUVEST, SAT, DELE, OAB...)',
+                hintText: context.tr('Filtrar prova (ENEM, FUVEST, SAT, DELE, OAB...)'),
                 prefixIcon: Icon(Icons.search_rounded, size: 16, color: AsterTheme.textMuted(context)),
                 suffixIcon: _examSearchController.text.isNotEmpty
                     ? IconButton(
@@ -4258,7 +4269,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(18),
                       child: Text(
-                        'Nenhum modelo encontrado para "${_examSearchController.text}".',
+                        context.tr('Nenhum modelo encontrado para "{query}".', {'query': _examSearchController.text}),
                         style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                       ),
                     ),
@@ -4294,7 +4305,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                 Icon(model.icon, size: 15, color: isSelected ? accent : AsterTheme.text(context)),
                                 const SizedBox(width: 6),
                                 Text(
-                                  model.name,
+                                  model.localizedName,
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -4349,7 +4360,13 @@ class _QuizScreenState extends State<QuizScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Modelo Selecionado: ${_selectedExamModel!.name} · ${_selectedExamModel!.optionsFormat}',
+                              context.tr(
+                                'Modelo Selecionado: {name} · {format}',
+                                {
+                                  'name': _selectedExamModel!.localizedName,
+                                  'format': _selectedExamModel!.localizedOptionsFormat,
+                                },
+                              ),
                               style: GoogleFonts.manrope(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
@@ -4360,7 +4377,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           TextButton.icon(
                             onPressed: () => _showBlueprintPreviewDialog(_selectedExamModel!),
                             icon: const Icon(Icons.menu_book_outlined, size: 15),
-                            label: const Text('Ver Parâmetros (.md)'),
+                            label: Text(context.tr('Ver Parâmetros (.md)')),
                             style: TextButton.styleFrom(
                               foregroundColor: modelAccent,
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -4371,7 +4388,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _selectedExamModel!.summary,
+                        _selectedExamModel!.localizedSummary,
                         style: GoogleFonts.manrope(fontSize: 11.5, color: AsterTheme.textMuted(context)),
                       ),
                       const SizedBox(height: 8),
@@ -4401,7 +4418,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    'Espelhar regras da banca (.md) na IA',
+                                    context.tr('Espelhar regras da banca (.md) na IA'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -4438,8 +4455,8 @@ class _QuizScreenState extends State<QuizScreen> {
                                   const SizedBox(width: 4),
                                   Text(
                                     (_questionCount == 15 && _selectedExamModel!.recommendedCount != 15)
-                                        ? 'Prova Completa (${_selectedExamModel!.recommendedCount} Q)'
-                                        : 'Treino Rápido (15 Q)',
+                                        ? context.tr('Prova Completa ({count} Q)', {'count': _selectedExamModel!.recommendedCount})
+                                        : context.tr('Treino Rápido (15 Q)'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -4469,8 +4486,8 @@ class _QuizScreenState extends State<QuizScreen> {
                   child: TextField(
                     controller: _subjectController,
                     decoration: InputDecoration(
-                      labelText: 'Área / Matéria',
-                      hintText: 'Ex: Cybersegurança, Matemática, Constitucional...',
+                      labelText: context.tr('Área / Matéria'),
+                      hintText: context.tr('Ex: Cybersegurança, Matemática, Constitucional...'),
                       prefixIcon: Icon(Icons.category_outlined, size: 18, color: AsterTheme.primary(context)),
                     ),
                   ),
@@ -4480,8 +4497,8 @@ class _QuizScreenState extends State<QuizScreen> {
                   child: TextField(
                     controller: _topicController,
                     decoration: InputDecoration(
-                      labelText: 'Tópico ou Exame',
-                      hintText: 'Ex: ENEM Natureza, CompTIA SY0-701, OAB Ética...',
+                      labelText: context.tr('Tópico ou Exame'),
+                      hintText: context.tr('Ex: ENEM Natureza, CompTIA SY0-701, OAB Ética...'),
                       prefixIcon: Icon(Icons.school_outlined, size: 18, color: AsterTheme.primary(context)),
                     ),
                   ),
@@ -4492,8 +4509,8 @@ class _QuizScreenState extends State<QuizScreen> {
             TextField(
               controller: _subjectController,
               decoration: InputDecoration(
-                labelText: 'Área / Matéria',
-                hintText: 'Ex: Cybersegurança, Cloud...',
+                labelText: context.tr('Área / Matéria'),
+                hintText: context.tr('Ex: Cybersegurança, Cloud...'),
                 prefixIcon: Icon(Icons.category_outlined, size: 18, color: AsterTheme.primary(context)),
               ),
             ),
@@ -4501,8 +4518,8 @@ class _QuizScreenState extends State<QuizScreen> {
             TextField(
               controller: _topicController,
               decoration: InputDecoration(
-                labelText: 'Tópico ou Exame',
-                hintText: 'Ex: CompTIA Security+, ENEM, OAB...',
+                labelText: context.tr('Tópico ou Exame'),
+                hintText: context.tr('Ex: CompTIA Security+, ENEM, OAB...'),
                 prefixIcon: Icon(Icons.school_outlined, size: 18, color: AsterTheme.primary(context)),
               ),
             ),
@@ -4511,7 +4528,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
           // ── Seletor Visual de Dificuldade ──
           Text(
-            'NÍVEL DE PROFUNDIDADE',
+            context.tr('NÍVEL DE PROFUNDIDADE'),
             style: GoogleFonts.manrope(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -4555,7 +4572,7 @@ class _QuizScreenState extends State<QuizScreen> {
             runSpacing: 6,
             children: [
               Text(
-                'QUANTIDADE DE QUESTÕES (3 A ${GeminiService.quizMaxQuestions})',
+                context.tr('QUANTIDADE DE QUESTÕES (3 A {max})', {'max': GeminiService.quizMaxQuestions}),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -4568,14 +4585,17 @@ class _QuizScreenState extends State<QuizScreen> {
                 children: [
                   if (batchCount > 1)
                     Container(
-                      margin: const EdgeInsets.only(right: 8),
+                      margin: const EdgeInsetsDirectional.only(end: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AsterTheme.primary(context).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       ),
                       child: Text(
-                        '$batchCount lotes IA (${GeminiService.quizBatchSize} Q/lote)',
+                        context.tr(
+                          '{batches} lotes IA ({size} Q/lote)',
+                          {'batches': batchCount, 'size': GeminiService.quizBatchSize},
+                        ),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -4615,7 +4635,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                   child: Text(
-                    '$count Q',
+                    context.tr('{count} Q', {'count': count}),
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -4634,7 +4654,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 onPressed: _questionCount > 3 ? () => _setQuestionCount(_questionCount - 1) : null,
                 icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
                 color: AsterTheme.primary(context),
-                tooltip: 'Diminuir 1 questão',
+                tooltip: context.tr('Diminuir 1 questão'),
               ),
               Expanded(
                 child: SliderTheme(
@@ -4658,7 +4678,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 onPressed: _questionCount < GeminiService.quizMaxQuestions ? () => _setQuestionCount(_questionCount + 1) : null,
                 icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
                 color: AsterTheme.primary(context),
-                tooltip: 'Aumentar 1 questão',
+                tooltip: context.tr('Aumentar 1 questão'),
               ),
               const SizedBox(width: 6),
               SizedBox(
@@ -4717,14 +4737,14 @@ class _QuizScreenState extends State<QuizScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Base de Estudo para a IA (Flashcards, Cadernos & Apostilas)',
+                            context.tr('Base de Estudo para a IA (Flashcards, Cadernos & Apostilas)'),
                             style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 13, color: AsterTheme.text(context)),
                           ),
                         ),
                       ],
                     ),
                     subtitle: Text(
-                      'Anexe seus baralhos, cadernos ou edital/PDF para a IA gerar questões com base no seu material',
+                      context.tr('Anexe seus baralhos, cadernos ou edital/PDF para a IA gerar questões com base no seu material'),
                       style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
                     ),
                     value: _useDocument,
@@ -4745,8 +4765,8 @@ class _QuizScreenState extends State<QuizScreen> {
                       icon: const Icon(Icons.style_outlined, size: 16),
                       label: Text(
                         _selectedDeckIds.isEmpty
-                            ? 'Anexar Flashcards'
-                            : 'Flashcards (${_selectedDeckIds.length})',
+                            ? context.tr('Anexar Flashcards')
+                            : context.tr('Flashcards ({count})', {'count': _selectedDeckIds.length}),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -4754,8 +4774,8 @@ class _QuizScreenState extends State<QuizScreen> {
                       icon: const Icon(Icons.menu_book_outlined, size: 16),
                       label: Text(
                         _selectedNotebookIds.isEmpty
-                            ? 'Anexar Cadernos'
-                            : 'Cadernos (${_selectedNotebookIds.length})',
+                            ? context.tr('Anexar Cadernos')
+                            : context.tr('Cadernos ({count})', {'count': _selectedNotebookIds.length}),
                       ),
                     ),
                   ],
@@ -4773,7 +4793,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             (deck) => InputChip(
                               avatar: Icon(Icons.style_rounded, size: 15, color: AsterTheme.primary(context)),
                               label: Text(
-                                '${deck.title} (${deck.cards.length} cards)',
+                                context.tr('{title} ({count} cards)', {'title': deck.title, 'count': deck.cards.length}),
                                 style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700),
                               ),
                               onDeleted: () => setState(() => _selectedDeckIds.remove(deck.id)),
@@ -4785,7 +4805,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             (nb) => InputChip(
                               avatar: const Icon(Icons.menu_book_rounded, size: 15, color: AsterConstants.menta),
                               label: Text(
-                                '${nb.title} (${nb.notes.length} notas)',
+                                context.tr('{title} ({count} notas)', {'title': nb.title, 'count': nb.notes.length}),
                                 style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w700),
                               ),
                               onDeleted: () => setState(() => _selectedNotebookIds.remove(nb.id)),
@@ -4800,7 +4820,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   Row(
                     children: [
                       SoftClayPillButton(
-                        text: 'Anexar PDF / MD / TXT',
+                        text: context.tr('Anexar PDF / MD / TXT'),
                         icon: Icons.attach_file_rounded,
                         isSecondary: true,
                         onPressed: _pickDocumentFile,
@@ -4849,8 +4869,8 @@ class _QuizScreenState extends State<QuizScreen> {
                     maxLines: 3,
                     decoration: InputDecoration(
                       fillColor: AsterTheme.card(context),
-                      labelText: 'Trechos de Provas Anteriores ou Edital',
-                      hintText: 'Cole questões antigas ou ementa técnica para a IA espelhar o estilo da banca...',
+                      labelText: context.tr('Trechos de Provas Anteriores ou Edital'),
+                      hintText: context.tr('Cole questões antigas ou ementa técnica para a IA espelhar o estilo da banca...'),
                     ),
                   ),
                 ],
@@ -4871,7 +4891,10 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Gerando em lotes para garantir precisão sem truncamento: $_generatedProgress / $_generatedTotal questões prontas...',
+              context.tr(
+                'Gerando em lotes para garantir precisão sem truncamento: {progress} / {total} questões prontas...',
+                {'progress': _generatedProgress, 'total': _generatedTotal},
+              ),
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
             ),
@@ -4883,9 +4906,15 @@ class _QuizScreenState extends State<QuizScreen> {
             builder: (context) {
               final btnLabel = _isGenerating
                   ? (_generatedTotal > GeminiService.quizBatchSize
-                      ? 'Gerando $_generatedProgress / $_generatedTotal questões...'
-                      : 'Gerando Simulado com ${GeminiService.currentProvider.label}...')
-                  : 'Criar Prova Interativa ($_questionCount Q) com IA';
+                      ? context.tr(
+                          'Gerando {progress} / {total} questões...',
+                          {'progress': _generatedProgress, 'total': _generatedTotal},
+                        )
+                      : context.tr(
+                          'Gerando Simulado com {provider}...',
+                          {'provider': GeminiService.currentProvider.label},
+                        ))
+                  : context.tr('Criar Prova Interativa ({count} Q) com IA', {'count': _questionCount});
 
               final createBtn = SoftClayPillButton(
                 text: btnLabel,
@@ -4962,7 +4991,7 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              lvl['title'] as String,
+              context.tr(lvl['title'] as String),
               style: GoogleFonts.manrope(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
@@ -4971,7 +5000,7 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
             const SizedBox(height: 3),
             Text(
-              lvl['desc'] as String,
+              context.tr(lvl['desc'] as String),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.manrope(
@@ -5061,7 +5090,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _aiReviewMarkdown = 'Não foi possível gerar a análise automática da IA agora ($e).';
+          _aiReviewMarkdown = NoesisL10n.tr('Não foi possível gerar a análise automática da IA agora ({error}).', {'error': e});
           _isLoadingReview = false;
         });
       }
@@ -5107,7 +5136,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
           index: i,
           status: 'blank',
           stem: shortStem,
-          userLabel: 'Não respondida',
+          userLabel: context.tr('Não respondida'),
           correctLabel: '$rightLetter) $rightText',
         ));
       } else if (selectedIdx == correctIdx) {
@@ -5181,7 +5210,9 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isApproved ? 'Excelente Aproveitamento!' : 'Relatório & Comparativo do Simulado',
+                          isApproved
+                              ? context.tr('Excelente Aproveitamento!')
+                              : context.tr('Relatório & Comparativo do Simulado'),
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -5189,7 +5220,15 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                           ),
                         ),
                         Text(
-                          '${widget.examModelName ?? widget.topic} · $totalLoaded${widget.targetTotalCount > totalLoaded ? "/${widget.targetTotalCount}" : ""} questões · Tempo: ${elapsedMins}m ${elapsedSecs.toString().padLeft(2, "0")}s',
+                          context.tr(
+                            '{name} · {countStr} questões · Tempo: {mins}m {secs}s',
+                            {
+                              'name': widget.examModelName ?? widget.topic,
+                              'countStr': '$totalLoaded${widget.targetTotalCount > totalLoaded ? "/${widget.targetTotalCount}" : ""}',
+                              'mins': elapsedMins,
+                              'secs': elapsedSecs.toString().padLeft(2, '0'),
+                            },
+                          ),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             color: AsterTheme.textMuted(context),
@@ -5218,11 +5257,11 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _metricCol('Acertos', '$correctCount', AsterConstants.menta),
-                        _metricCol('Erros', '$wrongCount', AsterConstants.coral),
-                        _metricCol('Em Branco', '$blankCount', AsterTheme.textMuted(context)),
+                        _metricCol(context.tr('Acertos'), '$correctCount', AsterConstants.menta),
+                        _metricCol(context.tr('Erros'), '$wrongCount', AsterConstants.coral),
+                        _metricCol(context.tr('Em Branco'), '$blankCount', AsterTheme.textMuted(context)),
                         _metricCol(
-                          'Precisão / XP',
+                          context.tr('Precisão / XP'),
                           '${answeredCount > 0 ? accuracyAnswered : scorePercent}% · +${correctCount * 10} XP',
                           AsterTheme.primary(context),
                         ),
@@ -5286,7 +5325,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                             Icon(Icons.trending_up_rounded, size: 16, color: AsterTheme.primary(context)),
                             const SizedBox(width: 6),
                             Text(
-                              'EVOLUÇÃO NESTE SIMULADO:',
+                              context.tr('EVOLUÇÃO NESTE SIMULADO:'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
@@ -5296,13 +5335,17 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                           ],
                         ),
                         SoftClayTag(
-                          label: delta >= 0
-                              ? '+$delta% vs última (${prev.scorePercentage.round()}%)'
-                              : '$delta% vs última (${prev.scorePercentage.round()}%)',
+                          label: context.tr(
+                            '{delta}% vs última ({prev}%)',
+                            {'delta': delta >= 0 ? '+$delta' : '$delta', 'prev': prev.scorePercentage.round()},
+                          ),
                           color: deltaColor,
                         ),
                         Text(
-                          'Anteriores: ${widget.previousGroupAttempts.take(4).map((a) => "${a.scorePercentage.round()}%").join(" · ")}',
+                          context.tr(
+                            'Anteriores: {scores}',
+                            {'scores': widget.previousGroupAttempts.take(4).map((a) => '${a.scorePercentage.round()}%').join(' · ')},
+                          ),
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 11,
                             color: AsterTheme.textMuted(context),
@@ -5337,7 +5380,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'REVIEW DA IA · O QUE MELHORAR',
+                                    context.tr('REVIEW DA IA · O QUE MELHORAR'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w900,
@@ -5350,7 +5393,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                                   TextButton.icon(
                                     onPressed: _loadAiReview,
                                     icon: const Icon(Icons.refresh_rounded, size: 14),
-                                    label: const Text('Reanalisar'),
+                                    label: Text(context.tr('Reanalisar')),
                                     style: TextButton.styleFrom(
                                       foregroundColor: AsterTheme.primary(context),
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -5373,7 +5416,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        'Analisando suas respostas certas, erros e distratores para montar recomendações...',
+                                        context.tr('Analisando suas respostas certas, erros e distratores para montar recomendações...'),
                                         style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
                                       ),
                                     ),
@@ -5419,7 +5462,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            'COMPARATIVO DAS QUESTÕES',
+                            context.tr('COMPARATIVO DAS QUESTÕES'),
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -5427,10 +5470,10 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                               color: AsterTheme.textMuted(context),
                             ),
                           ),
-                          _filterPill('Todas ($totalLoaded)', _ReviewFilter.all, AsterTheme.primary(context)),
-                          _filterPill('Erros ($wrongCount)', _ReviewFilter.wrong, AsterConstants.coral),
-                          _filterPill('Acertos ($correctCount)', _ReviewFilter.correct, AsterConstants.menta),
-                          _filterPill('Em branco ($blankCount)', _ReviewFilter.blank, AsterTheme.textMuted(context)),
+                          _filterPill(context.tr('Todas ({count})', {'count': totalLoaded}), _ReviewFilter.all, AsterTheme.primary(context)),
+                          _filterPill(context.tr('Erros ({count})', {'count': wrongCount}), _ReviewFilter.wrong, AsterConstants.coral),
+                          _filterPill(context.tr('Acertos ({count})', {'count': correctCount}), _ReviewFilter.correct, AsterConstants.menta),
+                          _filterPill(context.tr('Em branco ({count})', {'count': blankCount}), _ReviewFilter.blank, AsterTheme.textMuted(context)),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -5443,7 +5486,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                             borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                           ),
                           child: Text(
-                            'Nenhuma questão nesta categoria.',
+                            context.tr('Nenhuma questão nesta categoria.'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
                           ),
@@ -5456,96 +5499,100 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                               ? AsterConstants.menta
                               : (isWrong ? AsterConstants.coral : AsterTheme.textMuted(context));
                           final statusLabel = isCorrect
-                              ? 'Acertou'
-                              : (isWrong ? 'Errou' : 'Em branco');
+                              ? context.tr('Acertou')
+                              : (isWrong ? context.tr('Errou') : context.tr('Em branco'));
 
-                          return InkWell(
-                            onTap: () => widget.onJumpToQuestion(item.index),
-                            borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AsterTheme.surfaceAlt(context),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: InkWell(
+                              onTap: () => widget.onJumpToQuestion(item.index),
+                              borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
+                              child: ClipRRect(
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                                border: Border(left: BorderSide(color: statusColor, width: 3.5)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AsterTheme.surfaceAlt(context),
+                                    border: BorderDirectional(start: BorderSide(color: statusColor, width: 3.5)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Q${item.index + 1}',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withValues(alpha: 0.14),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              statusLabel,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            context.tr('Ir para Q{num} →', {'num': item.index + 1}),
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AsterTheme.primary(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
                                       Text(
-                                        'Q${item.index + 1}',
-                                        style: GoogleFonts.jetBrainsMono(
+                                        item.stem,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.manrope(
                                           fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          color: statusColor,
+                                          fontWeight: FontWeight.w600,
+                                          color: AsterTheme.text(context),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withValues(alpha: 0.14),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          statusLabel,
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: statusColor,
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 4,
+                                        children: [
+                                          Text(
+                                            context.tr('Sua resposta: {answer}', {'answer': item.userLabel}),
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: isCorrect ? AsterConstants.menta : (isWrong ? AsterConstants.coral : AsterTheme.textMuted(context)),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        'Ir para Q${item.index + 1} →',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          color: AsterTheme.primary(context),
-                                        ),
+                                          if (!isCorrect)
+                                            Text(
+                                              context.tr('Gabarito: {answer}', {'answer': item.correctLabel}),
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: AsterConstants.menta,
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item.stem,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AsterTheme.text(context),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 4,
-                                    children: [
-                                      Text(
-                                        'Sua resposta: ${item.userLabel}',
-                                        style: GoogleFonts.manrope(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: isCorrect ? AsterConstants.menta : (isWrong ? AsterConstants.coral : AsterTheme.textMuted(context)),
-                                        ),
-                                      ),
-                                      if (!isCorrect)
-                                        Text(
-                                          'Gabarito: ${item.correctLabel}',
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            color: AsterConstants.menta,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           );
@@ -5561,7 +5608,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                 children: [
                   Expanded(
                     child: SoftClayPillButton(
-                      text: 'Revisar Gabarito',
+                      text: context.tr('Revisar Gabarito'),
                       isSecondary: true,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -5569,7 +5616,7 @@ class _ExamCompletionDialogState extends State<_ExamCompletionDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: SoftClayPillButton(
-                      text: 'Novo Simulado',
+                      text: context.tr('Novo Simulado'),
                       onPressed: widget.onNewSimulado,
                     ),
                   ),

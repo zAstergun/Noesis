@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants.dart';
 import '../../../core/gemini_service.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
 import '../../../widgets/noesis_logo.dart';
@@ -26,17 +27,37 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
     with SingleTickerProviderStateMixin {
   late final AnimationController _orbitController;
 
-  String _selectedTool = 'Gerar Simulados';
+  String _selectedTool = 'quiz';
   int? _selectedProviderIndex;
   String _selectedCalView = 'mes';
   int _selectedEloIndex = 4; // Episteme (5º de 8)
 
-  static const Map<String, String> _toolDescriptions = {
-    'Gerar Simulados': 'Monta um simulado inédito a partir do tema, banca ou documento RAG que você indicar.',
-    'Criar Flashcards': 'Gera baralhos 3D prontos para revisão espaçada (Difícil, Bom, Fácil) direto da conversa.',
-    'Agendar Blocos': 'Agenda blocos de estudo, revisões, labs ou provas nas 4 visões do Calendário.',
-    'Montar Trilhas': 'Estrutura uma trilha de aprendizado passo a passo com etapas e semanas estimadas.',
-  };
+  static List<({String id, String label, String description})> get _toolDescriptions => [
+    (
+      id: 'quiz',
+      label: NoesisL10n.tr('Gerar Simulados'),
+      description: NoesisL10n.tr(
+          'Monta um simulado inédito a partir do tema, banca ou documento RAG que você indicar.'),
+    ),
+    (
+      id: 'flashcards',
+      label: NoesisL10n.tr('Criar Flashcards'),
+      description: NoesisL10n.tr(
+          'Gera baralhos 3D prontos para revisão espaçada (Difícil, Bom, Fácil) direto da conversa.'),
+    ),
+    (
+      id: 'calendar',
+      label: NoesisL10n.tr('Agendar Blocos'),
+      description: NoesisL10n.tr(
+          'Agenda blocos de estudo, revisões, labs ou provas nas 4 visões do Calendário.'),
+    ),
+    (
+      id: 'roadmap',
+      label: NoesisL10n.tr('Montar Trilhas'),
+      description: NoesisL10n.tr(
+          'Estrutura uma trilha de aprendizado passo a passo com etapas e semanas estimadas.'),
+    ),
+  ];
 
   @override
   void initState() {
@@ -79,7 +100,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                   child: Text(
-                    'MÓDULOS',
+                    context.tr('MÓDULOS'),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -90,7 +111,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Arquitetura modular, experiência única',
+                  context.tr('Arquitetura modular, experiência única'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: isWide ? 48 : (isCompact ? 30 : 38),
@@ -102,7 +123,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Cada módulo funciona sozinho — e todos conversam entre si pelo agente cognitivo e pela sua conta Aster.',
+                  context.tr('Cada módulo funciona sozinho — e todos conversam entre si pelo agente cognitivo e pela sua conta Aster.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: isCompact ? 15 : 17,
@@ -168,8 +189,21 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
 
     final providers = GeminiService.providers;
     final infoText = _selectedProviderIndex != null
-        ? '${providers[_selectedProviderIndex!].label} · modelo padrão: ${providers[_selectedProviderIndex!].defaultModel.isEmpty ? "endpoint OpenAI-compatível" : providers[_selectedProviderIndex!].defaultModel} (com benchmark de latência)'
-        : (_toolDescriptions[_selectedTool] ?? '');
+        ? context.tr(
+            '{provider} · modelo padrão: {model} (com benchmark de latência)',
+            {
+              'provider': providers[_selectedProviderIndex!].label,
+              'model': providers[_selectedProviderIndex!].defaultModel.isEmpty
+                  ? context.tr('endpoint OpenAI-compatível')
+                  : providers[_selectedProviderIndex!].defaultModel,
+            },
+          )
+        : _toolDescriptions
+            .firstWhere(
+              (t) => t.id == _selectedTool,
+              orElse: () => _toolDescriptions.first,
+            )
+            .description;
 
     final copyPart = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +211,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
         _BentoIconBadge(icon: Icons.layers_rounded, color: primary),
         const SizedBox(height: 14),
         Text(
-          'Multi-IA, um só agente',
+          context.tr('Multi-IA, um só agente'),
           style: GoogleFonts.spaceGrotesk(
             fontSize: 23,
             fontWeight: FontWeight.w700,
@@ -187,7 +221,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
         ),
         const SizedBox(height: 8),
         Text(
-          'Sete provedores conectados às mesmas 20 ferramentas, com benchmark de latência em ms e suporte a 15 idiomas.',
+          context.tr('Sete provedores conectados às mesmas 20 ferramentas, com benchmark de latência em ms e suporte a 15 idiomas.'),
           style: GoogleFonts.manrope(
             fontSize: 14.5,
             height: 1.5,
@@ -199,12 +233,12 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _toolDescriptions.keys.map((tool) {
-            final on = _selectedProviderIndex == null && _selectedTool == tool;
+          children: _toolDescriptions.map((tool) {
+            final on = _selectedProviderIndex == null && _selectedTool == tool.id;
             return InkWell(
               onTap: () => setState(() {
                 _selectedProviderIndex = null;
-                _selectedTool = tool;
+                _selectedTool = tool.id;
               }),
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               child: AnimatedContainer(
@@ -216,7 +250,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                   border: Border.all(color: on ? primary : insetCol),
                 ),
                 child: Text(
-                  tool,
+                  tool.label,
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -383,7 +417,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               _BentoIconBadge(icon: Icons.lock_rounded, color: primary),
               const SizedBox(height: 14),
               Text(
-                'Aster Account SSO',
+                context.tr('Aster Account SSO'),
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -393,7 +427,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               ),
               const SizedBox(height: 8),
               Text(
-                'Entre uma única vez com Email, Google, GitHub, Discord ou Apple e mantenha seus estudos sincronizados em tempo real.',
+                context.tr('Entre uma única vez com Email, Google, GitHub, Discord ou Apple e mantenha seus estudos sincronizados em tempo real.'),
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   height: 1.5,
@@ -420,7 +454,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                     _SsoNodeRow(
                       icon: Icons.person_rounded,
                       iconColor: primary,
-                      label: 'Aster Account · Login único',
+                      label: context.tr('Aster Account · Login único'),
                       cardCol: cardCol,
                       insetCol: insetCol,
                       textCol: textCol,
@@ -428,7 +462,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                     _AnimatedSsoFlow(color: primary),
                     _SsoNodeRow(
                       leading: const NoesisLogo(size: 19),
-                      label: 'Noesis · Sincronizado na nuvem',
+                      label: context.tr('Noesis · Sincronizado na nuvem'),
                       cardCol: cardCol,
                       insetCol: insetCol,
                       textCol: textCol,
@@ -450,11 +484,11 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
     final cardCol = AsterTheme.card(context);
     final insetCol = AsterTheme.surfaceInset(context);
 
-    const views = [
-      (id: 'mes', label: 'Mês'),
-      (id: 'semana', label: 'Semana'),
-      (id: 'dia', label: 'Dia'),
-      (id: 'timeline', label: 'Timeline'),
+    final views = [
+      (id: 'mes', label: context.tr('Mês')),
+      (id: 'semana', label: context.tr('Semana')),
+      (id: 'dia', label: context.tr('Dia')),
+      (id: 'timeline', label: context.tr('Timeline')),
     ];
 
     return _BentoCardShell(
@@ -464,7 +498,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
           _BentoIconBadge(icon: Icons.calendar_today_rounded, color: primary),
           const SizedBox(height: 14),
           Text(
-            'Calendário em 4 visões',
+            context.tr('Calendário em 4 visões'),
             style: GoogleFonts.spaceGrotesk(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -489,7 +523,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                     border: Border.all(color: on ? primary : insetCol),
                   ),
                   child: Text(
-                    v.label,
+                    context.tr(v.label),
                     style: GoogleFonts.manrope(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -562,7 +596,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
       children: List.generate(heights.length, (i) {
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: i == 6 ? 0 : 5),
+            padding: EdgeInsetsDirectional.only(end: i == 6 ? 0 : 5),
             child: FractionallySizedBox(
               heightFactor: heights[i],
               child: Container(
@@ -621,9 +655,9 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
 
   Widget _buildTimelineMiniPreview(Color cardCol, Color primary, Color textCol) {
     final items = [
-      (label: '09:00 · Estudo', color: primary),
-      (label: '14:00 · Lab / Simulado', color: AsterConstants.ambar),
-      (label: '19:00 · Revisão', color: AsterConstants.menta),
+      (label: NoesisL10n.tr('09:00 · Estudo'), color: primary),
+      (label: NoesisL10n.tr('14:00 · Lab / Simulado'), color: AsterConstants.ambar),
+      (label: NoesisL10n.tr('19:00 · Revisão'), color: AsterConstants.menta),
     ];
     return Column(
       key: const ValueKey('cal_timeline'),
@@ -645,7 +679,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               ),
               const SizedBox(width: 8),
               Text(
-                it.label,
+                context.tr(it.label),
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -692,7 +726,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: Text(
-                      'Elo ${_selectedEloIndex + 1}/8',
+                      context.tr('Elo {idx}/8', {'idx': _selectedEloIndex + 1}),
                       style: GoogleFonts.jetBrainsMono(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -704,7 +738,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               ),
               const SizedBox(height: 14),
               Text(
-                'Insights & 8 Elos',
+                context.tr('Insights & 8 Elos'),
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -714,7 +748,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               ),
               const SizedBox(height: 8),
               Text(
-                'De Faísca a Noesis: cada Elo soma +10% em Insights e +20 no teto diário.',
+                context.tr('De Faísca a Noesis: cada Elo soma +10% em Insights e +20 no teto diário.'),
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   height: 1.5,
@@ -740,9 +774,9 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                       final frac = 0.26 + (i * 0.105);
                       return Expanded(
                         child: Padding(
-                          padding: EdgeInsets.only(right: i == tiers.length - 1 ? 0 : 6),
+                          padding: EdgeInsetsDirectional.only(end: i == tiers.length - 1 ? 0 : 6),
                           child: Tooltip(
-                            message: tier.name,
+                            message: context.tr(tier.name),
                             child: _EloBarItem(
                               fraction: frac,
                               selected: on,
@@ -762,7 +796,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    tiers.first.name,
+                    context.tr(tiers.first.name),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
@@ -770,7 +804,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                     ),
                   ),
                   Text(
-                    tiers.last.name,
+                    context.tr(tiers.last.name),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -812,7 +846,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            selTier.name,
+                            context.tr(selTier.name),
                             style: GoogleFonts.manrope(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
@@ -820,7 +854,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                             ),
                           ),
                           Text(
-                            selTier.subtitle,
+                            context.tr(selTier.subtitle),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.manrope(
@@ -884,7 +918,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               _BentoIconBadge(icon: Icons.assignment_rounded, color: primary),
               const SizedBox(height: 14),
               Text(
-                'Simulados RAG & 39 Bancas',
+                context.tr('Simulados RAG & 39 Bancas'),
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -894,7 +928,7 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
               ),
               const SizedBox(height: 8),
               Text(
-                'ENEM, FUVEST, OAB, AWS, Security+, USMLE e mais — ou gere direto dos seus arquivos.',
+                context.tr('ENEM, FUVEST, OAB, AWS, Security+, USMLE e mais — ou gere direto dos seus arquivos.'),
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   height: 1.5,
@@ -913,8 +947,8 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                 child: _RagMiniPill(
                   icon: Icons.description_rounded,
                   iconColor: primary,
-                  label: 'Seu arquivo (.pdf/.md/.json)',
-                  trailing: '→ RAG',
+                  label: context.tr('Seu arquivo (.pdf/.md/.json)'),
+                  trailing: context.tr('→ RAG'),
                   altCol: altCol,
                   insetCol: insetCol,
                   textCol: textCol,
@@ -927,8 +961,8 @@ class _LandingBentoSectionState extends State<LandingBentoSection>
                 child: _RagMiniPill(
                   icon: Icons.check_circle_rounded,
                   iconColor: AsterConstants.menta,
-                  label: 'Questões com fonte citada',
-                  trailing: '39 bancas',
+                  label: context.tr('Questões com fonte citada'),
+                  trailing: context.tr('39 bancas'),
                   altCol: altCol,
                   insetCol: insetCol,
                   textCol: textCol,
@@ -1054,7 +1088,7 @@ class _AnimatedSsoFlowState extends State<_AnimatedSsoFlow>
     return Container(
       width: 14,
       height: 22,
-      margin: const EdgeInsets.only(left: 16),
+      margin: const EdgeInsetsDirectional.only(start: 16),
       child: Stack(
         alignment: Alignment.center,
         children: [

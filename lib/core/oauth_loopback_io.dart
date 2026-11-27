@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'localization/noesis_l10n.dart';
+import 'localization/noesis_locale_service.dart';
 
 HttpServer? _activeLoopbackServer;
 Completer<Uri>? _activeLoopbackCompleter;
@@ -71,17 +73,26 @@ Future<bool> runDesktopOAuthLoopback({
           request.uri.queryParameters.containsKey('error_description');
 
       if (!hasAuthParams && path != '/callback-fragment') {
+        final htmlLang = htmlEscape.convert(NoesisLocaleService.bcp47);
+        final pageTitle = htmlEscape.convert(NoesisL10n.tr('Noesis · Conectando...'));
+        final heading = htmlEscape.convert(NoesisL10n.tr('Concluindo login no Noesis...'));
+        final waitMsg = htmlEscape.convert(NoesisL10n.tr('Aguarde um instante.'));
+        final noCodeMsg = jsonEncode(
+          NoesisL10n.tr(
+            'Nenhum código de autenticação recebido. Você pode fechar esta aba e tentar novamente.',
+          ),
+        );
         // Caso o provedor retorne tokens no fragmento (#access_token=...), converte para query.
         request.response
           ..statusCode = HttpStatus.ok
           ..headers.contentType = ContentType.html
           ..write('''<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Noesis · Conectando...</title></head>
+<html lang="$htmlLang" dir="${NoesisLocaleService.isRtl ? 'rtl' : 'ltr'}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>$pageTitle</title></head>
 <body style="font-family:system-ui,sans-serif;background:#11121C;color:#F4F5FB;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:16px;">
   <div style="text-align:center;padding:28px;max-width:420px;width:100%;background:#1B1C2A;border-radius:20px;">
-    <h2 style="margin:0 0 8px;">Concluindo login no Noesis...</h2>
-    <p id="msg" style="color:#989BB8;font-size:14px;">Aguarde um instante.</p>
+    <h2 style="margin:0 0 8px;">$heading</h2>
+    <p id="msg" style="color:#989BB8;font-size:14px;">$waitMsg</p>
   </div>
   <script>
     (function(){
@@ -89,7 +100,7 @@ Future<bool> runDesktopOAuthLoopback({
       if (h) {
         window.location.replace('/callback-fragment?' + h);
       } else {
-        document.getElementById('msg').textContent = 'Nenhum código de autenticação recebido. Você pode fechar esta aba e tentar novamente.';
+        document.getElementById('msg').textContent = $noCodeMsg;
       }
     })();
   </script>
@@ -182,27 +193,34 @@ String _successHtml({
   required bool autoReturnToApp,
 }) {
   final encodedTitle = htmlEscape.convert(
-    hasError ? 'Não foi possível concluir o login' : 'Login concluído no Noesis!',
+    hasError
+        ? NoesisL10n.tr('Não foi possível concluir o login')
+        : NoesisL10n.tr('Login concluído no Noesis!'),
   );
   final encodedBody = htmlEscape.convert(
     hasError
-        ? 'Volte para o aplicativo Noesis para ver os detalhes.'
+        ? NoesisL10n.tr('Volte para o aplicativo Noesis para ver os detalhes.')
         : (autoReturnToApp
-            ? 'Retornando automaticamente para o aplicativo Noesis...'
-            : 'Sua Aster Account foi autenticada. Você já pode fechar esta aba e voltar para o aplicativo Noesis.'),
+            ? NoesisL10n.tr('Retornando automaticamente para o aplicativo Noesis...')
+            : NoesisL10n.tr(
+                'Sua Aster Account foi autenticada. Você já pode fechar esta aba e voltar para o aplicativo Noesis.',
+              )),
   );
+  final encodedBackBtn = htmlEscape.convert(NoesisL10n.tr('Voltar para o Noesis'));
   const appReturnUrl = 'io.supabase.noesis://login-callback/?returned=1';
   final mobileReturnHtml = autoReturnToApp
       ? '''
     <div style="margin-top:20px;">
-      <a href="$appReturnUrl" style="display:inline-block;padding:12px 22px;background:#7C6CF0;color:#FFFFFF;text-decoration:none;border-radius:999px;font-weight:700;font-size:14px;">Voltar para o Noesis</a>
+      <a href="$appReturnUrl" style="display:inline-block;padding:12px 22px;background:#7C6CF0;color:#FFFFFF;text-decoration:none;border-radius:999px;font-weight:700;font-size:14px;">$encodedBackBtn</a>
     </div>
     <script>
       setTimeout(function(){ window.location.replace('$appReturnUrl'); }, 120);
     </script>'''
       : '';
+  final htmlLang = htmlEscape.convert(NoesisLocaleService.bcp47);
+  final htmlDir = NoesisLocaleService.isRtl ? 'rtl' : 'ltr';
   return '''<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="$htmlLang" dir="$htmlDir">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Noesis · Aster Account</title></head>
 <body style="font-family:system-ui,sans-serif;background:#11121C;color:#F4F5FB;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:16px;">
   <div style="text-align:center;padding:32px;max-width:440px;width:100%;background:#1B1C2A;border-radius:20px;border:1px solid #2E3149;">

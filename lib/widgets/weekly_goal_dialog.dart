@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/supabase_service.dart';
 import '../core/theme.dart';
 
@@ -146,7 +147,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
         if (wh < 0 || wm < 0 || wm > 59) {
           setState(() {
             _isDailyMode = false;
-            _errorText = 'Informe horas válidas e minutos entre 0 e 59.';
+            _errorText = context.tr('Informe horas válidas e minutos entre 0 e 59.');
           });
           return;
         }
@@ -155,7 +156,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
             wTotal > SupabaseService.maxWeeklyGoalMinutes) {
           setState(() {
             _isDailyMode = false;
-            _errorText = 'A meta semanal deve ficar entre 30 minutos e 168 horas.';
+            _errorText = context.tr('A meta semanal deve ficar entre 30 minutos e 168 horas.');
           });
           return;
         }
@@ -173,7 +174,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
         if (dh < 0 || dm < 0 || dm > 59) {
           setState(() {
             _isDailyMode = true;
-            _errorText = 'Informe horas válidas e minutos entre 0 e 59.';
+            _errorText = context.tr('Informe horas válidas e minutos entre 0 e 59.');
           });
           return;
         }
@@ -182,7 +183,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
             dTotal > SupabaseService.maxDailyGoalMinutes) {
           setState(() {
             _isDailyMode = true;
-            _errorText = 'A meta diária deve ficar entre 15 minutos e 24 horas.';
+            _errorText = context.tr('A meta diária deve ficar entre 15 minutos e 24 horas.');
           });
           return;
         }
@@ -211,18 +212,28 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
     String labelFor(int val, String emptyLabel) =>
         val <= 0 ? emptyLabel : SupabaseService.formatGoalDuration(val);
 
+    final noGoal = context.tr('sem meta');
     String snackMessage;
     if (validatedWeekly != null && validatedDaily != null) {
-      snackMessage =
-          'Metas atualizadas · Diária: ${labelFor(validatedDaily, 'sem meta')} · Semanal: ${labelFor(validatedWeekly, 'sem meta')}.';
+      snackMessage = context.tr(
+        'Metas atualizadas · Diária: {daily} · Semanal: {weekly}.',
+        {
+          'daily': labelFor(validatedDaily, noGoal),
+          'weekly': labelFor(validatedWeekly, noGoal),
+        },
+      );
     } else if (validatedDaily != null) {
       snackMessage = validatedDaily <= 0
-          ? 'Meta diária desativada (modo livre).'
-          : 'Meta diária atualizada para ${SupabaseService.formatGoalDuration(validatedDaily)}!';
+          ? context.tr('Meta diária desativada (modo livre).')
+          : context.tr('Meta diária atualizada para {duration}!', {
+              'duration': SupabaseService.formatGoalDuration(validatedDaily),
+            });
     } else {
       snackMessage = validatedWeekly! <= 0
-          ? 'Meta semanal desativada (modo livre).'
-          : 'Meta semanal atualizada para ${SupabaseService.formatGoalDuration(validatedWeekly)}!';
+          ? context.tr('Meta semanal desativada (modo livre).')
+          : context.tr('Meta semanal atualizada para {duration}!', {
+              'duration': SupabaseService.formatGoalDuration(validatedWeekly),
+            });
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -249,11 +260,15 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
 
     final secondaryHelperText = _isDailyMode
         ? (draftTotal >= 15
-            ? 'Equivalente: ~${SupabaseService.formatGoalDuration(draftTotal * 7)}/semana'
-            : 'Mínimo: 15m')
+            ? context.tr('Equivalente: ~{duration}/semana', {
+                'duration': SupabaseService.formatGoalDuration(draftTotal * 7),
+              })
+            : context.tr('Mínimo: 15m'))
         : (draftTotal >= 30
-            ? 'Média: ~${SupabaseService.formatGoalDuration((draftTotal / 7).round())}/dia'
-            : 'Mínimo: 30m');
+            ? context.tr('Média: ~{duration}/dia', {
+                'duration': SupabaseService.formatGoalDuration((draftTotal / 7).round()),
+              })
+            : context.tr('Mínimo: 30m'));
 
     return Dialog(
       backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
@@ -290,7 +305,9 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isDailyMode ? 'Editar Meta Diária' : 'Editar Meta Semanal',
+                          _isDailyMode
+                              ? context.tr('Editar Meta Diária')
+                              : context.tr('Editar Meta Semanal'),
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -299,8 +316,8 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                         ),
                         Text(
                           _isDailyMode
-                              ? 'Defina sua carga horária alvo de estudos por dia.'
-                              : 'Defina sua carga horária alvo de estudos por semana.',
+                              ? context.tr('Defina sua carga horária alvo de estudos por dia.')
+                              : context.tr('Defina sua carga horária alvo de estudos por semana.'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -310,7 +327,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Fechar',
+                    tooltip: context.tr('Fechar'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Icon(
                       Icons.close_rounded,
@@ -334,7 +351,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                     Expanded(
                       child: _buildModeTab(
                         key: const Key('goal_mode_weekly_tab'),
-                        label: 'Meta Semanal',
+                        label: context.tr('Meta Semanal'),
                         icon: Icons.date_range_rounded,
                         selected: !_isDailyMode,
                         isDark: isDark,
@@ -348,7 +365,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                     Expanded(
                       child: _buildModeTab(
                         key: const Key('goal_mode_daily_tab'),
-                        label: 'Meta Diária',
+                        label: context.tr('Meta Diária'),
                         icon: Icons.today_rounded,
                         selected: _isDailyMode,
                         isDark: isDark,
@@ -382,7 +399,9 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _isDailyMode ? 'Ativar meta diária' : 'Ativar meta semanal',
+                            _isDailyMode
+                                ? context.tr('Ativar meta diária')
+                                : context.tr('Ativar meta semanal'),
                             style: GoogleFonts.manrope(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -392,8 +411,12 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                           const SizedBox(height: 2),
                           Text(
                             isActiveEnabled
-                                ? 'Desative se preferir estudar sem meta fixa ${_isDailyMode ? 'por dia' : 'por semana'}.'
-                                : 'Modo livre ativo · nenhuma cobrança de meta ${_isDailyMode ? 'diária' : 'semanal'}.',
+                                ? (_isDailyMode
+                                    ? context.tr('Desative se preferir estudar sem meta fixa por dia.')
+                                    : context.tr('Desative se preferir estudar sem meta fixa por semana.'))
+                                : (_isDailyMode
+                                    ? context.tr('Modo livre ativo · nenhuma cobrança de meta diária.')
+                                    : context.tr('Modo livre ativo · nenhuma cobrança de meta semanal.')),
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -444,8 +467,8 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                           Expanded(
                             child: Text(
                               _isDailyMode
-                                  ? 'Sem meta diária definida'
-                                  : 'Sem meta semanal definida',
+                                  ? context.tr('Sem meta diária definida')
+                                  : context.tr('Sem meta semanal definida'),
                               style: GoogleFonts.manrope(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
@@ -457,7 +480,9 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Seu tempo estudado continua sendo registrado normalmente no Diário e na Consistência, sem metas ou alertas ${_isDailyMode ? 'diários' : 'semanais'}.',
+                        _isDailyMode
+                            ? context.tr('Seu tempo estudado continua sendo registrado normalmente no Diário e na Consistência, sem metas ou alertas diários.')
+                            : context.tr('Seu tempo estudado continua sendo registrado normalmente no Diário e na Consistência, sem metas ou alertas semanais.'),
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -467,8 +492,12 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                         const SizedBox(height: 10),
                         Text(
                           _isDailyMode
-                              ? 'Estudado hoje: ${SupabaseService.formatGoalDuration(studied)}'
-                              : 'Estudado na semana: ${SupabaseService.formatGoalDuration(studied)}',
+                              ? context.tr('Estudado hoje: {duration}', {
+                                  'duration': SupabaseService.formatGoalDuration(studied),
+                                })
+                              : context.tr('Estudado na semana: {duration}', {
+                                  'duration': SupabaseService.formatGoalDuration(studied),
+                                }),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -482,7 +511,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
               ] else ...[
                 // ─── Atalhos rápidos ───
                 Text(
-                  'ATALHOS RÁPIDOS',
+                  context.tr('ATALHOS RÁPIDOS'),
                   style: GoogleFonts.manrope(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -538,7 +567,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
 
                 // ─── Ajuste personalizado ───
                 Text(
-                  'AJUSTE PERSONALIZADO',
+                  context.tr('AJUSTE PERSONALIZADO'),
                   style: GoogleFonts.manrope(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -564,7 +593,9 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                           _errorText = null;
                         }),
                         decoration: InputDecoration(
-                          labelText: _isDailyMode ? 'Horas / dia' : 'Horas / semana',
+                          labelText: _isDailyMode
+                              ? context.tr('Horas / dia')
+                              : context.tr('Horas / semana'),
                           suffixText: 'h',
                           filled: true,
                           fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
@@ -593,7 +624,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                           _errorText = null;
                         }),
                         decoration: InputDecoration(
-                          labelText: 'Minutos extra',
+                          labelText: context.tr('Minutos extra'),
                           suffixText: 'min',
                           filled: true,
                           fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
@@ -666,7 +697,9 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _isDailyMode ? 'Prévia de hoje' : 'Prévia da semana atual',
+                              _isDailyMode
+                                  ? context.tr('Prévia de hoje')
+                                  : context.tr('Prévia da semana atual'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -717,7 +750,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                   TextButton(
                     onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
                     child: Text(
-                      'Cancelar',
+                      context.tr('Cancelar'),
                       style: GoogleFonts.manrope(
                         fontWeight: FontWeight.w700,
                         color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -726,7 +759,7 @@ class _WeeklyGoalEditorDialogState extends State<_WeeklyGoalEditorDialog> {
                   ),
                   const SizedBox(width: 10),
                   SoftClayPillButton(
-                    text: _isSaving ? 'Salvando...' : 'Salvar Meta',
+                    text: _isSaving ? context.tr('Salvando...') : context.tr('Salvar Meta'),
                     onPressed: _isSaving ? null : _save,
                   ),
                 ],

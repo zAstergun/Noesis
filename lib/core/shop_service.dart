@@ -6,6 +6,7 @@ import '../features/quizzes/data/saved_exams_store_stub.dart'
     if (dart.library.io) '../features/quizzes/data/saved_exams_store_io.dart'
     if (dart.library.js_interop) '../features/quizzes/data/saved_exams_store_web.dart' as local_store;
 import 'insights_economy_config.dart';
+import 'localization/noesis_l10n.dart';
 import 'supabase_service.dart';
 import 'theme.dart';
 
@@ -299,7 +300,7 @@ class ShopService {
     final tx = ShopTransaction(
       id: txId,
       amount: amount,
-      description: 'Conquista: $title',
+      description: NoesisL10n.tr('Conquista: {title}', {'title': title}),
       source: 'achievement',
       reference: txId,
       createdAt: _clock(),
@@ -309,7 +310,7 @@ class ShopService {
     latestGainNotifier.value = InsightGainEvent(
       id: tx.id,
       amount: amount,
-      reason: 'Conquista desbloqueada: $title',
+      reason: NoesisL10n.tr('Conquista desbloqueada: {title}', {'title': title}),
       source: 'achievement',
       isVipBoosted: false,
       createdAt: tx.createdAt,
@@ -424,7 +425,7 @@ class ShopService {
                 ShopTransaction(
                   id: 'purchase:$ref',
                   amount: 0,
-                  description: 'Tema desbloqueado ($themeId)',
+                  description: NoesisL10n.tr('Tema desbloqueado ({id})', {'id': themeId}),
                   source: 'purchase',
                   reference: ref,
                   createdAt: _clock(),
@@ -492,7 +493,7 @@ class ShopService {
       if (streakProtectors >= maxStreakProtectors) break;
       final added = _grantFreeStreakProtector(
         id: 'vip_monthly_protector:$ym:$slot',
-        description: 'Bônus VIP mensal · Selo de Consistência ($ym)',
+        description: NoesisL10n.tr('Bônus VIP mensal · Selo de Consistência ({ym})', {'ym': ym}),
         timestamp: now,
       );
       if (added) granted++;
@@ -507,7 +508,7 @@ class ShopService {
       ShopTransaction(
         id: welcomeId,
         amount: InsightsEconomyConfig.effectiveWelcomeBonus,
-        description: 'Bônus de boas-vindas',
+        description: NoesisL10n.tr('Bônus de boas-vindas'),
         source: 'welcome',
         reference: 'onboarding',
         createdAt: _clock(),
@@ -661,7 +662,9 @@ class ShopService {
     final earned = _appendStudyReward(
       idempotentId: null,
       rawAmount: raw,
-      description: isCorrect ? 'Questão certa no Simulado$ctxLabel' : 'Questão respondida no Simulado$ctxLabel',
+      description: isCorrect
+          ? NoesisL10n.tr('Questão certa no Simulado{ctx}', {'ctx': ctxLabel})
+          : NoesisL10n.tr('Questão respondida no Simulado{ctx}', {'ctx': ctxLabel}),
       source: 'quiz_question',
       reference: reference ?? 'quiz_question',
     );
@@ -671,8 +674,10 @@ class ShopService {
           _totalQuizQuestionsAnswered ~/ InsightsEconomyConfig.questionsPerFreeStreakProtector;
       grantedFreeShield = _grantFreeStreakProtector(
         id: 'question_milestone_protector:$milestone',
-        description:
-            'Selo de Consistência grátis · $_totalQuizQuestionsAnswered questões respondidas',
+        description: NoesisL10n.tr(
+          'Selo de Consistência grátis · {count} questões respondidas',
+          {'count': _totalQuizQuestionsAnswered},
+        ),
       );
     }
     if (grantedFreeShield || earned == 0) {
@@ -713,12 +718,17 @@ class ShopService {
     final ctxLabel = (subject ?? '').trim().isNotEmpty ? ' · ${subject!.trim()}' : '';
     final repeatSuffix = priorCount == 0
         ? ''
-        : (multiplier == 0.5 ? ' (50% repetição)' : ' (25% repetição)');
+        : (multiplier == 0.5
+            ? NoesisL10n.tr(' (50% repetição)')
+            : NoesisL10n.tr(' (25% repetição)'));
 
     return _appendStudyReward(
       idempotentId: txId,
       rawAmount: decayedRaw,
-      description: 'Simulado concluído ($pctInt%)$ctxLabel$repeatSuffix',
+      description: NoesisL10n.tr(
+        'Simulado concluído ({pct}%){ctx}{suffix}',
+        {'pct': pctInt, 'ctx': ctxLabel, 'suffix': repeatSuffix},
+      ),
       source: 'exam_complete',
       reference: 'exam_group:$groupKey:$attemptId',
     );
@@ -741,7 +751,7 @@ class ShopService {
       totalEarned += _appendStudyReward(
         idempotentId: null,
         rawAmount: InsightsEconomyConfig.flashcardDueReview,
-        description: 'Flashcard revisado$ctxLabel',
+        description: NoesisL10n.tr('Flashcard revisado{ctx}', {'ctx': ctxLabel}),
         source: 'flashcard_review',
         reference: 'card:$cardId',
       );
@@ -756,7 +766,7 @@ class ShopService {
       totalEarned += _appendStudyReward(
         idempotentId: null,
         rawAmount: InsightsEconomyConfig.flashcardHardRedeemedBonus,
-        description: 'Cartão difícil superado$ctxLabel',
+        description: NoesisL10n.tr('Cartão difícil superado{ctx}', {'ctx': ctxLabel}),
         source: 'flashcard_redeem',
         reference: 'card:$cardId',
       );
@@ -807,7 +817,7 @@ class ShopService {
       earned += _appendStudyReward(
         idempotentId: 'daily_goal:$todayIso',
         rawAmount: InsightsEconomyConfig.effectiveDailyGoalHit,
-        description: 'Meta do dia batida',
+        description: NoesisL10n.tr('Meta do dia batida'),
         source: 'daily_goal',
         reference: 'daily_goal:$todayIso',
       );
@@ -822,7 +832,7 @@ class ShopService {
       earned += _appendStudyReward(
         idempotentId: 'weekly_goal:$mondayIso',
         rawAmount: InsightsEconomyConfig.effectiveWeeklyGoalHit,
-        description: 'Meta semanal batida',
+        description: NoesisL10n.tr('Meta semanal batida'),
         source: 'weekly_goal',
         reference: 'weekly_goal:$mondayIso',
       );
@@ -836,7 +846,10 @@ class ShopService {
       if (streakProtectors >= maxStreakProtectors) break;
       final added = _grantFreeStreakProtector(
         id: 'weekly_hours_protector:$mondayIso:$tier',
-        description: 'Selo de Consistência grátis · ${tier * 10}h estudadas na semana',
+        description: NoesisL10n.tr(
+          'Selo de Consistência grátis · {hours}h estudadas na semana',
+          {'hours': tier * 10},
+        ),
         timestamp: now,
       );
       if (added) grantedWeeklyShield = true;
@@ -856,7 +869,7 @@ class ShopService {
         earned += _appendStudyReward(
           idempotentId: 'streak:${entry.key}',
           rawAmount: entry.value,
-          description: 'Streak de ${entry.key} dias alcançado',
+          description: NoesisL10n.tr('Streak de {days} dias alcançado', {'days': entry.key}),
           source: 'streak',
           reference: 'streak:${entry.key}',
         );
@@ -893,31 +906,31 @@ class ShopService {
   Future<ShopPurchaseResult> purchaseTheme(String themeId) async {
     await init();
     if (_purchasingThemeIds.contains(themeId)) {
-      return const ShopPurchaseResult(
+      return ShopPurchaseResult(
         ok: true,
-        message: 'Compra já em processamento.',
+        message: NoesisL10n.tr('Compra já em processamento.'),
       );
     }
     _purchasingThemeIds.add(themeId);
     try {
       if (themeId == AsterTheme.customThemeId) {
-        return const ShopPurchaseResult(
+        return ShopPurchaseResult(
           ok: false,
-          error: 'O tema Personalizado RGB é um privilégio exclusivo VIP.',
+          error: NoesisL10n.tr('O tema Personalizado RGB é um privilégio exclusivo VIP.'),
         );
       }
 
       final themeOption =
           AsterTheme.availableThemes.where((t) => t.id == themeId).firstOrNull;
       if (themeOption == null) {
-        return const ShopPurchaseResult(ok: false, error: 'Tema não encontrado na loja.');
+        return ShopPurchaseResult(ok: false, error: NoesisL10n.tr('Tema não encontrado na loja.'));
       }
 
       final txId = 'purchase:theme:$themeId';
       if (isThemeUnlocked(themeId) || _ledger.any((t) => t.id == txId)) {
         return ShopPurchaseResult(
           ok: true,
-          message: 'Você já possui o tema ${themeOption.name}.',
+          message: NoesisL10n.tr('Você já possui o tema {theme}.', {'theme': themeOption.localizedName}),
         );
       }
 
@@ -926,15 +939,20 @@ class ShopService {
         final missing = price - balance;
         return ShopPurchaseResult(
           ok: false,
-          error:
-              'Saldo insuficiente. Faltam ${InsightsEconomyConfig.formatBalance(missing)} para comprar ${themeOption.name}.',
+          error: NoesisL10n.tr(
+            'Saldo insuficiente. Faltam {missing} para comprar {theme}.',
+            {
+              'missing': InsightsEconomyConfig.formatBalance(missing),
+              'theme': themeOption.localizedName,
+            },
+          ),
         );
       }
 
       final tx = ShopTransaction(
         id: txId,
         amount: -price,
-        description: 'Compra do tema ${themeOption.name}',
+        description: NoesisL10n.tr('Compra do tema {theme}', {'theme': themeOption.localizedName}),
         source: 'purchase',
         reference: 'theme:$themeId',
         createdAt: _clock(),
@@ -946,8 +964,13 @@ class ShopService {
 
       return ShopPurchaseResult(
         ok: true,
-        message:
-            'Tema ${themeOption.name} desbloqueado por ${InsightsEconomyConfig.formatCompact(price)}!',
+        message: NoesisL10n.tr(
+          'Tema {theme} desbloqueado por {price}!',
+          {
+            'theme': themeOption.localizedName,
+            'price': InsightsEconomyConfig.formatCompact(price),
+          },
+        ),
       );
     } finally {
       _purchasingThemeIds.remove(themeId);
@@ -996,14 +1019,15 @@ class ShopService {
     await init();
     final lockKey = 'profile_item:${item.id}';
     if (_purchasingThemeIds.contains(lockKey)) {
-      return const ShopPurchaseResult(ok: true, message: 'Item já em processamento.');
+      return ShopPurchaseResult(ok: true, message: NoesisL10n.tr('Item já em processamento.'));
     }
     _purchasingThemeIds.add(lockKey);
     try {
+      final itemName = NoesisL10n.tr(item.name);
       if (item.isVipOnly && !SupabaseService.isCurrentUserVip) {
         return ShopPurchaseResult(
           ok: false,
-          error: '${item.name} é exclusivo para assinantes VIP.',
+          error: NoesisL10n.tr('{item} é exclusivo para assinantes VIP.', {'item': itemName}),
         );
       }
 
@@ -1011,7 +1035,7 @@ class ShopService {
         await equipProfileItem(item.category, item.id);
         return ShopPurchaseResult(
           ok: true,
-          message: '${item.name} equipado no seu perfil!',
+          message: NoesisL10n.tr('{item} equipado no seu perfil!', {'item': itemName}),
         );
       }
 
@@ -1019,8 +1043,10 @@ class ShopService {
         final missing = item.price - balance;
         return ShopPurchaseResult(
           ok: false,
-          error:
-              'Saldo insuficiente. Faltam ${InsightsEconomyConfig.formatBalance(missing)} para desbloquear ${item.name}.',
+          error: NoesisL10n.tr(
+            'Saldo insuficiente. Faltam {missing} para desbloquear {item}.',
+            {'missing': InsightsEconomyConfig.formatBalance(missing), 'item': itemName},
+          ),
         );
       }
 
@@ -1028,7 +1054,7 @@ class ShopService {
       final tx = ShopTransaction(
         id: txId,
         amount: -item.price,
-        description: 'Perfil: ${item.name}',
+        description: NoesisL10n.tr('Perfil: {item}', {'item': itemName}),
         source: 'purchase',
         reference: 'profile_item:${item.id}',
         createdAt: _clock(),
@@ -1040,8 +1066,10 @@ class ShopService {
 
       return ShopPurchaseResult(
         ok: true,
-        message:
-            '${item.name} desbloqueado por ${InsightsEconomyConfig.formatCompact(item.price)} e equipado!',
+        message: NoesisL10n.tr(
+          '{item} desbloqueado por {price} e equipado!',
+          {'item': itemName, 'price': InsightsEconomyConfig.formatCompact(item.price)},
+        ),
       );
     } finally {
       _purchasingThemeIds.remove(lockKey);
@@ -1052,7 +1080,7 @@ class ShopService {
   Future<ShopPurchaseResult> purchaseStreakProtector() async {
     await init();
     if (_purchasingThemeIds.contains('streak_protector')) {
-      return const ShopPurchaseResult(ok: true, message: 'Compra já em processamento.');
+      return ShopPurchaseResult(ok: true, message: NoesisL10n.tr('Compra já em processamento.'));
     }
     _purchasingThemeIds.add('streak_protector');
     try {
@@ -1060,8 +1088,10 @@ class ShopService {
       if (streakProtectors >= maxAllowed) {
         return ShopPurchaseResult(
           ok: false,
-          error:
-              'Você já atingiu o limite de $maxAllowed Selos de Consistência guardados.',
+          error: NoesisL10n.tr(
+            'Você já atingiu o limite de {max} Selos de Consistência guardados.',
+            {'max': maxAllowed},
+          ),
         );
       }
       const price = InsightsEconomyConfig.streakProtectorPrice;
@@ -1069,8 +1099,10 @@ class ShopService {
         final missing = price - balance;
         return ShopPurchaseResult(
           ok: false,
-          error:
-              'Saldo insuficiente. Faltam ${InsightsEconomyConfig.formatBalance(missing)} para guardar um Selo de Consistência.',
+          error: NoesisL10n.tr(
+            'Saldo insuficiente. Faltam {missing} para guardar um Selo de Consistência.',
+            {'missing': InsightsEconomyConfig.formatBalance(missing)},
+          ),
         );
       }
 
@@ -1078,7 +1110,7 @@ class ShopService {
       final tx = ShopTransaction(
         id: 'purchase:streak_protector:${now.microsecondsSinceEpoch}',
         amount: -price,
-        description: 'Selo de Consistência',
+        description: NoesisL10n.tr('Selo de Consistência'),
         source: 'purchase',
         reference: 'streak_protector',
         createdAt: now,
@@ -1090,8 +1122,10 @@ class ShopService {
 
       return ShopPurchaseResult(
         ok: true,
-        message:
-            'Selo de Consistência guardado! Você agora tem $streakProtectors/$maxAllowed ativos.',
+        message: NoesisL10n.tr(
+          'Selo de Consistência guardado! Você agora tem {current}/{max} ativos.',
+          {'current': streakProtectors, 'max': maxAllowed},
+        ),
       );
     } finally {
       _purchasingThemeIds.remove('streak_protector');
@@ -1197,7 +1231,7 @@ class ShopService {
         ShopTransaction(
           id: 'welcome_bonus',
           amount: InsightsEconomyConfig.welcomeBonus,
-          description: 'Bônus de boas-vindas',
+          description: NoesisL10n.tr('Bônus de boas-vindas'),
           source: 'welcome',
           reference: 'onboarding',
           createdAt: now,
@@ -1209,7 +1243,7 @@ class ShopService {
         ShopTransaction(
           id: 'test_seed_${now.microsecondsSinceEpoch}',
           amount: initialBalance,
-          description: 'Saldo inicial de teste',
+          description: NoesisL10n.tr('Saldo inicial de teste'),
           source: 'welcome',
           reference: 'test_seed',
           createdAt: now,
@@ -1221,7 +1255,7 @@ class ShopService {
         ShopTransaction(
           id: 'test_shield_$i',
           amount: 0,
-          description: 'Protetor de Ofensiva',
+          description: NoesisL10n.tr('Protetor de Ofensiva'),
           source: 'purchase',
           reference: 'streak_protector',
           createdAt: now,
@@ -1240,7 +1274,7 @@ class ShopService {
           ShopTransaction(
             id: 'purchase:theme:$themeId',
             amount: 0,
-            description: 'Tema desbloqueado ($themeId)',
+            description: NoesisL10n.tr('Tema desbloqueado ({id})', {'id': themeId}),
             source: 'purchase',
             reference: 'theme:$themeId',
             createdAt: now,

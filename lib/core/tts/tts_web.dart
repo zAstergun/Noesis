@@ -45,15 +45,40 @@ void platformSpeakWeb(String text, String lang, {void Function()? onDone}) {
     synth.cancel();
     final utterance = web.SpeechSynthesisUtterance(text);
 
-    final normLang = lang.startsWith('en')
-        ? 'en-US'
-        : (lang.startsWith('es')
-            ? 'es-ES'
-            : (lang.startsWith('fr')
-                ? 'fr-FR'
-                : (lang.startsWith('de')
-                    ? 'de-DE'
-                    : (lang.startsWith('it') ? 'it-IT' : 'pt-BR'))));
+    final lower = lang.toLowerCase();
+    final normLang = lower.startsWith('pt-pt') || lower.startsWith('pt_pt') || lower == 'pt'
+        ? 'pt-PT'
+        : lower.startsWith('pt')
+            ? 'pt-BR'
+            : lower.startsWith('en-gb') || lower.startsWith('en_gb')
+                ? 'en-GB'
+                : lower.startsWith('en')
+                    ? 'en-US'
+                    : lower.startsWith('es')
+                        ? 'es-ES'
+                        : lower.startsWith('ja') || lower.startsWith('jp')
+                            ? 'ja-JP'
+                            : lower.startsWith('zh') || lower.startsWith('cn')
+                                ? 'zh-CN'
+                                : lower.startsWith('ko') || lower.startsWith('kr')
+                                    ? 'ko-KR'
+                                    : lower.startsWith('vi') || lower.startsWith('vn')
+                                        ? 'vi-VN'
+                                        : lower.startsWith('id') || lower.startsWith('in')
+                                            ? 'id-ID'
+                                            : lower.startsWith('fr')
+                                                ? 'fr-FR'
+                                                : lower.startsWith('de')
+                                                    ? 'de-DE'
+                                                    : lower.startsWith('it')
+                                                        ? 'it-IT'
+                                                        : lower.startsWith('nl')
+                                                            ? 'nl-NL'
+                                                            : lower.startsWith('ru')
+                                                                ? 'ru-RU'
+                                                                : lower.startsWith('ar')
+                                                                    ? 'ar-SA'
+                                                                    : (lang.trim().isNotEmpty ? lang : 'en-GB');
 
     utterance.lang = normLang;
     utterance.rate = 0.95;

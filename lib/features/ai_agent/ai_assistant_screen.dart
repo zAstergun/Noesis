@@ -7,6 +7,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/noesis_agent_tools.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
@@ -35,16 +36,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<Map<String, dynamic>> _messages = [];
   final List<Content> _conversationHistory = [];
   final List<NoesisAttachment> _attachments = [];
-  List<NoesisQuickSuggestion> _quickSuggestions = const [
+  List<NoesisQuickSuggestion> _quickSuggestions = [
     NoesisQuickSuggestion(
       id: 'loading_plan',
-      label: '✨ Plano de estudo de hoje',
-      prompt: 'Leia tudo o que tenho na minha conta e monte um plano objetivo para hoje.',
+      label: NoesisL10n.tr('✨ Plano de estudo de hoje'),
+      prompt: NoesisL10n.tr('Leia tudo o que tenho na minha conta e monte um plano objetivo para hoje.'),
     ),
     NoesisQuickSuggestion(
       id: 'loading_quiz',
-      label: '📝 Simulado de diagnóstico',
-      prompt: 'Crie um simulado de 5 questões sobre os temas que venho estudando.',
+      label: NoesisL10n.tr('📝 Simulado de diagnóstico'),
+      prompt: NoesisL10n.tr('Crie um simulado de 5 questões sobre os temas que venho estudando.'),
     ),
   ];
   bool _isLoading = false;
@@ -105,7 +106,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _activeSessionId ??= 'chat-${now.microsecondsSinceEpoch}';
     _activeSessionCreatedAt ??= now;
 
-    String title = 'Conversa Noesis AI';
+    String title = NoesisL10n.tr('Conversa Noesis AI');
     for (final m in _messages) {
       if (m['role'] == 'user') {
         final raw = (m['text'] ?? '').toString().trim();
@@ -157,11 +158,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 3),
-            content: const Text(
-              'O histórico de conversas do Noesis AI é exclusivo para membros VIP.',
+            content: Text(
+              context.tr('O histórico de conversas do Noesis AI é exclusivo para membros VIP.'),
             ),
             action: SnackBarAction(
-              label: 'Ver VIP',
+              label: context.tr('Ver VIP'),
               onPressed: () {
                 if (mounted) showVipPrivilegesModal(context);
               },
@@ -200,7 +201,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
+                        padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 12, 14),
                         decoration: BoxDecoration(
                           color: AsterTheme.surfaceAlt(ctx),
                           borderRadius: const BorderRadius.vertical(
@@ -219,7 +220,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        'Histórico do Noesis AI',
+                                        ctx.tr('Histórico do Noesis AI'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 15.5,
                                           fontWeight: FontWeight.w800,
@@ -231,7 +232,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     ],
                                   ),
                                   Text(
-                                    'Retome conversas anteriores a qualquer momento',
+                                    ctx.tr('Retome conversas anteriores a qualquer momento'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11.5,
                                       color: AsterTheme.textMuted(ctx),
@@ -249,7 +250,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                   setDialogState(() {});
                                 },
                                 child: Text(
-                                  'Limpar tudo',
+                                  ctx.tr('Limpar tudo'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
@@ -258,7 +259,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                 ),
                               ),
                             IconButton(
-                              tooltip: 'Fechar',
+                              tooltip: ctx.tr('Fechar'),
                               onPressed: () => Navigator.of(ctx).pop(),
                               icon: Icon(Icons.close_rounded, color: AsterTheme.textMuted(ctx)),
                             ),
@@ -279,7 +280,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     ),
                                     const SizedBox(height: 10),
                                     Text(
-                                      'Nenhuma conversa salva ainda',
+                                      ctx.tr('Nenhuma conversa salva ainda'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w800,
@@ -288,7 +289,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Suas próximas conversas com o Noesis AI serão salvas automaticamente aqui.',
+                                      ctx.tr(
+                                        'Suas próximas conversas com o Noesis AI serão salvas automaticamente aqui.',
+                                      ),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.manrope(
                                         fontSize: 12,
@@ -362,7 +365,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                             ),
                                           ),
                                           IconButton(
-                                            tooltip: 'Excluir conversa',
+                                            tooltip: ctx.tr('Excluir conversa'),
                                             onPressed: () async {
                                               await AiChatHistoryRepository.deleteSession(item.id);
                                               sessions = await AiChatHistoryRepository.loadAll();
@@ -397,8 +400,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final buf = StringBuffer();
     for (final item in items) {
       buf
-        ..writeln('=== ANEXO (${item.iconLabel}): ${item.title} ===')
-        ..writeln('Resumo: ${item.subtitle}')
+        ..writeln(NoesisL10n.tr('=== ANEXO ({kind}): {title} ===', {'kind': item.iconLabel, 'title': item.title}))
+        ..writeln(NoesisL10n.tr('Resumo: {subtitle}', {'subtitle': item.subtitle}))
         ..writeln(item.content)
         ..writeln();
     }
@@ -421,7 +424,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     try {
       final files = await FilePicker.pickFiles(
-        dialogTitle: 'Selecionar arquivos para o Noesis AI',
+        dialogTitle: NoesisL10n.tr('Selecionar arquivos para o Noesis AI'),
       );
       if (files.isEmpty || !mounted) return;
 
@@ -461,7 +464,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           } catch (_) {
             decoded = latin1.decode(bytes, allowInvalid: true);
           }
-          contentText = decoded.length > 12000 ? '${decoded.substring(0, 12000)}\n...(truncado)' : decoded;
+          contentText = decoded.length > 12000
+              ? '${decoded.substring(0, 12000)}\n...(${NoesisL10n.tr('truncado')})'
+              : decoded;
         } else if (bytes != null && ext == 'pdf') {
           final asciiMatches = RegExp(r'[A-Za-zÀ-ÿ0-9 ,.;:!?()/_\-\n]{5,}').allMatches(
             latin1.decode(bytes, allowInvalid: true),
@@ -469,10 +474,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           final extracted = asciiMatches.map((m) => m.group(0)!).take(120).join(' ');
           contentText = extracted.trim().length > 40
               ? (extracted.length > 8000 ? extracted.substring(0, 8000) : extracted)
-              : 'Arquivo PDF anexado: ${file.name} (${(fileSize / 1024).toStringAsFixed(1)} KB).';
+              : NoesisL10n.tr(
+                  'Arquivo PDF anexado: {name} ({kb} KB).',
+                  {'name': file.name, 'kb': (fileSize / 1024).toStringAsFixed(1)},
+                );
         } else {
-          contentText = 'Arquivo anexado: ${file.name} (tipo .${ext.isEmpty ? "bin" : ext}, '
-              '${(fileSize / 1024).toStringAsFixed(1)} KB).';
+          contentText = NoesisL10n.tr(
+            'Arquivo anexado: {name} (tipo .{ext}, {kb} KB).',
+            {
+              'name': file.name,
+              'ext': ext.isEmpty ? 'bin' : ext,
+              'kb': (fileSize / 1024).toStringAsFixed(1),
+            },
+          );
         }
 
         added.add(
@@ -480,7 +494,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             id: 'file:${file.name}:$fileSize:${DateTime.now().millisecondsSinceEpoch}',
             kind: 'file',
             title: file.name,
-            subtitle: '${(fileSize / 1024).toStringAsFixed(1)} KB · .${ext.isEmpty ? "arquivo" : ext}',
+            subtitle:
+                '${(fileSize / 1024).toStringAsFixed(1)} KB · .${ext.isEmpty ? NoesisL10n.tr('arquivo') : ext}',
             content: contentText,
           ),
         );
@@ -497,7 +512,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             SnackBar(
               persist: false,
               duration: const Duration(seconds: 4),
-              content: Text('Não foi possível anexar arquivo: $e'),
+              content: Text(
+                NoesisL10n.tr('Não foi possível anexar arquivo: {error}', {'error': '$e'}),
+              ),
             ),
           );
       }
@@ -531,7 +548,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
               title: Text(
-                'Anexar Item do Noesis',
+                ctx.tr('Anexar Item do Noesis'),
                 style: GoogleFonts.manrope(
                   fontWeight: FontWeight.w800,
                   color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -544,9 +561,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'Filtrar simulados, cadernos, flashcards ou trilhas...',
-                        prefixIcon: Icon(Icons.search_rounded, size: 18),
+                      decoration: InputDecoration(
+                        hintText: ctx.tr('Filtrar simulados, cadernos, flashcards ou trilhas...'),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       ),
                       onChanged: (val) => setModalState(() => query = val.trim()),
                     ),
@@ -557,15 +574,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                         child: Row(
                           children: [
-                            for (final entry in const [
-                              ('all', 'Todos', Icons.apps_rounded),
-                              ('quiz', 'Simulados', Icons.assignment_rounded),
-                              ('notebook', 'Cadernos', Icons.menu_book_rounded),
-                              ('flashcard_deck', 'Flashcards', Icons.style_rounded),
-                              ('roadmap', 'Trilhas', Icons.route_rounded),
+                            for (final entry in [
+                              ('all', ctx.tr('Todos'), Icons.apps_rounded),
+                              ('quiz', ctx.tr('Simulados'), Icons.assignment_rounded),
+                              ('notebook', ctx.tr('Cadernos'), Icons.menu_book_rounded),
+                              ('flashcard_deck', ctx.tr('Flashcards'), Icons.style_rounded),
+                              ('roadmap', ctx.tr('Trilhas'), Icons.route_rounded),
                             ])
                               Padding(
-                                padding: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsetsDirectional.only(end: 8),
                                 child: SoftClayChoiceChip(
                                   label: entry.$2,
                                   icon: entry.$3,
@@ -583,7 +600,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       child: filtered.isEmpty
                           ? Center(
                               child: Text(
-                                'Nenhum item encontrado na sua conta.',
+                                ctx.tr('Nenhum item encontrado na sua conta.'),
                                 style: GoogleFonts.manrope(color: AsterConstants.textMuted, fontSize: 13),
                               ),
                             )
@@ -624,10 +641,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
+                  child: Text(ctx.tr('Cancelar'), style: GoogleFonts.manrope(color: AsterConstants.textMuted)),
                 ),
                 SoftClayPillButton(
-                  text: 'Anexar Selecionados',
+                  text: ctx.tr('Anexar Selecionados'),
                   onPressed: () {
                     setState(() {
                       // Mantém arquivos locais já anexados e sincroniza os itens selecionados do Noesis
@@ -666,7 +683,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       context: context,
       useRootNavigator: true,
       barrierDismissible: true,
-      barrierLabel: 'Fechar menu de anexos',
+      barrierLabel: context.tr('Fechar menu de anexos'),
       barrierColor: Colors.black.withValues(alpha: 0.14),
       transitionDuration: const Duration(milliseconds: 210),
       pageBuilder: (ctx, _, _) {
@@ -706,7 +723,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                     child: Text(
-                      'ANEXAR AO CONTEXTO',
+                      ctx.tr('ANEXAR AO CONTEXTO'),
                       style: GoogleFonts.manrope(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -720,8 +737,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     key: const Key('attach_file_option'),
                     icon: Icons.upload_file_rounded,
                     accent: AsterTheme.primary(ctx),
-                    title: 'Anexar Arquivo do Dispositivo',
-                    subtitle: 'TXT, Markdown, CSV, JSON, PDF ou documentos de estudo',
+                    title: ctx.tr('Anexar Arquivo do Dispositivo'),
+                    subtitle: ctx.tr('TXT, Markdown, CSV, JSON, PDF ou documentos de estudo'),
                     isDark: isDark,
                     onTap: () {
                       Navigator.of(ctx).pop();
@@ -734,8 +751,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     key: const Key('attach_noesis_item_option'),
                     icon: Icons.library_books_rounded,
                     accent: AsterConstants.menta,
-                    title: 'Anexar Item do Noesis',
-                    subtitle: 'Simulados, Cadernos, Baralhos de Flashcards ou Trilhas',
+                    title: ctx.tr('Anexar Item do Noesis'),
+                    subtitle: ctx.tr('Simulados, Cadernos, Baralhos de Flashcards ou Trilhas'),
                     isDark: isDark,
                     onTap: () {
                       Navigator.of(ctx).pop();
@@ -766,7 +783,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               end: Offset.zero,
             ).animate(fade),
             child: ScaleTransition(
-              alignment: Alignment.bottomLeft,
+              alignment: Directionality.of(ctx) == TextDirection.rtl
+                  ? Alignment.bottomRight
+                  : Alignment.bottomLeft,
               scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
               child: child,
             ),
@@ -854,11 +873,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 4),
-            content: const Text(
-              'Você precisa configurar uma chave de IA em Configurações para usar o Noesis AI.',
+            content: Text(
+              context.tr('Você precisa configurar uma chave de IA em Configurações para usar o Noesis AI.'),
             ),
             action: SnackBarAction(
-              label: 'Configurações',
+              label: context.tr('Configurações'),
               onPressed: () {
                 messenger.hideCurrentSnackBar();
                 RootScreen.switchTab(6);
@@ -875,7 +894,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     final text = rawText.isNotEmpty
         ? rawText
-        : 'Analise e revise os itens anexados (${pendingAttachments.map((a) => a.title).join(', ')}).';
+        : NoesisL10n.tr(
+            'Analise e revise os itens anexados ({items}).',
+            {'items': pendingAttachments.map((a) => a.title).join(', ')},
+          );
     final attachmentContext = _buildAttachmentContext(pendingAttachments);
 
     _messageController.clear();
@@ -884,7 +906,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       _messages.add({
         'role': 'user',
         'text': text,
-        'time': 'Agora',
+        'time': NoesisL10n.tr('Agora'),
         if (pendingAttachments.isNotEmpty) 'attachments': pendingAttachments,
       });
       _isLoading = true;
@@ -924,7 +946,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         setState(() {
           _messages.add({
             'role': 'ai',
-            'text': 'Erro ao processar mensagem: ${e.toString()}',
+            'text': NoesisL10n.tr(
+              'Erro ao processar mensagem: {error}',
+              {'error': e.toString()},
+            ),
             'isError': true,
           });
         });
@@ -997,8 +1022,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         Expanded(
                           child: Text(
                             _hasConfiguredAiKey
-                                ? 'Tutor inteligente · conectado aos seus estudos'
-                                : 'Configure sua IA em Configurações',
+                                ? context.tr('Tutor inteligente · conectado aos seus estudos')
+                                : context.tr('Configure sua IA em Configurações'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.manrope(
@@ -1019,8 +1044,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   final isVip = SupabaseService.isCurrentUserVip;
                   return Tooltip(
                     message: isVip
-                        ? 'Histórico de conversas (VIP)'
-                        : 'Histórico de conversas · Exclusivo VIP',
+                        ? context.tr('Histórico de conversas (VIP)')
+                        : context.tr('Histórico de conversas · Exclusivo VIP'),
                     child: InkWell(
                       key: const Key('ai_history_button'),
                       onTap: _openHistoryDialog,
@@ -1048,7 +1073,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             ),
                             const SizedBox(width: 5),
                             Text(
-                              'Histórico',
+                              context.tr('Histórico'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -1070,7 +1095,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               IconButton(
                 key: const Key('ai_clear_chat_button'),
                 icon: Icon(Icons.delete_outline_rounded, size: 20, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
-                tooltip: 'Limpar conversa',
+                tooltip: context.tr('Limpar conversa'),
                 onPressed: _resetChat,
               ),
             ],
@@ -1106,7 +1131,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             ),
                             const SizedBox(height: 14),
                             Text(
-                              'Pronto para executar seu pedido',
+                              context.tr('Pronto para executar seu pedido'),
                               style: GoogleFonts.manrope(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -1115,7 +1140,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Pressione Enter ou toque em Enviar para começar.',
+                              context.tr('Pressione Enter ou toque em Enviar para começar.'),
                               style: GoogleFonts.manrope(
                                 fontSize: 12.5,
                                 color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1140,7 +1165,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         final actionData = msg['data'] as Map<String, dynamic>?;
 
                         return Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             constraints: BoxConstraints(maxWidth: isDesktop ? 680 : double.infinity),
@@ -1166,7 +1191,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            isCompleted ? 'AÇÃO EXECUTADA NO NOESIS' : 'EXECUTANDO...',
+                                            isCompleted
+                                                ? context.tr('AÇÃO EXECUTADA NO NOESIS')
+                                                : context.tr('EXECUTANDO...'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w800,
@@ -1196,8 +1223,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     onTap: () {
                                       if (actionData != null && actionData['questions_data'] != null) {
                                         QuizScreen.startQuiz(
-                                          title: actionData['title'] ?? 'Simulado Noesis',
-                                          subject: actionData['subject'] ?? 'Tecnologia',
+                                          title: actionData['title'] ?? context.tr('Simulado Noesis'),
+                                          subject: actionData['subject'] ?? context.tr('Tecnologia'),
                                           questions: List<Map<String, dynamic>>.from(actionData['questions_data']),
                                           difficulty: actionData['difficulty'],
                                         );
@@ -1218,7 +1245,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           Icon(Icons.play_arrow_rounded, size: 16, color: AsterTheme.onPrimary(context)),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Iniciar Simulado Agora 🚀',
+                                            context.tr('Iniciar Simulado Agora 🚀'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.w800,
@@ -1252,7 +1279,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                            Icon(Icons.style_rounded, size: 16, color: AsterTheme.onPrimary(context)),
                                            const SizedBox(width: 6),
                                            Text(
-                                             'Praticar Flashcards Agora 🎴',
+                                             context.tr('Praticar Flashcards Agora 🎴'),
                                              style: GoogleFonts.manrope(
                                                fontSize: 11.5,
                                                fontWeight: FontWeight.w800,
@@ -1281,7 +1308,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           Icon(Icons.calendar_month_rounded, size: 14, color: AsterTheme.primary(context)),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Ver no Calendário 📅',
+                                            context.tr('Ver no Calendário 📅'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1310,7 +1337,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           const Icon(Icons.auto_stories_rounded, size: 14, color: AsterConstants.menta),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Ver no Diário de Estudos 📊',
+                                            context.tr('Ver no Diário de Estudos 📊'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1339,7 +1366,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           Icon(Icons.menu_book_rounded, size: 14, color: AsterTheme.primary(context)),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Abrir Cadernos 📓',
+                                            context.tr('Abrir Cadernos 📓'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1368,7 +1395,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           const Icon(Icons.route_rounded, size: 14, color: AsterConstants.menta),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Abrir Trilhas 🗺️',
+                                            context.tr('Abrir Trilhas 🗺️'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1397,7 +1424,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                           Icon(Icons.dashboard_rounded, size: 14, color: AsterTheme.primary(context)),
                                           const SizedBox(width: 6),
                                           Text(
-                                            'Ver Meta no Dashboard 🎯',
+                                            context.tr('Ver Meta no Dashboard 🎯'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1419,7 +1446,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
                       if (!isUser) {
                         return Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             constraints: BoxConstraints(
@@ -1428,11 +1455,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                             decoration: BoxDecoration(
                               color: isDark ? const Color(0xFF26283B) : AsterConstants.surfaceCard,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(6),
-                                topRight: Radius.circular(20),
-                                bottomLeft: Radius.circular(20),
-                                bottomRight: Radius.circular(20),
+                              borderRadius: const BorderRadiusDirectional.only(
+                                topStart: Radius.circular(6),
+                                topEnd: Radius.circular(20),
+                                bottomStart: Radius.circular(20),
+                                bottomEnd: Radius.circular(20),
                               ),
                               border: Border.all(
                                 color: isDark ? const Color(0xFF383A54) : AsterConstants.surfaceInset.withValues(alpha: 0.8),
@@ -1487,16 +1514,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
                                       icon: const Icon(Icons.copy_rounded, size: 14, color: AsterConstants.textMuted),
-                                      tooltip: 'Copiar resposta',
+                                      tooltip: context.tr('Copiar resposta'),
                                       onPressed: () {
                                         Clipboard.setData(ClipboardData(text: msg['text']));
                                         ScaffoldMessenger.of(context)
                                           ..clearSnackBars()
                                           ..showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               persist: false,
-                                              duration: Duration(seconds: 1),
-                                              content: Text('Resposta copiada para a área de transferência!'),
+                                              duration: const Duration(seconds: 1),
+                                              content: Text(
+                                                context.tr('Resposta copiada para a área de transferência!'),
+                                              ),
                                             ),
                                           );
                                       },
@@ -1546,7 +1575,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                         color: AsterConstants.textMuted,
                                       ),
                                       blockquoteDecoration: BoxDecoration(
-                                        border: Border(left: BorderSide(color: AsterTheme.primary(context), width: 3)),
+                                        border: BorderDirectional(
+                                          start: BorderSide(color: AsterTheme.primary(context), width: 3),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1561,7 +1592,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       final primaryCol = AsterTheme.primary(context);
                       final onPrimaryCol = AsterTheme.onPrimary(context);
                       return Align(
-                        alignment: Alignment.centerRight,
+                        alignment: AlignmentDirectional.centerEnd,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           constraints: BoxConstraints(
@@ -1570,11 +1601,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           decoration: BoxDecoration(
                             color: primaryCol,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(6),
-                              bottomLeft: Radius.circular(20),
-                              bottomRight: Radius.circular(20),
+                            borderRadius: const BorderRadiusDirectional.only(
+                              topStart: Radius.circular(20),
+                              topEnd: Radius.circular(6),
+                              bottomStart: Radius.circular(20),
+                              bottomEnd: Radius.circular(20),
                             ),
                             boxShadow: AsterTheme.primaryShadow(context, primaryCol),
                           ),
@@ -1640,7 +1671,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 children: [
                   SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context))),
                   const SizedBox(width: 8),
-                  Text('Noesis AI processando ação...', style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted)),
+                  Text(
+                    context.tr('Noesis AI processando ação...'),
+                    style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
+                  ),
                 ],
               ),
             ),
@@ -1655,9 +1689,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   for (int i = 0; i < _quickSuggestions.length; i++) ...[
                     if (i > 0) const SizedBox(width: 8),
                     _buildQuickChip(
-                      _quickSuggestions[i].label,
-                      () => _sendMessage(_quickSuggestions[i].prompt),
-                      tooltip: _quickSuggestions[i].tooltip,
+                      context.tr(_quickSuggestions[i].label),
+                      () => _sendMessage(NoesisL10n.tr(_quickSuggestions[i].prompt)),
+                      tooltip: _quickSuggestions[i].tooltip != null
+                          ? context.tr(_quickSuggestions[i].tooltip!)
+                          : null,
                     ),
                   ],
                 ],
@@ -1670,7 +1706,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 6,
@@ -1721,7 +1757,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                     child: IconButton(
                       key: const Key('ai_attach_button'),
-                      tooltip: 'Anexar arquivo ou item do Noesis',
+                      tooltip: context.tr('Anexar arquivo ou item do Noesis'),
                       onPressed: _openAttachMenu,
                       icon: AnimatedRotation(
                         duration: const Duration(milliseconds: 200),
@@ -1737,10 +1773,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Expanded(
                     child: TextField(
                       controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: 'Pergunte ou peça uma ação (simulado, agenda, caderno, anexe itens)...',
+                      decoration: InputDecoration(
+                        hintText: context.tr('Pergunte ou peça uma ação (simulado, agenda, caderno, anexe itens)...'),
                         filled: false,
-                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),
@@ -1806,7 +1842,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Configure uma chave de IA para usar o assistente',
+                  context.tr('Configure uma chave de IA para usar o assistente'),
                   style: GoogleFonts.manrope(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -1815,7 +1851,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Adicione sua chave de API em Configurações para habilitar o envio de mensagens e ações automáticas.',
+                  context.tr('Adicione sua chave de API em Configurações para habilitar o envio de mensagens e ações automáticas.'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1828,7 +1864,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ElevatedButton.icon(
             onPressed: () => RootScreen.switchTab(6),
             icon: const Icon(Icons.settings_rounded, size: 15),
-            label: const Text('Configurar'),
+            label: Text(context.tr('Configurar')),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryCol,
               foregroundColor: AsterTheme.onPrimary(context),
@@ -1854,44 +1890,44 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       (
         icon: Icons.calendar_month_rounded,
         color: primaryCol,
-        title: 'Calendário & Agenda',
-        description: 'Agende aulas, provas e revisões por horário natural, edite compromissos ou remova eventos.',
-        samplePrompt: 'Crie um aviso no calendário de uma prova para as 11 da manhã de hoje',
+        title: context.tr('Calendário & Agenda'),
+        description: context.tr('Agende aulas, provas e revisões por horário natural, edite compromissos ou remova eventos.'),
+        samplePrompt: context.tr('Crie um aviso no calendário de uma prova para as 11 da manhã de hoje'),
       ),
       (
         icon: Icons.timer_rounded,
         color: secondaryCol,
-        title: 'Diário & Meta Semanal',
-        description: 'Registre sessões de estudo, ajuste sua meta semanal de horas e edite ou apague registros.',
-        samplePrompt: 'Registre 1h30 de estudo de Criptografia sobre AES-GCM',
+        title: context.tr('Diário & Meta Semanal'),
+        description: context.tr('Registre sessões de estudo, ajuste sua meta semanal de horas e edite ou apague registros.'),
+        samplePrompt: context.tr('Registre 1h30 de estudo de Criptografia sobre AES-GCM'),
       ),
       (
         icon: Icons.assignment_rounded,
         color: primaryCol,
-        title: 'Simulados Personalizados',
-        description: 'Crie simulados sob medida, revise seus acertos e erros ou remova simulados antigos.',
-        samplePrompt: 'Crie um simulado de 5 questões sobre OWASP Top 10',
+        title: context.tr('Simulados Personalizados'),
+        description: context.tr('Crie simulados sob medida, revise seus acertos e erros ou remova simulados antigos.'),
+        samplePrompt: context.tr('Crie um simulado de 5 questões sobre OWASP Top 10'),
       ),
       (
         icon: Icons.style_rounded,
         color: secondaryCol,
-        title: 'Flashcards Cognitivos',
-        description: 'Gere baralhos de repetição espaçada, adicione cartões novos e foque no que falta dominar.',
-        samplePrompt: 'Crie flashcards de Criptografia com foco em TLS 1.3',
+        title: context.tr('Flashcards Cognitivos'),
+        description: context.tr('Gere baralhos de repetição espaçada, adicione cartões novos e foque no que falta dominar.'),
+        samplePrompt: context.tr('Crie flashcards de Criptografia com foco em TLS 1.3'),
       ),
       (
         icon: Icons.menu_book_rounded,
         color: primaryCol,
-        title: 'Cadernos & Trilhas',
-        description: 'Crie e atualize anotações de estudo, marque revisões e monte trilhas semanais completas.',
-        samplePrompt: 'Crie uma trilha de 4 semanas para dominar Redes e Segurança',
+        title: context.tr('Cadernos & Trilhas'),
+        description: context.tr('Crie e atualize anotações de estudo, marque revisões e monte trilhas semanais completas.'),
+        samplePrompt: context.tr('Crie uma trilha de 4 semanas para dominar Redes e Segurança'),
       ),
       (
         icon: Icons.attach_file_rounded,
         color: secondaryCol,
-        title: 'Leitura da Conta & Anexos',
-        description: 'Leia todos os dados da sua conta e anexe arquivos ou itens do Noesis usando o ícone de clipe.',
-        samplePrompt: 'Leia minha conta e faça um plano de revisão do que está pendente',
+        title: context.tr('Leitura da Conta & Anexos'),
+        description: context.tr('Leia todos os dados da sua conta e anexe arquivos ou itens do Noesis usando o ícone de clipe.'),
+        samplePrompt: context.tr('Leia minha conta e faça um plano de revisão do que está pendente'),
       ),
     ];
 
@@ -1911,7 +1947,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
               const SizedBox(height: 14),
               Text(
-                'O que o Noesis AI pode fazer por você',
+                context.tr('O que o Noesis AI pode fazer por você'),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(
                   fontSize: 18,
@@ -1921,7 +1957,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Conectado a todas as páginas da sua conta. Toque em um exemplo ou comece a digitar abaixo:',
+                context.tr('Conectado a todas as páginas da sua conta. Toque em um exemplo ou comece a digitar abaixo:'),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.manrope(
                   fontSize: 13,
@@ -1938,14 +1974,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     spacing: 14,
                     runSpacing: 14,
                     children: capabilities.map((cap) {
+                      final localizedPrompt = context.tr(cap.samplePrompt);
                       return SizedBox(
                         width: cardWidth,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: () {
-                            _messageController.text = cap.samplePrompt;
+                            _messageController.text = localizedPrompt;
                             _messageController.selection = TextSelection.fromPosition(
-                              TextPosition(offset: cap.samplePrompt.length),
+                              TextPosition(offset: localizedPrompt.length),
                             );
                           },
                           child: Container(
@@ -1977,7 +2014,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        cap.title,
+                                        context.tr(cap.title),
                                         style: GoogleFonts.manrope(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w800,
@@ -1986,7 +2023,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        cap.description,
+                                        context.tr(cap.description),
                                         style: GoogleFonts.manrope(
                                           fontSize: 12,
                                           height: 1.4,

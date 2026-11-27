@@ -1,23 +1,37 @@
-enum RoadmapStepStatus {
-  todo('A fazer'),
-  doing('Em andamento'),
-  done('Concluída');
+import '../../../core/localization/noesis_l10n.dart';
 
-  const RoadmapStepStatus(this.label);
-  final String label;
+enum RoadmapStepStatus {
+  todo,
+  doing,
+  done;
+
+  String get label {
+    switch (this) {
+      case RoadmapStepStatus.todo:
+        return NoesisL10n.tr('A fazer');
+      case RoadmapStepStatus.doing:
+        return NoesisL10n.tr('Em andamento');
+      case RoadmapStepStatus.done:
+        return NoesisL10n.tr('Concluída');
+    }
+  }
+
+  String get localizedLabel => label;
 
   static RoadmapStepStatus fromString(String? raw) {
-    switch (raw?.trim().toLowerCase()) {
-      case 'done':
-      case 'concluida':
-      case 'concluída':
-        return RoadmapStepStatus.done;
-      case 'doing':
-      case 'em andamento':
-        return RoadmapStepStatus.doing;
-      default:
-        return RoadmapStepStatus.todo;
+    final normalized = raw?.trim().toLowerCase() ?? '';
+    if (normalized == 'done' ||
+        normalized == 'concluida' ||
+        normalized == NoesisL10n.tr('Concluída', null, 'br').toLowerCase() ||
+        normalized == NoesisL10n.tr('Concluída').toLowerCase()) {
+      return RoadmapStepStatus.done;
     }
+    if (normalized == 'doing' ||
+        normalized == NoesisL10n.tr('Em andamento', null, 'br').toLowerCase() ||
+        normalized == NoesisL10n.tr('Em andamento').toLowerCase()) {
+      return RoadmapStepStatus.doing;
+    }
+    return RoadmapStepStatus.todo;
   }
 }
 
@@ -146,7 +160,7 @@ class RoadmapStep {
 
     return RoadmapStep(
       id: (json['id'] ?? 'step-$fallbackIndex-${DateTime.now().millisecondsSinceEpoch}').toString(),
-      title: (json['title'] ?? 'Etapa ${fallbackIndex + 1}').toString(),
+      title: (json['title'] ?? NoesisL10n.tr('Etapa {n}', {'n': fallbackIndex + 1})).toString(),
       description: (json['description'] ?? '').toString(),
       estimatedHours: ((json['estimated_hours'] ?? json['estimatedHours']) as num?)?.toInt() ?? 4,
       status: RoadmapStepStatus.fromString(json['status']?.toString()),
@@ -165,7 +179,7 @@ class StudyRoadmap {
     required this.title,
     this.goal = '',
     required this.subject,
-    this.level = 'Intermediário',
+    this.level = NoesisL10n.defaultRoadmapLevel,
     this.estimatedWeeks = 4,
     this.steps = const [],
     required this.createdAt,
@@ -249,10 +263,10 @@ class StudyRoadmap {
 
     return StudyRoadmap(
       id: (json['roadmap_key'] ?? json['id'] ?? 'roadmap-${DateTime.now().millisecondsSinceEpoch}').toString(),
-      title: (json['title'] ?? 'Trilha de Estudos').toString(),
+      title: (json['title'] ?? NoesisL10n.tr('Trilha de Estudos')).toString(),
       goal: (json['goal'] ?? '').toString(),
-      subject: (json['subject'] ?? 'Geral').toString(),
-      level: (json['level'] ?? 'Intermediário').toString(),
+      subject: (json['subject'] ?? NoesisL10n.tr('Geral')).toString(),
+      level: (json['level'] ?? NoesisL10n.tr('Intermediário')).toString(),
       estimatedWeeks: ((json['estimated_weeks'] ?? json['estimatedWeeks']) as num?)?.toInt() ?? 4,
       steps: parsedSteps,
       createdAt: DateTime.tryParse((json['created_at'] ?? '').toString()) ?? DateTime.now(),

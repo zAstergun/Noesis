@@ -1,3 +1,5 @@
+import 'localization/noesis_l10n.dart';
+
 /// Configuração central da Economia de Insights (v1).
 /// Mantém nome da moeda, tabela de recompensas, preços de temas e regras anti-abuso
 /// em um único ponto para facilitar calibração futura.
@@ -186,17 +188,17 @@ class InsightsEconomyConfig {
   static String tierLabel(ThemePriceTier tier) {
     switch (tier) {
       case ThemePriceTier.starter:
-        return 'Padrão';
+        return NoesisL10n.tr('Padrão');
       case ThemePriceTier.essential:
-        return 'Essenciais';
+        return NoesisL10n.tr('Essenciais');
       case ThemePriceTier.intermediate:
-        return 'Intermediários';
+        return NoesisL10n.tr('Intermediários');
       case ThemePriceTier.advanced:
-        return 'Avançados';
+        return NoesisL10n.tr('Avançados');
       case ThemePriceTier.legendary:
-        return 'Especiais';
+        return NoesisL10n.tr('Especiais');
       case ThemePriceTier.vipCustom:
-        return 'Exclusivo VIP';
+        return NoesisL10n.tr('Exclusivo VIP');
     }
   }
 

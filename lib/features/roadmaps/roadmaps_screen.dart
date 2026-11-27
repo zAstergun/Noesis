@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/theme.dart';
 import '../study_groups/data/study_groups_service.dart';
 import '../study_groups/models/study_group_feature_scope.dart';
@@ -97,7 +98,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
       await _persistRoadmap(generated);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Trilha "${generated.title}" criada com ${generated.totalSteps} etapas!')),
+          SnackBar(
+            content: Text(
+              NoesisL10n.tr(
+                'Trilha "{title}" criada com {count} etapas!',
+                {'title': generated.title, 'count': '${generated.totalSteps}'},
+              ),
+            ),
+          ),
         );
       }
     }
@@ -245,7 +253,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Excluir trilha?',
+                          ctx.tr('Excluir trilha?'),
                           style: GoogleFonts.manrope(
                             fontSize: 16.5,
                             fontWeight: FontWeight.w900,
@@ -257,7 +265,10 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'A trilha "${roadmap.title}" (${roadmap.totalSteps} etapas) será removida do seu histórico.',
+                    ctx.tr(
+                      'A trilha "{title}" ({count} etapas) será removida do seu histórico.',
+                      {'title': roadmap.title, 'count': '${roadmap.totalSteps}'},
+                    ),
                     style: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textMuted),
                   ),
                   const SizedBox(height: 18),
@@ -265,7 +276,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       SoftClayPillButton(
-                        text: 'Cancelar',
+                        text: ctx.tr('Cancelar'),
                         isSecondary: true,
                         onPressed: () => Navigator.of(ctx).pop(false),
                       ),
@@ -280,7 +291,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                           ),
                         ),
                         onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Excluir Trilha'),
+                        child: Text(ctx.tr('Excluir Trilha')),
                       ),
                     ],
                   ),
@@ -328,8 +339,8 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
             valueListenable: AsterTheme.sidebarCollapsedNotifier,
             builder: (context, isCollapsed, child) {
               return Padding(
-                padding: EdgeInsets.only(
-                  left: (widget.groupScope == null && isDesktop && isCollapsed) ? 84 : 0,
+                padding: EdgeInsetsDirectional.only(
+                  start: (widget.groupScope == null && isDesktop && isCollapsed) ? 84 : 0,
                 ),
                 child: child,
               );
@@ -359,7 +370,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'TRILHAS DE ESTUDO (ROADMAP)',
+                                context.tr('TRILHAS DE ESTUDO (ROADMAP)'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
@@ -369,7 +380,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Crie trilhas manualmente ou com IA, visualize em Lista ou Mapa Visual e edite cada etapa',
+                                context.tr('Crie trilhas manualmente ou com IA, visualize em Lista ou Mapa Visual e edite cada etapa'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12.5,
                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -392,7 +403,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                                   key: const Key('group_attach_roadmap_button'),
                                   onPressed: widget.groupScope!.onAttachExisting,
                                   icon: const Icon(Icons.attach_file_rounded, size: 17),
-                                  label: const Text('Anexar Minha Trilha'),
+                                  label: Text(context.tr('Anexar Minha Trilha')),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                                     shape: RoundedRectangleBorder(
@@ -402,13 +413,13 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                                 ),
                               SoftClayPillButton(
                                 key: widget.groupScope != null ? const Key('group_create_roadmap_button') : null,
-                                text: 'Nova Trilha Manual',
+                                text: context.tr('Nova Trilha Manual'),
                                 icon: Icons.add_rounded,
                                 isSecondary: true,
                                 onPressed: () => _openManualRoadmapDialog(),
                               ),
                               SoftClayPillButton(
-                                text: 'Criar com IA',
+                                text: context.tr('Criar com IA'),
                                 icon: Icons.auto_awesome,
                                 onPressed: _openCreateAiDialog,
                               ),
@@ -492,7 +503,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${rm.subject} · ${rm.completedSteps}/${rm.totalSteps} etapas',
+                                context.tr(
+                                  '{subject} · {done}/{total} etapas',
+                                  {
+                                    'subject': rm.subject,
+                                    'done': '${rm.completedSteps}',
+                                    'total': '${rm.totalSteps}',
+                                  },
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.textMuted),
@@ -545,7 +563,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Nenhuma trilha de estudos criada ainda',
+                    context.tr('Nenhuma trilha de estudos criada ainda'),
                     style: GoogleFonts.manrope(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -554,7 +572,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Peça para a IA montar um roadmap passo a passo para seu objetivo ou crie uma trilha manual do zero.',
+                    context.tr('Peça para a IA montar um roadmap passo a passo para seu objetivo ou crie uma trilha manual do zero.'),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textMuted),
                   ),
@@ -565,12 +583,12 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                     alignment: WrapAlignment.center,
                     children: [
                       SoftClayPillButton(
-                        text: 'Gerar Trilha com IA',
+                        text: context.tr('Gerar Trilha com IA'),
                         icon: Icons.auto_awesome,
                         onPressed: _openCreateAiDialog,
                       ),
                       SoftClayPillButton(
-                        text: 'Criar Trilha Manual',
+                        text: context.tr('Criar Trilha Manual'),
                         icon: Icons.add_rounded,
                         isSecondary: true,
                         onPressed: () => _openManualRoadmapDialog(),
@@ -600,7 +618,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _viewOptionPill(
-            label: 'Lista',
+            label: context.tr('Lista'),
             icon: Icons.view_agenda_outlined,
             selected: _viewMode == _RoadmapViewMode.list,
             onTap: () => setState(() => _viewMode = _RoadmapViewMode.list),
@@ -608,7 +626,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
           ),
           const SizedBox(width: 4),
           _viewOptionPill(
-            label: 'Mapa Visual',
+            label: context.tr('Mapa Visual'),
             icon: Icons.account_tree_rounded,
             selected: _viewMode == _RoadmapViewMode.graph,
             onTap: () => setState(() => _viewMode = _RoadmapViewMode.graph),
@@ -678,9 +696,15 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                     runSpacing: 6,
                     children: [
                       SoftClayTag(label: roadmap.subject, color: AsterTheme.primary(context)),
-                      SoftClayTag(label: roadmap.level, color: AsterConstants.ambar),
+                      SoftClayTag(label: context.tr(roadmap.level), color: AsterConstants.ambar),
                       SoftClayTag(
-                        label: '${roadmap.estimatedWeeks} sem · ~${roadmap.totalEstimatedHours}h',
+                        label: context.tr(
+                          '{weeks} sem · ~{hours}h',
+                          {
+                            'weeks': '${roadmap.estimatedWeeks}',
+                            'hours': '${roadmap.totalEstimatedHours}',
+                          },
+                        ),
                         color: AsterConstants.menta,
                       ),
                     ],
@@ -697,7 +721,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   if (roadmap.goal.trim().isNotEmpty && roadmap.goal.trim() != roadmap.title.trim()) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Objetivo: ${roadmap.goal}',
+                      context.tr('Objetivo: {goal}', {'goal': roadmap.goal}),
                       style: GoogleFonts.manrope(fontSize: 13, color: AsterConstants.textMuted),
                     ),
                   ],
@@ -712,15 +736,15 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   OutlinedButton.icon(
                     onPressed: () => _openManualRoadmapDialog(editing: roadmap),
                     icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Editar Trilha'),
+                    label: Text(context.tr('Editar Trilha')),
                   ),
                   ElevatedButton.icon(
                     onPressed: () => _openStepEditor(roadmap),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('Adicionar Etapa'),
+                    label: Text(context.tr('Adicionar Etapa')),
                   ),
                   IconButton(
-                    tooltip: 'Excluir trilha',
+                    tooltip: context.tr('Excluir trilha'),
                     onPressed: () => _confirmDeleteRoadmap(roadmap),
                     icon: const Icon(Icons.delete_outline_rounded, color: AsterConstants.coral),
                   ),
@@ -743,7 +767,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                 Row(
                   children: [
                     Text(
-                      'PROGRESSO DO ROADMAP',
+                      context.tr('PROGRESSO DO ROADMAP'),
                       style: GoogleFonts.manrope(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -753,7 +777,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '$pct% concluído · ${roadmap.completedSteps}/${roadmap.totalSteps} etapas',
+                      context.tr(
+                        '{pct}% concluído · {done}/{total} etapas',
+                        {
+                          'pct': '$pct',
+                          'done': '${roadmap.completedSteps}',
+                          'total': '${roadmap.totalSteps}',
+                        },
+                      ),
                       style: GoogleFonts.jetBrainsMono(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -789,12 +820,12 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
               child: Column(
                 children: [
                   Text(
-                    'Esta trilha ainda não possui etapas.',
+                    context.tr('Esta trilha ainda não possui etapas.'),
                     style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w700, color: AsterConstants.textMuted),
                   ),
                   const SizedBox(height: 12),
                   SoftClayPillButton(
-                    text: 'Adicionar Primeira Etapa',
+                    text: context.tr('Adicionar Primeira Etapa'),
                     icon: Icons.add_rounded,
                     onPressed: () => _openStepEditor(roadmap),
                   ),
@@ -876,109 +907,111 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
 
               // Card da etapa
               Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(bottom: isLast ? 0 : 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                    border: Border(left: BorderSide(color: statusColor, width: 4)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
+                        border: BorderDirectional(start: BorderSide(color: statusColor, width: 4)),
+                      ),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    InkWell(
-                                      onTap: () => _cycleStepStatus(roadmap, idx),
-                                      borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
-                                      child: SoftClayTag(label: step.status.label, color: statusColor),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        InkWell(
+                                          onTap: () => _cycleStepStatus(roadmap, idx),
+                                          borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
+                                          child: SoftClayTag(label: step.status.localizedLabel, color: statusColor),
+                                        ),
+                                        SoftClayTag(
+                                          label: '~${step.estimatedHours}h',
+                                          color: AsterConstants.ambar,
+                                        ),
+                                      ],
                                     ),
-                                    SoftClayTag(
-                                      label: '~${step.estimatedHours}h',
-                                      color: AsterConstants.ambar,
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      step.title,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                        decoration: step.status == RoadmapStepStatus.done
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  step.title,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w900,
-                                    color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                    decoration: step.status == RoadmapStepStatus.done
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                  ),
+                              ),
+                              if (idx > 0)
+                                IconButton(
+                                  tooltip: context.tr('Mover para cima'),
+                                  onPressed: () => _moveStep(roadmap, idx, -1),
+                                  icon: const Icon(Icons.arrow_upward_rounded, size: 17, color: AsterConstants.textMuted),
                                 ),
-                              ],
-                            ),
+                              if (!isLast)
+                                IconButton(
+                                  tooltip: context.tr('Mover para baixo'),
+                                  onPressed: () => _moveStep(roadmap, idx, 1),
+                                  icon: const Icon(Icons.arrow_downward_rounded, size: 17, color: AsterConstants.textMuted),
+                                ),
+                              IconButton(
+                                tooltip: context.tr('Editar etapa'),
+                                onPressed: () => _openStepEditor(roadmap, stepIndex: idx),
+                                icon: const Icon(Icons.edit_outlined, size: 17, color: AsterConstants.textMuted),
+                              ),
+                              IconButton(
+                                tooltip: context.tr('Remover etapa'),
+                                onPressed: () => _deleteStep(roadmap, idx),
+                                icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AsterConstants.coral),
+                              ),
+                            ],
                           ),
-                          if (idx > 0)
-                            IconButton(
-                              tooltip: 'Mover para cima',
-                              onPressed: () => _moveStep(roadmap, idx, -1),
-                              icon: const Icon(Icons.arrow_upward_rounded, size: 17, color: AsterConstants.textMuted),
-                            ),
-                          if (!isLast)
-                            IconButton(
-                              tooltip: 'Mover para baixo',
-                              onPressed: () => _moveStep(roadmap, idx, 1),
-                              icon: const Icon(Icons.arrow_downward_rounded, size: 17, color: AsterConstants.textMuted),
-                            ),
-                          IconButton(
-                            tooltip: 'Editar etapa',
-                            onPressed: () => _openStepEditor(roadmap, stepIndex: idx),
-                            icon: const Icon(Icons.edit_outlined, size: 17, color: AsterConstants.textMuted),
-                          ),
-                          IconButton(
-                            tooltip: 'Remover etapa',
-                            onPressed: () => _deleteStep(roadmap, idx),
-                            icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AsterConstants.coral),
-                          ),
-                        ],
-                      ),
 
-                      if (step.description.trim().isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          step.description,
-                          style: GoogleFonts.manrope(
-                            fontSize: 12.5,
-                            height: 1.5,
-                            color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                          ),
-                        ),
-                      ],
+                          if (step.description.trim().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              step.description,
+                              style: GoogleFonts.manrope(
+                                fontSize: 12.5,
+                                height: 1.5,
+                                color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                              ),
+                            ),
+                          ],
 
-                      if (step.learningObjectives.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          if (step.learningObjectives.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.lightbulb_outline_rounded, size: 14, color: AsterTheme.primary(context)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'O QUE VOCÊ VAI APRENDER NESTA ETAPA',
+                                  Row(
+                                    children: [
+                                      Icon(Icons.lightbulb_outline_rounded, size: 14, color: AsterTheme.primary(context)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        context.tr('O QUE VOCÊ VAI APRENDER NESTA ETAPA'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
@@ -1049,7 +1082,10 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Meta prática: ${step.practicalMilestone}',
+                                context.tr(
+                                  'Meta prática: {milestone}',
+                                  {'milestone': step.practicalMilestone},
+                                ),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
@@ -1132,6 +1168,8 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                       ],
                     ],
                   ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1162,11 +1200,11 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              _graphLegendItem('Concluída', AsterConstants.menta),
-              _graphLegendItem('Em andamento', AsterTheme.primary(context)),
-              _graphLegendItem('A fazer', AsterConstants.textMuted),
+              _graphLegendItem(context.tr('Concluída'), AsterConstants.menta),
+              _graphLegendItem(context.tr('Em andamento'), AsterTheme.primary(context)),
+              _graphLegendItem(context.tr('A fazer'), AsterConstants.textMuted),
               Text(
-                '· Clique nos nós para alternar status ou nos ramos para concluir subtópicos',
+                context.tr('· Clique nos nós para alternar status ou nos ramos para concluir subtópicos'),
                 style: GoogleFonts.manrope(fontSize: 11.5, color: AsterConstants.textMuted),
               ),
             ],
@@ -1259,7 +1297,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            step.status.label.toUpperCase(),
+                            step.status.localizedLabel.toUpperCase(),
                             style: GoogleFonts.manrope(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -1341,7 +1379,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                             ),
                             if (step.learningObjectives.isNotEmpty)
                               _buildGraphInfoBranch(
-                                label: 'Aprender',
+                                label: context.tr('Aprender'),
                                 text: step.learningObjectives.first,
                                 alignRight: true,
                                 isDark: isDark,
@@ -1374,7 +1412,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                             ),
                             if (step.practicalMilestone.trim().isNotEmpty)
                               _buildGraphInfoBranch(
-                                label: 'Meta prática',
+                                label: context.tr('Meta prática'),
                                 text: step.practicalMilestone,
                                 alignRight: false,
                                 isDark: isDark,
@@ -1388,12 +1426,12 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                   centerNode,
                   if (step.subtopics.isNotEmpty || step.learningObjectives.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(left: 20, top: 8),
+                      padding: const EdgeInsetsDirectional.only(start: 20, top: 8),
                       child: Container(
-                        padding: const EdgeInsets.only(left: 12),
+                        padding: const EdgeInsetsDirectional.only(start: 12),
                         decoration: BoxDecoration(
-                          border: Border(
-                            left: BorderSide(color: statusColor.withValues(alpha: 0.45), width: 2.5),
+                          border: BorderDirectional(
+                            start: BorderSide(color: statusColor.withValues(alpha: 0.45), width: 2.5),
                           ),
                         ),
                         child: Column(
@@ -1411,7 +1449,7 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                                 ),
                             if (step.practicalMilestone.trim().isNotEmpty)
                               _buildGraphInfoBranch(
-                                label: 'Meta prática',
+                                label: context.tr('Meta prática'),
                                 text: step.practicalMilestone,
                                 alignRight: false,
                                 isDark: isDark,
@@ -1441,7 +1479,12 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
                       ),
                     ),
                     child: Text(
-                      roadmap.progress >= 1.0 ? 'Trilha Concluída!' : 'Objetivo Final: ${roadmap.goal.isNotEmpty ? roadmap.goal : roadmap.title}',
+                      roadmap.progress >= 1.0
+                          ? context.tr('Trilha Concluída!')
+                          : context.tr(
+                              'Objetivo Final: {goal}',
+                              {'goal': roadmap.goal.isNotEmpty ? roadmap.goal : roadmap.title},
+                            ),
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
@@ -1607,11 +1650,11 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
   final _weeksCtrl = TextEditingController(text: '6');
   final _hoursCtrl = TextEditingController(text: '10');
   final _notesCtrl = TextEditingController();
-  String _level = 'Intermediário';
+  String _level = NoesisL10n.defaultRoadmapLevel;
   bool _isGenerating = false;
   String? _error;
 
-  static const _levels = ['Iniciante', 'Intermediário', 'Avançado'];
+  static const _levels = NoesisL10n.roadmapLevels;
 
   @override
   void dispose() {
@@ -1627,7 +1670,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
     final goal = _goalCtrl.text.trim();
     final subj = _subjectCtrl.text.trim();
     if (goal.isEmpty && subj.isEmpty) {
-      setState(() => _error = 'Informe seu objetivo ou a matéria principal da trilha.');
+      setState(() => _error = context.tr('Informe seu objetivo ou a matéria principal da trilha.'));
       return;
     }
 
@@ -1640,7 +1683,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
       final weeks = (int.tryParse(_weeksCtrl.text.trim()) ?? 6).clamp(1, 52);
       final hours = (int.tryParse(_hoursCtrl.text.trim()) ?? 10).clamp(1, 80);
       final roadmap = await GeminiService.generateStudyRoadmap(
-        goal: goal.isEmpty ? 'Dominar $subj' : goal,
+        goal: goal.isEmpty ? NoesisL10n.tr('Dominar {subject}', {'subject': subj}) : goal,
         subject: subj.isEmpty ? goal : subj,
         level: _level,
         estimatedWeeks: weeks,
@@ -1654,7 +1697,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
       if (mounted) {
         setState(() {
           _isGenerating = false;
-          _error = 'Erro ao gerar trilha: $e';
+          _error = NoesisL10n.tr('Erro ao gerar trilha: {error}', {'error': '$e'});
         });
       }
     }
@@ -1688,7 +1731,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Gerar Trilha (Roadmap) com IA',
+                          context.tr('Gerar Trilha (Roadmap) com IA'),
                           style: GoogleFonts.manrope(
                             fontSize: 17.5,
                             fontWeight: FontWeight.w900,
@@ -1696,7 +1739,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                           ),
                         ),
                         Text(
-                          'A IA detalha o que você vai aprender, conceitos-chave, metas e subtópicos.',
+                          context.tr('A IA detalha o que você vai aprender, conceitos-chave, metas e subtópicos.'),
                           style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
                         ),
                       ],
@@ -1721,8 +1764,8 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                         enabled: !_isGenerating,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Objetivo da Trilha',
-                          hint: 'Ex.: Dominar Cálculo I, ENEM 800+, Certificação AWS...',
+                          label: context.tr('Objetivo da Trilha'),
+                          hint: context.tr('Ex.: Dominar Cálculo I, ENEM 800+, Certificação AWS...'),
                           prefixIcon: Icons.flag_outlined,
                         ),
                       ),
@@ -1732,14 +1775,14 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                         enabled: !_isGenerating,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Matéria / Área Principal',
-                          hint: 'Ex.: Matemática, Medicina, Cloud, Direito...',
+                          label: context.tr('Matéria / Área Principal'),
+                          hint: context.tr('Ex.: Matemática, Medicina, Cloud, Direito...'),
                           prefixIcon: Icons.book_outlined,
                         ),
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'NÍVEL ATUAL',
+                        context.tr('NÍVEL ATUAL'),
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -1770,7 +1813,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                                 ),
                               ),
                               child: Text(
-                                lvl,
+                                context.tr(lvl),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -1791,7 +1834,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                               controller: _weeksCtrl,
                               enabled: !_isGenerating,
                               keyboardType: TextInputType.number,
-                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Semanas'),
+                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Semanas')),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1800,7 +1843,7 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                               controller: _hoursCtrl,
                               enabled: !_isGenerating,
                               keyboardType: TextInputType.number,
-                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Horas/semana'),
+                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Horas/semana')),
                             ),
                           ),
                         ],
@@ -1812,8 +1855,8 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                         maxLines: 3,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Prioridades ou dificuldades (opcional)',
-                          hint: 'Ex.: Focar em probabilidade, geometria espacial e revisão semanal...',
+                          label: context.tr('Prioridades ou dificuldades (opcional)'),
+                          hint: context.tr('Ex.: Focar em probabilidade, geometria espacial e revisão semanal...'),
                         ),
                       ),
                       if (_error != null) ...[
@@ -1837,13 +1880,13 @@ class _AiRoadmapDialogState extends State<_AiRoadmapDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   SoftClayPillButton(
-                    text: 'Cancelar',
+                    text: context.tr('Cancelar'),
                     isSecondary: true,
                     onPressed: _isGenerating ? () {} : () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 10),
                   SoftClayPillButton(
-                    text: _isGenerating ? 'Gerando Roadmap...' : 'Gerar com IA',
+                    text: _isGenerating ? context.tr('Gerando Roadmap...') : context.tr('Gerar com IA'),
                     icon: Icons.auto_awesome,
                     onPressed: _isGenerating ? () {} : _generate,
                   ),
@@ -1881,7 +1924,7 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
     _goalCtrl = TextEditingController(text: widget.existing?.goal ?? '');
     _subjCtrl = TextEditingController(text: widget.existing?.subject ?? '');
     _weeksCtrl = TextEditingController(text: (widget.existing?.estimatedWeeks ?? 4).toString());
-    _level = widget.existing?.level ?? 'Intermediário';
+    _level = widget.existing?.level ?? NoesisL10n.defaultRoadmapLevel;
   }
 
   @override
@@ -1897,7 +1940,7 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
     final title = _titleCtrl.text.trim();
     final subj = _subjCtrl.text.trim();
     if (title.isEmpty || subj.isEmpty) {
-      setState(() => _error = 'Preencha o título da trilha e a matéria.');
+      setState(() => _error = context.tr('Preencha o título da trilha e a matéria.'));
       return;
     }
 
@@ -1924,8 +1967,8 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
             steps: [
               RoadmapStep(
                 id: 'step-1-${now.millisecondsSinceEpoch}',
-                title: '1. Fundamentos de $subj',
-                description: 'Primeiros conceitos e organização do material.',
+                title: NoesisL10n.tr('1. Fundamentos de {subject}', {'subject': subj}),
+                description: NoesisL10n.tr('Primeiros conceitos e organização do material.'),
                 estimatedHours: 4,
                 status: RoadmapStepStatus.doing,
               ),
@@ -1951,7 +1994,7 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isEditing ? 'Editar Informações da Trilha' : 'Nova Trilha Manual',
+                isEditing ? context.tr('Editar Informações da Trilha') : context.tr('Nova Trilha Manual'),
                 style: GoogleFonts.manrope(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -1963,8 +2006,8 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                 controller: _titleCtrl,
                 decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                  label: 'Título da Trilha',
-                  hint: 'Ex.: Trilha ENEM Matemática Completa',
+                  label: context.tr('Título da Trilha'),
+                  hint: context.tr('Ex.: Trilha ENEM Matemática Completa'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1972,8 +2015,8 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                 controller: _subjCtrl,
                 decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                  label: 'Matéria / Área',
-                  hint: 'Ex.: Matemática, Direito, Inglês...',
+                  label: context.tr('Matéria / Área'),
+                  hint: context.tr('Ex.: Matemática, Direito, Inglês...'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1981,8 +2024,8 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                 controller: _goalCtrl,
                 decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                  label: 'Objetivo (opcional)',
-                  hint: 'Ex.: Gabaritar funções e probabilidade',
+                  label: context.tr('Objetivo (opcional)'),
+                  hint: context.tr('Ex.: Gabaritar funções e probabilidade'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1990,12 +2033,12 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: const ['Iniciante', 'Intermediário', 'Avançado'].contains(_level)
+                      initialValue: NoesisL10n.roadmapLevels.contains(_level)
                           ? _level
-                          : 'Intermediário',
-                      decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Nível'),
-                      items: const ['Iniciante', 'Intermediário', 'Avançado']
-                          .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                          : NoesisL10n.defaultRoadmapLevel,
+                      decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Nível')),
+                      items: NoesisL10n.roadmapLevels
+                          .map((l) => DropdownMenuItem(value: l, child: Text(context.tr(l))))
                           .toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _level = v);
@@ -2007,7 +2050,7 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                     child: TextField(
                       controller: _weeksCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Semanas'),
+                      decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Semanas')),
                     ),
                   ),
                 ],
@@ -2024,13 +2067,13 @@ class _RoadmapMetaDialogState extends State<_RoadmapMetaDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   SoftClayPillButton(
-                    text: 'Cancelar',
+                    text: context.tr('Cancelar'),
                     isSecondary: true,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 10),
                   SoftClayPillButton(
-                    text: isEditing ? 'Salvar Alterações' : 'Criar Trilha',
+                    text: isEditing ? context.tr('Salvar Alterações') : context.tr('Criar Trilha'),
                     icon: Icons.check_circle_outline_rounded,
                     onPressed: _save,
                   ),
@@ -2115,7 +2158,7 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
   void _save() {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) {
-      setState(() => _error = 'Informe o título da etapa.');
+      setState(() => _error = context.tr('Informe o título da etapa.'));
       return;
     }
     final hours = (int.tryParse(_hoursCtrl.text.trim()) ?? 4).clamp(1, 200);
@@ -2166,7 +2209,7 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isEditing ? 'Editar Etapa do Roadmap' : 'Nova Etapa do Roadmap',
+                isEditing ? context.tr('Editar Etapa do Roadmap') : context.tr('Nova Etapa do Roadmap'),
                 style: GoogleFonts.manrope(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -2183,8 +2226,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         controller: _titleCtrl,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Título da Etapa',
-                          hint: 'Ex.: 2. Funções Quadráticas e Gráficos',
+                          label: context.tr('Título da Etapa'),
+                          hint: context.tr('Ex.: 2. Funções Quadráticas e Gráficos'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2193,8 +2236,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         maxLines: 2,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Descrição geral da etapa',
-                          hint: 'O que estudar e como ela se conecta ao objetivo...',
+                          label: context.tr('Descrição geral da etapa'),
+                          hint: context.tr('O que estudar e como ela se conecta ao objetivo...'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2203,8 +2246,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         maxLines: 3,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'O que será aprendido (1 objetivo por linha)',
-                          hint: 'Compreender o conceito X...\nAplicar a técnica Y...',
+                          label: context.tr('O que será aprendido (1 objetivo por linha)'),
+                          hint: context.tr('Compreender o conceito X...\nAplicar a técnica Y...'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2212,8 +2255,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         controller: _topicsCtrl,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Conceitos-chave (separados por vírgula)',
-                          hint: 'Ex.: Vértice, Discriminante, Raízes reais',
+                          label: context.tr('Conceitos-chave (separados por vírgula)'),
+                          hint: context.tr('Ex.: Vértice, Discriminante, Raízes reais'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2221,8 +2264,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         controller: _milestoneCtrl,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Meta prática de validação (opcional)',
-                          hint: 'Ex.: Resolver 20 questões atingindo 80%',
+                          label: context.tr('Meta prática de validação (opcional)'),
+                          hint: context.tr('Ex.: Resolver 20 questões atingindo 80%'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2231,9 +2274,9 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                           Expanded(
                             child: DropdownButtonFormField<RoadmapStepStatus>(
                               initialValue: _status,
-                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Status'),
+                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Status')),
                               items: RoadmapStepStatus.values
-                                  .map((st) => DropdownMenuItem(value: st, child: Text(st.label)))
+                                  .map((st) => DropdownMenuItem(value: st, child: Text(st.localizedLabel)))
                                   .toList(),
                               onChanged: (v) {
                                 if (v != null) setState(() => _status = v);
@@ -2245,14 +2288,14 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                             child: TextField(
                               controller: _hoursCtrl,
                               keyboardType: TextInputType.number,
-                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: 'Horas estimadas'),
+                              decoration: _roadmapFieldDecoration(context: context, isDark: isDark, label: context.tr('Horas estimadas')),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'SUBTÓPICOS / CHECKLIST',
+                        context.tr('SUBTÓPICOS / CHECKLIST'),
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -2269,14 +2312,14 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                               onSubmitted: (_) => _addSubtopic(),
                               decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                                label: 'Novo subtópico',
-                                hint: 'Ex.: Resolver 15 questões de vértice da parábola',
+                                label: context.tr('Novo subtópico'),
+                                hint: context.tr('Ex.: Resolver 15 questões de vértice da parábola'),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            tooltip: 'Adicionar subtópico',
+                            tooltip: context.tr('Adicionar subtópico'),
                             onPressed: _addSubtopic,
                             icon: Icon(Icons.add_circle_rounded, color: AsterTheme.primary(context), size: 28),
                           ),
@@ -2310,8 +2353,8 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                         controller: _resourcesCtrl,
                         decoration: _roadmapFieldDecoration(context: context,
                           isDark: isDark,
-                          label: 'Materiais / Ações sugeridas (separados por vírgula)',
-                          hint: 'Ex.: Caderno de Matemática, Simulado ENEM',
+                          label: context.tr('Materiais / Ações sugeridas (separados por vírgula)'),
+                          hint: context.tr('Ex.: Caderno de Matemática, Simulado ENEM'),
                         ),
                       ),
                       if (_error != null) ...[
@@ -2334,13 +2377,13 @@ class _StepEditorDialogState extends State<_StepEditorDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   SoftClayPillButton(
-                    text: 'Cancelar',
+                    text: context.tr('Cancelar'),
                     isSecondary: true,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 10),
                   SoftClayPillButton(
-                    text: isEditing ? 'Salvar Etapa' : 'Adicionar Etapa',
+                    text: isEditing ? context.tr('Salvar Etapa') : context.tr('Adicionar Etapa'),
                     icon: Icons.check_circle_outline_rounded,
                     onPressed: _save,
                   ),

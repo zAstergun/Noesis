@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/desktop_window_service.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/notifications_service.dart';
 import '../core/shop_service.dart';
 import '../core/supabase_service.dart';
@@ -105,9 +106,9 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
 
     return Container(
       height: DesktopTopBar.height,
-      padding: EdgeInsets.only(
-        left: 12,
-        right: showWindowButtons ? 8 : 12,
+      padding: EdgeInsetsDirectional.only(
+        start: 12,
+        end: showWindowButtons ? 8 : 12,
       ),
       child: Row(
         children: [
@@ -117,8 +118,8 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
               builder: (context, isVip, _) {
                 return Tooltip(
                   message: widget.isSidebarCollapsed
-                      ? 'Expandir barra lateral'
-                      : 'Minimizar barra lateral',
+                      ? context.tr('Expandir barra lateral')
+                      : context.tr('Minimizar barra lateral'),
                   waitDuration: const Duration(milliseconds: 450),
                   child: NoesisInteractiveBrand(
                     key: const Key('top_bar_sidebar_toggle'),
@@ -184,7 +185,7 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
           if (widget.showWorkspaceControls) ...[
             _NoesisTopPillButton(
               key: const Key('top_bar_theme_toggle'),
-              tooltip: 'Selecionar tema',
+              tooltip: context.tr('Selecionar tema'),
               padding: const EdgeInsets.symmetric(horizontal: 9),
               onTap: () => _showThemePickerPopover(context),
               child: Row(
@@ -224,7 +225,7 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                   children: [
                     _NoesisTopPillButton(
                       key: const Key('notifications_bell_button'),
-                      tooltip: 'Notificações',
+                      tooltip: context.tr('Notificações'),
                       width: 34,
                       onTap: widget.onOpenNotifications,
                       child: Icon(
@@ -236,10 +237,10 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                       ),
                     ),
                     if (unread > 0)
-                      Positioned(
+                      PositionedDirectional(
                         key: const Key('notifications_unread_dot'),
                         top: -1,
-                        right: -1,
+                        end: -1,
                         child: IgnorePointer(
                           child: Container(
                             width: 8.5,
@@ -262,7 +263,7 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
             const SizedBox(width: 6),
             _NoesisTopPillButton(
               key: const Key('top_bar_settings_button'),
-              tooltip: 'Configurações',
+              tooltip: context.tr('Configurações'),
               width: 34,
               isActive: widget.isSettingsActive,
               onTap: widget.onOpenSettings,
@@ -287,9 +288,9 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const _WindowControlButton(
-                    key: Key('window_minimize_button'),
-                    tooltip: 'Minimizar',
+                  _WindowControlButton(
+                    key: const Key('window_minimize_button'),
+                    tooltip: context.tr('Minimizar'),
                     onTap: DesktopWindowService.minimize,
                     glyphType: _WindowGlyphType.minimize,
                   ),
@@ -299,7 +300,9 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                     builder: (context, isMaximized, _) {
                       return _WindowControlButton(
                         key: const Key('window_maximize_button'),
-                        tooltip: isMaximized ? 'Restaurar' : 'Maximizar',
+                        tooltip: isMaximized
+                            ? context.tr('Restaurar')
+                            : context.tr('Maximizar'),
                         onTap: DesktopWindowService.toggleMaximize,
                         glyphType: isMaximized
                             ? _WindowGlyphType.restore
@@ -308,9 +311,9 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                     },
                   ),
                   const SizedBox(width: 2),
-                  const _WindowControlButton(
-                    key: Key('window_close_button'),
-                    tooltip: 'Fechar',
+                  _WindowControlButton(
+                    key: const Key('window_close_button'),
+                    tooltip: context.tr('Fechar'),
                     isClose: true,
                     onTap: DesktopWindowService.close,
                     glyphType: _WindowGlyphType.close,
@@ -389,7 +392,7 @@ class _ThemePickerPopover extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Selecionar tema',
+                        context.tr('Selecionar tema'),
                         style: GoogleFonts.manrope(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -444,11 +447,19 @@ class _ThemePickerPopover extends StatelessWidget {
                                 persist: false,
                                 duration: const Duration(seconds: 3),
                                 content: Text(
-                                  'Desbloqueie o tema ${option.name} na Loja por $price ${ShopService.currencySymbol} ${ShopService.currencyName}.',
+                                  context.tr(
+                                    'Desbloqueie o tema {name} na Loja por {price} {symbol} {currency}.',
+                                    {
+                                      'name': option.localizedName,
+                                      'price': '$price',
+                                      'symbol': ShopService.currencySymbol,
+                                      'currency': ShopService.currencyName,
+                                    },
+                                  ),
                                 ),
                                 action: onOpenShop != null
                                     ? SnackBarAction(
-                                        label: 'Abrir Loja',
+                                        label: context.tr('Abrir Loja'),
                                         onPressed: onOpenShop!,
                                       )
                                     : null,
@@ -510,46 +521,46 @@ class _ThemePickerPopover extends StatelessWidget {
                                   children: [
                                     Row(
                                       children: [
-                                        Flexible(
-                                          child: Text(
-                                            option.name,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 12.5,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.w800
-                                                  : FontWeight.w700,
-                                              color: AsterTheme.text(context),
+                                          Flexible(
+                                            child: Text(
+                                              option.localizedName,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 12.5,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w800
+                                                    : FontWeight.w700,
+                                                color: AsterTheme.text(context),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          option.mode == ThemeMode.dark
-                                              ? 'Escuro'
-                                              : 'Claro',
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: AsterTheme.textMuted(context),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            option.mode == ThemeMode.dark
+                                                ? context.tr('Escuro')
+                                                : context.tr('Claro'),
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: AsterTheme.textMuted(context),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        for (final swatch in [
-                                          option.bg,
-                                          option.surface,
-                                          option.primary,
-                                          if (option.accents.isNotEmpty)
-                                            option.accents.first,
-                                        ])
-                                          Container(
-                                            width: 10,
-                                            height: 10,
-                                            margin: const EdgeInsets.only(right: 4),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Row(
+                                        children: [
+                                          for (final swatch in [
+                                            option.bg,
+                                            option.surface,
+                                            option.primary,
+                                            if (option.accents.isNotEmpty)
+                                              option.accents.first,
+                                          ])
+                                            Container(
+                                              width: 10,
+                                              height: 10,
+                                              margin: const EdgeInsetsDirectional.only(end: 4),
                                             decoration: BoxDecoration(
                                               color: swatch,
                                               shape: BoxShape.circle,
@@ -666,7 +677,7 @@ class _ThemePickerPopover extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Desbloquear mais temas na Loja',
+                          context.tr('Desbloquear mais temas na Loja'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,

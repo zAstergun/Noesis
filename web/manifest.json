@@ -1,6 +1,7 @@
 {
     "name": "Noesis",
     "short_name": "Noesis",
+    "lang": "en",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#EEF0F8",

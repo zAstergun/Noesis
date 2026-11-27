@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/shop_service.dart';
 import '../../core/theme.dart';
 import '../../widgets/insight_icon.dart';
@@ -187,7 +188,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Grupos de Estudo',
+                              context.tr('Grupos de Estudo'),
                               style: GoogleFonts.manrope(
                                 fontSize: isDesktop ? 24 : 21,
                                 fontWeight: FontWeight.w900,
@@ -197,7 +198,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Compartilhe cadernos, flashcards, simulados, trilhas e acompanhe o diário e ranking juntos',
+                              context.tr('Compartilhe cadernos, flashcards, simulados, trilhas e acompanhe o diário e ranking juntos'),
                               style: GoogleFonts.manrope(
                                 fontSize: 13,
                                 color: AsterTheme.textMuted(context),
@@ -218,7 +219,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                       onPressed: _openJoinGroupDialog,
                       icon: const Icon(Icons.link_rounded, size: 17),
                       label: Text(
-                        'Entrar por Link',
+                        context.tr('Entrar por Link'),
                         style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -235,7 +236,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                       onPressed: _openCreateGroupDialog,
                       icon: const Icon(Icons.group_add_rounded, size: 17),
                       label: Text(
-                        'Criar Grupo',
+                        context.tr('Criar Grupo'),
                         style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -273,7 +274,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Nenhum grupo de estudo ainda',
+                  context.tr('Nenhum grupo de estudo ainda'),
                   style: GoogleFonts.manrope(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -282,7 +283,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Crie um grupo e convide colegas pelo @usuario ou link de convite, ou entre em um grupo existente.',
+                  context.tr('Crie um grupo e convide colegas pelo @usuario ou link de convite, ou entre em um grupo existente.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 12.5,
@@ -297,7 +298,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                     ElevatedButton.icon(
                       onPressed: _openCreateGroupDialog,
                       icon: const Icon(Icons.add_rounded, size: 17),
-                      label: const Text('Criar meu primeiro grupo'),
+                      label: Text(context.tr('Criar meu primeiro grupo')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryCol,
                         foregroundColor: AsterTheme.onPrimary(context),
@@ -306,7 +307,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                     OutlinedButton.icon(
                       onPressed: _openJoinGroupDialog,
                       icon: const Icon(Icons.link_rounded, size: 17),
-                      label: const Text('Tenho um link de convite'),
+                      label: Text(context.tr('Tenho um link de convite')),
                     ),
                   ],
                 ),
@@ -390,7 +391,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                       ),
                                       child: Text(
-                                        'Líder',
+                                        context.tr('Líder'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
@@ -418,11 +419,11 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                 spacing: 6,
                                 runSpacing: 6,
                                 children: [
-                                  _miniStatChip(context, Icons.people_alt_rounded, '${group.members.length} membros'),
-                                  _miniStatChip(context, Icons.menu_book_rounded, '${group.sharedNotebooks.length} cadernos'),
-                                  _miniStatChip(context, Icons.style_rounded, '${group.sharedDecks.length} decks'),
-                                  _miniStatChip(context, Icons.assignment_rounded, '${group.sharedExams.length} simulados'),
-                                  _miniStatChip(context, Icons.route_rounded, '${group.sharedRoadmaps.length} trilhas'),
+                                  _miniStatChip(context, Icons.people_alt_rounded, context.tr('{count} membros', {'count': group.members.length})),
+                                  _miniStatChip(context, Icons.menu_book_rounded, context.tr('{count} cadernos', {'count': group.sharedNotebooks.length})),
+                                  _miniStatChip(context, Icons.style_rounded, context.tr('{count} decks', {'count': group.sharedDecks.length})),
+                                  _miniStatChip(context, Icons.assignment_rounded, context.tr('{count} simulados', {'count': group.sharedExams.length})),
+                                  _miniStatChip(context, Icons.route_rounded, context.tr('{count} trilhas', {'count': group.sharedRoadmaps.length})),
                                 ],
                               ),
                               const SizedBox(height: 14),
@@ -445,7 +446,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    'Abrir grupo →',
+                                    context.tr('Abrir grupo →'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -602,7 +603,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                         NoesisCollapsedMenuSpacer(width: isDesktop ? 56 : 0),
                         IconButton(
                           key: const Key('group_back_button'),
-                          tooltip: 'Voltar para todos os grupos',
+                          tooltip: context.tr('Voltar para todos os grupos'),
                           onPressed: () => setState(() => _selectedGroupId = null),
                           icon: const Icon(Icons.arrow_back_rounded),
                         ),
@@ -642,7 +643,9 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                 ],
                               ),
                               Text(
-                                '${group.members.length} ${group.members.length == 1 ? 'membro' : 'membros'} · Código ${group.inviteCode}',
+                                group.members.length == 1
+                                    ? context.tr('{count} membro · Código {code}', {'count': group.members.length, 'code': group.inviteCode})
+                                    : context.tr('{count} membros · Código {code}', {'count': group.members.length, 'code': group.inviteCode}),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
@@ -664,11 +667,13 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                         key: const Key('group_copy_invite_link_button'),
                         onPressed: () async {
                           await Clipboard.setData(ClipboardData(text: group.inviteLink));
-                          _showFeedback('Link de convite copiado (${group.inviteCode})!');
+                          _showFeedback(
+                            NoesisL10n.tr('Link de convite copiado ({code})!', {'code': group.inviteCode}),
+                          );
                         },
                         icon: const Icon(Icons.link_rounded, size: 16),
                         label: Text(
-                          'Copiar Link',
+                          context.tr('Copiar Link'),
                           style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -678,7 +683,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                           onPressed: () => _openInviteMemberDialog(group),
                           icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
                           label: Text(
-                            'Convidar @',
+                            context.tr('Convidar @'),
                             style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                           ),
                           style: ElevatedButton.styleFrom(
@@ -713,18 +718,18 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _buildDetailTabChip(_GroupDetailTab.chat, const Key('group_tab_chat'), Icons.forum_rounded, 'Chat (${group.chatMessages.length})'),
-            _buildDetailTabChip(_GroupDetailTab.exams, const Key('group_tab_exams'), Icons.assignment_rounded, 'Simulados (${group.sharedExams.length})'),
-            _buildDetailTabChip(_GroupDetailTab.decks, const Key('group_tab_decks'), Icons.style_rounded, 'Flashcards (${group.sharedDecks.length})'),
-            _buildDetailTabChip(_GroupDetailTab.notebooks, const Key('group_tab_notebooks'), Icons.menu_book_rounded, 'Cadernos (${group.sharedNotebooks.length})'),
-            _buildDetailTabChip(_GroupDetailTab.roadmaps, const Key('group_tab_roadmaps'), Icons.route_rounded, 'Trilhas (${group.sharedRoadmaps.length})'),
-            _buildDetailTabChip(_GroupDetailTab.diary, const Key('group_tab_diary'), Icons.auto_stories_rounded, 'Diário de Estudo'),
-            _buildDetailTabChip(_GroupDetailTab.ranking, const Key('group_tab_ranking'), Icons.emoji_events_rounded, 'Ranking'),
+            _buildDetailTabChip(_GroupDetailTab.chat, const Key('group_tab_chat'), Icons.forum_rounded, context.tr('Chat ({count})', {'count': group.chatMessages.length})),
+            _buildDetailTabChip(_GroupDetailTab.exams, const Key('group_tab_exams'), Icons.assignment_rounded, context.tr('Simulados ({count})', {'count': group.sharedExams.length})),
+            _buildDetailTabChip(_GroupDetailTab.decks, const Key('group_tab_decks'), Icons.style_rounded, context.tr('Flashcards ({count})', {'count': group.sharedDecks.length})),
+            _buildDetailTabChip(_GroupDetailTab.notebooks, const Key('group_tab_notebooks'), Icons.menu_book_rounded, context.tr('Cadernos ({count})', {'count': group.sharedNotebooks.length})),
+            _buildDetailTabChip(_GroupDetailTab.roadmaps, const Key('group_tab_roadmaps'), Icons.route_rounded, context.tr('Trilhas ({count})', {'count': group.sharedRoadmaps.length})),
+            _buildDetailTabChip(_GroupDetailTab.diary, const Key('group_tab_diary'), Icons.auto_stories_rounded, context.tr('Diário de Estudo')),
+            _buildDetailTabChip(_GroupDetailTab.ranking, const Key('group_tab_ranking'), Icons.emoji_events_rounded, context.tr('Ranking')),
             _buildDetailTabChip(
               _GroupDetailTab.settings,
               const Key('group_tab_settings'),
               Icons.tune_rounded,
-              isLeader ? 'Configurações' : 'Regras & Membros',
+              isLeader ? context.tr('Configurações') : context.tr('Regras & Membros'),
             ),
           ],
         ),
@@ -822,7 +827,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Diário de Estudos por Participante',
+                        context.tr('Diário de Estudos por Participante'),
                         style: GoogleFonts.manrope(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -830,7 +835,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                         ),
                       ),
                       Text(
-                        'Veja o que cada membro estudou e filtre por pessoa',
+                        context.tr('Veja o que cada membro estudou e filtre por pessoa'),
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           color: AsterTheme.textMuted(context),
@@ -843,7 +848,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                     onPressed: () => _openAddStudyLogDialog(group),
                     icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
                     label: Text(
-                      'Registrar Estudo',
+                      context.tr('Registrar Estudo'),
                       style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -860,7 +865,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                 children: [
                   SoftClayChoiceChip(
                     key: const Key('group_diary_filter_all'),
-                    label: 'Todos (${group.studyLogs.length})',
+                    label: context.tr('Todos ({count})', {'count': group.studyLogs.length}),
                     icon: Icons.groups_rounded,
                     selected: _diaryMemberFilterUserId == null,
                     compact: true,
@@ -887,7 +892,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
             padding: const EdgeInsets.all(22),
             child: Center(
               child: Text(
-                'Nenhuma sessão registrada neste filtro ainda.',
+                context.tr('Nenhuma sessão registrada neste filtro ainda.'),
                 style: GoogleFonts.manrope(fontSize: 12.5, color: AsterTheme.textMuted(context)),
               ),
             ),
@@ -979,7 +984,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
     if (res.ok) {
       _chatCtrl.clear();
     } else {
-      _showFeedback(res.error ?? 'Erro ao enviar mensagem.', isError: true);
+      _showFeedback(res.error ?? NoesisL10n.tr('Erro ao enviar mensagem.'), isError: true);
     }
   }
 
@@ -1011,7 +1016,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Chat do Grupo',
+                      context.tr('Chat do Grupo'),
                       style: GoogleFonts.manrope(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -1019,7 +1024,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                       ),
                     ),
                     Text(
-                      'Converse, tire dúvidas e combine metas com os membros',
+                      context.tr('Converse, tire dúvidas e combine metas com os membros'),
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
                         color: AsterTheme.textMuted(context),
@@ -1053,7 +1058,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Nenhuma mensagem ainda. Diga oi para o grupo!',
+                            context.tr('Nenhuma mensagem ainda. Diga oi para o grupo!'),
                             style: GoogleFonts.manrope(
                               fontSize: 12.5,
                               color: AsterTheme.textMuted(context),
@@ -1151,7 +1156,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                   if (msg.isLeader) ...[
                                     const SizedBox(width: 5),
                                     Text(
-                                      '· Líder',
+                                      context.tr('· Líder'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -1229,7 +1234,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                   onSubmitted: (_) => _sendChatMessage(group),
                   decoration: noesisGroupInputDecoration(
                     context,
-                    hintText: 'Enviar mensagem para o grupo...',
+                    hintText: context.tr('Enviar mensagem para o grupo...'),
                     prefixIcon: Icons.chat_outlined,
                   ),
                 ),
@@ -1240,7 +1245,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                 onPressed: () => _sendChatMessage(group),
                 icon: const Icon(Icons.send_rounded, size: 16),
                 label: Text(
-                  'Enviar',
+                  context.tr('Enviar'),
                   style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1273,7 +1278,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
             Icon(Icons.leaderboard_outlined, size: 34, color: AsterTheme.textMuted(context)),
             const SizedBox(height: 10),
             Text(
-              'Ranking interno desativado pelo líder',
+              context.tr('Ranking interno desativado pelo líder'),
               style: GoogleFonts.manrope(
                 fontSize: 15.5,
                 fontWeight: FontWeight.w800,
@@ -1282,7 +1287,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'O criador deste grupo optou por ocultar o ranking de Insights.',
+              context.tr('O criador deste grupo optou por ocultar o ranking de Insights.'),
               style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
             ),
           ],
@@ -1302,7 +1307,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
               const InsightCoinIcon(size: 20),
               const SizedBox(width: 8),
               Text(
-                'Ranking Interno de Insights (Estudo no Grupo)',
+                context.tr('Ranking Interno de Insights (Estudo no Grupo)'),
                 style: GoogleFonts.manrope(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
@@ -1313,7 +1318,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           ),
           const SizedBox(height: 3),
           Text(
-            'Soma apenas os Insights conquistados em atividades estudadas dentro deste grupo.',
+            context.tr('Soma apenas os Insights conquistados em atividades estudadas dentro deste grupo.'),
             style: GoogleFonts.manrope(
               fontSize: 11.5,
               color: AsterTheme.textMuted(context),
@@ -1383,7 +1388,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                               if (ranked[i].isLeader) ...[
                                 const SizedBox(width: 6),
                                 Text(
-                                  '· Líder',
+                                  context.tr('· Líder'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -1394,7 +1399,13 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                             ],
                           ),
                           Text(
-                            '@${ranked[i].username} · ${DashboardAnalytics.formatReadableDuration(ranked[i].weeklyMinutes)} no diário',
+                            context.tr(
+                              '@{username} · {duration} no diário',
+                              {
+                                'username': ranked[i].username,
+                                'duration': DashboardAnalytics.formatReadableDuration(ranked[i].weeklyMinutes),
+                              },
+                            ),
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               color: AsterTheme.textMuted(context),
@@ -1450,7 +1461,9 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isLeader ? 'Configurações & Permissões do Líder' : 'Regras & Participantes do Grupo',
+            isLeader
+                ? context.tr('Configurações & Permissões do Líder')
+                : context.tr('Regras & Participantes do Grupo'),
             style: GoogleFonts.manrope(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -1460,8 +1473,8 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           const SizedBox(height: 4),
           Text(
             isLeader
-                ? 'Defina o que os membros podem fazer, controle o ranking interno e remova anexos.'
-                : 'Apenas o líder criador do grupo pode alterar permissões, ranking ou remover anexos.',
+                ? context.tr('Defina o que os membros podem fazer, controle o ranking interno e remova anexos.')
+                : context.tr('Apenas o líder criador do grupo pode alterar permissões, ranking ou remover anexos.'),
             style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
           ),
           const SizedBox(height: 16),
@@ -1469,7 +1482,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           SwitchListTile.adaptive(
             key: const Key('group_setting_allow_invites'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('Permitir que membros convidem outras pessoas'),
+            title: Text(context.tr('Permitir que membros convidem outras pessoas')),
             value: group.allowMemberInvites,
             onChanged: isLeader
                 ? (v) => StudyGroupsService.instance.updateGroupSettings(
@@ -1481,7 +1494,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           SwitchListTile.adaptive(
             key: const Key('group_setting_allow_edit'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('Permitir que membros editem e anexem conteúdos ao grupo'),
+            title: Text(context.tr('Permitir que membros editem e anexem conteúdos ao grupo')),
             value: group.allowMemberEdit,
             onChanged: isLeader
                 ? (v) => StudyGroupsService.instance.updateGroupSettings(
@@ -1493,7 +1506,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           SwitchListTile.adaptive(
             key: const Key('group_setting_ranking_enabled'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('Ativar ranking interno de Insights'),
+            title: Text(context.tr('Ativar ranking interno de Insights')),
             value: group.rankingEnabled,
             onChanged: isLeader
                 ? (v) => StudyGroupsService.instance.updateGroupSettings(
@@ -1507,7 +1520,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
           Divider(color: AsterTheme.surfaceInset(context)),
           const SizedBox(height: 12),
           Text(
-            'PERMISSÕES POR MEMBRO (${group.members.length})',
+            context.tr('PERMISSÕES POR MEMBRO ({count})', {'count': group.members.length}),
             style: GoogleFonts.manrope(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -1580,7 +1593,9 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                                       ],
                                     ),
                                     Text(
-                                      m.isLeader ? 'Criador / Líder do grupo' : 'Membro · Toque para ver perfil',
+                                      m.isLeader
+                                          ? context.tr('Criador / Líder do grupo')
+                                          : context.tr('Membro · Toque para ver perfil'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         color: AsterTheme.textMuted(context),
@@ -1601,7 +1616,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                         children: [
                           SoftClayChoiceChip(
                             key: Key('member_perm_invite_${m.userId}'),
-                            label: 'Convidar',
+                            label: context.tr('Convidar'),
                             selected: m.canInvite,
                             showCheckmark: true,
                             compact: true,
@@ -1613,7 +1628,7 @@ class _StudyGroupsScreenState extends State<StudyGroupsScreen> {
                           ),
                           SoftClayChoiceChip(
                             key: Key('member_perm_edit_${m.userId}'),
-                            label: 'Editar',
+                            label: context.tr('Editar'),
                             selected: m.canEdit,
                             showCheckmark: true,
                             compact: true,

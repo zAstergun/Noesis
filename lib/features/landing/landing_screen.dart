@@ -5,7 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../core/desktop_window_service.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/country_flag_icon.dart';
 import '../../widgets/desktop_top_bar.dart';
 import '../../widgets/noesis_logo.dart';
 import '../../widgets/vip_privileges.dart';
@@ -82,6 +85,267 @@ class _LandingScreenState extends State<LandingScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  void _openLanguagePickerDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return ValueListenableBuilder<String>(
+          valueListenable: _demoThemeIdNotifier,
+          builder: (_, activeThemeId, _) {
+            final demoOption = _resolveDemoTheme(activeThemeId);
+            return NoesisLogoThemeScope(
+              themeOption: demoOption,
+              child: Theme(
+                data: AsterTheme.themeDataFor(demoOption),
+                child: ValueListenableBuilder<String>(
+                  valueListenable: NoesisLocaleService.currentCodeNotifier,
+                  builder: (themedContext, activeLangCode, _) {
+                    final isDark =
+                        Theme.of(themedContext).brightness == Brightness.dark;
+                    final textCol = AsterTheme.text(themedContext);
+                    final mutedCol = AsterTheme.textMuted(themedContext);
+                    final primary = AsterTheme.primary(themedContext);
+                    final cardCol = AsterTheme.card(themedContext);
+                    final altCol = AsterTheme.surfaceAlt(themedContext);
+                    final insetCol = AsterTheme.surfaceInset(themedContext);
+                    final languages = NoesisLocaleService.supportedLanguages;
+
+                    return Directionality(
+                      textDirection: NoesisLocaleService.textDirection,
+                      child: Dialog(
+                        key: const Key('landing_language_dialog'),
+                        backgroundColor: Colors.transparent,
+                        insetPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 24,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 620),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: cardCol,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: insetCol.withValues(alpha: 0.9),
+                              ),
+                              boxShadow: isDark
+                                  ? AsterConstants.clayDarkShadow
+                                  : AsterConstants.clayShadow,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: primary.withValues(alpha: 0.14),
+                                        borderRadius: BorderRadius.circular(11),
+                                      ),
+                                      child: Icon(
+                                        Icons.language_rounded,
+                                        size: 19,
+                                        color: primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            themedContext.tr('Idioma e Região'),
+                                            style: GoogleFonts.spaceGrotesk(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: textCol,
+                                            ),
+                                          ),
+                                          Text(
+                                            themedContext.tr(
+                                              'Todos os 15 idiomas suportados no ecossistema Aster Portfolio',
+                                            ),
+                                            style: GoogleFonts.manrope(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: mutedCol,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext).pop(),
+                                      icon: Icon(
+                                        Icons.close_rounded,
+                                        color: mutedCol,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 18),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final cols = constraints.maxWidth >= 500
+                                            ? 3
+                                            : (constraints.maxWidth >= 290
+                                                ? 2
+                                                : 1);
+                                        const spacing = 10.0;
+                                        final itemW = (constraints.maxWidth -
+                                                spacing * (cols - 1)) /
+                                            cols;
+                                        return Wrap(
+                                          spacing: spacing,
+                                          runSpacing: spacing,
+                                          children: languages.map((lang) {
+                                            final selected =
+                                                lang.code == activeLangCode;
+                                            final regionLabel =
+                                                themedContext.tr(lang.regionKey);
+                                            return SizedBox(
+                                              width: itemW,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  key: Key(
+                                                    'landing_lang_option_${lang.code}',
+                                                  ),
+                                                  onTap: () async {
+                                                    await NoesisLocaleService
+                                                        .setLanguage(lang.code);
+                                                    if (dialogContext.mounted) {
+                                                      Navigator.of(
+                                                        dialogContext,
+                                                      ).pop();
+                                                    }
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  child: AnimatedContainer(
+                                                    duration: const Duration(
+                                                      milliseconds: 180,
+                                                    ),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: selected
+                                                          ? primary.withValues(
+                                                              alpha: 0.12,
+                                                            )
+                                                          : altCol,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        16,
+                                                      ),
+                                                      border: Border.all(
+                                                        color: selected
+                                                            ? primary
+                                                            : insetCol,
+                                                        width: selected
+                                                            ? 1.8
+                                                            : 1.0,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        CountryFlagIcon(
+                                                          code: lang.code,
+                                                          width: 26,
+                                                          height: 18,
+                                                        ),
+                                                        const SizedBox(width: 9),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                lang.nativeName,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: GoogleFonts
+                                                                    .manrope(
+                                                                  fontSize: 12.5,
+                                                                  fontWeight:
+                                                                      selected
+                                                                          ? FontWeight
+                                                                              .w800
+                                                                          : FontWeight
+                                                                              .w700,
+                                                                  color: selected
+                                                                      ? primary
+                                                                      : textCol,
+                                                                ),
+                                                              ),
+                                                              Text(
+                                                                regionLabel,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: GoogleFonts
+                                                                    .manrope(
+                                                                  fontSize: 10,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color:
+                                                                      mutedCol,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        if (selected)
+                                                          Icon(
+                                                            Icons
+                                                                .check_circle_rounded,
+                                                            size: 15,
+                                                            color: primary,
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openThemePickerDialog() {
     showDialog<void>(
       context: context,
@@ -143,7 +407,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Temas do Noesis (Prévia)',
+                                          themedContext.tr('Temas do Noesis (Prévia)'),
                                           style: GoogleFonts.spaceGrotesk(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w700,
@@ -151,7 +415,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                           ),
                                         ),
                                         Text(
-                                          'Demonstração nesta página · 11 paletas + VIP RGB',
+                                          themedContext.tr('Demonstração nesta página · 11 paletas + VIP RGB'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
@@ -277,7 +541,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                                         children: [
                                                           Expanded(
                                                             child: Text(
-                                                              opt.name,
+                                                              opt.localizedName,
                                                               maxLines: 1,
                                                               overflow: TextOverflow.ellipsis,
                                                               style: GoogleFonts.manrope(
@@ -329,10 +593,10 @@ class _LandingScreenState extends State<LandingScreen> {
                                                       const SizedBox(height: 2),
                                                       Text(
                                                         isCustomVip
-                                                            ? 'VIP · 6 cores RGB'
+                                                            ? themedContext.tr('VIP · 6 cores RGB')
                                                             : (opt.mode == ThemeMode.dark
-                                                                ? 'Escuro'
-                                                                : 'Claro'),
+                                                                ? themedContext.tr('Escuro')
+                                                                : themedContext.tr('Claro')),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
                                                         style: GoogleFonts.manrope(
@@ -396,7 +660,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   children: [
                     _MobileMenuTile(
                       icon: Icons.auto_awesome_rounded,
-                      label: 'Recursos',
+                      label: themedSheetContext.tr('Recursos'),
                       textCol: textCol,
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -405,7 +669,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     _MobileMenuTile(
                       icon: Icons.layers_rounded,
-                      label: 'Módulos',
+                      label: themedSheetContext.tr('Módulos'),
                       textCol: textCol,
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -414,7 +678,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     _MobileMenuTile(
                       icon: Icons.groups_rounded,
-                      label: 'Comunidade',
+                      label: themedSheetContext.tr('Comunidade'),
                       textCol: textCol,
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -423,7 +687,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     _MobileMenuTile(
                       icon: Icons.download_rounded,
-                      label: 'Download',
+                      label: themedSheetContext.tr('Download'),
                       textCol: textCol,
                       onTap: () {
                         Navigator.pop(sheetContext);
@@ -438,7 +702,7 @@ class _LandingScreenState extends State<LandingScreen> {
                       },
                       icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                       label: Text(
-                        'Acessar ferramenta',
+                        themedSheetContext.tr('Acessar ferramenta'),
                         style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -675,27 +939,65 @@ class _LandingScreenState extends State<LandingScreen> {
               if (isWide) ...[
                 const Spacer(),
                 _NavPillLink(
-                  label: 'Recursos',
+                  label: context.tr('Recursos'),
                   onTap: () => _scrollTo(_resourcesKey),
                 ),
                 _NavPillLink(
-                  label: 'Módulos',
+                  label: context.tr('Módulos'),
                   onTap: () => _scrollTo(_modulesKey),
                 ),
                 _NavPillLink(
-                  label: 'Comunidade',
+                  label: context.tr('Comunidade'),
                   onTap: () => _scrollTo(_communityKey),
                 ),
                 _NavPillLink(
                   key: const Key('landing_nav_download_button'),
-                  label: 'Download',
+                  label: context.tr('Download'),
                   onTap: () => _scrollTo(_platformsKey),
                 ),
               ],
               const Spacer(),
+              // Botão de idioma (15 idiomas suportados) ao lado do tema
+              ValueListenableBuilder<String>(
+                valueListenable: NoesisLocaleService.currentCodeNotifier,
+                builder: (context, activeLangCode, _) {
+                  final activeLang =
+                      NoesisLocaleService.optionForCode(activeLangCode);
+                  return Tooltip(
+                    message: context.tr(
+                      'Idioma: {name}',
+                      {'name': activeLang.nativeName},
+                    ),
+                    child: InkWell(
+                      key: const Key('landing_language_button'),
+                      onTap: _openLanguagePickerDialog,
+                      borderRadius:
+                          BorderRadius.circular(AsterConstants.radiusPill),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: altCol,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: insetCol),
+                        ),
+                        child: Center(
+                          child: CountryFlagIcon(
+                            code: activeLang.code,
+                            width: 20,
+                            height: 14,
+                            borderRadius: 3.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
               // Botão único de tema (11 temas reais do Noesis)
               Tooltip(
-                message: 'Explorar 11 temas do Noesis',
+                message: context.tr('Explorar 11 temas do Noesis'),
                 child: InkWell(
                   key: const Key('landing_theme_button'),
                   onTap: _openThemePickerDialog,
@@ -739,7 +1041,9 @@ class _LandingScreenState extends State<LandingScreen> {
                         vertical: 9,
                       ),
                       child: Text(
-                        isCompact ? 'Acessar' : 'Acessar ferramenta',
+                        isCompact
+                            ? context.tr('Acessar')
+                            : context.tr('Acessar ferramenta'),
                         maxLines: 1,
                         softWrap: false,
                         style: GoogleFonts.manrope(
@@ -825,7 +1129,7 @@ class _LandingScreenState extends State<LandingScreen> {
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
             ),
             child: Text(
-              'PLATAFORMAS & DOWNLOADS · v1.0.0',
+              context.tr('PLATAFORMAS & DOWNLOADS · v1.0.0'),
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -838,7 +1142,7 @@ class _LandingScreenState extends State<LandingScreen> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 780),
             child: Text(
-              'Seu próximo nível de estudo começa agora.',
+              context.tr('Seu próximo nível de estudo começa agora.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.spaceGrotesk(
                 fontSize: isWide ? 52 : (isCompact ? 30 : 40),
@@ -853,7 +1157,7 @@ class _LandingScreenState extends State<LandingScreen> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: Text(
-              'Acesse pela Web ou baixe os pacotes oficiais para Windows e Android com sincronização automática pela sua Aster Account.',
+              context.tr('Acesse pela Web ou baixe os pacotes oficiais para Windows e Android com sincronização automática pela sua Aster Account.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(
                 fontSize: isCompact ? 14.5 : 16.5,
@@ -875,7 +1179,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   onPressed: widget.onOpenLogin,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: Text(
-                    'Acessar ferramenta',
+                    context.tr('Acessar ferramenta'),
                     style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -901,7 +1205,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     child: const Center(child: DiscordLogoWidget(size: 13)),
                   ),
                   label: Text(
-                    'Entrar no Discord Aster',
+                    context.tr('Entrar no Discord Aster'),
                     style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -946,8 +1250,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     icon: Icons.desktop_windows_rounded,
                     badge: 'x64 · ~13,0 MB',
                     title: 'Windows Desktop',
-                    subtitle: 'Instalador oficial (.exe) com atalho automático e desinstalador.',
-                    ctaLabel: 'Baixar Instalador Windows (.exe)',
+                    subtitle: context.tr('Instalador oficial (.exe) com atalho automático e desinstalador.'),
+                    ctaLabel: context.tr('Baixar Instalador Windows (.exe)'),
                     onTap: () => _openExternalUrl(_windowsSetupUrl),
                   ),
                 );
@@ -957,8 +1261,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     icon: Icons.android_rounded,
                     badge: 'v1.0.0 · ~70,6 MB',
                     title: 'Android APK',
-                    subtitle: 'Instalador direto oficial para estudar no celular ou tablet.',
-                    ctaLabel: 'Baixar APK Android',
+                    subtitle: context.tr('Instalador direto oficial para estudar no celular ou tablet.'),
+                    ctaLabel: context.tr('Baixar APK Android'),
                     onTap: () => _openExternalUrl(_androidApkUrl),
                   ),
                 );
@@ -997,7 +1301,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'iOS · disponível via Web App no Safari',
+                    context.tr('iOS · disponível via Web App no Safari'),
                     style: GoogleFonts.manrope(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -1054,7 +1358,7 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
           Text(
-            'Cognitive OS & AI Study Engine · Ecossistema Aster',
+            context.tr('Cognitive OS & AI Study Engine · Ecossistema Aster'),
             style: GoogleFonts.manrope(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
@@ -1064,11 +1368,11 @@ class _LandingScreenState extends State<LandingScreen> {
           Wrap(
             spacing: 14,
             children: [
-              _FooterTextLink(label: 'Recursos', onTap: () => _scrollTo(_resourcesKey)),
-              _FooterTextLink(label: 'Módulos', onTap: () => _scrollTo(_modulesKey)),
-              _FooterTextLink(label: 'Comunidade', onTap: () => _scrollTo(_communityKey)),
-              _FooterTextLink(label: 'Download', onTap: () => _scrollTo(_platformsKey)),
-              _FooterTextLink(label: 'Entrar', onTap: widget.onOpenLogin),
+              _FooterTextLink(label: context.tr('Recursos'), onTap: () => _scrollTo(_resourcesKey)),
+              _FooterTextLink(label: context.tr('Módulos'), onTap: () => _scrollTo(_modulesKey)),
+              _FooterTextLink(label: context.tr('Comunidade'), onTap: () => _scrollTo(_communityKey)),
+              _FooterTextLink(label: context.tr('Download'), onTap: () => _scrollTo(_platformsKey)),
+              _FooterTextLink(label: context.tr('Entrar'), onTap: widget.onOpenLogin),
             ],
           ),
         ],
@@ -1087,12 +1391,12 @@ class _SpecsStrip extends StatelessWidget {
   final double width;
   final ValueListenable<bool> revealedListenable;
 
-  static const List<({int count, String label})> _specs = [
-    (count: 14, label: 'Módulos integrados'),
-    (count: 20, label: 'Ferramentas no Agente'),
-    (count: 7, label: 'Provedores de IA'),
-    (count: 39, label: 'Modelos de simulados'),
-    (count: 8, label: 'Elos na Liga'),
+  static List<({int count, String label})> get _specs => [
+    (count: 14, label: NoesisL10n.tr('Módulos integrados')),
+    (count: 20, label: NoesisL10n.tr('Ferramentas no Agente')),
+    (count: 7, label: NoesisL10n.tr('Provedores de IA')),
+    (count: 39, label: NoesisL10n.tr('Modelos de simulados')),
+    (count: 8, label: NoesisL10n.tr('Elos na Liga')),
   ];
 
   @override
@@ -1122,15 +1426,15 @@ class _SpecsStrip extends StatelessWidget {
                           decoration: BoxDecoration(
                             border: i == 0
                                 ? null
-                                : Border(
-                                    left: BorderSide(
+                                : BorderDirectional(
+                                    start: BorderSide(
                                       color: insetCol.withValues(alpha: 0.75),
                                     ),
                                   ),
                           ),
                           child: _SpecItem(
                             count: _specs[i].count,
-                            label: _specs[i].label,
+                            label: context.tr(_specs[i].label),
                             delayMs: i * 90,
                             active: active,
                           ),
@@ -1150,7 +1454,7 @@ class _SpecsStrip extends StatelessWidget {
                         width: width < 480 ? (width - 64) / 2 : 165,
                         child: _SpecItem(
                           count: _specs[i].count,
-                          label: _specs[i].label,
+                          label: context.tr(_specs[i].label),
                           delayMs: i * 90,
                           compact: true,
                           active: active,

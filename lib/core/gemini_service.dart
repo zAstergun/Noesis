@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
+import 'localization/agent_intent_keywords.dart';
+import 'localization/noesis_l10n.dart';
+import 'localization/noesis_locale_service.dart';
 import 'noesis_agent_tools.dart';
 import 'supabase_service.dart';
 import '../features/flashcards/models/flashcard_model.dart';
@@ -57,7 +60,7 @@ List<Map<String, dynamic>> _parseJsonPayload(String rawJson) {
     rethrow;
   }
 
-  throw const FormatException('Formato de JSON inesperado recebido.');
+  throw FormatException(NoesisL10n.tr('Formato de JSON inesperado recebido.'));
 }
 
 /// Encontra o índice de fechamento correspondente ao delimitador de abertura em `start`.
@@ -386,17 +389,17 @@ class GeminiService {
   static String _validateCustomEndpoint(String rawBase) {
     final cleanBase = rawBase.trim().replaceAll(RegExp(r'/+$'), '');
     if (cleanBase.isEmpty) {
-      throw Exception('Informe a URL base do provedor personalizado.');
+      throw Exception(NoesisL10n.tr('Informe a URL base do provedor personalizado.'));
     }
     final uri = Uri.tryParse(cleanBase);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      throw Exception('URL base personalizada inválida.');
+      throw Exception(NoesisL10n.tr('URL base personalizada inválida.'));
     }
     final isLocalLoopback =
         uri.host == '127.0.0.1' || uri.host == 'localhost' || uri.host == '::1';
     if (uri.scheme != 'https' && !(uri.scheme == 'http' && isLocalLoopback)) {
       throw Exception(
-        'Por segurança, provedores personalizados exigem HTTPS (ou HTTP apenas em localhost/127.0.0.1).',
+        NoesisL10n.tr('Por segurança, provedores personalizados exigem HTTPS (ou HTTP apenas em localhost/127.0.0.1).'),
       );
     }
     return cleanBase.endsWith('/chat/completions')
@@ -528,7 +531,7 @@ class GeminiService {
 
     String? lastError = apiError;
     if (operational.isEmpty && results.isNotEmpty) {
-      lastError = results.firstWhere((r) => r.error != null, orElse: () => (model: '', isWorking: false, error: 'Nenhum modelo respondeu.')).error;
+      lastError = results.firstWhere((r) => r.error != null, orElse: () => (model: '', isWorking: false, error: NoesisL10n.tr('Nenhum modelo respondeu.'))).error;
     }
 
     return OperationalModelsResult(
@@ -560,10 +563,10 @@ class GeminiService {
     final urlBase = (baseUrl ?? '').trim();
 
     if (providerId != 'custom' && key.isEmpty) {
-      throw Exception('Informe a chave de API antes de testar.');
+      throw Exception(NoesisL10n.tr('Informe a chave de API antes de testar.'));
     }
     if (mod.isEmpty && providerId != 'custom') {
-      throw Exception('Selecione ou informe o modelo.');
+      throw Exception(NoesisL10n.tr('Selecione ou informe o modelo.'));
     }
 
     if (providerId == 'google') {
@@ -598,10 +601,10 @@ class GeminiService {
           throw Exception(msg);
         } catch (e) {
           if (e is Exception) rethrow;
-          throw Exception('Erro ao conectar com Google Gemini (${resp.statusCode}).');
+          throw Exception(NoesisL10n.tr('Erro ao conectar com Google Gemini ({status}).', {'status': resp.statusCode}));
         }
       }
-      return 'Conexão OK com Google Gemini ($mod)!';
+      return NoesisL10n.tr('Conexão OK com Google Gemini ({model})!', {'model': mod});
     }
 
     if (providerId == 'anthropic') {
@@ -617,7 +620,7 @@ class GeminiService {
           'model': mod,
           'max_tokens': 10,
           'messages': [
-            {'role': 'user', 'content': 'Responda apenas OK.'}
+            {'role': 'user', 'content': 'Reply only OK.'}
           ]
         }),
       ).timeout(const Duration(seconds: 15));
@@ -629,10 +632,10 @@ class GeminiService {
           throw Exception(msg);
         } catch (e) {
           if (e is Exception) rethrow;
-          throw Exception('Erro ao conectar com Anthropic (${resp.statusCode}).');
+          throw Exception(NoesisL10n.tr('Erro ao conectar com Anthropic ({status}).', {'status': resp.statusCode}));
         }
       }
-      return 'Conexão OK com Anthropic ($mod)!';
+      return NoesisL10n.tr('Conexão OK com Anthropic ({model})!', {'model': mod});
     }
 
     // OpenAI, xAI, DeepSeek, OpenRouter, Custom
@@ -659,7 +662,7 @@ class GeminiService {
       body: jsonEncode({
         'model': mod.isEmpty ? 'default' : mod,
         'messages': [
-          {'role': 'user', 'content': 'Responda apenas OK.'}
+          {'role': 'user', 'content': 'Reply only OK.'}
         ],
         'max_tokens': 10,
       }),
@@ -672,10 +675,15 @@ class GeminiService {
         throw Exception(msg);
       } catch (e) {
         if (e is Exception) rethrow;
-        throw Exception('Erro ao conectar com $providerId (${resp.statusCode}).');
+        throw Exception(
+          NoesisL10n.tr(
+            'Erro ao conectar com {provider} ({status}).',
+            {'provider': providerId, 'status': resp.statusCode},
+          ),
+        );
       }
     }
-    return 'Conexão OK com $providerId ($mod)!';
+    return NoesisL10n.tr('Conexão OK com {provider} ({model})!', {'provider': providerId, 'model': mod});
   }
 
   // ---------------------------------------------------------------------------
@@ -801,7 +809,7 @@ class GeminiService {
     }
 
     if (lastError != null) throw lastError;
-    throw Exception('A IA retornou um lote vazio. Tente novamente em instantes.');
+    throw Exception(NoesisL10n.tr('A IA retornou um lote vazio. Tente novamente em instantes.'));
   }
 
   static Future<List<Map<String, dynamic>>> generateQuiz({
@@ -928,10 +936,23 @@ class GeminiService {
         if (wrongDetails.length < 18) {
           final qStem = (q['question'] as String? ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
           final shortStem = qStem.length > 140 ? '${qStem.substring(0, 140)}...' : qStem;
-          final userOpt = selectedIdx < options.length ? options[selectedIdx] : 'Opção ${selectedIdx + 1}';
-          final rightOpt = correctIdx < options.length ? options[correctIdx] : 'Opção ${correctIdx + 1}';
+          final userOpt = selectedIdx < options.length
+              ? options[selectedIdx]
+              : NoesisL10n.tr('Opção {index}', {'index': selectedIdx + 1});
+          final rightOpt = correctIdx < options.length
+              ? options[correctIdx]
+              : NoesisL10n.tr('Opção {index}', {'index': correctIdx + 1});
           wrongDetails.add(
-            '- Q${i + 1} [${sources.join(", ")}]: "$shortStem"\n  Marcou: "$userOpt" | Gabarito: "$rightOpt"',
+            NoesisL10n.tr(
+              '- Q{num} [{topics}]: "{stem}"\n  Marcou: "{marked}" | Gabarito: "{correct}"',
+              {
+                'num': i + 1,
+                'topics': sources.join(', '),
+                'stem': shortStem,
+                'marked': userOpt,
+                'correct': rightOpt,
+              },
+            ),
           );
         }
       }
@@ -956,38 +977,56 @@ class GeminiService {
       );
     }
 
-    final prompt = '''
-Você é um mentor pedagógico especialista em exames do Aster Noesis.
-Analise o desempenho do estudante neste simulado e gere um feedback objetivo, estratégico e acionável em Português (Markdown).
-
-DADOS DA SESSÃO:
-- Prova / Modelo: ${examModelName ?? topic} ($subject)
-- Questões avaliadas: $total | Respondidas: $answered | Acertos: $correct ($accuracyTotal% do total, $accuracyAnswered% das respondidas) | Erros: $wrong | Em branco: $blank
-- Tempo decorrido: ${(elapsedSeconds ~/ 60)}m ${(elapsedSeconds % 60)}s
-- Tópicos com acertos: ${rightTopics.isEmpty ? 'Nenhum registrado' : rightTopics.take(8).join(', ')}
-- Tópicos com erros/lacunas: ${wrongTopics.isEmpty ? 'Nenhum erro' : wrongTopics.take(8).join(', ')}
-
-QUESTÕES ERRADAS PELO ESTUDANTE:
-${wrongDetails.isEmpty ? 'Nenhum erro registrado nas questões respondidas!' : wrongDetails.join('\n')}
-
-ESTRUTURA OBRIGATÓRIA DA RESPOSTA (seja direto, use bullets e negrito):
-### 1. Diagnóstico do Desempenho
-(Avalie precisão, ritmo de prova e impacto de erros ou itens em branco.)
-
-### 2. Pontos Fortes
-(O que o estudante já domina com base nos acertos.)
-
-### 3. Onde Você Mais Perdeu Pontos & Padrão de Erro
-(Explique objetivamente os conceitos/pegadinhas das questões erradas acima.)
-
-### 4. Plano Prático de Melhoria (Próximos Passos)
-(Liste 3 ações específicas de revisão e treino para elevar a nota no próximo simulado.)
-''';
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
+    final prompt = NoesisL10n.tr(
+      'Você é um mentor pedagógico especialista em exames do Aster Noesis.\n'
+      'Analise o desempenho do estudante neste simulado e gere um feedback objetivo, estratégico e acionável no idioma **{aiLang}** (Markdown).\n'
+      'IMPORTANTE: Todo o texto da análise, títulos e tópicos DEVE ser escrito em **{aiLang}**.\n\n'
+      'DADOS DA SESSÃO:\n'
+      '- Prova / Modelo: {exam} ({subject})\n'
+      '- Questões avaliadas: {total} | Respondidas: {answered} | Acertos: {correct} ({accTotal}% do total, {accAnswered}% das respondidas) | Erros: {wrong} | Em branco: {blank}\n'
+      '- Tempo decorrido: {mins}m {secs}s\n'
+      '- Tópicos com acertos: {rightTopics}\n'
+      '- Tópicos com erros/lacunas: {wrongTopics}\n\n'
+      'QUESTÕES ERRADAS PELO ESTUDANTE:\n'
+      '{wrongDetails}\n\n'
+      'ESTRUTURA OBRIGATÓRIA DA RESPOSTA (seja direto, use bullets e negrito):\n'
+      '### 1. Diagnóstico do Desempenho\n'
+      '(Avalie precisão, ritmo de prova e impacto de erros ou itens em branco.)\n\n'
+      '### 2. Pontos Fortes\n'
+      '(O que o estudante já domina com base nos acertos.)\n\n'
+      '### 3. Onde Você Mais Perdeu Pontos & Padrão de Erro\n'
+      '(Explique objetivamente os conceitos/pegadinhas das questões erradas acima.)\n\n'
+      '### 4. Plano Prático de Melhoria (Próximos Passos)\n'
+      '(Liste 3 ações específicas de revisão e treino para elevar a nota no próximo simulado.)',
+      {
+        'aiLang': aiLang,
+        'exam': examModelName ?? topic,
+        'subject': subject,
+        'total': total,
+        'answered': answered,
+        'correct': correct,
+        'accTotal': accuracyTotal,
+        'accAnswered': accuracyAnswered,
+        'wrong': wrong,
+        'blank': blank,
+        'mins': elapsedSeconds ~/ 60,
+        'secs': elapsedSeconds % 60,
+        'rightTopics': rightTopics.isEmpty ? NoesisL10n.tr('Nenhum registrado') : rightTopics.take(8).join(', '),
+        'wrongTopics': wrongTopics.isEmpty ? NoesisL10n.tr('Nenhum erro') : wrongTopics.take(8).join(', '),
+        'wrongDetails': wrongDetails.isEmpty
+            ? NoesisL10n.tr('Nenhum erro registrado nas questões respondidas!')
+            : wrongDetails.join('\n'),
+      },
+    );
 
     try {
       final result = await _executeRawPrompt(
         prompt: prompt,
-        systemInstruction: 'Você é um tutor especialista em preparação para provas e certificações. Responda apenas com a análise em Markdown limpo.',
+        systemInstruction: NoesisL10n.tr(
+          'Você é um tutor especialista em preparação para provas e certificações. Responda apenas com a análise em Markdown limpo no idioma: {aiLang}.',
+          {'aiLang': aiLang},
+        ),
         timeoutSeconds: 45,
       );
       if (result.trim().isNotEmpty) {
@@ -1022,25 +1061,33 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA (seja direto, use bullets e negrito):
     required List<String> wrongTopics,
   }) {
     final buffer = StringBuffer();
-    buffer.writeln('### 1. Diagnóstico Geral · $examName');
-    buffer.writeln('- **Aproveitamento global:** $correct/$total acertos (**$accuracyTotal%**).');
+    buffer.writeln(NoesisL10n.tr('### 1. Diagnóstico Geral · {exam}', {'exam': examName}));
+    buffer.writeln(NoesisL10n.tr('- **Aproveitamento global:** {correct}/{total} acertos (**{pct}%**).', {
+      'correct': correct,
+      'total': total,
+      'pct': accuracyTotal,
+    }));
     if (blank > 0) {
-      buffer.writeln('- **Precisão nas respondidas:** **$accuracyAnswered%** (${total - blank} respondidas, $blank em branco).');
+      buffer.writeln(NoesisL10n.tr('- **Precisão nas respondidas:** **{pct}%** ({answered} respondidas, {blank} em branco).', {
+        'pct': accuracyAnswered,
+        'answered': total - blank,
+        'blank': blank,
+      }));
     }
     buffer.writeln('');
-    buffer.writeln('### 2. Pontos Fortes');
+    buffer.writeln(NoesisL10n.tr('### 2. Pontos Fortes'));
     if (rightTopics.isNotEmpty && correct > 0) {
-      buffer.writeln('- Bom domínio inicial em: **${rightTopics.take(5).join(', ')}**.');
+      buffer.writeln(NoesisL10n.tr('- Bom domínio inicial em: **{topics}**.', {'topics': rightTopics.take(5).join(', ')}));
     } else {
-      buffer.writeln('- Ainda não há acertos suficientes para consolidar pontos fortes; revise os gabaritos comentados questão a questão.');
+      buffer.writeln(NoesisL10n.tr('- Ainda não há acertos suficientes para consolidar pontos fortes; revise os gabaritos comentados questão a questão.'));
     }
     buffer.writeln('');
-    buffer.writeln('### 3. Pontos de Melhoria');
+    buffer.writeln(NoesisL10n.tr('### 3. Pontos de Melhoria'));
     if (wrong > 0 || blank > 0) {
-      buffer.writeln('- Priorize a revisão dos erros em: **${wrongTopics.take(6).join(', ')}**.');
-      buffer.writeln('- Use o filtro **Erros** no comparativo acima e clique para inspecionar o raciocínio de cada distrator marcado.');
+      buffer.writeln(NoesisL10n.tr('- Priorize a revisão dos erros em: **{topics}**.', {'topics': wrongTopics.take(6).join(', ')}));
+      buffer.writeln(NoesisL10n.tr('- Use o filtro **Erros** no comparativo acima e clique para inspecionar o raciocínio de cada distrator marcado.'));
     } else {
-      buffer.writeln('- Desempenho impecável neste bloco! Aumente o nível de profundidade ou avance para mais lotes.');
+      buffer.writeln(NoesisL10n.tr('- Desempenho impecável neste bloco! Aumente o nível de profundidade ou avance para mais lotes.'));
     }
     return buffer.toString();
   }
@@ -1072,43 +1119,80 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA (seja direto, use bullets e negrito):
   }) async {
     final hoursStr = (totalMinutes / 60.0).toStringAsFixed(1);
     final prevHoursStr = (previousPeriodMinutes / 60.0).toStringAsFixed(1);
-    final avgScoreStr = averageExamScore != null ? '${averageExamScore.round()}%' : 'sem simulados';
-    final prevScoreStr = previousExamScore != null ? '${previousExamScore.round()}%' : 'sem base anterior';
+    final avgScoreStr = averageExamScore != null ? '${averageExamScore.round()}%' : NoesisL10n.tr('sem simulados');
+    final prevScoreStr = previousExamScore != null ? '${previousExamScore.round()}%' : NoesisL10n.tr('sem base anterior');
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
 
     final key = apiKey?.trim() ?? '';
     if (provider == 'custom' || key.isNotEmpty) {
-      final prompt = '''
-Você é o mentor analítico do Noesis. Gere um review longitudinal claro e acionável em Markdown (em Português) avaliando o desempenho real deste estudante no período "$periodLabel":
-
-MÉTRICAS CONSOLIDADAS DA CONTA:
-- Período analisado: $periodLabel
-- Tempo total estudado: ${totalMinutes}m (${hoursStr}h) em $sessionsCount sessões · $activeDaysCount dias ativos · streak atual: ${streakDays}d
-- Comparativo vs período anterior: ${prevHoursStr}h (${minutesDeltaPct != null ? '${minutesDeltaPct >= 0 ? '+' : ''}$minutesDeltaPct%' : 'sem comparativo'})
-- Simulados no período: $examsCount provas · $totalQuestions questões · acurácia média: $avgScoreStr (anterior: $prevScoreStr)
-- Matérias destacadas: ${topSubjectsSummary.isEmpty ? 'nenhuma registrada ainda' : topSubjectsSummary.join('; ')}
-- Flashcards: $cardsReviewedInPeriod revisados no período · retenção estimada $retentionRatePct% · $cardsDueCount cartões pendentes
-- Cadernos: $notesUpdatedInPeriod notas atualizadas no período · $notesNeedingReview marcadas para revisão
-- Trilhas de estudo: $roadmapProgressPct% concluído
-- Economia & Liga: +$insightsEarnedInPeriod Insights conquistados · Elo atual: $currentEloName
-
-Estruture exatamente em 4 seções curtas com `###`:
-### 1. Diagnóstico do Período
-### 2. Evolução ao Longo do Tempo
-### 3. Pontos de Atenção & Lacunas
-### 4. Plano Prático para os Próximos Dias
-Seja direto, cite os números reais e dê ações concretas.
-''';
+      final prompt = NoesisL10n.tr(
+        'Você é o mentor analítico do Noesis. Gere um review longitudinal claro e acionável em Markdown (estritamente no idioma: {aiLang}) avaliando o desempenho real deste estudante no período "{period}":\n\n'
+        'MÉTRICAS CONSOLIDADAS DA CONTA:\n'
+        '- Período analisado: {period}\n'
+        '- Tempo total estudado: {mins}m ({hours}h) em {sessions} sessões · {activeDays} dias ativos · streak atual: {streak}d\n'
+        '- Comparativo vs período anterior: {prevHours}h ({delta})\n'
+        '- Simulados no período: {exams} provas · {questions} questões · acurácia média: {avg} (anterior: {prevAvg})\n'
+        '- Matérias destacadas: {subjects}\n'
+        '- Flashcards: {reviewed} revisados no período · retenção estimada {retention}% · {due} cartões pendentes\n'
+        '- Cadernos: {notesUpdated} notas atualizadas no período · {notesReview} marcadas para revisão\n'
+        '- Trilhas de estudo: {roadmapPct}% concluído\n'
+        '- Economia & Liga: +{insights} Insights conquistados · Elo atual: {elo}\n\n'
+        'Estruture exatamente em 4 seções curtas com `###`:\n'
+        '### 1. Diagnóstico do Período\n'
+        '### 2. Evolução ao Longo do Tempo\n'
+        '### 3. Pontos de Atenção & Lacunas\n'
+        '### 4. Plano Prático para os Próximos Dias\n'
+        'Seja direto, cite os números reais e dê ações concretas.',
+        {
+          'aiLang': aiLang,
+          'period': periodLabel,
+          'mins': totalMinutes,
+          'hours': hoursStr,
+          'sessions': sessionsCount,
+          'activeDays': activeDaysCount,
+          'streak': streakDays,
+          'prevHours': prevHoursStr,
+          'delta': minutesDeltaPct != null
+              ? '${minutesDeltaPct >= 0 ? '+' : ''}$minutesDeltaPct%'
+              : NoesisL10n.tr('sem comparativo'),
+          'exams': examsCount,
+          'questions': totalQuestions,
+          'avg': avgScoreStr,
+          'prevAvg': prevScoreStr,
+          'subjects': topSubjectsSummary.isEmpty
+              ? NoesisL10n.tr('nenhuma registrada ainda')
+              : topSubjectsSummary.join('; '),
+          'reviewed': cardsReviewedInPeriod,
+          'retention': retentionRatePct,
+          'due': cardsDueCount,
+          'notesUpdated': notesUpdatedInPeriod,
+          'notesReview': notesNeedingReview,
+          'roadmapPct': roadmapProgressPct,
+          'insights': insightsEarnedInPeriod,
+          'elo': currentEloName,
+        },
+      );
       try {
         final raw = await _executeRawPrompt(
           prompt: prompt,
-          systemInstruction:
-              'Você é um analista pedagógico de alto desempenho do Noesis. Responda apenas em Markdown conciso e baseado nos dados fornecidos.',
+          systemInstruction: NoesisL10n.tr(
+            'Você é um analista pedagógico de alto desempenho do Noesis. Responda apenas em Markdown conciso e baseado nos dados fornecidos, estritamente no idioma: {aiLang}.',
+            {'aiLang': aiLang},
+          ),
           timeoutSeconds: 45,
         );
         if (raw.trim().isNotEmpty) {
           final headline = averageExamScore != null
-              ? '${hoursStr}h estudadas · Média $avgScoreStr em $periodLabel'
-              : '${hoursStr}h estudadas em $sessionsCount sessões ($periodLabel)';
+              ? NoesisL10n.tr('{hours}h estudadas · Média {avg} em {period}', {
+                  'hours': hoursStr,
+                  'avg': avgScoreStr,
+                  'period': periodLabel,
+                })
+              : NoesisL10n.tr('{hours}h estudadas em {sessions} sessões ({period})', {
+                  'hours': hoursStr,
+                  'sessions': sessionsCount,
+                  'period': periodLabel,
+                });
           return (headline: headline, markdown: raw.trim(), generatedWithLlm: true);
         }
       } catch (_) {}
@@ -1116,78 +1200,133 @@ Seja direto, cite os números reais e dê ações concretas.
 
     // Fallback autônomo determinístico rico com os dados reais da conta
     final buffer = StringBuffer();
-    buffer.writeln('### 1. Diagnóstico do Período ($periodLabel)');
+    buffer.writeln('### ${NoesisL10n.tr('1. Diagnóstico do Período')} ($periodLabel)');
     if (totalMinutes > 0) {
       final deltaText = minutesDeltaPct == null
-          ? 'primeiro recorte registrado'
+          ? NoesisL10n.tr('primeiro recorte registrado')
           : (minutesDeltaPct >= 0
-              ? 'avanço de **+$minutesDeltaPct%** vs período anterior (${prevHoursStr}h)'
-              : 'queda de **$minutesDeltaPct%** vs período anterior (${prevHoursStr}h)');
+              ? NoesisL10n.tr('avanço de **+{pct}%** vs período anterior ({prev}h)', {'pct': minutesDeltaPct, 'prev': prevHoursStr})
+              : NoesisL10n.tr('queda de **{pct}%** vs período anterior ({prev}h)', {'pct': minutesDeltaPct, 'prev': prevHoursStr}));
       buffer.writeln(
-        '- **Carga horária:** **${hoursStr}h** ($totalMinutes min) distribuídas em **$sessionsCount sessões** e **$activeDaysCount dias ativos** ($deltaText).',
+        NoesisL10n.tr(
+          '- **Carga horária:** **{hours}h** ({mins} min) distribuídas em **{sessions} sessões** e **{days} dias ativos** ({delta}).',
+          {
+            'hours': hoursStr,
+            'mins': totalMinutes,
+            'sessions': sessionsCount,
+            'days': activeDaysCount,
+            'delta': deltaText,
+          },
+        ),
       );
     } else {
-      buffer.writeln('- Nenhuma sessão cronometrada ou registrada neste período ainda.');
+      buffer.writeln('- ${NoesisL10n.tr('Nenhuma sessão cronometrada ou registrada neste período ainda.')}');
     }
     if (examsCount > 0 && averageExamScore != null) {
       buffer.writeln(
-        '- **Simulados:** **$examsCount simulado(s)** ($totalQuestions questões) com média de **${averageExamScore.round()}%**.',
+        NoesisL10n.tr(
+          '- **Simulados:** **{exams} simulado(s)** ({questions} questões) com média de **{avg}%**.',
+          {'exams': examsCount, 'questions': totalQuestions, 'avg': averageExamScore.round()},
+        ),
       );
     }
-    buffer.writeln('- **Ritmo atual:** sequência de **${streakDays}d** e Elo **$currentEloName** (+$insightsEarnedInPeriod Insights no período).');
+    buffer.writeln(
+      NoesisL10n.tr(
+        '- **Ritmo atual:** sequência de **{streak}d** e Elo **{elo}** (+{insights} Insights no período).',
+        {'streak': streakDays, 'elo': currentEloName, 'insights': insightsEarnedInPeriod},
+      ),
+    );
     buffer.writeln('');
 
-    buffer.writeln('### 2. Evolução ao Longo do Tempo');
+    buffer.writeln('### ${NoesisL10n.tr('2. Evolução ao Longo do Tempo')}');
     if (averageExamScore != null && previousExamScore != null) {
       final diffPts = (averageExamScore - previousExamScore).round();
       if (diffPts > 0) {
-        buffer.writeln('- Sua precisão em simulados subiu **+$diffPts p.p.** em comparação ao ciclo anterior (**${previousExamScore.round()}% → ${averageExamScore.round()}%**).');
+        buffer.writeln(
+          NoesisL10n.tr(
+            '- Sua precisão em simulados subiu **+{diff} p.p.** em comparação ao ciclo anterior (**{prev}% → {curr}%**).',
+            {'diff': diffPts, 'prev': previousExamScore.round(), 'curr': averageExamScore.round()},
+          ),
+        );
       } else if (diffPts < 0) {
-        buffer.writeln('- A média em simulados recuou **${diffPts.abs()} p.p.** (**${previousExamScore.round()}% → ${averageExamScore.round()}%**); revise os erros recentes antes da próxima bateria.');
+        buffer.writeln(
+          NoesisL10n.tr(
+            '- A média em simulados recuou **{diff} p.p.** (**{prev}% → {curr}%**); revise os erros recentes antes da próxima bateria.',
+            {'diff': diffPts.abs(), 'prev': previousExamScore.round(), 'curr': averageExamScore.round()},
+          ),
+        );
       } else {
-        buffer.writeln('- Acurácia estável em **${averageExamScore.round()}%** frente ao período anterior.');
+        buffer.writeln(
+          NoesisL10n.tr('- Acurácia estável em **{avg}%** frente ao período anterior.', {'avg': averageExamScore.round()}),
+        );
       }
     } else if (topSubjectsSummary.isNotEmpty) {
-      buffer.writeln('- Concentração principal de esforço: **${topSubjectsSummary.take(3).join(' · ')}**.');
+      buffer.writeln(
+        NoesisL10n.tr('- Concentração principal de esforço: **{summary}**.', {'summary': topSubjectsSummary.take(3).join(' · ')}),
+      );
     } else {
-      buffer.writeln('- Continue registrando sessões e simulados para formar sua série histórica de evolução.');
+      buffer.writeln('- ${NoesisL10n.tr('Continue registrando sessões e simulados para formar sua série histórica de evolução.')}');
     }
     if (cardsReviewedInPeriod > 0 || roadmapProgressPct > 0) {
-      buffer.writeln('- **Retenção ativa:** **$cardsReviewedInPeriod flashcards** revisados (retenção de **$retentionRatePct%**) e **$roadmapProgressPct%** das trilhas concluídos.');
+      buffer.writeln(
+        NoesisL10n.tr(
+          '- **Retenção ativa:** **{reviewed} flashcards** revisados (retenção de **{retention}%**) e **{pct}%** das trilhas concluídos.',
+          {'reviewed': cardsReviewedInPeriod, 'retention': retentionRatePct, 'pct': roadmapProgressPct},
+        ),
+      );
     }
     buffer.writeln('');
 
-    buffer.writeln('### 3. Pontos de Atenção & Lacunas');
+    buffer.writeln('### ${NoesisL10n.tr('3. Pontos de Atenção & Lacunas')}');
     if (cardsDueCount > 0) {
-      buffer.writeln('- Existem **$cardsDueCount flashcards pendentes/difíceis** aguardando revisão espaçada.');
+      buffer.writeln(
+        NoesisL10n.tr('- Existem **{count} flashcards pendentes/difíceis** aguardando revisão espaçada.', {'count': cardsDueCount}),
+      );
     }
     if (notesNeedingReview > 0) {
-      buffer.writeln('- Você marcou **$notesNeedingReview anotações** em Cadernos para revisão.');
+      buffer.writeln(
+        NoesisL10n.tr('- Você marcou **{count} anotações** em Cadernos para revisão.', {'count': notesNeedingReview}),
+      );
     }
     if (minutesDeltaPct != null && minutesDeltaPct < -10) {
-      buffer.writeln('- O volume de horas caiu frente ao ciclo anterior; blocos menores de 25–45 min ajudam a retomar a constância.');
+      buffer.writeln('- ${NoesisL10n.tr('O volume de horas caiu frente ao ciclo anterior; blocos menores de 25–45 min ajudam a retomar a constância.')}');
     }
     if (cardsDueCount == 0 && notesNeedingReview == 0 && examsCount == 0) {
-      buffer.writeln('- Inclua pelo menos 1 simulado diagnóstico para medir acurácia objetiva além do tempo de estudo.');
+      buffer.writeln('- ${NoesisL10n.tr('Inclua pelo menos 1 simulado diagnóstico para medir acurácia objetiva além do tempo de estudo.')}');
     }
     buffer.writeln('');
 
-    buffer.writeln('### 4. Plano Prático para os Próximos Dias');
+    buffer.writeln('### ${NoesisL10n.tr('4. Plano Prático para os Próximos Dias')}');
     if (cardsDueCount > 0) {
-      buffer.writeln('- **Prioridade 1:** Zerar ao menos **${cardsDueCount.clamp(5, 25)} flashcards** pendentes hoje.');
+      buffer.writeln(
+        NoesisL10n.tr('- **Prioridade 1:** Zerar ao menos **{count} flashcards** pendentes hoje.', {'count': cardsDueCount.clamp(5, 25)}),
+      );
     }
     if (examsCount == 0 || (averageExamScore != null && averageExamScore < 75)) {
-      buffer.writeln('- **Prioridade 2:** Fazer um simulado de **15 a 30 questões** focado na disciplina de menor nota e ler o review questão a questão.');
+      buffer.writeln('- ${NoesisL10n.tr('**Prioridade 2:** Fazer um simulado de **15 a 30 questões** focado na disciplina de menor nota e ler o review questão a questão.')}');
     } else if (averageExamScore != null) {
-      buffer.writeln('- **Prioridade 2:** Manter sua média acima de **${averageExamScore.round()}%** avançando uma etapa nas Trilhas ($roadmapProgressPct% concluídos).');
+      buffer.writeln(
+        NoesisL10n.tr(
+          '- **Prioridade 2:** Manter sua média acima de **{avg}%** avançando uma etapa nas Trilhas ({pct}% concluídos).',
+          {'avg': averageExamScore.round(), 'pct': roadmapProgressPct},
+        ),
+      );
     }
     if (notesNeedingReview > 0) {
-      buffer.writeln('- **Prioridade 3:** Revisar **1 a 2 notas** sinalizadas nos Cadernos para fixar os conceitos-chave.');
+      buffer.writeln('- ${NoesisL10n.tr('**Prioridade 3:** Revisar **1 a 2 notas** sinalizadas nos Cadernos para fixar os conceitos-chave.')}');
     }
 
     final headline = examsCount > 0 && averageExamScore != null
-        ? '${hoursStr}h estudadas · Média ${averageExamScore.round()}% ($periodLabel)'
-        : '${hoursStr}h em $sessionsCount sessões ($periodLabel)';
+        ? NoesisL10n.tr('{hours}h estudadas · Média {avg}% ({period})', {
+            'hours': hoursStr,
+            'avg': averageExamScore.round(),
+            'period': periodLabel,
+          })
+        : NoesisL10n.tr('{hours}h em {sessions} sessões ({period})', {
+            'hours': hoursStr,
+            'sessions': sessionsCount,
+            'period': periodLabel,
+          });
 
     return (
       headline: headline,
@@ -1219,27 +1358,31 @@ Seja direto, cite os números reais e dê ações concretas.
         : '';
 
     final blueprintSection = hasBlueprint
-        ? '''
-MODELO OFICIAL DE PROVA SELECIONADO: ${examModelName ?? topic}
-Siga rigorosamente os requisitos, estilo de enunciado, arquitetura de distratores, quantidade de alternativas e diretrizes do guia oficial abaixo:
-"""
-${examBlueprintText.trim()}
-"""
-'''
+        ? NoesisL10n.tr(
+            'MODELO OFICIAL DE PROVA SELECIONADO: {exam}\n'
+            'Siga rigorosamente os requisitos, estilo de enunciado, arquitetura de distratores, quantidade de alternativas e diretrizes do guia oficial abaixo:\n'
+            '"""\n{blueprint}\n"""\n',
+            {
+              'exam': examModelName ?? topic,
+              'blueprint': examBlueprintText.trim(),
+            },
+          )
         : '';
 
     final referenceSection = hasReference
-        ? '''
-MATERIAIS DE ESTUDO ANEXADOS PELO USUÁRIO (FLASHCARDS, CADERNOS E/OU APOSTILAS — BASE PRIORITÁRIA):
-Utilize prioritariamente os conceitos, definições, anotações e exemplos dos materiais anexados abaixo para formular as questões, distratores plausíveis e explicações (mantendo o estilo/formato do modelo de prova escolhido):
-"""
-${referenceDocumentText.trim()}
-"""
-'''
+        ? NoesisL10n.tr(
+            'MATERIAIS DE ESTUDO ANEXADOS PELO USUÁRIO (FLASHCARDS, CADERNOS E/OU APOSTILAS — BASE PRIORITÁRIA):\n'
+            'Utilize prioritariamente os conceitos, definições, anotações e exemplos dos materiais anexados abaixo para formular as questões, distratores plausíveis e explicações (mantendo o estilo/formato do modelo de prova escolhido):\n'
+            '"""\n{reference}\n"""\n',
+            {'reference': referenceDocumentText.trim()},
+          )
         : '';
 
     final antiDupSection = avoidTopicsSummary != null
-        ? '\nNÃO REPITA cenários ou perguntas equivalentes às já criadas anteriormente neste simulado:\n[$avoidTopicsSummary]\n'
+        ? NoesisL10n.tr(
+            '\nNÃO REPITA cenários ou perguntas equivalentes às já criadas anteriormente neste simulado:\n[{topics}]\n',
+            {'topics': avoidTopicsSummary},
+          )
         : '';
 
     final defaultDiscipline = examModel != null
@@ -1252,40 +1395,50 @@ ${referenceDocumentText.trim()}
             .first
         : (subject.trim().isNotEmpty ? subject.trim() : topic);
 
-    final prompt = '''
-Você é o examinador sênior do Aster Noesis. Crie um lote de questões para um simulado de alto nível sobre "$subject - $topic".
-Dificuldade: $difficulty.
-Lote $batchIndex (questões $startNumber a ${startNumber + batchCount - 1} de um total de $totalTarget).
-QUANTIDADE EXATA DESTE LOTE: $batchCount questões.
-$sectionDirective$blueprintSection$referenceSection$antiDupSection
-INSTRUÇÕES DE FORMATO E SEPARAÇÃO DE DISCIPLINAS:
-- Respeite a DIVISÃO SEQUENCIAL DE DISCIPLINAS acima (se definida): NUNCA misture matérias aleatoriamente nem alterne disciplinas fora da sequência oficial do caderno. Cada objeto do array DEVE preencher "discipline" exatamente com a disciplina correspondente àquela questão.
-- Se o modelo oficial especificar 3 alternativas (ex.: DELE, DELF, CFA), 4 alternativas (ex.: SAT, ACT, OAB, Unicamp, CompTIA, Azure, GCP, CCNA), 5 alternativas (ex.: ENEM, FUVEST, USMLE, ENARE, ENAM, GRE/LSAT) ou 2 alternativas (ex.: CEBRASPE Certo/Errado), respeite esse número exato no array "options" (padrão: 4 alternativas caso não haja especificação distinta).
-- Em provas de idiomas estrangeiros (DELE, DELF, Goethe, JLPT, HSK, IELTS, TOEFL, Cambridge, SAT, ACT, GRE, GMAT, LSAT, USMLE), redija o enunciado e opções no idioma autêntico da prova e forneça "explanation" didática detalhada.
-- Separação limpa entre Texto de Apoio e Pergunta: sempre que a questão trouxer um excerto, caso clínico, situação-problema ou trecho literário/jornalístico antes da pergunta, coloque esse conteúdo em "supporting_text" (e a referência bibliográfica em "source_citation", ex.: "Fonte: ..."), deixando em "question" APENAS a pergunta/enunciado objetivo final. Caso a questão não possua texto de apoio separado, deixe "supporting_text" e "source_citation" como strings vazias ("").
-- NÃO escreva rótulos artificiais como "Texto-base:" ou "Comando:" no início das frases. NÃO use fórmulas LaTeX entre cifrões nem comandos com barra invertida — use texto simples e símbolos Unicode (10%, x², √2, ×, ÷, ≤, ≥, →). Não repita letras ("A) ", "B) ") dentro das strings de "options". Pode usar negrito Markdown (**termo**) para destacar palavras-chave.
-- "rag_sources": inclua de 1 a 3 tags curtas citando o modelo/banca ou normas de referência usadas.
-
-RETORNE ESTRITAMENTE um array JSON válido com exatamente $batchCount objetos no seguinte formato (sem Markdown extra):
-[
-  {
-    "discipline": "$defaultDiscipline",
-    "supporting_text": "Texto de apoio, citação ou situação contextualizada da questão (ou string vazia se não houver).",
-    "source_citation": "Fonte: referência bibliográfica curta (ou string vazia).",
-    "question": "Pergunta / enunciado completo final da questão...",
-    "code_snippet": "Trecho de código, log, saída CLI ou tabela auxiliar opcional (ou string vazia)",
-    "options": [
-      "Alternativa A",
-      "Alternativa B",
-      "Alternativa C",
-      "Alternativa D"
-    ],
-    "correct_index": 0,
-    "explanation": "Explicação detalhada do gabarito e do erro de cada distrator.",
-    "rag_sources": ["${examModelName ?? subject}", "$defaultDiscipline"]
-  }
-]
-''';
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
+    final prompt = NoesisL10n.tr(
+      'Você é o examinador sênior do Aster Noesis. Crie um lote de questões para um simulado de alto nível sobre "{subject} - {topic}".\n'
+      'IDIOMA DE SAÍDA OBRIGATÓRIO: {aiLang} (com exceção de provas específicas de língua estrangeira abaixo).\n'
+      'Dificuldade: {difficulty}.\n'
+      'Lote {batchIndex} (questões {startNumber} a {endNumber} de um total de {totalTarget}).\n'
+      'QUANTIDADE EXATA DESTE LOTE: {batchCount} questões.\n'
+      '{extraSections}\n'
+      'INSTRUÇÕES DE FORMATO E SEPARAÇÃO DE DISCIPLINAS:\n'
+      '- Respeite a DIVISÃO SEQUENCIAL DE DISCIPLINAS acima (se definida): NUNCA misture matérias aleatoriamente nem alterne disciplinas fora da sequência oficial do caderno. Cada objeto do array DEVE preencher "discipline" exatamente com a disciplina correspondente àquela questão.\n'
+      '- Se o modelo oficial especificar 3 alternativas (ex.: DELE, DELF, CFA), 4 alternativas (ex.: SAT, ACT, OAB, Unicamp, CompTIA, Azure, GCP, CCNA), 5 alternativas (ex.: ENEM, FUVEST, USMLE, ENARE, ENAM, GRE/LSAT) ou 2 alternativas (ex.: CEBRASPE Certo/Errado), respeite esse número exato no array "options" (padrão: 4 alternativas caso não haja especificação distinta).\n'
+      '- Em provas de idiomas estrangeiros (DELE, DELF, Goethe, JLPT, HSK, IELTS, TOEFL, Cambridge, SAT, ACT, GRE, GMAT, LSAT, USMLE), redija o enunciado e opções no idioma autêntico da prova e forneça "explanation" didática detalhada no idioma do usuário ({aiLang}).\n'
+      '- Separação limpa entre Texto de Apoio e Pergunta: sempre que a questão trouxer um excerto, caso clínico, situação-problema ou trecho literário/jornalístico antes da pergunta, coloque esse conteúdo em "supporting_text" (e a referência bibliográfica em "source_citation", ex.: "Fonte: ..."), deixando em "question" APENAS a pergunta/enunciado objetivo final. Caso a questão não possua texto de apoio separado, deixe "supporting_text" e "source_citation" como strings vazias ("").\n'
+      '- NÃO escreva rótulos artificiais como "Texto-base:" ou "Comando:" no início das frases. NÃO use fórmulas LaTeX entre cifrões nem comandos com barra invertida — use texto simples e símbolos Unicode (10%, x², √2, ×, ÷, ≤, ≥, →). Não repita letras ("A) ", "B) ") dentro das strings de "options". Pode usar negrito Markdown (**termo**) para destacar palavras-chave.\n'
+      '- "rag_sources": inclua de 1 a 3 tags curtas citando o modelo/banca ou normas de referência usadas.\n\n'
+      'RETORNE ESTRITAMENTE um array JSON válido com exatamente {batchCount} objetos no seguinte formato (sem Markdown extra):\n'
+      '[\n'
+      '  {\n'
+      '    "discipline": "{defaultDiscipline}",\n'
+      '    "supporting_text": "Context passage or scenario (or empty string if none).",\n'
+      '    "source_citation": "Source: short reference (or empty string).",\n'
+      '    "question": "Final question stem...",\n'
+      '    "code_snippet": "Optional code, log, CLI output or table (or empty string)",\n'
+      '    "options": ["Option A", "Option B", "Option C", "Option D"],\n'
+      '    "correct_index": 0,\n'
+      '    "explanation": "Detailed explanation of the right answer and why each distractor is wrong.",\n'
+      '    "rag_sources": ["{sourceTag}", "{defaultDiscipline}"]\n'
+      '  }\n'
+      ']',
+      {
+        'subject': subject,
+        'topic': topic,
+        'aiLang': aiLang,
+        'difficulty': difficulty,
+        'batchIndex': batchIndex,
+        'startNumber': startNumber,
+        'endNumber': startNumber + batchCount - 1,
+        'totalTarget': totalTarget,
+        'batchCount': batchCount,
+        'extraSections': '$sectionDirective$blueprintSection$referenceSection$antiDupSection',
+        'defaultDiscipline': defaultDiscipline,
+        'sourceTag': examModelName ?? subject,
+      },
+    );
 
     String text = '';
 
@@ -1350,27 +1503,38 @@ RETORNE ESTRITAMENTE um array JSON válido com exatamente $batchCount objetos no
     final key = apiKey?.trim() ?? '';
     final cleanModel = normalizeModel(provider, model);
 
-    final prompt = '''
-Gere um conjunto de $count FLASHCARDS DE ESTUDO COGNITIVO sobre o tema específico:
-Matéria: "$subject"
-Tema Específico: "$topic"
-Dificuldade: "$difficulty"
-${contextNotes != null && contextNotes.isNotEmpty ? 'Material de Referência / Anotações:\n"""\n$contextNotes\n"""' : ''}
-
-Diretrizes pedagógicas para os Flashcards:
-1. "front": Pergunta desafiadora, conceito-chave, problema arquitetural ou termo técnico que exija recuperação ativa de memória (Active Recall).
-2. "back": Explicação clara, didática, precisa e técnica, destacando o 'porquê', analogias ou regras de ouro mnemônicas.
-3. "tags": Lista de 2 ou 3 palavras-chave sobre o conteúdo.
-
-RETORNE ESTRITAMENTE um array JSON no seguinte formato (sem Markdown extra, apenas o array JSON válido):
-[
-  {
-    "front": "Pergunta ou conceito para a frente do cartão",
-    "back": "Explicação completa e didática para o verso",
-    "tags": ["$subject", "$topic"]
-  }
-]
-''';
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
+    final refBlock = contextNotes != null && contextNotes.isNotEmpty
+        ? NoesisL10n.tr('Material de Referência / Anotações:\n"""\n{notes}\n"""', {'notes': contextNotes})
+        : '';
+    final prompt = NoesisL10n.tr(
+      'Gere um conjunto de {count} FLASHCARDS DE ESTUDO COGNITIVO sobre o tema específico:\n'
+      'Idioma de saída obrigatório (front, back e tags): {aiLang}\n'
+      'Matéria: "{subject}"\n'
+      'Tema Específico: "{topic}"\n'
+      'Dificuldade: "{difficulty}"\n'
+      '{ref}\n\n'
+      'Diretrizes pedagógicas para os Flashcards:\n'
+      '1. "front": Pergunta desafiadora, conceito-chave, problema arquitetural ou termo técnico que exija recuperação ativa de memória (Active Recall).\n'
+      '2. "back": Explicação clara, didática, precisa e técnica, destacando o \'porquê\', analogias ou regras de ouro mnemônicas.\n'
+      '3. "tags": Lista de 2 ou 3 palavras-chave sobre o conteúdo.\n\n'
+      'RETORNE ESTRITAMENTE um array JSON no seguinte formato (sem Markdown extra, apenas o array JSON válido):\n'
+      '[\n'
+      '  {\n'
+      '    "front": "Question or concept for the front of the card",\n'
+      '    "back": "Clear didactic explanation for the back",\n'
+      '    "tags": ["{subject}", "{topic}"]\n'
+      '  }\n'
+      ']',
+      {
+        'count': count,
+        'aiLang': aiLang,
+        'subject': subject,
+        'topic': topic,
+        'difficulty': difficulty,
+        'ref': refBlock,
+      },
+    );
 
     if (provider != 'custom' && key.isEmpty) {
       return _generateAutonomousFlashcards(subject, topic, count, difficulty);
@@ -1424,9 +1588,9 @@ RETORNE ESTRITAMENTE um array JSON no seguinte formato (sem Markdown extra, apen
       return [
         FlashcardDeck(
           id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
-          title: baseTitle.isNotEmpty ? baseTitle : 'Novo Baralho',
-          subject: baseSubject.isNotEmpty ? baseSubject : 'Geral',
-          description: 'Baralho com ${cards.length} cartões.',
+          title: baseTitle.isNotEmpty ? baseTitle : NoesisL10n.tr('Novo Baralho'),
+          subject: baseSubject.isNotEmpty ? baseSubject : NoesisL10n.tr('Geral'),
+          description: NoesisL10n.tr('Baralho com {count} cartões.', {'count': cards.length}),
           cards: List.from(cards),
           createdAt: DateTime.now(),
         ),
@@ -1453,35 +1617,41 @@ RETORNE ESTRITAMENTE um array JSON no seguinte formato (sem Markdown extra, apen
       return '{"i": $i, "q": "$frontSnippet", "a": "$backSnippet"$tags}';
     }).join(',\n');
 
-    final prompt = '''
-Você é um especialista em pedagogia e organização cognitiva de flashcards.
-Temos um conjunto de ${cards.length} flashcards com o tema geral "$baseTitle" (${baseSubject.isNotEmpty ? baseSubject : 'Geral'}).
-O usuário quer dividir este conjunto em baralhos menores com aproximadamente $cleanTarget cartões cada (totalizando cerca de $targetDecks baralhos temáticos).
-Analise os tópicos e separe-os em $targetDecks baralhos temáticos específicos, coesos e bem estruturados.
-
-Para cada baralho:
-- "title": Título temático específico, claro e profissional (ex: "$baseTitle - Módulo 1: Fundamentos", "$baseTitle - Módulo 2: ...").
-- "subject": Matéria ou disciplina refinada.
-- "description": Breve descrição pedagógica do foco deste baralho.
-- "color_hex": Código hexadecimal de cor (ex: "7C6CF0", "4EBA88", "F5A623", "FF7A90", "4A6BF5", "38B6FF").
-- "card_indices": Array com os números dos índices inteiros (0 a ${sampleCards.length - 1}) dos cartões pertencentes a este baralho. Todos os índices devem ser atribuídos.
-
-Cartões:
-[
-$summaries
-]
-
-RETORNE ESTRITAMENTE um array JSON no formato:
-[
-  {
-    "title": "Nome do Baralho",
-    "subject": "Matéria",
-    "description": "Breve descrição...",
-    "color_hex": "7C6CF0",
-    "card_indices": [0, 1, 2]
-  }
-]
-''';
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
+    final resolvedSubject = baseSubject.isNotEmpty ? baseSubject : NoesisL10n.tr('Geral');
+    final prompt = NoesisL10n.tr(
+      'Você é um especialista em pedagogia e organização cognitiva de flashcards (idioma: {aiLang}).\n'
+      'Temos um conjunto de {total} flashcards com o tema geral "{title}" ({subject}).\n'
+      'O usuário quer dividir este conjunto em baralhos menores com aproximadamente {target} cartões cada (totalizando cerca de {decksCount} baralhos temáticos).\n'
+      'Analise os tópicos e separe-os em {decksCount} baralhos temáticos específicos, coesos e bem estruturados.\n\n'
+      'Para cada baralho:\n'
+      '- "title": Título temático específico, claro e profissional (ex: "{title} - Part 1", "{title} - Part 2").\n'
+      '- "subject": Matéria ou disciplina refinada.\n'
+      '- "description": Breve descrição pedagógica do foco deste baralho.\n'
+      '- "color_hex": Código hexadecimal de cor (ex: "7C6CF0", "4EBA88", "F5A623", "FF7A90", "4A6BF5", "38B6FF").\n'
+      '- "card_indices": Array com os números dos índices inteiros (0 a {maxIdx}) dos cartões pertencentes a este baralho. Todos os índices devem ser atribuídos.\n\n'
+      'Cards:\n[\n{summaries}\n]\n\n'
+      'RETORNE ESTRITAMENTE um array JSON no formato:\n'
+      '[\n'
+      '  {\n'
+      '    "title": "Deck title",\n'
+      '    "subject": "Subject",\n'
+      '    "description": "Short description...",\n'
+      '    "color_hex": "7C6CF0",\n'
+      '    "card_indices": [0, 1, 2]\n'
+      '  }\n'
+      ']',
+      {
+        'aiLang': aiLang,
+        'total': cards.length,
+        'title': baseTitle,
+        'subject': resolvedSubject,
+        'target': cleanTarget,
+        'decksCount': targetDecks,
+        'maxIdx': sampleCards.length - 1,
+        'summaries': summaries,
+      },
+    );
 
     String text = '';
     if (provider == 'google') {
@@ -1521,7 +1691,7 @@ RETORNE ESTRITAMENTE um array JSON no formato:
         final item = parsed[i];
         final title = (item['title'] as String?)?.trim() ?? '$baseTitle · Parte ${i + 1}';
         final subject = (item['subject'] as String?)?.trim() ?? baseSubject;
-        final description = (item['description'] as String?)?.trim() ?? 'Sub-baralho temático organizado por IA.';
+        final description = (item['description'] as String?)?.trim() ?? NoesisL10n.tr('Sub-baralho temático organizado por IA.');
         final colorHex = (item['color_hex'] as String?)?.replaceAll('#', '').trim() ?? colors[i % colors.length];
 
         final List<Flashcard> deckCards = [];
@@ -1539,9 +1709,13 @@ RETORNE ESTRITAMENTE um array JSON no formato:
         }
 
         if (deckCards.isNotEmpty || i == 0) {
+          final fallbackPartTitle = NoesisL10n.tr(
+            '{title} · Parte {part}',
+            {'title': baseTitle, 'part': '${i + 1}'},
+          );
           resultDecks.add(FlashcardDeck(
             id: 'deck-ai-${DateTime.now().millisecondsSinceEpoch}-$i',
-            title: title.isNotEmpty ? title : '$baseTitle · Parte ${i + 1}',
+            title: title.isNotEmpty ? title : fallbackPartTitle,
             subject: subject.isNotEmpty ? subject : baseSubject,
             description: description,
             cards: deckCards,
@@ -1594,9 +1768,12 @@ RETORNE ESTRITAMENTE um array JSON no formato:
       return [
         FlashcardDeck(
           id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
-          title: baseTitle.isNotEmpty ? baseTitle : 'Novo Baralho',
-          subject: baseSubject.isNotEmpty ? baseSubject : 'Geral',
-          description: 'Baralho com ${cards.length} cartões.',
+          title: baseTitle.isNotEmpty ? baseTitle : NoesisL10n.tr('Novo Baralho'),
+          subject: baseSubject.isNotEmpty ? baseSubject : NoesisL10n.tr('Geral'),
+          description: NoesisL10n.tr(
+            'Baralho com {count} cartões.',
+            {'count': '${cards.length}'},
+          ),
           cards: List.from(cards),
           createdAt: DateTime.now(),
         ),
@@ -1614,46 +1791,48 @@ RETORNE ESTRITAMENTE um array JSON no formato:
     final List<FlashcardDeck> decks = [];
 
     List<String> themeSuffixes;
-    if (lowerTitle.contains('grammar') || lowerSubject.contains('idioma') || lowerTitle.contains('inglês') || lowerTitle.contains('ingles')) {
+    final secKw = NoesisL10n.tr('segurança', null, 'br');
+    final criptoKw = NoesisL10n.tr('criptografia', null, 'br');
+    if (AgentIntentKeywords.languageSubjectMarkers.any((k) => lowerTitle.contains(k) || lowerSubject.contains(k))) {
       themeSuffixes = [
-        'Fundamentos & Estruturas Básicas',
-        'Tempos Verbais & Construções',
-        'Expressões, Conectivos & Vocabulário',
-        'Prática Avançada & Nuances',
-        'Revisão Geral & Fixação',
-        'Verbos Modais & Fraseais',
-        'Leitura & Interpretação Contextual',
-        'Conversação & Situações Cotidianas',
+        NoesisL10n.tr('Fundamentos & Estruturas Básicas'),
+        NoesisL10n.tr('Tempos Verbais & Construções'),
+        NoesisL10n.tr('Expressões, Conectivos & Vocabulário'),
+        NoesisL10n.tr('Prática Avançada & Nuances'),
+        NoesisL10n.tr('Revisão Geral & Fixação'),
+        NoesisL10n.tr('Verbos Modais & Fraseais'),
+        NoesisL10n.tr('Leitura & Interpretação Contextual'),
+        NoesisL10n.tr('Conversação & Situações Cotidianas'),
       ];
-    } else if (lowerTitle.contains('segurança') || lowerTitle.contains('cripto') || lowerSubject.contains('segurança') || lowerSubject.contains('criptografia')) {
+    } else if (lowerTitle.contains(secKw) || lowerTitle.contains('cripto') || lowerSubject.contains(secKw) || lowerSubject.contains(criptoKw)) {
       themeSuffixes = [
-        'Criptografia & Algoritmos Essenciais',
-        'Segurança de Redes & Protocolos (TLS/IPsec)',
-        'Controle de Acesso, Autenticação & IAM',
-        'Ameaças, Vulnerabilidades & Resposta a Incidentes',
-        'Governança, Riscos & Conformidade',
+        NoesisL10n.tr('Criptografia & Algoritmos Essenciais'),
+        NoesisL10n.tr('Segurança de Redes & Protocolos (TLS/IPsec)'),
+        NoesisL10n.tr('Controle de Acesso, Autenticação & IAM'),
+        NoesisL10n.tr('Ameaças, Vulnerabilidades & Resposta a Incidentes'),
+        NoesisL10n.tr('Governança, Riscos & Conformidade'),
       ];
     } else if (lowerTitle.contains('rede') || lowerSubject.contains('redes')) {
       themeSuffixes = [
-        'Modelo OSI & Camada de Rede',
-        'Protocolos de Transporte & Roteamento (TCP/UDP/BGP)',
-        'Serviços de Aplicação (DNS, HTTP, DHCP)',
-        'Infraestrutura & Resolução de Problemas',
+        NoesisL10n.tr('Modelo OSI & Camada de Rede'),
+        NoesisL10n.tr('Protocolos de Transporte & Roteamento (TCP/UDP/BGP)'),
+        NoesisL10n.tr('Serviços de Aplicação (DNS, HTTP, DHCP)'),
+        NoesisL10n.tr('Infraestrutura & Resolução de Problemas'),
       ];
     } else if (lowerTitle.contains('devops') || lowerTitle.contains('cloud') || lowerTitle.contains('aws') || lowerSubject.contains('cloud')) {
       themeSuffixes = [
-        'Arquitetura Cloud & Computação (EC2, Lambda)',
-        'Armazenamento, Bancos de Dados & S3',
-        'Redes Virtuais & Segurança (VPC, IAM)',
-        'CI/CD, Monitoramento & Infraestrutura como Código',
+        NoesisL10n.tr('Arquitetura Cloud & Computação (EC2, Lambda)'),
+        NoesisL10n.tr('Armazenamento, Bancos de Dados & S3'),
+        NoesisL10n.tr('Redes Virtuais & Segurança (VPC, IAM)'),
+        NoesisL10n.tr('CI/CD, Monitoramento & Infraestrutura como Código'),
       ];
     } else {
       themeSuffixes = [
-        'Conceitos Fundamentais',
-        'Aplicações & Métodos Práticos',
-        'Tópicos Avançados & Casos Específicos',
-        'Aprofundamento & Cenários Complexos',
-        'Revisão & Fixação Cognitiva',
+        NoesisL10n.tr('Conceitos Fundamentais'),
+        NoesisL10n.tr('Aplicações & Métodos Práticos'),
+        NoesisL10n.tr('Tópicos Avançados & Casos Específicos'),
+        NoesisL10n.tr('Aprofundamento & Cenários Complexos'),
+        NoesisL10n.tr('Revisão & Fixação Cognitiva'),
       ];
     }
 
@@ -1665,15 +1844,25 @@ RETORNE ESTRITAMENTE um array JSON no formato:
       if (subList.isEmpty) continue;
 
       final partNum = i + 1;
-      final suffix = i < themeSuffixes.length ? themeSuffixes[i] : 'Módulo $partNum';
-      final title = numDecks <= 5 ? '$baseTitle · $suffix' : '$baseTitle · Parte $partNum: $suffix';
+      final suffix = i < themeSuffixes.length
+          ? themeSuffixes[i]
+          : NoesisL10n.tr('Módulo {part}', {'part': '$partNum'});
+      final title = numDecks <= 5
+          ? '$baseTitle · $suffix'
+          : NoesisL10n.tr(
+              '{title} · Parte {part}: {suffix}',
+              {'title': baseTitle, 'part': '$partNum', 'suffix': suffix},
+            );
 
       decks.add(
         FlashcardDeck(
           id: 'deck-auto-${DateTime.now().millisecondsSinceEpoch}-$i',
           title: title,
-          subject: baseSubject.isNotEmpty ? baseSubject : 'Geral',
-          description: 'Módulo de estudo focado em $suffix (${subList.length} cartões).',
+          subject: baseSubject.isNotEmpty ? baseSubject : NoesisL10n.tr('Geral'),
+          description: NoesisL10n.tr(
+            'Módulo de estudo focado em {suffix} ({count} cartões).',
+            {'suffix': suffix, 'count': '${subList.length}'},
+          ),
           cards: subList,
           createdAt: DateTime.now().add(Duration(seconds: i)),
           colorHex: colors[i % colors.length],
@@ -1700,18 +1889,28 @@ RETORNE ESTRITAMENTE um array JSON no formato:
 
     if (hasActiveAi) {
       try {
-        const systemInstruction =
-            'Você é um assistente especialista em pedagogia, revisão gramatical e formatação Markdown para o aplicativo Noesis.\n'
-            'Sua missão é organizar, enriquecer a legibilidade e formatar com maestria as anotações de estudo do estudante mantendo 100% DO CONTEÚDO ORIGINAL.\n'
-            'DIRETRIZES CRÍTICAS E OBRIGATÓRIAS:\n'
-            '1. NUNCA RESUMA, NUNCA CORTE, NUNCA ABREVIE E NUNCA APAGUE NENHUM PARÁGRAFO OU FRASE. É estritamente proibido omitir qualquer conteúdo fornecido pelo usuário. A totalidade absoluta do texto deve estar presente na resposta.\n'
-            '2. Preserve e mantenha na íntegra todos os blocos de código (ex: ```bash, ```python, etc.), comandos, parâmetros e exemplos técnicos sem nenhuma modificação no código.\n'
-            '3. PRESERVE estritamente quaisquer URLs, links de referência [texto](url) e imagens markdown ![legenda](url) que o usuário já tenha inserido.\n'
-            '4. Corrija pontuação, concordância e erros gramaticais/ortográficos no texto explicativo.\n'
-            '5. Estruture em seções lógicas com títulos e subtítulos (#, ##, ###), marcadores (- ou *) e negritos em termos essenciais (**conceito**).\n'
-            '6. Retorne EXCLUSIVAMENTE o conteúdo formatado em Markdown, sem nenhuma introdução, saudação, comentário prévio ou notas de encerramento.';
+        final systemInstruction = NoesisL10n.tr(
+          'Você é um assistente especialista em pedagogia, revisão gramatical e formatação Markdown para o aplicativo Noesis.\n'
+          'Sua missão é organizar, enriquecer a legibilidade e formatar com maestria as anotações de estudo do estudante mantendo 100% DO CONTEÚDO ORIGINAL.\n'
+          'Preserve o idioma das anotações do usuário (idioma ativo do app: {aiLang}).\n'
+          'DIRETRIZES CRÍTICAS E OBRIGATÓRIAS:\n'
+          '1. NUNCA RESUMA, NUNCA CORTE, NUNCA ABREVIE E NUNCA APAGUE NENHUM PARÁGRAFO OU FRASE. É estritamente proibido omitir qualquer conteúdo fornecido pelo usuário. A totalidade absoluta do texto deve estar presente na resposta.\n'
+          '2. Preserve e mantenha na íntegra todos os blocos de código (ex: ```bash, ```python, etc.), comandos, parâmetros e exemplos técnicos sem nenhuma modificação no código.\n'
+          '3. PRESERVE estritamente quaisquer URLs, links de referência [texto](url) e imagens markdown ![legenda](url) que o usuário já tenha inserido.\n'
+          '4. Corrija pontuação, concordância e erros gramaticais/ortográficos no texto explicativo.\n'
+          '5. Estruture em seções lógicas com títulos e subtítulos (#, ##, ###), marcadores (- ou *) e negritos em termos essenciais (**conceito**).\n'
+          '6. Retorne EXCLUSIVAMENTE o conteúdo formatado em Markdown, sem nenhuma introdução, saudação, comentário prévio ou notas de encerramento.',
+          {'aiLang': NoesisLocaleService.activeAiLanguageName},
+        );
 
-        final prompt = 'Por favor, formate e estruture as seguintes anotações de estudo na íntegra, sem resumir ou omitir nenhuma linha (Matéria/Contexto: ${topicOrSubject ?? "Geral"}):\n\n$clean';
+        final prompt = NoesisL10n.tr(
+          'Por favor, formate e estruture as seguintes anotações de estudo na íntegra, mantendo o idioma original (usuário: {aiLang}), sem resumir ou omitir nenhuma linha (Matéria/Contexto: {subject}):\n\n{text}',
+          {
+            'aiLang': NoesisLocaleService.activeAiLanguageName,
+            'subject': topicOrSubject ?? NoesisL10n.tr('Geral'),
+            'text': clean,
+          },
+        );
 
         final result = await _executeRawPrompt(
           prompt: prompt,
@@ -1812,20 +2011,30 @@ RETORNE ESTRITAMENTE um array JSON no formato:
   // ---------------------------------------------------------------------------
   // ASSISTENTE DE ESTUDOS COM TOOL CALLING COMPLETO E AÇÕES REAIS
   // ---------------------------------------------------------------------------
-  static const String _internalSafetyDirective =
-      'REGRA OBRIGATÓRIA DE INTERFACE: NUNCA mencione, cite ou exiba nomes internos de ferramentas/funções '
-      '(como inspect_account_data, log_study_session, update_study_session, delete_study_session, '
-      'schedule_calendar_event, update_calendar_event, delete_calendar_event, set_weekly_goal, '
-      'create_quiz, delete_quiz, create_flashcards, update_flashcard_deck, delete_flashcard_deck, '
-      'create_notebook_or_note, update_notebook_or_note, delete_notebook_or_note, '
-      'create_roadmap, update_roadmap, delete_roadmap), '
-      'nomes de tabelas ou colunas do banco de dados (como noesis_sessions, noesis_quizzes, '
-      'noesis_calendar_events, noesis_flashcard_decks, noesis_study_notebooks, noesis_roadmaps, '
-      'profiles, user_id, supabase), comandos SQL, IDs internos ou tags JSON/XML para o usuário. '
-      'Descreva sempre seus recursos em linguagem natural amigável em português '
-      '(ex.: "Registro de Estudos", "Calendário", "Simulados", "Flashcards", "Cadernos", "Trilhas").\n'
-      'REGRA DE INTEGRIDADE: SÓ afirme que criou, agendou, alterou ou excluiu algo DEPOIS de executar '
-      'realmente a ferramenta correspondente e receber status de sucesso. Nunca invente confirmações sem chamar a ferramenta.';
+  static String get _internalSafetyDirective => NoesisL10n.tr(
+        'REGRA OBRIGATÓRIA DE INTERFACE: NUNCA mencione, cite ou exiba nomes internos de ferramentas/funções '
+        '(como inspect_account_data, log_study_session, update_study_session, delete_study_session, '
+        'schedule_calendar_event, update_calendar_event, delete_calendar_event, set_weekly_goal, '
+        'create_quiz, delete_quiz, create_flashcards, update_flashcard_deck, delete_flashcard_deck, '
+        'create_notebook_or_note, update_notebook_or_note, delete_notebook_or_note, '
+        'create_roadmap, update_roadmap, delete_roadmap), '
+        'nomes de tabelas ou colunas do banco de dados (como noesis_sessions, noesis_quizzes, '
+        'noesis_calendar_events, noesis_flashcard_decks, noesis_study_notebooks, noesis_roadmaps, '
+        'profiles, user_id, supabase), comandos SQL, IDs internos ou tags JSON/XML para o usuário. '
+        'Descreva sempre seus recursos em linguagem natural amigável no idioma ativo do usuário ({aiLang}) '
+        '(ex.: "{studyLog}", "{calendar}", "{quizzes}", "{flashcards}", "{notebooks}", "{roadmaps}").\n'
+        'REGRA DE INTEGRIDADE: SÓ afirme que criou, agendou, alterou ou excluiu algo DEPOIS de executar '
+        'realmente a ferramenta correspondente e receber status de sucesso. Nunca invente confirmações sem chamar a ferramenta.',
+        {
+          'aiLang': NoesisLocaleService.activeAiLanguageName,
+          'studyLog': NoesisL10n.tr('Diário de Estudos'),
+          'calendar': NoesisL10n.tr('Calendário'),
+          'quizzes': NoesisL10n.tr('Simulados'),
+          'flashcards': NoesisL10n.tr('Flashcards'),
+          'notebooks': NoesisL10n.tr('Cadernos'),
+          'roadmaps': NoesisL10n.tr('Trilhas'),
+        },
+      );
 
   /// Remove eventuais vazamentos de nomes internos de funções/ferramentas/tabelas do DB na resposta ao usuário.
   static String sanitizeUserFacingReply(String rawReply) {
@@ -1849,11 +2058,11 @@ RETORNE ESTRITAMENTE um array JSON no formato:
         r'`?\bnoesis_(?:sessions|calendar_events|documents|quizzes|flashcard_decks|study_notebooks|roadmaps|user_preferences)\b`?',
         caseSensitive: false,
       ),
-      'dados do app',
+      NoesisL10n.tr('dados do app'),
     );
     cleaned = cleaned.replaceAll(
       RegExp(r'`?\b(?:public\.profiles|supabase|auth\.users)\b`?', caseSensitive: false),
-      'sua conta',
+      NoesisL10n.tr('sua conta'),
     );
 
     // Limpa espaços duplicados e linhas em branco excessivas preservando quebras de Markdown
@@ -1931,7 +2140,7 @@ RETORNE ESTRITAMENTE um array JSON no formato:
     final key = apiKey?.trim() ?? '';
 
     if (provider != 'custom' && key.isEmpty) {
-      return 'Por favor, configure sua chave de API nas Configurações para ativar o assistente Noesis AI.';
+      return NoesisL10n.tr('Por favor, configure sua chave de API nas Configurações para ativar o assistente Noesis AI.');
     }
 
     final now = DateTime.now();
@@ -1939,22 +2148,43 @@ RETORNE ESTRITAMENTE um array JSON no formato:
     final cleanAttach = attachmentContext?.trim() ?? '';
     final fullUserPrompt = cleanAttach.isEmpty
         ? userMessage
-        : '$userMessage\n\n[CONTEÚDO ANEXADO PELO USUÁRIO PARA LEITURA/ANÁLISE]:\n$cleanAttach';
+        : NoesisL10n.tr('{msg}\n\n[CONTEÚDO ANEXADO PELO USUÁRIO PARA LEITURA/ANÁLISE]:\n{attach}', {
+            'msg': userMessage,
+            'attach': cleanAttach,
+          });
 
     final nowIso = now.toIso8601String();
-    final weekdays = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    final weekdays = [
+      NoesisL10n.tr('Segunda'),
+      NoesisL10n.tr('Terça'),
+      NoesisL10n.tr('Quarta'),
+      NoesisL10n.tr('Quinta'),
+      NoesisL10n.tr('Sexta'),
+      NoesisL10n.tr('Sábado'),
+      NoesisL10n.tr('Domingo'),
+    ];
     final wd = weekdays[(now.weekday - 1) % 7];
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
 
-    final agentSystemPrompt =
-        'Você é o Noesis AI, o agente pessoal de estudos e alta produtividade do Aster.\n'
-        'Data e hora atual do usuário: $wd, $nowIso.\n'
-        'Você tem controle total sobre TODAS as páginas do Noesis (Calendário, Diário de Estudos, Meta Semanal, Simulados, Flashcards, Cadernos de Estudo e Trilhas/Roadmaps) e pode ler/revisar tudo da conta.\n'
-        '- Sempre use as ferramentas disponíveis para consultar, criar, editar ou remover itens reais antes de responder.\n'
-        '- Ao interpretar datas naturais como "11 da manhã de hoje", "amanhã às 19h" ou "sexta às 14h", converta para ISO-8601 usando a data atual ($nowIso).\n'
-        '- Se houver conteúdo anexado (arquivos ou itens do Noesis), leia-o com atenção e utilize-o na resposta ou na criação de simulados/flashcards/resumos.\n'
-        '- Responda em Markdown elegante, direto e útil.\n\n'
-        '$snapshot\n\n'
-        '$_internalSafetyDirective';
+    final agentSystemPrompt = NoesisL10n.tr(
+      'Você é o Noesis AI, o agente pessoal de estudos e alta produtividade do Aster.\n'
+      'Data e hora atual do usuário: {wd}, {nowIso}.\n'
+      'Idioma ativo do usuário no Noesis: {aiLang}. Responda sempre neste idioma (ou no idioma em que o usuário escrever).\n'
+      'Você tem controle total sobre TODAS as páginas do Noesis (Calendário, Diário de Estudos, Meta Semanal, Simulados, Flashcards, Cadernos de Estudo e Trilhas/Roadmaps) e pode ler/revisar tudo da conta.\n'
+      '- Sempre use as ferramentas disponíveis para consultar, criar, editar ou remover itens reais antes de responder.\n'
+      '- Ao interpretar datas naturais como "today 11:00", "tomorrow 19:00" ou "Friday 14:00", converta para ISO-8601 usando a data atual ({nowIso}).\n'
+      '- Se houver conteúdo anexado (arquivos ou itens do Noesis), leia-o com atenção e utilize-o na resposta ou na criação de simulados/flashcards/resumos.\n'
+      '- Responda em Markdown elegante, direto e útil.\n\n'
+      '{snapshot}\n\n'
+      '{safety}',
+      {
+        'wd': wd,
+        'nowIso': nowIso,
+        'aiLang': aiLang,
+        'snapshot': snapshot,
+        'safety': _internalSafetyDirective,
+      },
+    );
 
     if (provider == 'google') {
       try {
@@ -1981,13 +2211,14 @@ RETORNE ESTRITAMENTE um array JSON no formato:
     try {
       final rawReply = await _executeRawPrompt(
         prompt: fullUserPrompt,
-        systemInstruction: '$agentSystemPrompt\n\n'
-            'Para executar ações reais no sistema, inclua ao final da resposta uma ou mais tags:\n'
-            '<noesis_action>{"action": "<nome>", "data": {...}}</noesis_action>\n'
-            'Ações suportadas: inspect_account_data, schedule_calendar_event, update_calendar_event, delete_calendar_event, '
-            'log_study_session, update_study_session, delete_study_session, set_weekly_goal, create_quiz, delete_quiz, '
-            'create_flashcards, update_flashcard_deck, delete_flashcard_deck, create_notebook_or_note, '
-            'update_notebook_or_note, delete_notebook_or_note, create_roadmap, update_roadmap, delete_roadmap.',
+        systemInstruction: '$agentSystemPrompt\n\n${NoesisL10n.tr(
+          'Para executar ações reais no sistema, inclua ao final da resposta uma ou mais tags:\n'
+          '<noesis_action>{"action": "<nome>", "data": {...}}</noesis_action>\n'
+          'Ações suportadas: inspect_account_data, schedule_calendar_event, update_calendar_event, delete_calendar_event, '
+          'log_study_session, update_study_session, delete_study_session, set_weekly_goal, create_quiz, delete_quiz, '
+          'create_flashcards, update_flashcard_deck, delete_flashcard_deck, create_notebook_or_note, '
+          'update_notebook_or_note, delete_notebook_or_note, create_roadmap, update_roadmap, delete_roadmap.',
+        )}',
       );
 
       final extracted = await _extractAndExecuteAction(
@@ -2117,7 +2348,10 @@ RETORNE ESTRITAMENTE um array JSON no formato:
               .timeout(const Duration(seconds: 45));
 
           if (resp.statusCode != 200) {
-            lastError = Exception('Erro Google REST ($mod / status ${resp.statusCode})');
+            lastError = Exception(NoesisL10n.tr('Erro Google REST ({model} / status {status})', {
+              'model': mod,
+              'status': resp.statusCode,
+            }));
             if (resp.statusCode == 400 || resp.statusCode == 401 || resp.statusCode == 403) {
               throw lastError;
             }
@@ -2244,7 +2478,10 @@ RETORNE ESTRITAMENTE um array JSON no formato:
             rethrow;
           }
         } else {
-          lastError = Exception('Erro Google REST ($mod): $e');
+          lastError = Exception(NoesisL10n.tr('Erro Google REST ({model}): {err}', {
+            'model': mod,
+            'err': e,
+          }));
         }
       }
 
@@ -2253,7 +2490,7 @@ RETORNE ESTRITAMENTE um array JSON no formato:
       }
     }
 
-    throw lastError ?? Exception('Falha ao conectar ao Google Gemini.');
+    throw lastError ?? Exception(NoesisL10n.tr('Falha ao conectar ao Google Gemini.'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2277,33 +2514,16 @@ RETORNE ESTRITAMENTE um array JSON no formato:
             lower.contains('corr'))) {
       final preview = attachmentContext.trim();
       final snippet = preview.length > 1400 ? '${preview.substring(0, 1400)}...' : preview;
-      final reply = '''
-Analisei o material anexado para você! 📎
-
-### Síntese & Revisão do Conteúdo
-```text
-$snippet
-```
-
-Posso **gerar flashcards**, **criar um simulado** com base exatamente nesse conteúdo, ou **salvar as conclusões em um Caderno de Estudos**. O que prefere fazer agora?
-''';
+      final reply = NoesisL10n.tr(
+        'Analisei o material anexado para você! 📎\n\n### Síntese & Revisão do Conteúdo\n```text\n{snippet}\n```\n\nPosso **gerar flashcards**, **criar um simulado** com base exatamente nesse conteúdo, ou **salvar as conclusões em um Caderno de Estudos**. O que prefere fazer agora?',
+        {'snippet': snippet},
+      );
       return AgentChatResult(reply: reply);
     }
 
     // 0.5. Ler / Listar / Inspecionar dados reais da conta
-    if ((lower.contains('quais') ||
-            lower.contains('meus') ||
-            lower.contains('minhas') ||
-            lower.contains('o que tenho') ||
-            lower.contains('listar') ||
-            lower.contains('ver meus') ||
-            lower.contains('revisar conta') ||
-            lower.contains('resumo da conta')) &&
-        !lower.contains('crie') &&
-        !lower.contains('criar') &&
-        !lower.contains('agend') &&
-        !lower.contains('exclu') &&
-        !lower.contains('remov')) {
+    if (AgentIntentKeywords.inspectAccountQueries.any(lower.contains) &&
+        !AgentIntentKeywords.createActionVerbs.any(lower.contains)) {
       final inspected = await NoesisAgentTools.executeTool(
         name: 'inspect_account_data',
         args: const {'scope': 'all'},
@@ -2322,24 +2542,34 @@ Posso **gerar flashcards**, **criar um simulado** com base exatamente nesse cont
       final roadmaps = (data['roadmaps'] as List?) ?? [];
       final goal = data['weekly_goal'] as Map<String, dynamic>?;
 
-      final reply = '''
-Aqui está o panorama atualizado da sua conta **Noesis**:
-
-- 🎯 **Meta Semanal:** ${goal?['studied_this_week_formatted'] ?? '0m'} estudados de ${goal?['goal_formatted'] ?? '25h'}
-- 📅 **Calendário:** ${cal.length} compromisso(s) ativo(s)
-- ⏱️ **Diário de Estudos:** ${sess.length} sessão(ões) recente(s)
-- 📝 **Simulados:** ${quizzes.length} simulado(s) salvo(s)
-- 🎴 **Flashcards:** ${decks.length} baralho(s) ativo(s)
-- 📓 **Cadernos:** ${notebooks.length} caderno(s)
-- 🗺️ **Trilhas:** ${roadmaps.length} trilha(s)
-
-Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
-''';
+      final reply = NoesisL10n.tr(
+        'Aqui está o panorama atualizado da sua conta **Noesis**:\n\n'
+        '- 🎯 **Meta Semanal:** {studied} estudados de {goal}\n'
+        '- 📅 **Calendário:** {cal} compromisso(s) ativo(s)\n'
+        '- ⏱️ **Diário de Estudos:** {sess} sessão(ões) recente(s)\n'
+        '- 📝 **Simulados:** {quizzes} simulado(s) salvo(s)\n'
+        '- 🎴 **Flashcards:** {decks} baralho(s) ativo(s)\n'
+        '- 📓 **Cadernos:** {notebooks} caderno(s)\n'
+        '- 🗺️ **Trilhas:** {roadmaps} trilha(s)\n\n'
+        'Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!',
+        {
+          'studied': goal?['studied_this_week_formatted'] ?? '0m',
+          'goal': goal?['goal_formatted'] ?? '25h',
+          'cal': cal.length,
+          'sess': sess.length,
+          'quizzes': quizzes.length,
+          'decks': decks.length,
+          'notebooks': notebooks.length,
+          'roadmaps': roadmaps.length,
+        },
+      );
       return AgentChatResult(reply: reply);
     }
 
     // 0.6. Meta Semanal
-    if (lower.contains('meta semanal') || (lower.contains('meta') && lower.contains('hora'))) {
+    if (AgentIntentKeywords.weeklyGoalTriggers.any(lower.contains) ||
+        (AgentIntentKeywords.goalTrigger.any(lower.contains) &&
+            AgentIntentKeywords.hourTrigger.any(lower.contains))) {
       final hourMatch = RegExp(r'(\d+)\s*h').firstMatch(lower);
       final h = hourMatch != null ? (int.tryParse(hourMatch.group(1)!) ?? 25) : 25;
       final exec = await NoesisAgentTools.executeTool(
@@ -2353,23 +2583,23 @@ Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
       );
       actions.addAll(_toAgentActions([exec]));
       return AgentChatResult(
-        reply: 'Pronto! ✅ **${exec.summary}** atualizada com sucesso no seu Dashboard.',
+        reply: NoesisL10n.tr('Pronto! ✅ **{summary}** atualizada com sucesso no seu Dashboard.', {'summary': exec.summary}),
         actions: actions,
       );
     }
 
     // 0.7. Remover / Excluir itens
-    if (lower.contains('exclu') || lower.contains('remov') || lower.contains('apag') || lower.contains('cancel')) {
+    if (AgentIntentKeywords.deleteTriggers.any(lower.contains)) {
       String toolName = 'delete_calendar_event';
-      if (lower.contains('simulado') || lower.contains('quiz')) {
+      if (AgentIntentKeywords.quizTokens.any(lower.contains)) {
         toolName = 'delete_quiz';
-      } else if (lower.contains('caderno') || lower.contains('anota')) {
+      } else if (AgentIntentKeywords.notebookTokens.any(lower.contains)) {
         toolName = 'delete_notebook_or_note';
-      } else if (lower.contains('flashcard') || lower.contains('baralho')) {
+      } else if (AgentIntentKeywords.flashcardTokens.any(lower.contains)) {
         toolName = 'delete_flashcard_deck';
-      } else if (lower.contains('trilha') || lower.contains('roadmap')) {
+      } else if (AgentIntentKeywords.roadmapTokens.any(lower.contains)) {
         toolName = 'delete_roadmap';
-      } else if (lower.contains('sessão') || lower.contains('sessao') || lower.contains('diário') || lower.contains('diario')) {
+      } else if (AgentIntentKeywords.sessionTokens.any(lower.contains)) {
         toolName = 'delete_study_session';
       }
       final exec = await NoesisAgentTools.executeTool(
@@ -2384,20 +2614,20 @@ Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
       actions.addAll(_toAgentActions([exec]));
       return AgentChatResult(
         reply: exec.status == 'completed'
-            ? 'Feito! 🗑️ **${exec.summary}**.'
-            : 'Não encontrei um item correspondente para remover. Informe o título exato ou anexe o item que deseja excluir.',
+            ? NoesisL10n.tr('Feito! 🗑️ **{summary}**.', {'summary': exec.summary})
+            : NoesisL10n.tr('Não encontrei um item correspondente para remover. Informe o título exato ou anexe o item que deseja excluir.'),
         actions: actions,
       );
     }
 
     // 0.8. Criar Caderno ou Anotação
-    if ((lower.contains('caderno') || lower.contains('anotação') || lower.contains('anotacao') || lower.contains('nota')) &&
-        (lower.contains('cri') || lower.contains('adicion') || lower.contains('salv') || lower.contains('ger'))) {
+    if (AgentIntentKeywords.notebookTokens.any(lower.contains) &&
+        AgentIntentKeywords.createNotebookVerbs.any(lower.contains)) {
       final exec = await NoesisAgentTools.executeTool(
         name: 'create_notebook_or_note',
         args: {
-          'notebook_title': 'Anotações Noesis AI',
-          'subject': 'Estudos',
+          'notebook_title': NoesisL10n.tr('Anotações Noesis AI'),
+          'subject': NoesisL10n.tr('Estudos'),
           'note_title': message.length > 60 ? '${message.substring(0, 60)}...' : message,
           'note_content': attachmentContext ?? message,
         },
@@ -2409,17 +2639,17 @@ Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
       );
       actions.addAll(_toAgentActions([exec]));
       return AgentChatResult(
-        reply: 'Anotação salva! 📓 **${exec.summary}** já disponível na aba **Cadernos**.',
+        reply: NoesisL10n.tr('Anotação salva! 📓 **{summary}** já disponível na aba **Cadernos**.', {'summary': exec.summary}),
         actions: actions,
       );
     }
 
     // 0.9. Criar Trilha / Roadmap
-    if ((lower.contains('trilha') || lower.contains('roadmap')) &&
-        (lower.contains('cri') || lower.contains('ger') || lower.contains('mont'))) {
+    if (AgentIntentKeywords.roadmapTokens.any(lower.contains) &&
+        AgentIntentKeywords.createRoadmapVerbs.any(lower.contains)) {
       final exec = await NoesisAgentTools.executeTool(
         name: 'create_roadmap',
-        args: {'subject': 'Tecnologia & Segurança', 'goal': message},
+        args: {'subject': NoesisL10n.tr('Tecnologia & Segurança'), 'goal': message},
         userMessage: message,
         attachmentContext: attachmentContext,
         generateQuiz: _agentQuizCallback,
@@ -2428,45 +2658,49 @@ Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
       );
       actions.addAll(_toAgentActions([exec]));
       return AgentChatResult(
-        reply: 'Trilha criada! 🗺️ **${exec.summary}** já está disponível na aba **Trilhas**.',
+        reply: NoesisL10n.tr('Trilha criada! 🗺️ **{summary}** já está disponível na aba **Trilhas**.', {'summary': exec.summary}),
         actions: actions,
       );
     }
 
     // 1. Criar Simulado
-    if (lower.contains('simulado') || lower.contains('questões') || lower.contains('questoes') || lower.contains('quiz')) {
-      String subject = 'Cybersegurança & AppSec';
+    if (AgentIntentKeywords.quizTokens.any(lower.contains)) {
+      String subject = NoesisL10n.tr('Cybersegurança & AppSec');
       String topic = 'OWASP Top 10';
       int count = 5;
 
       if (lower.contains('owasp')) {
-        subject = 'Segurança de Software';
-        topic = 'OWASP Top 10 · Vulnerabilidades e Mitigações';
-      } else if (lower.contains('cripto')) {
-        subject = 'Criptografia & PKI';
-        topic = 'Modos de Operação AES, Hashing e TLS';
-      } else if (lower.contains('redes') || lower.contains('network')) {
-        subject = 'Redes & Infraestrutura';
-        topic = 'Protocolos TCP/IP, DNS e Firewall';
+        subject = NoesisL10n.tr('Segurança de Software');
+        topic = NoesisL10n.tr('OWASP Top 10 · Vulnerabilidades e Mitigações');
+      } else if (lower.contains('cripto') || lower.contains('crypto')) {
+        subject = NoesisL10n.tr('Criptografia & PKI');
+        topic = NoesisL10n.tr('Modos de Operação AES, Hashing e TLS');
+      } else if (AgentIntentKeywords.networkTokens.any(lower.contains)) {
+        subject = NoesisL10n.tr('Redes & Infraestrutura');
+        topic = NoesisL10n.tr('Protocolos TCP/IP, DNS e Firewall');
       } else if (lower.contains('cloud') || lower.contains('aws')) {
-        subject = 'Cloud Computing';
-        topic = 'AWS Security & Arquitetura de Nuvem';
+        subject = NoesisL10n.tr('Cloud Computing');
+        topic = NoesisL10n.tr('AWS Security & Arquitetura de Nuvem');
       }
 
-      final matchCount = RegExp(r'(\d+)\s*quest').firstMatch(lower);
+      final matchCount = RegExp(r'(\d+)\s*(?:quest|question)').firstMatch(lower);
       if (matchCount != null) {
         count = int.tryParse(matchCount.group(1)!) ?? 5;
       }
 
-      final questions = _generateAutonomousQuiz(subject, topic, count, 'Avançado / Nível Certificação');
+      final difficultyVal = NoesisL10n.tr('Avançado / Nível Certificação');
+      final questions = _generateAutonomousQuiz(subject, topic, count, difficultyVal);
       final quizRecord = await SupabaseService.saveGeneratedQuiz(
         title: topic,
         subject: subject,
         questionsData: questions,
-        difficulty: 'Avançado / Nível Certificação',
+        difficulty: difficultyVal,
       );
 
-      final summary = 'Simulado criado · $count questões · $topic';
+      final summary = NoesisL10n.tr(
+        'Simulado criado · {count} questões · {title}',
+        {'count': count, 'title': topic},
+      );
       actions.add(AgentAction(
         name: 'create_quiz',
         parameters: {'subject': subject, 'topic': topic, 'count': count},
@@ -2475,41 +2709,40 @@ Se quiser detalhes ou editar/remover qualquer item específico, é só me dizer!
         data: quizRecord,
       ));
 
-      final reply = '''
-Criei o simulado com **$count questões técnicas** sobre **$topic** no Quiz Engine do Noesis!
-
-### Detalhes do Exame:
-- **Disciplina:** $subject
-- **Tópico:** $topic
-- **Nível:** Avançado / Nível Certificação
-- **Conteúdo:** Cenários reais com análise de código, mitigação de vulnerabilidades e gabarito fundamentado.
-
-Você pode **iniciar o simulado agora** pelo botão abaixo ou acessá-lo na aba **Simulados**. Boa prova! 🚀
-''';
+      final reply = NoesisL10n.tr(
+        'Criei o simulado com **{count} questões técnicas** sobre **{topic}** no Quiz Engine do Noesis!\n\n'
+        '### Detalhes do Exame:\n'
+        '- **Disciplina:** {subject}\n'
+        '- **Tópico:** {topic}\n'
+        '- **Nível:** {difficulty}\n'
+        '- **Conteúdo:** Cenários reais com análise de código, mitigação de vulnerabilidades e gabarito fundamentado.\n\n'
+        'Você pode **iniciar o simulado agora** pelo botão abaixo ou acessá-lo na aba **Simulados**. Boa prova! 🚀',
+        {'count': count, 'topic': topic, 'subject': subject, 'difficulty': difficultyVal},
+      );
       return AgentChatResult(reply: reply, actions: actions);
     }
 
     // 1.5. Criar Baralho de Flashcards Cognitivos
-    if (lower.contains('flashcard') || lower.contains('baralho') || lower.contains('cartões') || lower.contains('cartoes')) {
-      String subject = 'Criptografia & Segurança';
-      String topic = 'Conceitos e Protocolos de Criptografia';
+    if (AgentIntentKeywords.flashcardTokens.any(lower.contains)) {
+      String subject = NoesisL10n.tr('Criptografia & Segurança');
+      String topic = NoesisL10n.tr('Conceitos e Protocolos de Criptografia');
       int count = 5;
 
-      if (lower.contains('owasp') || lower.contains('appsec') || lower.contains('segurança')) {
-        subject = 'Segurança de Software';
-        topic = 'OWASP Top 10 e Mitigações';
-      } else if (lower.contains('redes') || lower.contains('tcp') || lower.contains('tls')) {
-        subject = 'Redes & Protocolos';
-        topic = 'Transporte TCP/UDP e Handshake TLS';
+      if (AgentIntentKeywords.securityTokens.any(lower.contains)) {
+        subject = NoesisL10n.tr('Segurança de Software');
+        topic = NoesisL10n.tr('OWASP Top 10 e Mitigações');
+      } else if (AgentIntentKeywords.networkTokens.any(lower.contains) || lower.contains('tcp') || lower.contains('tls')) {
+        subject = NoesisL10n.tr('Redes & Protocolos');
+        topic = NoesisL10n.tr('Transporte TCP/UDP e Handshake TLS');
       } else if (lower.contains('cloud') || lower.contains('aws')) {
-        subject = 'Cloud Computing';
-        topic = 'AWS VPC, IAM e Resiliência';
-      } else if (lower.contains('algoritmo') || lower.contains('dados') || lower.contains('big-o')) {
-        subject = 'Ciência da Computação';
-        topic = 'Big-O, Hash Tables e Grafos';
+        subject = NoesisL10n.tr('Cloud Computing');
+        topic = NoesisL10n.tr('AWS VPC, IAM e Resiliência');
+      } else if (AgentIntentKeywords.algoTokens.any(lower.contains)) {
+        subject = NoesisL10n.tr('Ciência da Computação');
+        topic = NoesisL10n.tr('Big-O, Hash Tables e Grafos');
       }
 
-      final matchCount = RegExp(r'(\d+)\s*cart').firstMatch(lower);
+      final matchCount = RegExp(r'(\d+)\s*(?:cart|card)').firstMatch(lower);
       if (matchCount != null) {
         count = int.tryParse(matchCount.group(1)!) ?? 5;
       }
@@ -2524,8 +2757,8 @@ Você pode **iniciar o simulado agora** pelo botão abaixo ou acessá-lo na aba 
         final val = e.value;
         return Flashcard(
           id: 'fc-${DateTime.now().millisecondsSinceEpoch}-${e.key}',
-          front: val['front']?.toString() ?? 'Pergunta',
-          back: val['back']?.toString() ?? 'Resposta',
+          front: val['front']?.toString() ?? NoesisL10n.tr('Pergunta'),
+          back: val['back']?.toString() ?? NoesisL10n.tr('Resposta'),
           tags: val['tags'] is List ? List<String>.from(val['tags']) : [subject, topic],
         );
       }).toList();
@@ -2535,7 +2768,7 @@ Você pode **iniciar o simulado agora** pelo botão abaixo ou acessá-lo na aba 
         id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
         title: deckTitle,
         subject: subject,
-        description: 'Baralho de retenção ativa gerado pelo Noesis AI.',
+        description: NoesisL10n.tr('Baralho de retenção ativa gerado pelo Noesis AI.'),
         cards: flashcards,
         createdAt: DateTime.now(),
       );
@@ -2546,36 +2779,42 @@ Você pode **iniciar o simulado agora** pelo botão abaixo ou acessá-lo na aba 
         name: 'create_flashcards',
         parameters: {'title': deckTitle, 'subject': subject, 'topic': topic},
         status: 'completed',
-        summary: 'Baralho criado · ${flashcards.length} cartões · $deckTitle',
+        summary: NoesisL10n.tr('Baralho criado · {count} cartões · {title}', {
+          'count': flashcards.length,
+          'title': deckTitle,
+        }),
         data: deck.toMap(),
       ));
 
-      final reply = '''
-Baralho de Flashcards criado com sucesso! 🎴
-
-Gerei **${flashcards.length} flashcards cognitivos** sobre **$topic** ($subject):
-
-- **Active Recall:** Perguntas conceituais focadas em retenção de longo prazo.
-- **Explicações Técnicas:** Respostas detalhadas com o porquê de cada mecanismo.
-- **Prática:** Acesse o baralho na aba **Flashcards** com animação 3D de virar cartão e avaliação de dificuldade!
-''';
+      final reply = NoesisL10n.tr(
+        'Baralho de Flashcards criado com sucesso! 🎴\n\n'
+        'Gerei **{count} flashcards cognitivos** sobre **{topic}** ({subject}):\n\n'
+        '- **Active Recall:** Perguntas conceituais focadas em retenção de longo prazo.\n'
+        '- **Explicações Técnicas:** Respostas detalhadas com o porquê de cada mecanismo.\n'
+        '- **Prática:** Acesse o baralho na aba **Flashcards** com animação 3D de virar cartão e avaliação de dificuldade!',
+        {
+          'count': flashcards.length,
+          'topic': topic,
+          'subject': subject,
+        },
+      );
       return AgentChatResult(reply: reply, actions: actions);
     }
 
     // 2. Agendar Evento no Calendário
-    if (lower.contains('agend') || lower.contains('marqu') || lower.contains('revisão') || lower.contains('revisao') || lower.contains('calendario') || lower.contains('calendário')) {
-      String title = 'Revisão de Estudos';
+    if (AgentIntentKeywords.scheduleTriggers.any(lower.contains)) {
+      String title = NoesisL10n.tr('Revisão de Estudos');
       String category = 'review';
 
-      if (lower.contains('cripto')) {
-        title = 'Revisão · Criptografia & PKI';
+      if (lower.contains('cripto') || lower.contains('crypto')) {
+        title = NoesisL10n.tr('Revisão · Criptografia & PKI');
       } else if (lower.contains('owasp')) {
-        title = 'Revisão · OWASP Top 10';
-      } else if (lower.contains('simulado')) {
-        title = 'Execução de Simulado';
+        title = NoesisL10n.tr('Revisão · OWASP Top 10');
+      } else if (AgentIntentKeywords.quizTokens.any(lower.contains)) {
+        title = NoesisL10n.tr('Execução de Simulado');
         category = 'lab';
-      } else if (lower.contains('prova')) {
-        title = 'Prova Oficial';
+      } else if (AgentIntentKeywords.examWords.any(lower.contains)) {
+        title = NoesisL10n.tr('Prova Oficial');
         category = 'exam';
       }
 
@@ -2587,11 +2826,14 @@ Gerei **${flashcards.length} flashcards cognitivos** sobre **$topic** ($subject)
         startTime: startTime,
         endTime: endTime,
         category: category,
-        description: 'Agendado automaticamente pelo Noesis AI a pedido do usuário.',
+        description: NoesisL10n.tr('Agendado automaticamente pelo Noesis AI a pedido do usuário.'),
       );
 
       final timeStr = _formatTimeBrief(startTime);
-      final summary = 'Evento agendado · $timeStr · $title';
+      final summary = NoesisL10n.tr(
+        'Evento agendado · {time} · {title}',
+        {'time': timeStr, 'title': title},
+      );
       actions.add(AgentAction(
         name: 'schedule_calendar_event',
         parameters: {'title': title, 'start_time': startTime.toIso8601String(), 'category': category},
@@ -2599,42 +2841,46 @@ Gerei **${flashcards.length} flashcards cognitivos** sobre **$topic** ($subject)
         summary: summary,
       ));
 
-      final reply = '''
-Agendado com sucesso! 📅
-
-Adicionei **$title** ao seu **Calendário** para **$timeStr**.
-
-- **Horário:** ${_formatTimeFull(startTime)} às ${_formatTimeFull(endTime)}
-- **Categoria:** ${category.toUpperCase()}
-- **Lembrete:** Visível na sua grade semanal e diária da aba **Calendário**.
-
-Precisa que eu prepare um roteiro de tópicos para esse bloco ou quer agendar mais alguma revisão?
-''';
+      final reply = NoesisL10n.tr(
+        'Agendado com sucesso! 📅\n\n'
+        'Adicionei **{title}** ao seu **Calendário** para **{time}**.\n\n'
+        '- **Horário:** {start} às {end}\n'
+        '- **Categoria:** {category}\n'
+        '- **Lembrete:** Visível na sua grade semanal e diária da aba **Calendário**.\n\n'
+        'Precisa que eu prepare um roteiro de tópicos para esse bloco ou quer agendar mais alguma revisão?',
+        {
+          'title': title,
+          'time': timeStr,
+          'start': _formatTimeFull(startTime),
+          'end': _formatTimeFull(endTime),
+          'category': category.toUpperCase(),
+        },
+      );
       return AgentChatResult(reply: reply, actions: actions);
     }
 
     // 3. Registrar Sessão de Estudo no Tracker
-    if (lower.contains('registr') || lower.contains('estudei') || (lower.contains('salv') && lower.contains('estudo'))) {
-      String subject = 'Criptografia';
-      String topic = 'AES-GCM & Modos de Operação';
+    if (AgentIntentKeywords.logStudyTriggers.any(lower.contains)) {
+      String subject = NoesisL10n.tr('Criptografia');
+      String topic = NoesisL10n.tr('AES-GCM & Modos de Operação');
       int minutes = 90;
 
       if (lower.contains('owasp')) {
-        subject = 'Segurança de Software';
-        topic = 'OWASP Top 10 · Mitigações de Injeção';
-      } else if (lower.contains('redes')) {
-        subject = 'Redes';
-        topic = 'Protocolos de Roteamento e Handshake TLS';
+        subject = NoesisL10n.tr('Segurança de Software');
+        topic = NoesisL10n.tr('OWASP Top 10 · Mitigações de Injeção');
+      } else if (AgentIntentKeywords.networkTokens.any(lower.contains)) {
+        subject = NoesisL10n.tr('Redes');
+        topic = NoesisL10n.tr('Protocolos de Roteamento e Handshake TLS');
       } else if (lower.contains('cloud') || lower.contains('aws')) {
-        subject = 'Cloud Computing';
-        topic = 'IAM Policies & VPC Security';
+        subject = NoesisL10n.tr('Cloud Computing');
+        topic = NoesisL10n.tr('IAM Policies & VPC Security');
       }
 
-      if (lower.contains('1h30') || lower.contains('1:30') || lower.contains('1 hora e meia')) {
+      if (AgentIntentKeywords.durationHalfHour.any(lower.contains)) {
         minutes = 90;
-      } else if (lower.contains('2h') || lower.contains('2 horas')) {
+      } else if (AgentIntentKeywords.durationTwoHours.any(lower.contains)) {
         minutes = 120;
-      } else if (lower.contains('1h') || lower.contains('1 hora')) {
+      } else if (AgentIntentKeywords.durationOneHour.any(lower.contains)) {
         minutes = 60;
       } else if (lower.contains('45 min')) {
         minutes = 45;
@@ -2647,10 +2893,14 @@ Precisa que eu prepare um roteiro de tópicos para esse bloco ou quer agendar ma
         topic: topic,
         durationMinutes: minutes,
         studyDate: DateTime.now(),
-        notes: 'Sessão registrada via comando no Noesis AI.',
+        notes: NoesisL10n.tr('Sessão registrada via comando no Noesis AI.'),
       );
 
-      final summary = 'Sessão registrada · ${_formatDuration(minutes)} em $subject';
+      final formattedDuration = _formatDuration(minutes);
+      final summary = NoesisL10n.tr(
+        'Sessão registrada · {duration} em {subject}',
+        {'duration': formattedDuration, 'subject': subject},
+      );
       actions.add(AgentAction(
         name: 'log_study_session',
         parameters: {'subject': subject, 'topic': topic, 'duration_minutes': minutes},
@@ -2658,69 +2908,64 @@ Precisa que eu prepare um roteiro de tópicos para esse bloco ou quer agendar ma
         summary: summary,
       ));
 
-      final reply = '''
-Feito! ✅ Sessão de **${_formatDuration(minutes)}** salva com sucesso em **$subject**.
-
-- **Tópico:** $topic
-- **Métricas:** O tempo já foi somado à sua meta semanal e ao gráfico do **Dashboard**.
-- **Consistência:** Streak diário mantido e atualizado!
-
-Seus dados já estão refletidos nos gráficos de progresso. Deseja agendar uma revisão desse conteúdo ou testar seus conhecimentos em um simulado rápido?
-''';
+      final reply = NoesisL10n.tr(
+        'Feito! ✅ Sessão de **{duration}** salva com sucesso em **{subject}**.\n\n'
+        '- **Tópico:** {topic}\n'
+        '- **Métricas:** O tempo já foi somado à sua meta semanal e ao gráfico do **Dashboard**.\n'
+        '- **Consistência:** Streak diário mantido e atualizado!\n\n'
+        'Seus dados já estão refletidos nos gráficos de progresso. Deseja agendar uma revisão desse conteúdo ou testar seus conhecimentos em um simulado rápido?',
+        {
+          'duration': formattedDuration,
+          'subject': subject,
+          'topic': topic,
+        },
+      );
       return AgentChatResult(reply: reply, actions: actions);
     }
 
     // 4. Resumo de Criptografia / Conceitos
-    if (lower.contains('resumo') || lower.contains('cripto') || lower.contains('conceitos')) {
-      final reply = '''
-Aqui está um resumo de alto rendimento sobre os **Conceitos Fundamentais de Criptografia**:
-
-### 1. Criptografia Simétrica (Chave Secreta)
-- **Princípio:** A mesma chave é usada para cifrar e decifrar.
-- **Vantagem:** Extremamente rápida e eficiente para grandes volumes de dados (streaming e arquivos).
-- **Algoritmo Padrão:** **AES (Advanced Encryption Standard)** com chaves de 128, 192 ou 256 bits.
-- **Modos de Operação Críticos:**
-  - `AES-GCM` (Galois/Counter Mode): Cifra autenticada (AEAD) que garante confidencialidade e integridade. **Atenção:** Nunca reutilize o *nonce* sob a mesma chave.
-  - `AES-CBC`: Requer vetor de inicialização (IV) imprevisível e preenchimento (padding).
-
-### 2. Criptografia Assimétrica (Chave Pública/Privada)
-- **Princípio:** Chave pública cifra; chave privada correspondente decifra (e vice-versa para assinaturas).
-- **Vantagem:** Resolve a distribuição segura de chaves em canais abertos.
-- **Principais Algoritmos:**
-  - **RSA:** Baseado na fatoração de inteiros grandes (chaves de 2048 a 4096 bits).
-  - **ECC (Curvas Elípticas):** Chaves menores (ex: 256 bits) com segurança equivalente ao RSA-3072, consumindo menos CPU.
-  - **ECDH:** Troca de chaves para estabelecer segredos efêmeros.
-
-### 3. Funções de Hash Criptográfico & MAC
-- **Unidirecionais:** Não permitem reversão. Convertem dados arbitrários em digest de tamanho fixo.
-- **Propriedades:** Resistência a colisões e efeito avalanche (1 bit alterado muda todo o hash).
-- **Padrões:** `SHA-256`, `SHA-3`, `BLAKE2`.
-- **HMAC:** Hash combinado com chave secreta para verificação de integridade e autenticidade.
-
-### 4. Aplicações Práticas (TLS 1.3 & PKI)
-- **Handshake TLS:** Usa criptografia assimétrica (ECDHE) para negociar chaves efêmeras com **PFS (Perfect Forward Secrecy)** e depois cifra o tráfego com AES-GCM ou ChaCha20-Poly1305.
-- **Certificados Digitais (X.509):** Autoridades Certificadoras (CA) assinam chaves públicas para garantir a identidade do servidor.
-
-> 💡 **Dica de Estudo:** Foque em entender o funcionamento da **Cifra Autenticada (AEAD)** e o motivo do *nonce reuse* destruir a segurança do AES-GCM.
-
-Gostaria que eu gerasse um simulado de 5 questões sobre esse resumo ou prefere agendar uma revisão?
-''';
+    if (AgentIntentKeywords.summaryTriggers.any(lower.contains)) {
+      final reply = NoesisL10n.tr(
+        'Aqui está um resumo de alto rendimento sobre os **Conceitos Fundamentais de Criptografia**:\n\n'
+        '### 1. Criptografia Simétrica (Chave Secreta)\n'
+        '- **Princípio:** A mesma chave é usada para cifrar e decifrar.\n'
+        '- **Vantagem:** Extremamente rápida e eficiente para grandes volumes de dados (streaming e arquivos).\n'
+        '- **Algoritmo Padrão:** **AES (Advanced Encryption Standard)** com chaves de 128, 192 ou 256 bits.\n'
+        '- **Modos de Operação Críticos:**\n'
+        '  - `AES-GCM` (Galois/Counter Mode): Cifra autenticada (AEAD) que garante confidencialidade e integridade. **Atenção:** Nunca reutilize o *nonce* sob a mesma chave.\n'
+        '  - `AES-CBC`: Requer vetor de inicialização (IV) imprevisível e preenchimento (padding).\n\n'
+        '### 2. Criptografia Assimétrica (Chave Pública/Privada)\n'
+        '- **Princípio:** Chave pública cifra; chave privada correspondente decifra (e vice-versa para assinaturas).\n'
+        '- **Vantagem:** Resolve a distribuição segura de chaves em canais abertos.\n'
+        '- **Principais Algoritmos:**\n'
+        '  - **RSA:** Baseado na fatoração de inteiros grandes (chaves de 2048 a 4096 bits).\n'
+        '  - **ECC (Curvas Elípticas):** Chaves menores (ex: 256 bits) com segurança equivalente ao RSA-3072, consumindo menos CPU.\n'
+        '  - **ECDH:** Troca de chaves para estabelecer segredos efêmeros.\n\n'
+        '### 3. Funções de Hash Criptográfico & MAC\n'
+        '- **Unidirecionais:** Não permitem reversão. Convertem dados arbitrários em digest de tamanho fixo.\n'
+        '- **Propriedades:** Resistência a colisões e efeito avalanche (1 bit alterado muda todo o hash).\n'
+        '- **Padrões:** `SHA-256`, `SHA-3`, `BLAKE2`.\n'
+        '- **HMAC:** Hash combinado com chave secreta para verificação de integridade e autenticidade.\n\n'
+        '### 4. Aplicações Práticas (TLS 1.3 & PKI)\n'
+        '- **Handshake TLS:** Usa criptografia assimétrica (ECDHE) para negociar chaves efêmeras com **PFS (Perfect Forward Secrecy)** e depois cifra o tráfego com AES-GCM ou ChaCha20-Poly1305.\n'
+        '- **Certificados Digitais (X.509):** Autoridades Certificadoras (CA) assinam chaves públicas para garantir a identidade do servidor.\n\n'
+        '> 💡 **Dica de Estudo:** Foque em entender o funcionamento da **Cifra Autenticada (AEAD)** e o motivo do *nonce reuse* destruir a segurança do AES-GCM.\n\n'
+        'Gostaria que eu gerasse um simulado de 5 questões sobre esse resumo ou prefere agendar uma revisão?',
+      );
       return AgentChatResult(reply: reply);
     }
 
     // 5. O que posso fazer / Ajuda
-    final reply = '''
-Sou o **Noesis AI**, seu agente cognitivo integrado ao ecossistema Noesis. Tenho capacidade de executar ações reais no seu sistema:
-
-### O que você pode fazer comigo:
-- 📝 **Criar Simulados Técnicos:** Diga *"Crie um simulado de 5 questões sobre OWASP"* ou *"Gere questões sobre Criptografia"*.
-- 🎴 **Gerar Flashcards Cognitivos:** Diga *"Gere flashcards sobre Criptografia"* ou crie baralhos sobre temas específicos.
-- ⏱️ **Registrar Sessões de Estudo:** Diga *"Registre 1h30 de estudo de Criptografia"* ou *"Estudei 45 min de redes"*.
-- 📅 **Agendar Revisões e Provas:** Diga *"Agende uma revisão para amanhã às 14h"* ou *"Marque minha prova oficial na sexta"*.
-- 🧠 **Resumos e Explicações Técnicas:** Peça resumos com exemplos de código, comparações de arquitetura e dicas para certificações.
-
-Como posso acelerar seus estudos agora?
-''';
+    final reply = NoesisL10n.tr(
+      'Sou o **Noesis AI**, seu agente cognitivo integrado ao ecossistema Noesis. Tenho capacidade de executar ações reais no seu sistema:\n\n'
+      '### O que você pode fazer comigo:\n'
+      '- 📝 **Criar Simulados Técnicos:** Diga *"Crie um simulado de 5 questões sobre OWASP"* ou *"Gere questões sobre Criptografia"*.\n'
+      '- 🎴 **Gerar Flashcards Cognitivos:** Diga *"Gere flashcards sobre Criptografia"* ou crie baralhos sobre temas específicos.\n'
+      '- ⏱️ **Registrar Sessões de Estudo:** Diga *"Registre 1h30 de estudo de Criptografia"* ou *"Estudei 45 min de redes"*.\n'
+      '- 📅 **Agendar Revisões e Provas:** Diga *"Agende uma revisão para amanhã às 14h"* ou *"Marque minha prova oficial na sexta"*.\n'
+      '- 🧠 **Resumos e Explicações Técnicas:** Peça resumos com exemplos de código, comparações de arquitetura e dicas para certificações.\n\n'
+      'Como posso acelerar seus estudos agora?',
+    );
     return AgentChatResult(reply: reply);
   }
 
@@ -2820,13 +3065,15 @@ Como posso acelerar seus estudos agora?
       ).timeout(Duration(seconds: timeoutSeconds));
 
       if (resp.statusCode != 200) {
-        throw Exception('Falha na API Anthropic (${resp.statusCode}): ${resp.body}');
+        throw Exception(
+          NoesisL10n.tr('Falha na API Anthropic ({status}): {body}', {'status': resp.statusCode, 'body': resp.body}),
+        );
       }
 
       final data = jsonDecode(resp.body);
       final text = data['content']?[0]?['text'] as String?;
       if (text == null || text.trim().isEmpty) {
-        throw Exception('Anthropic retornou resposta vazia.');
+        throw Exception(NoesisL10n.tr('Anthropic retornou resposta vazia.'));
       }
       return text;
     }
@@ -2863,13 +3110,18 @@ Como posso acelerar seus estudos agora?
     ).timeout(Duration(seconds: timeoutSeconds));
 
     if (resp.statusCode != 200) {
-      throw Exception('Falha na API ($provider / ${resp.statusCode}): ${resp.body}');
+      throw Exception(
+        NoesisL10n.tr(
+          'Falha na API ({provider} / {status}): {body}',
+          {'provider': provider, 'status': resp.statusCode, 'body': resp.body},
+        ),
+      );
     }
 
     final data = jsonDecode(resp.body);
     final content = data['choices']?[0]?['message']?['content'] as String?;
     if (content == null || content.trim().isEmpty) {
-      throw Exception('Provedor retornou resposta vazia.');
+      throw Exception(NoesisL10n.tr('Provedor retornou resposta vazia.'));
     }
     return content;
   }
@@ -2982,7 +3234,10 @@ Como posso acelerar seus estudos agora?
           }
         } catch (_) {}
 
-        lastError = Exception('Erro Google REST ($mod / $apiMessage)');
+        lastError = Exception(NoesisL10n.tr('Erro Google REST ({model} / {msg})', {
+          'model': mod,
+          'msg': apiMessage,
+        }));
 
         // Erros definitivos de autenticação/permissão não se beneficiam de trocar modelo
         if (resp.statusCode == 400 || resp.statusCode == 401 || resp.statusCode == 403) {
@@ -3005,7 +3260,10 @@ Como posso acelerar seus estudos agora?
             rethrow;
           }
         } else {
-          lastError = Exception('Erro Google REST ($mod): $e');
+          lastError = Exception(NoesisL10n.tr('Erro Google REST ({model}): {err}', {
+            'model': mod,
+            'err': e,
+          }));
         }
         if (i < candidateModels.length - 1) {
           await Future<void>.delayed(const Duration(milliseconds: 450));
@@ -3014,7 +3272,7 @@ Como posso acelerar seus estudos agora?
       }
     }
 
-    throw lastError ?? Exception('Erro Google REST: nenhum modelo Gemini disponível respondeu.');
+    throw lastError ?? Exception(NoesisL10n.tr('Erro Google REST: nenhum modelo Gemini disponível respondeu.'));
   }
 
   // ---------------------------------------------------------------------------
@@ -3040,10 +3298,10 @@ Como posso acelerar seus estudos agora?
     if (lower.contains('owasp') || lower.contains('appsec') || lower.contains('software')) {
       final pool = [
         {
-          'question':
-              'Um endpoint REST aceita o parâmetro ?redirect= para encaminhar o usuário após autenticação. Um invasor envia https://app.com/login?redirect=https://evil.com. Qual vulnerabilidade do OWASP Top 10 está caracterizada?',
-          'code_snippet':
-              '# auth_controller.py\nredirect_url = request.args.get("redirect")\nreturn redirect(redirect_url)  # Sem validação prévia',
+          'question': NoesisL10n.tr(
+              'Um endpoint REST aceita o parâmetro ?redirect= para encaminhar o usuário após autenticação. Um invasor envia https://app.com/login?redirect=https://evil.com. Qual vulnerabilidade do OWASP Top 10 está caracterizada?'),
+          'code_snippet': NoesisL10n.tr(
+              '# auth_controller.py\nredirect_url = request.args.get("redirect")\nreturn redirect(redirect_url)  # Sem validação prévia'),
           'options': [
             'A01:2021 - Broken Access Control (Open Redirect)',
             'A03:2021 - Injection (SQL Injection)',
@@ -3051,72 +3309,72 @@ Como posso acelerar seus estudos agora?
             'A09:2021 - Security Logging and Monitoring Failures',
           ],
           'correct_index': 0,
-          'explanation':
-              'Redirecionamentos abertos não validados enquadram-se em Broken Access Control (A01). A mitigação correta é validar o destino contra uma allow-list estrita de domínios ou caminhos relativos internos.',
+          'explanation': NoesisL10n.tr(
+              'Redirecionamentos abertos não validados enquadram-se em Broken Access Control (A01). A mitigação correta é validar o destino contra uma allow-list estrita de domínios ou caminhos relativos internos.'),
           'rag_sources': ['OWASP Top 10:2021 · A01', 'CWE-601: Open Redirect'],
         },
         {
-          'question':
-              'Durante uma auditoria, constatou-se que a aplicação concatena diretamente entradas de formulário em consultas SQL. Qual abordagem mitiga a falha de forma definitiva?',
+          'question': NoesisL10n.tr(
+              'Durante uma auditoria, constatou-se que a aplicação concatena diretamente entradas de formulário em consultas SQL. Qual abordagem mitiga a falha de forma definitiva?'),
           'code_snippet':
               '# query_runner.py\nsql = f"SELECT * FROM users WHERE email = \'{user_email}\'"\ncursor.execute(sql)',
           'options': [
-            'Utilizar consultas parametrizadas (Prepared Statements) em todas as camadas de acesso a dados.',
-            'Adicionar um filtro de caracteres especiais para remover aspas simples e hifens.',
-            'Aplicar criptografia AES-256 no banco de dados antes da execução da query.',
-            'Aumentar o tempo limite de conexão (timeout) do pool de conexões.',
+            NoesisL10n.tr('Utilizar consultas parametrizadas (Prepared Statements) em todas as camadas de acesso a dados.'),
+            NoesisL10n.tr('Adicionar um filtro de caracteres especiais para remover aspas simples e hifens.'),
+            NoesisL10n.tr('Aplicar criptografia AES-256 no banco de dados antes da execução da query.'),
+            NoesisL10n.tr('Aumentar o tempo limite de conexão (timeout) do pool de conexões.'),
           ],
           'correct_index': 0,
-          'explanation':
-              'Prepared Statements separam estritamente o código SQL dos dados de entrada, impedindo que comandos arbitrários sejam interpretados pelo motor do banco. Filtros por lista negra são frequentemente contornados.',
+          'explanation': NoesisL10n.tr(
+              'Prepared Statements separam estritamente o código SQL dos dados de entrada, impedindo que comandos arbitrários sejam interpretados pelo motor do banco. Filtros por lista negra são frequentemente contornados.'),
           'rag_sources': ['OWASP Top 10:2021 · A03 Injection', 'NIST SP 800-64'],
         },
         {
-          'question':
-              'Uma aplicação armazena senhas no banco de dados utilizando MD5 com salt simples. Diante das recomendações modernas da OWASP, qual é a conduta correta?',
+          'question': NoesisL10n.tr(
+              'Uma aplicação armazena senhas no banco de dados utilizando MD5 com salt simples. Diante das recomendações modernas da OWASP, qual é a conduta correta?'),
           'code_snippet':
               '# password_hasher.py\nhash = hashlib.md5((salt + password).encode()).hexdigest()',
           'options': [
-            'Migrar para algoritmos com fator de trabalho ajustável, como Argon2id, bcrypt ou PBKDF2.',
-            'Dobrar o tamanho do salt mantendo o algoritmo MD5.',
-            'Substituir por SHA-1 com iterações em loop for de 1000 vezes.',
-            'Cifrar o hash MD5 com chave simétrica AES no servidor web.',
+            NoesisL10n.tr('Migrar para algoritmos com fator de trabalho ajustável, como Argon2id, bcrypt ou PBKDF2.'),
+            NoesisL10n.tr('Dobrar o tamanho do salt mantendo o algoritmo MD5.'),
+            NoesisL10n.tr('Substituir por SHA-1 com iterações em loop for de 1000 vezes.'),
+            NoesisL10n.tr('Cifrar o hash MD5 com chave simétrica AES no servidor web.'),
           ],
           'correct_index': 0,
-          'explanation':
-              'Funções rápidas como MD5 e SHA-1 são vulneráveis a ataques de força bruta massivos com GPUs e ASICs. A OWASP recomenda Argon2id ou bcrypt, que impõem custo deliberado de CPU e memória.',
+          'explanation': NoesisL10n.tr(
+              'Funções rápidas como MD5 e SHA-1 são vulneráveis a ataques de força bruta massivos com GPUs e ASICs. A OWASP recomenda Argon2id ou bcrypt, que impõem custo deliberado de CPU e memória.'),
           'rag_sources': ['OWASP Password Storage Cheat Sheet', 'RFC 9106 Argon2'],
         },
         {
-          'question':
-              'Qual medida é mais eficiente para impedir ataques de Cross-Site Scripting (XSS) em aplicações web modernas?',
+          'question': NoesisL10n.tr(
+              'Qual medida é mais eficiente para impedir ataques de Cross-Site Scripting (XSS) em aplicações web modernas?'),
           'code_snippet':
               '// view.js\ndocument.getElementById("userBio").innerHTML = userData.bio;',
           'options': [
-            'Utilizar Content Security Policy (CSP) robusta aliada a context-aware output encoding (ou frameworks que escapam por padrão).',
-            'Substituir todas as requisições GET por POST para mascarar os parâmetros na URL.',
-            'Habilitar o flag SameSite=None em todos os cookies de sessão.',
-            'Validar apenas o comprimento da string no front-end.',
+            NoesisL10n.tr('Utilizar Content Security Policy (CSP) robusta aliada a context-aware output encoding (ou frameworks que escapam por padrão).'),
+            NoesisL10n.tr('Substituir todas as requisições GET por POST para mascarar os parâmetros na URL.'),
+            NoesisL10n.tr('Habilitar o flag SameSite=None em todos os cookies de sessão.'),
+            NoesisL10n.tr('Validar apenas o comprimento da string no front-end.'),
           ],
           'correct_index': 0,
-          'explanation':
-              'Context-aware output encoding garante que dados inseridos no DOM não sejam executados como código. Um CSP restrito atua como defesa em profundidade, bloqueando scripts inline e fontes não autorizadas.',
+          'explanation': NoesisL10n.tr(
+              'Context-aware output encoding garante que dados inseridos no DOM não sejam executados como código. Um CSP restrito atua como defesa em profundidade, bloqueando scripts inline e fontes não autorizadas.'),
           'rag_sources': ['OWASP XSS Prevention Cheat Sheet', 'W3C CSP Level 3'],
         },
         {
-          'question':
-              'Ao analisar o cabeçalho de resposta de um servidor, identificou-se a ausência de "Strict-Transport-Security" (HSTS). Qual é o risco direto dessa ausência?',
-          'code_snippet':
-              'HTTP/1.1 200 OK\nServer: nginx\n(Ausência do cabeçalho Strict-Transport-Security)',
+          'question': NoesisL10n.tr(
+              'Ao analisar o cabeçalho de resposta de um servidor, identificou-se a ausência de "Strict-Transport-Security" (HSTS). Qual é o risco direto dessa ausência?'),
+          'code_snippet': NoesisL10n.tr(
+              'HTTP/1.1 200 OK\nServer: nginx\n(Ausência do cabeçalho Strict-Transport-Security)'),
           'options': [
-            'Ataques de SSL Stripping (downgrade para HTTP puro) por man-in-the-middle em conexões subsequentes.',
-            'Injeção de cabeçalhos HTTP no lado do cliente.',
-            'Execução remota de código no balanceador de carga.',
-            'Vazamento imediato da chave privada RSA do certificado.',
+            NoesisL10n.tr('Ataques de SSL Stripping (downgrade para HTTP puro) por man-in-the-middle em conexões subsequentes.'),
+            NoesisL10n.tr('Injeção de cabeçalhos HTTP no lado do cliente.'),
+            NoesisL10n.tr('Execução remota de código no balanceador de carga.'),
+            NoesisL10n.tr('Vazamento imediato da chave privada RSA do certificado.'),
           ],
           'correct_index': 0,
-          'explanation':
-              'O HSTS instrui os navegadores a acessarem o site exclusivamente via HTTPS, impedindo ataques de downgrade como o SSLStrip em redes não confiáveis (como Wi-Fi público).',
+          'explanation': NoesisL10n.tr(
+              'O HSTS instrui os navegadores a acessarem o site exclusivamente via HTTPS, impedindo ataques de downgrade como o SSLStrip em redes não confiáveis (como Wi-Fi público).'),
           'rag_sources': ['RFC 6797 HSTS', 'OWASP Top 10 · Security Misconfiguration'],
         },
       ];
@@ -3125,7 +3383,7 @@ Como posso acelerar seus estudos agora?
         final base = pool[i % pool.length];
         final disc = (disciplines != null && i < disciplines.length)
             ? disciplines[i]
-            : (subject.trim().isNotEmpty ? subject.trim() : 'Segurança de Aplicações');
+            : (subject.trim().isNotEmpty ? subject.trim() : NoesisL10n.tr('Segurança de Aplicações'));
         return {
           ...base,
           'discipline': disc,
@@ -3136,40 +3394,40 @@ Como posso acelerar seus estudos agora?
     // Default: Criptografia & PKI
     final cryptoPool = [
       {
-        'question':
-            'Em uma cifra de bloco operando em modo Galois/Counter Mode (AES-GCM), qual é a consequência fatal da reutilização do mesmo Initialization Vector (Nonce) sob uma mesma chave secreta?',
-        'code_snippet':
-            '# encryptor.py\nkey = load_fixed_key()\nnonce = b"123456789012"  # Fixo reutilizado para todas as mensagens!',
+        'question': NoesisL10n.tr(
+            'Em uma cifra de bloco operando em modo Galois/Counter Mode (AES-GCM), qual é a consequência fatal da reutilização do mesmo Initialization Vector (Nonce) sob uma mesma chave secreta?'),
+        'code_snippet': NoesisL10n.tr(
+            '# encryptor.py\nkey = load_fixed_key()\nnonce = b"123456789012"  # Fixo reutilizado para todas as mensagens!'),
         'options': [
-          'Permite a recuperação da chave de autenticação (GHASH key) e quebra a confidencialidade das mensagens por XOR dos textos cifrados.',
-          'Causa estouro de pilha (buffer overflow) no acelerador de hardware.',
-          'Reduz o tamanho da chave de 256 bits para 64 bits automaticamente.',
-          'Faz a cifra reverter para o modo ECB (Electronic Codebook).',
+          NoesisL10n.tr('Permite a recuperação da chave de autenticação (GHASH key) e quebra a confidencialidade das mensagens por XOR dos textos cifrados.'),
+          NoesisL10n.tr('Causa estouro de pilha (buffer overflow) no acelerador de hardware.'),
+          NoesisL10n.tr('Reduz o tamanho da chave de 256 bits para 64 bits automaticamente.'),
+          NoesisL10n.tr('Faz a cifra reverter para o modo ECB (Electronic Codebook).'),
         ],
         'correct_index': 0,
-        'explanation':
-            'No AES-GCM, o reúso de nonce com a mesma chave revela o keystream (permitindo decifrar mensagens via XOR) e viabiliza a recuperação da chave GHASH, destruindo a integridade e autenticidade.',
+        'explanation': NoesisL10n.tr(
+            'No AES-GCM, o reúso de nonce com a mesma chave revela o keystream (permitindo decifrar mensagens via XOR) e viabiliza a recuperação da chave GHASH, destruindo a integridade e autenticidade.'),
         'rag_sources': ['NIST SP 800-38D (GCM)', 'RFC 5116 (AEAD)'],
       },
       {
-        'question':
-            'Qual é a principal vantagem das curvas elípticas (ECC) em relação ao RSA tradicional na criptografia assimétrica moderna?',
-        'code_snippet':
-            '# Comparação de tamanhos:\n# RSA-3072 vs ECC P-256 (mesmo nível de segurança de 128 bits)',
+        'question': NoesisL10n.tr(
+            'Qual é a principal vantagem das curvas elípticas (ECC) em relação ao RSA tradicional na criptografia assimétrica moderna?'),
+        'code_snippet': NoesisL10n.tr(
+            '# Comparação de tamanhos:\n# RSA-3072 vs ECC P-256 (mesmo nível de segurança de 128 bits)'),
         'options': [
-          'Chaves substancialmente menores para o mesmo nível de segurança criptográfica, reduzindo uso de memória e latência de rede.',
-          'A criptografia ECC é simétrica e não requer troca de chaves.',
-          'Imunidade comprovada contra computadores quânticos rodando o algoritmo de Shor.',
-          'Despensa a necessidade de números aleatórios de alta entropia.',
+          NoesisL10n.tr('Chaves substancialmente menores para o mesmo nível de segurança criptográfica, reduzindo uso de memória e latência de rede.'),
+          NoesisL10n.tr('A criptografia ECC é simétrica e não requer troca de chaves.'),
+          NoesisL10n.tr('Imunidade comprovada contra computadores quânticos rodando o algoritmo de Shor.'),
+          NoesisL10n.tr('Despensa a necessidade de números aleatórios de alta entropia.'),
         ],
         'correct_index': 0,
-        'explanation':
-            'Uma chave ECC de 256 bits oferece segurança equivalente ao RSA de 3072 bits. Isso economiza banda, acelera handshakes TLS e reduz consumo de energia em dispositivos móveis e IoT.',
+        'explanation': NoesisL10n.tr(
+            'Uma chave ECC de 256 bits oferece segurança equivalente ao RSA de 3072 bits. Isso economiza banda, acelera handshakes TLS e reduz consumo de energia em dispositivos móveis e IoT.'),
         'rag_sources': ['NIST SP 800-57', 'RFC 6090'],
       },
       {
-        'question':
-            'Durante a negociação do TLS 1.3, qual propriedade garante que mesmo se a chave privada do servidor vazar no futuro, sessões passadas não poderão ser decifradas?',
+        'question': NoesisL10n.tr(
+            'Durante a negociação do TLS 1.3, qual propriedade garante que mesmo se a chave privada do servidor vazar no futuro, sessões passadas não poderão ser decifradas?'),
         'code_snippet':
             'Cipher Suite: TLS_AES_256_GCM_SHA384\nKey Exchange: Ephemeral Elliptic Curve Diffie-Hellman (ECDHE)',
         'options': [
@@ -3179,40 +3437,40 @@ Como posso acelerar seus estudos agora?
           'Pre-Shared Key Derivation (PSK)',
         ],
         'correct_index': 0,
-        'explanation':
-            'O Perfect Forward Secrecy (PFS) gera chaves efêmeras para cada sessão (ECDHE). Se a chave mestre do servidor for comprometida depois, as sessões passadas continuam indecifráveis.',
+        'explanation': NoesisL10n.tr(
+            'O Perfect Forward Secrecy (PFS) gera chaves efêmeras para cada sessão (ECDHE). Se a chave mestre do servidor for comprometida depois, as sessões passadas continuam indecifráveis.'),
         'rag_sources': ['RFC 8446 (The TLS Protocol Version 1.3)', 'NIST SP 800-52'],
       },
       {
-        'question':
-            'Qual das seguintes opções descreve com precisão a diferença fundamental entre uma função de hash simples e um Message Authentication Code (MAC)?',
+        'question': NoesisL10n.tr(
+            'Qual das seguintes opções descreve com precisão a diferença fundamental entre uma função de hash simples e um Message Authentication Code (MAC)?'),
         'code_snippet':
             '# Hash: SHA256(data)\n# MAC:  HMAC-SHA256(key, data)',
         'options': [
-          'O MAC utiliza uma chave secreta compartilhada para assegurar integridade e autenticidade da origem, enquanto o hash verifica apenas a integridade.',
-          'O Hash é reversível e o MAC é unidirecional.',
-          'O MAC cifra a mensagem inteira e o Hash apenas o cabeçalho.',
-          'O Hash só funciona com arquivos de até 1 MB.',
+          NoesisL10n.tr('O MAC utiliza uma chave secreta compartilhada para assegurar integridade e autenticidade da origem, enquanto o hash verifica apenas a integridade.'),
+          NoesisL10n.tr('O Hash é reversível e o MAC é unidirecional.'),
+          NoesisL10n.tr('O MAC cifra a mensagem inteira e o Hash apenas o cabeçalho.'),
+          NoesisL10n.tr('O Hash só funciona com arquivos de até 1 MB.'),
         ],
         'correct_index': 0,
-        'explanation':
-            'Um atacante pode alterar os dados e recalcular um hash comum. Porém, sem a chave secreta compartilhada, ele não consegue calcular um MAC válido, provando que a mensagem veio de quem detém a chave.',
+        'explanation': NoesisL10n.tr(
+            'Um atacante pode alterar os dados e recalcular um hash comum. Porém, sem a chave secreta compartilhada, ele não consegue calcular um MAC válido, provando que a mensagem veio de quem detém a chave.'),
         'rag_sources': ['RFC 2104 (HMAC)', 'FIPS PUB 198-1'],
       },
       {
-        'question':
-            'Por que o modo ECB (Electronic Codebook) é expressamente proibido para cifragem de dados confidenciais com cifras de bloco?',
-        'code_snippet':
-            '# ECB Mode:\n# Bloco de Entrada A -> Cifra(A)\n# Bloco de Entrada A -> Cifra(A) [Mesma saída sempre!]',
+        'question': NoesisL10n.tr(
+            'Por que o modo ECB (Electronic Codebook) é expressamente proibido para cifragem de dados confidenciais com cifras de bloco?'),
+        'code_snippet': NoesisL10n.tr(
+            '# ECB Mode:\n# Bloco de Entrada A -> Cifra(A)\n# Bloco de Entrada A -> Cifra(A) [Mesma saída sempre!]'),
         'options': [
-          'Blocos idênticos de texto claro produzem blocos idênticos de texto cifrado, preservando padrões visuais e estruturais dos dados.',
-          'Não suporta chaves de 256 bits.',
-          'Exige sincronização de relógio em tempo real entre cliente e servidor.',
-          'Gera mensagens com o triplo do tamanho original.',
+          NoesisL10n.tr('Blocos idênticos de texto claro produzem blocos idênticos de texto cifrado, preservando padrões visuais e estruturais dos dados.'),
+          NoesisL10n.tr('Não suporta chaves de 256 bits.'),
+          NoesisL10n.tr('Exige sincronização de relógio em tempo real entre cliente e servidor.'),
+          NoesisL10n.tr('Gera mensagens com o triplo do tamanho original.'),
         ],
         'correct_index': 0,
-        'explanation':
-            'O modo ECB não usa vetor de inicialização nem encadeamento. Blocos idênticos geram cifras idênticas, permitindo inferir estruturas internas (ex: a famosa imagem do pinguim Tux cifrado em ECB).',
+        'explanation': NoesisL10n.tr(
+            'O modo ECB não usa vetor de inicialização nem encadeamento. Blocos idênticos geram cifras idênticas, permitindo inferir estruturas internas (ex: a famosa imagem do pinguim Tux cifrado em ECB).'),
         'rag_sources': ['NIST SP 800-38A', 'CompTIA Security+ SY0-701'],
       },
     ];
@@ -3231,7 +3489,11 @@ Como posso acelerar seus estudos agora?
       return {
         ...base,
         'discipline': disc,
-        'question': '[Simulado ${examModelName ?? topic} · Q${startNumber + i}] ${base['question']}',
+        'question': NoesisL10n.tr('[{exam} · Q{num}] {question}', {
+          'exam': examModelName ?? topic,
+          'num': startNumber + i,
+          'question': base['question'],
+        }),
       };
     });
   }
@@ -3250,29 +3512,29 @@ Como posso acelerar seus estudos agora?
     if (lower.contains('owasp') || lower.contains('appsec') || lower.contains('software')) {
       final pool = [
         {
-          'front': 'O que é Broken Access Control (A01:2021) e por que é a falha nº 1 do OWASP Top 10?',
-          'back': 'Ocorre quando usuários conseguem acessar recursos ou executar ações fora de suas permissões pretendidas (ex: manipular IDs na URL `?user_id=123`). É a nº 1 porque é extremamente prevalente e comum em arquiteturas modernas de microsserviços.',
+          'front': NoesisL10n.tr('O que é Broken Access Control (A01:2021) e por que é a falha nº 1 do OWASP Top 10?'),
+          'back': NoesisL10n.tr('Ocorre quando usuários conseguem acessar recursos ou executar ações fora de suas permissões pretendidas (ex: manipular IDs na URL `?user_id=123`). É a nº 1 porque é extremamente prevalente e comum em arquiteturas modernas de microsserviços.'),
           'tags': ['OWASP', 'A01:2021', 'Access Control'],
         },
         {
-          'front': 'Como Prepared Statements (Consultas Parametrizadas) eliminam SQL Injection?',
-          'back': 'Prepared Statements enviam a estrutura da query SQL para compilação prévia no banco, tratando os parâmetros como valores literais puros. Mesmo que o parâmetro contenha aspas ou comandos (`OR 1=1`), ele nunca é interpretado como código SQL executável.',
-          'tags': ['AppSec', 'SQL Injection', 'Mitigação'],
+          'front': NoesisL10n.tr('Como Prepared Statements (Consultas Parametrizadas) eliminam SQL Injection?'),
+          'back': NoesisL10n.tr('Prepared Statements enviam a estrutura da query SQL para compilação prévia no banco, tratando os parâmetros como valores literais puros. Mesmo que o parâmetro contenha aspas ou comandos (`OR 1=1`), ele nunca é interpretado como código SQL executável.'),
+          'tags': ['AppSec', 'SQL Injection', NoesisL10n.tr('Mitigação')],
         },
         {
-          'front': 'Qual a diferença entre XSS Armazenado (Stored) e XSS Refletido (Reflected)?',
-          'back': 'XSS Refletido ocorre quando o payload é enviado na requisição (ex: busca na URL) e refletido imediatamente na resposta. XSS Armazenado é persistido no banco de dados (ex: comentários de blog), atacando todos os usuários que visualizarem a página posteriormente.',
+          'front': NoesisL10n.tr('Qual a diferença entre XSS Armazenado (Stored) e XSS Refletido (Reflected)?'),
+          'back': NoesisL10n.tr('XSS Refletido ocorre quando o payload é enviado na requisição (ex: busca na URL) e refletido imediatamente na resposta. XSS Armazenado é persistido no banco de dados (ex: comentários de blog), atacando todos os usuários que visualizarem a página posteriormente.'),
           'tags': ['OWASP', 'XSS', 'Web Security'],
         },
         {
-          'front': 'Qual a função dos cabeçalhos CSP (Content Security Policy) e CORS na proteção de navegadores?',
-          'back': 'CSP restringe as origens das quais scripts, imagens e conexões podem ser carregados, bloqueando execução de scripts inline em caso de XSS. CORS instrui o navegador a permitir ou proibir que páginas de outra origem leiam recursos via fetch/XHR.',
+          'front': NoesisL10n.tr('Qual a função dos cabeçalhos CSP (Content Security Policy) e CORS na proteção de navegadores?'),
+          'back': NoesisL10n.tr('CSP restringe as origens das quais scripts, imagens e conexões podem ser carregados, bloqueando execução de scripts inline em caso de XSS. CORS instrui o navegador a permitir ou proibir que páginas de outra origem leiam recursos via fetch/XHR.'),
           'tags': ['HTTP Headers', 'CSP', 'CORS'],
         },
         {
-          'front': 'Por que tokens CSRF são essenciais para requisições com mutação de estado?',
-          'back': 'Navegadores anexam cookies de sessão automaticamente em requisições cross-site. Um token CSRF é um valor imprevisível e vinculado à sessão que não é enviado automaticamente, garantindo que a requisição partiu legitimamente da aplicação do usuário.',
-          'tags': ['CSRF', 'Autenticação', 'Sessões'],
+          'front': NoesisL10n.tr('Por que tokens CSRF são essenciais para requisições com mutação de estado?'),
+          'back': NoesisL10n.tr('Navegadores anexam cookies de sessão automaticamente em requisições cross-site. Um token CSRF é um valor imprevisível e vinculado à sessão que não é enviado automaticamente, garantindo que a requisição partiu legitimamente da aplicação do usuário.'),
+          'tags': ['CSRF', NoesisL10n.tr('Autenticação'), NoesisL10n.tr('Sessões')],
         },
       ];
       return pool.take(count).toList();
@@ -3281,24 +3543,24 @@ Como posso acelerar seus estudos agora?
     if (lower.contains('cloud') || lower.contains('aws') || lower.contains('devops') || lower.contains('kubernetes')) {
       final pool = [
         {
-          'front': 'Qual a diferença crucial entre um Internet Gateway (IGW) e um NAT Gateway na AWS?',
-          'back': 'IGW realiza tradução de endereço 1:1 e permite conexões bidirecionais (inbound e outbound) em subnets públicas. NAT Gateway permite que instâncias em subnets privadas façam requisições para a Internet (outbound), mas impede que conexões externas iniciem contato (inbound).',
+          'front': NoesisL10n.tr('Qual a diferença crucial entre um Internet Gateway (IGW) e um NAT Gateway na AWS?'),
+          'back': NoesisL10n.tr('IGW realiza tradução de endereço 1:1 e permite conexões bidirecionais (inbound e outbound) em subnets públicas. NAT Gateway permite que instâncias em subnets privadas façam requisições para a Internet (outbound), mas impede que conexões externas iniciem contato (inbound).'),
           'tags': ['AWS', 'VPC', 'Networking'],
         },
         {
-          'front': 'Qual o conceito de Imutabilidade de Infraestrutura e como ele reduz Configuration Drift?',
-          'back': 'Servidores e contêineres nunca são modificados ou atualizados in-place. Se uma alteração for necessária, uma nova imagem é construída, testada e implantada substituindo as instâncias antigas, garantindo paridade idêntica entre ambientes.',
-          'tags': ['DevOps', 'IaC', 'Imutabilidade'],
+          'front': NoesisL10n.tr('Qual o conceito de Imutabilidade de Infraestrutura e como ele reduz Configuration Drift?'),
+          'back': NoesisL10n.tr('Servidores e contêineres nunca são modificados ou atualizados in-place. Se uma alteração for necessária, uma nova imagem é construída, testada e implantada substituindo as instâncias antigas, garantindo paridade idêntica entre ambientes.'),
+          'tags': ['DevOps', 'IaC', NoesisL10n.tr('Imutabilidade')],
         },
         {
-          'front': 'Qual a diferença entre Kubernetes Pod, Deployment e Service?',
-          'back': 'Pod: Menor unidade de execução que encapsula um ou mais contêineres. Deployment: Gerencia o ciclo de vida, réplicas e rolling updates dos Pods. Service: Provê um IP estável e balanceador de carga DNS para que outros pods ou clientes alcancem o conjunto efêmero de Pods.',
+          'front': NoesisL10n.tr('Qual a diferença entre Kubernetes Pod, Deployment e Service?'),
+          'back': NoesisL10n.tr('Pod: Menor unidade de execução que encapsula um ou mais contêineres. Deployment: Gerencia o ciclo de vida, réplicas e rolling updates dos Pods. Service: Provê um IP estável e balanceador de carga DNS para que outros pods ou clientes alcancem o conjunto efêmero de Pods.'),
           'tags': ['Kubernetes', 'K8s', 'Containers'],
         },
         {
-          'front': 'O que é o Teorema CAP em sistemas distribuídos?',
-          'back': 'Em uma rede com Partição (P), um sistema distribuído só pode garantir Consistência (C - todos os nós leem o mesmo dado mais recente) OU Disponibilidade (A - toda requisição recebe resposta sem garantia de ser a mais recente), nunca ambos simultaneamente.',
-          'tags': ['Sistemas Distribuídos', 'CAP', 'Bancos'],
+          'front': NoesisL10n.tr('O que é o Teorema CAP em sistemas distribuídos?'),
+          'back': NoesisL10n.tr('Em uma rede com Partição (P), um sistema distribuído só pode garantir Consistência (C - todos os nós leem o mesmo dado mais recente) OU Disponibilidade (A - toda requisição recebe resposta sem garantia de ser a mais recente), nunca ambos simultaneamente.'),
+          'tags': [NoesisL10n.tr('Sistemas Distribuídos'), 'CAP', NoesisL10n.tr('Bancos')],
         },
       ];
       return pool.take(count).toList();
@@ -3307,24 +3569,29 @@ Como posso acelerar seus estudos agora?
     // Default Crypto / Security / General High-Yield Pool
     final generalPool = [
       {
-        'front': 'Conceito Fundamental de $topic: Qual é o seu objetivo primário?',
-        'back': 'No contexto de $subject, $topic é projetado para resolver problemas críticos de integridade, confiabilidade e desempenho através de abstrações bem definidas e contratos determinísticos.',
+        'front': NoesisL10n.tr('Conceito Fundamental de {topic}: Qual é o seu objetivo primário?', {'topic': topic}),
+        'back': NoesisL10n.tr(
+            'No contexto de {subject}, {topic} é projetado para resolver problemas críticos de integridade, confiabilidade e desempenho através de abstrações bem definidas e contratos determinísticos.',
+            {'subject': subject, 'topic': topic}),
         'tags': [subject, topic],
       },
       {
-        'front': '$topic: Qual a principal armadilha ou antipadrão a ser evitado?',
-        'back': 'A armadilha mais comum é assumir comportamentos implícitos sem validação de limites, o que pode introduzir vulnerabilidades de segurança, sobrecarga de recursos ou acoplamento excessivo.',
-        'tags': [subject, 'Boas Práticas'],
+        'front': NoesisL10n.tr('{topic}: Qual a principal armadilha ou antipadrão a ser evitado?', {'topic': topic}),
+        'back': NoesisL10n.tr(
+            'A armadilha mais comum é assumir comportamentos implícitos sem validação de limites, o que pode introduzir vulnerabilidades de segurança, sobrecarga de recursos ou acoplamento excessivo.'),
+        'tags': [subject, NoesisL10n.tr('Boas Práticas')],
       },
       {
-        'front': '$topic: Qual é o trade-off fundamental envolvido?',
-        'back': 'O trade-off envolve balancear complexidade de implementação vs resiliência e escala. Otimizações prematuras geralmente aumentam a dívida técnica sem ganhos mensuráveis.',
-        'tags': [subject, 'Arquitetura'],
+        'front': NoesisL10n.tr('{topic}: Qual é o trade-off fundamental envolvido?', {'topic': topic}),
+        'back': NoesisL10n.tr(
+            'O trade-off envolve balancear complexidade de implementação vs resiliência e escala. Otimizações prematuras geralmente aumentam a dívida técnica sem ganhos mensuráveis.'),
+        'tags': [subject, NoesisL10n.tr('Arquitetura')],
       },
       {
-        'front': '$topic: Como validar o funcionamento em ambientes de produção?',
-        'back': 'Através de telemetria observável (métricas, logs estruturados e tracing distribuído) combinada com testes automatizados de regressão e checagem de saúde (health checks).',
-        'tags': [subject, 'Operações'],
+        'front': NoesisL10n.tr('{topic}: Como validar o funcionamento em ambientes de produção?', {'topic': topic}),
+        'back': NoesisL10n.tr(
+            'Através de telemetria observável (métricas, logs estruturados e tracing distribuído) combinada com testes automatizados de regressão e checagem de saúde (health checks).'),
+        'tags': [subject, NoesisL10n.tr('Operações')],
       },
     ];
 
@@ -3337,13 +3604,15 @@ Como posso acelerar seus estudos agora?
   static Future<StudyRoadmap> generateStudyRoadmap({
     required String goal,
     required String subject,
-    String level = 'Intermediário',
+    String level = NoesisL10n.defaultRoadmapLevel,
     int estimatedWeeks = 4,
     int hoursPerWeek = 8,
     String? extraNotes,
   }) async {
-    final cleanGoal = goal.trim().isEmpty ? 'Dominar $subject' : goal.trim();
-    final cleanSubject = subject.trim().isEmpty ? 'Geral' : subject.trim();
+    final cleanGoal = goal.trim().isEmpty
+        ? NoesisL10n.tr('Dominar {subject}', {'subject': subject})
+        : goal.trim();
+    final cleanSubject = subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim();
     final safeWeeks = estimatedWeeks.clamp(1, 52);
     final safeHours = hoursPerWeek.clamp(1, 80);
     final key = apiKey?.trim() ?? '';
@@ -3369,44 +3638,54 @@ Como posso acelerar seus estudos agora?
     }
 
     final extraSection = (extraNotes != null && extraNotes.trim().isNotEmpty)
-        ? '\nObservações / Prioridades do estudante:\n"""\n${extraNotes.trim()}\n"""\n'
+        ? NoesisL10n.tr('\nObservações / Prioridades do estudante:\n"""\n{notes}\n"""\n', {'notes': extraNotes.trim()})
         : '';
 
-    final prompt = '''
-Crie um Roadmap (Trilha de Estudos) completo, sequencial e prático em Português.
-- Objetivo final: "$cleanGoal"
-- Matéria / Área principal: "$cleanSubject"
-- Nível atual: "$level"
-- Prazo total estimado: $safeWeeks semanas (~$safeHours horas por semana)
-$extraSection
-Gere de 5 a 8 etapas progressivas (da base até a consolidação/prática).
-Para CADA etapa, explique detalhadamente o que a pessoa vai aprender:
-- "description": 2 a 3 frases objetivas explicando o propósito da etapa, a progressão didática e como o conteúdo se conecta ao objetivo final.
-- "learning_objectives": lista de 3 a 4 objetivos claros começando com verbo no infinitivo (ex.: "Compreender...", "Aplicar...", "Diferenciar...") detalhando o que o aluno dominará ao concluir a etapa.
-- "key_topics": lista de 4 a 6 conceitos/assuntos específicos essenciais daquela etapa.
-- "practical_milestone": 1 meta prática verificável para validar que aprendeu (ex.: "Resolver 20 questões com 80% de acerto" ou "Produzir resumo comparativo...").
-- "subtopics": lista de 3 a 5 subtarefas acionáveis de checklist.
-- "resources": 1 a 3 sugestões de materiais ou exercícios práticos.
-
-RETORNE ESTRITAMENTE um array JSON com 1 objeto neste formato (sem Markdown extra):
-[
-  {
-    "title": "Título conciso da trilha",
-    "steps": [
+    final aiLang = NoesisLocaleService.activeAiLanguageName;
+    final prompt = NoesisL10n.tr(
+      'Crie um Roadmap (Trilha de Estudos) completo, sequencial e prático no idioma **{aiLang}**.\n'
+      'REGRA CRÍTICA: Todos os títulos, descrições, objetivos, tópicos e metas devem estar estritamente no idioma **{aiLang}**.\n'
+      '- Objetivo final: "{goal}"\n'
+      '- Matéria / Área principal: "{subject}"\n'
+      '- Nível atual: "{level}"\n'
+      '- Prazo total estimado: {weeks} semanas (~{hours} horas por semana)\n'
+      '{extra}\n'
+      'Gere de 5 a 8 etapas progressivas (da base até a consolidação/prática).\n'
+      'Para CADA etapa, explique detalhadamente o que a pessoa vai aprender:\n'
+      '- "description": 2 a 3 frases objetivas explicando o propósito da etapa, a progressão didática e como o conteúdo se conecta ao objetivo final.\n'
+      '- "learning_objectives": lista de 3 a 4 objetivos claros começando com verbo no infinitivo detalhando o que o aluno dominará ao concluir a etapa.\n'
+      '- "key_topics": lista de 4 a 6 conceitos/assuntos específicos essenciais daquela etapa.\n'
+      '- "practical_milestone": 1 meta prática verificável para validar que aprendeu.\n'
+      '- "subtopics": lista de 3 a 5 subtarefas acionáveis de checklist.\n'
+      '- "resources": 1 a 3 sugestões de materiais ou exercícios práticos.\n\n'
+      'RETORNE ESTRITAMENTE um array JSON com 1 objeto neste formato (sem Markdown extra):\n'
+      '[\n'
+      '  {\n'
+      '    "title": "Concise roadmap title",\n'
+      '    "steps": [\n'
+      '      {\n'
+      '        "title": "Step 1: Clear step name",\n'
+      '        "description": "Detailed explanation of what will be learned and why this step comes here.",\n'
+      '        "estimated_hours": 6,\n'
+      '        "learning_objectives": ["Understand concept X...", "Apply method Y in practice..."],\n'
+      '        "key_topics": ["Concept A", "Concept B", "Rule C", "Case Study D"],\n'
+      '        "practical_milestone": "Solve 15 explained exercises achieving at least 80% accuracy.",\n'
+      '        "subtopics": ["Subtopic 1", "Subtopic 2", "Subtopic 3"],\n'
+      '        "resources": ["Suggested material or practice exercise"]\n'
+      '      }\n'
+      '    ]\n'
+      '  }\n'
+      ']',
       {
-        "title": "Etapa 1: Nome claro da etapa",
-        "description": "Explicação detalhada do que será aprendido e por que essa etapa vem neste momento.",
-        "estimated_hours": 6,
-        "learning_objectives": ["Compreender o conceito X...", "Aplicar o método Y na prática..."],
-        "key_topics": ["Conceito A", "Conceito B", "Fórmula/Regra C", "Estudo de Caso D"],
-        "practical_milestone": "Resolver 15 exercícios comentados atingindo pelo menos 80% de acertos.",
-        "subtopics": ["Subtópico 1", "Subtópico 2", "Subtópico 3"],
-        "resources": ["Tipo de material ou exercício sugerido"]
-      }
-    ]
-  }
-]
-''';
+        'aiLang': aiLang,
+        'goal': cleanGoal,
+        'subject': cleanSubject,
+        'level': level,
+        'weeks': safeWeeks,
+        'hours': safeHours,
+        'extra': extraSection,
+      },
+    );
 
     String raw = '';
     if (provider == 'google') {
@@ -3499,7 +3778,9 @@ RETORNE ESTRITAMENTE um array JSON com 1 objeto neste formato (sem Markdown extr
 
     return StudyRoadmap(
       id: 'roadmap-${now.millisecondsSinceEpoch}',
-      title: goal.isNotEmpty ? goal : 'Trilha de $subject',
+      title: goal.isNotEmpty
+          ? goal
+          : NoesisL10n.tr('Trilha de {subject}', {'subject': subject}),
       goal: goal,
       subject: subject,
       level: level,
@@ -3509,125 +3790,195 @@ RETORNE ESTRITAMENTE um array JSON com 1 objeto neste formato (sem Markdown extr
       steps: [
         RoadmapStep(
           id: 'step-1-${now.millisecondsSinceEpoch}',
-          title: '1. Diagnóstico e Fundamentos de $subject',
-          description:
-              'Nivelamento conceitual inicial para construir uma base sólida em $subject ($level) antes de avançar para tópicos densos.',
+          title: NoesisL10n.tr(
+            '1. Diagnóstico e Fundamentos de {subject}',
+            {'subject': subject},
+          ),
+          description: NoesisL10n.tr(
+            'Nivelamento conceitual inicial para construir uma base sólida em {subject} ({level}) antes de avançar para tópicos densos.',
+            {'subject': subject, 'level': NoesisL10n.tr(level)},
+          ),
           estimatedHours: perStep,
           status: RoadmapStepStatus.doing,
           learningObjectives: [
-            'Dominar a terminologia fundamental e os princípios organizadores de $subject',
-            'Identificar suas principais lacunas iniciais por meio de questões diagnósticas',
-            'Estruturar um resumo-base para consultas rápidas nas etapas seguintes',
+            NoesisL10n.tr(
+              'Dominar a terminologia fundamental e os princípios organizadores de {subject}',
+              {'subject': subject},
+            ),
+            NoesisL10n.tr('Identificar suas principais lacunas iniciais por meio de questões diagnósticas'),
+            NoesisL10n.tr('Estruturar um resumo-base para consultas rápidas nas etapas seguintes'),
           ],
           keyTopics: [
-            'Conceitos basilares de $subject',
-            'Vocabulário e convenções',
-            'Leitura e interpretação inicial',
-            'Mapa de incidência',
+            NoesisL10n.tr('Conceitos basilares de {subject}', {'subject': subject}),
+            NoesisL10n.tr('Vocabulário e convenções'),
+            NoesisL10n.tr('Leitura e interpretação inicial'),
+            NoesisL10n.tr('Mapa de incidência'),
           ],
-          practicalMilestone: 'Concluir 10 questões diagnósticas e anotar os 5 conceitos-chave no Caderno.',
+          practicalMilestone: NoesisL10n.tr(
+            'Concluir 10 questões diagnósticas e anotar os 5 conceitos-chave no Caderno.',
+          ),
           subtopics: [
-            RoadmapSubtopic(id: 'sub-1a', title: 'Mapeamento de conceitos-chave de $subject'),
-            const RoadmapSubtopic(id: 'sub-1b', title: 'Resumo base e vocabulário essencial'),
-            const RoadmapSubtopic(id: 'sub-1c', title: 'Lista inicial de exercícios diagnósticos'),
+            RoadmapSubtopic(
+              id: 'sub-1a',
+              title: NoesisL10n.tr(
+                'Mapeamento de conceitos-chave de {subject}',
+                {'subject': subject},
+              ),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-1b',
+              title: NoesisL10n.tr('Resumo base e vocabulário essencial'),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-1c',
+              title: NoesisL10n.tr('Lista inicial de exercícios diagnósticos'),
+            ),
           ],
-          resources: const ['Caderno de resumo estruturado', '10 questões diagnósticas'],
+          resources: [
+            NoesisL10n.tr('Caderno de resumo estruturado'),
+            NoesisL10n.tr('10 questões diagnósticas'),
+          ],
         ),
         RoadmapStep(
           id: 'step-2-${now.millisecondsSinceEpoch}',
-          title: '2. Núcleo Teórico e Estruturas Principais',
-          description:
-              'Aprofundamento sistemático nos pilares centrais de $subject, conectando regras, mecanismos e causas e consequências.',
+          title: NoesisL10n.tr('2. Núcleo Teórico e Estruturas Principais'),
+          description: NoesisL10n.tr(
+            'Aprofundamento sistemático nos pilares centrais de {subject}, conectando regras, mecanismos e causas e consequências.',
+            {'subject': subject},
+          ),
           estimatedHours: perStep,
           learningObjectives: [
-            'Explicar com clareza os mecanismos e leis centrais de $subject',
-            'Relacionar diferentes frentes teóricas sem depender de memorização mecânica',
-            'Transformar definições-chave em flashcards para retenção espaçada',
+            NoesisL10n.tr(
+              'Explicar com clareza os mecanismos e leis centrais de {subject}',
+              {'subject': subject},
+            ),
+            NoesisL10n.tr('Relacionar diferentes frentes teóricas sem depender de memorização mecânica'),
+            NoesisL10n.tr('Transformar definições-chave em flashcards para retenção espaçada'),
           ],
           keyTopics: [
-            'Pilares de maior peso',
-            'Relações de causa e efeito',
-            'Modelagem conceitual',
-            'Síntese ativa',
+            NoesisL10n.tr('Pilares de maior peso'),
+            NoesisL10n.tr('Relações de causa e efeito'),
+            NoesisL10n.tr('Modelagem conceitual'),
+            NoesisL10n.tr('Síntese ativa'),
           ],
-          practicalMilestone: 'Criar e revisar pelo menos 15 flashcards dos pilares teóricos principais.',
+          practicalMilestone: NoesisL10n.tr(
+            'Criar e revisar pelo menos 15 flashcards dos pilares teóricos principais.',
+          ),
           subtopics: [
-            const RoadmapSubtopic(id: 'sub-2a', title: 'Estudo guiado dos tópicos de maior peso'),
-            const RoadmapSubtopic(id: 'sub-2b', title: 'Flashcards para fixação ativa (Active Recall)'),
+            RoadmapSubtopic(
+              id: 'sub-2a',
+              title: NoesisL10n.tr('Estudo guiado dos tópicos de maior peso'),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-2b',
+              title: NoesisL10n.tr('Flashcards para fixação ativa (Active Recall)'),
+            ),
           ],
-          resources: const ['Baralho de Flashcards no Noesis', 'Anotações por tópico'],
+          resources: [
+            NoesisL10n.tr('Baralho de Flashcards no Noesis'),
+            NoesisL10n.tr('Anotações por tópico'),
+          ],
         ),
         RoadmapStep(
           id: 'step-3-${now.millisecondsSinceEpoch}',
-          title: '3. Resolução Guiada e Aplicações Práticas',
-          description:
-              'Transição da teoria para a prática dirigida: treino progressivo em situações reais e análise detalhada dos distratores.',
+          title: NoesisL10n.tr('3. Resolução Guiada e Aplicações Práticas'),
+          description: NoesisL10n.tr(
+            'Transição da teoria para a prática dirigida: treino progressivo em situações reais e análise detalhada dos distratores.',
+          ),
           estimatedHours: perStep,
           learningObjectives: [
-            'Interpretar enunciados contextualizados e identificar exatamente o comando da questão',
-            'Diagnosticar erros recorrentes e armadilhas típicas da área',
-            'Ganhar velocidade e segurança na resolução de problemas aplicados',
+            NoesisL10n.tr('Interpretar enunciados contextualizados e identificar exatamente o comando da questão'),
+            NoesisL10n.tr('Diagnosticar erros recorrentes e armadilhas típicas da área'),
+            NoesisL10n.tr('Ganhar velocidade e segurança na resolução de problemas aplicados'),
           ],
           keyTopics: [
-            'Resolução passo a passo',
-            'Análise de distratores',
-            'Caderno de erros',
-            'Aplicações cotidianas',
+            NoesisL10n.tr('Resolução passo a passo'),
+            NoesisL10n.tr('Análise de distratores'),
+            NoesisL10n.tr('Caderno de erros'),
+            NoesisL10n.tr('Aplicações cotidianas'),
           ],
-          practicalMilestone: 'Completar um simulado temático atingindo pelo menos 75% de aproveitamento.',
+          practicalMilestone: NoesisL10n.tr(
+            'Completar um simulado temático atingindo pelo menos 75% de aproveitamento.',
+          ),
           subtopics: [
-            const RoadmapSubtopic(id: 'sub-3a', title: 'Bateria de exercícios por dificuldade crescente'),
-            const RoadmapSubtopic(id: 'sub-3b', title: 'Caderno de erros e revisão das lacunas'),
+            RoadmapSubtopic(
+              id: 'sub-3a',
+              title: NoesisL10n.tr('Bateria de exercícios por dificuldade crescente'),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-3b',
+              title: NoesisL10n.tr('Caderno de erros e revisão das lacunas'),
+            ),
           ],
-          resources: const ['Simulado temático no Noesis'],
+          resources: [NoesisL10n.tr('Simulado temático no Noesis')],
         ),
         RoadmapStep(
           id: 'step-4-${now.millisecondsSinceEpoch}',
-          title: '4. Tópicos Avançados e Interdisciplinaridade',
-          description:
-              'Integração entre conteúdos de alta complexidade em $subject, lidando com cenários combinados e questões de alto rigor.',
+          title: NoesisL10n.tr('4. Tópicos Avançados e Interdisciplinaridade'),
+          description: NoesisL10n.tr(
+            'Integração entre conteúdos de alta complexidade em {subject}, lidando com cenários combinados e questões de alto rigor.',
+            {'subject': subject},
+          ),
           estimatedHours: perStep,
           learningObjectives: [
-            'Combinar dois ou mais conceitos avançados na mesma resolução',
-            'Evitar extrapolações e erros sutis de modelagem em níveis altos',
-            'Consolidar tópicos críticos por revisão ativa antes da reta final',
+            NoesisL10n.tr('Combinar dois ou mais conceitos avançados na mesma resolução'),
+            NoesisL10n.tr('Evitar extrapolações e erros sutis de modelagem em níveis altos'),
+            NoesisL10n.tr('Consolidar tópicos críticos por revisão ativa antes da reta final'),
           ],
           keyTopics: [
-            'Questões interdisciplinares',
-            'Casos de borda',
-            'Análise crítica comparativa',
-            'Gestão de tempo sob pressão',
+            NoesisL10n.tr('Questões interdisciplinares'),
+            NoesisL10n.tr('Casos de borda'),
+            NoesisL10n.tr('Análise crítica comparativa'),
+            NoesisL10n.tr('Gestão de tempo sob pressão'),
           ],
-          practicalMilestone: 'Resolver uma bateria avançada cronometrada e revisar 100% das questões erradas.',
+          practicalMilestone: NoesisL10n.tr(
+            'Resolver uma bateria avançada cronometrada e revisar 100% das questões erradas.',
+          ),
           subtopics: [
-            const RoadmapSubtopic(id: 'sub-4a', title: 'Casos avançados e questões interdisciplinares'),
-            const RoadmapSubtopic(id: 'sub-4b', title: 'Revisão espaçada dos pontos críticos'),
+            RoadmapSubtopic(
+              id: 'sub-4a',
+              title: NoesisL10n.tr('Casos avançados e questões interdisciplinares'),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-4b',
+              title: NoesisL10n.tr('Revisão espaçada dos pontos críticos'),
+            ),
           ],
-          resources: const ['Simulado avançado cronometrado'],
+          resources: [NoesisL10n.tr('Simulado avançado cronometrado')],
         ),
         RoadmapStep(
           id: 'step-5-${now.millisecondsSinceEpoch}',
-          title: '5. Consolidação Final e Simulado Completo',
-          description:
-              'Fechamento estratégico da trilha visando "$goal", com simulado completo, revisão da IA e ajuste fino dos últimos pontos.',
+          title: NoesisL10n.tr('5. Consolidação Final e Simulado Completo'),
+          description: NoesisL10n.tr(
+            'Fechamento estratégico da trilha visando "{goal}", com simulado completo, revisão da IA e ajuste fino dos últimos pontos.',
+            {'goal': goal},
+          ),
           estimatedHours: perStep,
           learningObjectives: [
-            'Sustentar foco e ritmo de prova durante uma bateria completa com cronômetro',
-            'Validar domínio global usando o comparativo e a Review da IA',
-            'Executar plano cirúrgico de revisão final sobre as poucas lacunas restantes',
+            NoesisL10n.tr('Sustentar foco e ritmo de prova durante uma bateria completa com cronômetro'),
+            NoesisL10n.tr('Validar domínio global usando o comparativo e a Review da IA'),
+            NoesisL10n.tr('Executar plano cirúrgico de revisão final sobre as poucas lacunas restantes'),
           ],
           keyTopics: [
-            'Simulado completo',
-            'Review pedagógica da IA',
-            'Revisão de última milha',
-            'Calibragem de ritmo',
+            NoesisL10n.tr('Simulado completo'),
+            NoesisL10n.tr('Review pedagógica da IA'),
+            NoesisL10n.tr('Revisão de última milha'),
+            NoesisL10n.tr('Calibragem de ritmo'),
           ],
-          practicalMilestone: 'Finalizar simulado completo com tempo controlado e revisar o plano da IA.',
+          practicalMilestone: NoesisL10n.tr(
+            'Finalizar simulado completo com tempo controlado e revisar o plano da IA.',
+          ),
           subtopics: [
-            const RoadmapSubtopic(id: 'sub-5a', title: 'Simulado completo com tempo controlado'),
-            const RoadmapSubtopic(id: 'sub-5b', title: 'Revisão final da Review da IA'),
+            RoadmapSubtopic(
+              id: 'sub-5a',
+              title: NoesisL10n.tr('Simulado completo com tempo controlado'),
+            ),
+            RoadmapSubtopic(
+              id: 'sub-5b',
+              title: NoesisL10n.tr('Revisão final da Review da IA'),
+            ),
           ],
-          resources: const ['Simulado completo no Noesis'],
+          resources: [NoesisL10n.tr('Simulado completo no Noesis')],
         ),
       ],
     );
@@ -3650,7 +4001,15 @@ RETORNE ESTRITAMENTE um array JSON com 1 objeto neste formato (sem Markdown extr
   }
 
   static String _formatTimeBrief(DateTime dt) {
-    final weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    final weekdays = [
+      NoesisL10n.tr('Seg'),
+      NoesisL10n.tr('Ter'),
+      NoesisL10n.tr('Qua'),
+      NoesisL10n.tr('Qui'),
+      NoesisL10n.tr('Sex'),
+      NoesisL10n.tr('Sáb'),
+      NoesisL10n.tr('Dom'),
+    ];
     final wd = weekdays[(dt.weekday - 1) % 7];
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');

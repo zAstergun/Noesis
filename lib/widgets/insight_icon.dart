@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../core/localization/noesis_l10n.dart';
 
 /// Ícone oficial da moeda **Insight** do Noesis (baseado em `assets/images/insight.svg`).
 ///
@@ -17,7 +18,7 @@ class InsightCoinIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Ícone Insight Noesis',
+      label: context.tr('Ícone Insight Noesis'),
       child: SizedBox(
         width: size,
         height: size,
@@ -103,7 +104,7 @@ class ConsistencySealIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = accentColor ?? const Color(0xFF22C55E);
     return Semantics(
-      label: 'Ícone Selo de Consistência Noesis',
+      label: context.tr('Ícone Selo de Consistência Noesis'),
       child: SizedBox(
         width: size,
         height: size,

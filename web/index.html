@@ -1,14 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <script>
-    // Supabase Auth aceita http://127.0.0.1:** e rejeita http://localhost:**,
-    // evitando fallback para a Site URL (studio.asterdev.me) no OAuth Web local.
+    // Supabase Auth accepts http://127.0.0.1:** and rejects http://localhost:**,
+    // avoiding fallback to the Site URL on local Web OAuth.
     if (window.location.hostname === 'localhost') {
       var target = new URL(window.location.href);
       target.hostname = '127.0.0.1';
       window.location.replace(target.toString());
     }
+    (function () {
+      var supported = ['pt-BR', 'pt-PT', 'en', 'es', 'ja', 'zh', 'ko', 'vi', 'id', 'fr', 'de', 'it', 'nl', 'ru', 'ar'];
+      var langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+      var resolved = 'en';
+      for (var i = 0; i < langs.length; i++) {
+        var tag = String(langs[i] || '').replace(/_/g, '-').toLowerCase();
+        if (!tag) continue;
+        if (tag === 'pt-pt' || tag.indexOf('pt-pt-') === 0) { resolved = 'pt-PT'; break; }
+        if (tag === 'pt' || tag.indexOf('pt-') === 0) { resolved = 'pt-BR'; break; }
+        var base = tag.split('-')[0];
+        if (supported.indexOf(base) !== -1) { resolved = base; break; }
+      }
+      document.documentElement.lang = resolved;
+    })();
   </script>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -26,7 +40,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta name="description" content="Noesis — Cognitive OS & AI Study Engine do ecossistema Aster.">
+  <meta name="description" content="Noesis — Cognitive OS & AI Study Engine of the Aster ecosystem.">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <style>

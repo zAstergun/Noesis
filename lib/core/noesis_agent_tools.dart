@@ -4,6 +4,8 @@ import '../features/notebooks/models/notebook_model.dart';
 import '../features/quizzes/data/saved_exams_repository.dart';
 import '../features/roadmaps/data/roadmaps_repository.dart';
 import '../features/roadmaps/models/roadmap_model.dart';
+import 'localization/natural_date_keywords.dart';
+import 'localization/noesis_l10n.dart';
 import 'supabase_service.dart';
 
 /// Item ou arquivo anexado pelo usuário para contextualizar o Noesis AI.
@@ -27,21 +29,21 @@ class NoesisAttachment {
   String get iconLabel {
     switch (kind) {
       case 'file':
-        return 'Arquivo';
+        return NoesisL10n.tr('Arquivo');
       case 'quiz':
-        return 'Simulado';
+        return NoesisL10n.tr('Simulado');
       case 'notebook':
-        return 'Caderno';
+        return NoesisL10n.tr('Caderno');
       case 'flashcard_deck':
-        return 'Flashcards';
+        return NoesisL10n.tr('Flashcards');
       case 'roadmap':
-        return 'Trilha';
+        return NoesisL10n.tr('Trilha');
       case 'study_log':
-        return 'Diário';
+        return NoesisL10n.tr('Diário');
       case 'calendar':
-        return 'Calendário';
+        return NoesisL10n.tr('Calendário');
       default:
-        return 'Anexo';
+        return NoesisL10n.tr('Anexo');
     }
   }
 }
@@ -132,19 +134,19 @@ class NoesisAgentTools {
   static List<Map<String, dynamic>> get googleRestFunctionDeclarations => [
         {
           'name': 'inspect_account_data',
-          'description':
-              'Lê e revisa itens reais da conta do usuário no Noesis (calendário, diário de estudos, simulados, flashcards, cadernos, trilhas e meta semanal). Use antes de responder perguntas sobre o que existe na conta ou quando precisar de IDs/conteúdos completos para revisar ou editar.',
+          'description': NoesisL10n.tr(
+              'Lê e revisa itens reais da conta do usuário no Noesis (calendário, diário de estudos, simulados, flashcards, cadernos, trilhas e meta semanal). Use antes de responder perguntas sobre o que existe na conta ou quando precisar de IDs/conteúdos completos para revisar ou editar.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
               'scope': {
                 'type': 'STRING',
-                'description':
-                    'Escopo: all, calendar, sessions, quizzes, flashcards, notebooks, roadmaps, weekly_goal.',
+                'description': NoesisL10n.tr(
+                    'Escopo: all, calendar, sessions, quizzes, flashcards, notebooks, roadmaps, weekly_goal.'),
               },
               'search_query': {
                 'type': 'STRING',
-                'description': 'Filtro opcional por título, matéria ou termo.',
+                'description': NoesisL10n.tr('Filtro opcional por título, matéria ou termo.'),
               },
             },
             'required': ['scope'],
@@ -153,77 +155,77 @@ class NoesisAgentTools {
         // ─── CALENDÁRIO ───
         {
           'name': 'schedule_calendar_event',
-          'description': 'Cria um novo evento, prova, revisão ou bloco de estudos no calendário.',
+          'description': NoesisL10n.tr('Cria um novo evento, prova, revisão ou bloco de estudos no calendário.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'title': {'type': 'STRING', 'description': 'Título claro do evento ou prova.'},
+              'title': {'type': 'STRING', 'description': NoesisL10n.tr('Título claro do evento ou prova.')},
               'start_time_iso': {
                 'type': 'STRING',
-                'description': 'Data/hora de início em ISO 8601 local (ex: 2026-11-25T11:00:00).',
+                'description': NoesisL10n.tr('Data/hora de início em ISO 8601 local (ex: 2026-11-25T11:00:00).'),
               },
-              'duration_minutes': {'type': 'INTEGER', 'description': 'Duração em minutos (padrão 60).'},
+              'duration_minutes': {'type': 'INTEGER', 'description': NoesisL10n.tr('Duração em minutos (padrão 60).')},
               'category': {
                 'type': 'STRING',
-                'description': 'Categoria: study, review, lab, exam, personal.',
+                'description': NoesisL10n.tr('Categoria: study, review, lab, exam, personal.'),
               },
-              'description': {'type': 'STRING', 'description': 'Observações do evento.'},
+              'description': {'type': 'STRING', 'description': NoesisL10n.tr('Observações do evento.')},
             },
             'required': ['title', 'start_time_iso'],
           },
         },
         {
           'name': 'update_calendar_event',
-          'description': 'Edita um evento existente no calendário (título, horário, duração, categoria ou conclusão).',
+          'description': NoesisL10n.tr('Edita um evento existente no calendário (título, horário, duração, categoria ou conclusão).'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'event_id': {'type': 'STRING', 'description': 'ID do evento (se conhecido).'},
-              'title_match': {'type': 'STRING', 'description': 'Parte do título do evento para localizar.'},
-              'new_title': {'type': 'STRING', 'description': 'Novo título (opcional).'},
-              'start_time_iso': {'type': 'STRING', 'description': 'Novo horário de início ISO 8601 (opcional).'},
-              'duration_minutes': {'type': 'INTEGER', 'description': 'Nova duração em minutos (opcional).'},
-              'category': {'type': 'STRING', 'description': 'Nova categoria (opcional).'},
-              'description': {'type': 'STRING', 'description': 'Nova descrição (opcional).'},
-              'is_completed': {'type': 'BOOLEAN', 'description': 'Marcar como concluído ou pendente.'},
+              'event_id': {'type': 'STRING', 'description': NoesisL10n.tr('ID do evento (se conhecido).')},
+              'title_match': {'type': 'STRING', 'description': NoesisL10n.tr('Parte do título do evento para localizar.')},
+              'new_title': {'type': 'STRING', 'description': NoesisL10n.tr('Novo título (opcional).')},
+              'start_time_iso': {'type': 'STRING', 'description': NoesisL10n.tr('Novo horário de início ISO 8601 (opcional).')},
+              'duration_minutes': {'type': 'INTEGER', 'description': NoesisL10n.tr('Nova duração em minutos (opcional).')},
+              'category': {'type': 'STRING', 'description': NoesisL10n.tr('Nova categoria (opcional).')},
+              'description': {'type': 'STRING', 'description': NoesisL10n.tr('Nova descrição (opcional).')},
+              'is_completed': {'type': 'BOOLEAN', 'description': NoesisL10n.tr('Marcar como concluído ou pendente.')},
             },
           },
         },
         {
           'name': 'delete_calendar_event',
-          'description': 'Remove um evento do calendário pelo ID ou título.',
+          'description': NoesisL10n.tr('Remove um evento do calendário pelo ID ou título.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'event_id': {'type': 'STRING', 'description': 'ID do evento.'},
-              'title_match': {'type': 'STRING', 'description': 'Parte do título do evento a remover.'},
+              'event_id': {'type': 'STRING', 'description': NoesisL10n.tr('ID do evento.')},
+              'title_match': {'type': 'STRING', 'description': NoesisL10n.tr('Parte do título do evento a remover.')},
             },
           },
         },
         // ─── DIÁRIO DE ESTUDOS / SESSÕES ───
         {
           'name': 'log_study_session',
-          'description': 'Registra uma sessão de estudo concluída no Diário de Estudos.',
+          'description': NoesisL10n.tr('Registra uma sessão de estudo concluída no Diário de Estudos.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'subject': {'type': 'STRING', 'description': 'Matéria estudada.'},
-              'topic': {'type': 'STRING', 'description': 'O que foi estudado.'},
-              'duration_minutes': {'type': 'INTEGER', 'description': 'Duração em minutos.'},
-              'study_date_iso': {'type': 'STRING', 'description': 'Data YYYY-MM-DD (opcional, padrão hoje).'},
-              'notes': {'type': 'STRING', 'description': 'Anotações opcionais.'},
+              'subject': {'type': 'STRING', 'description': NoesisL10n.tr('Matéria estudada.')},
+              'topic': {'type': 'STRING', 'description': NoesisL10n.tr('O que foi estudado.')},
+              'duration_minutes': {'type': 'INTEGER', 'description': NoesisL10n.tr('Duração em minutos.')},
+              'study_date_iso': {'type': 'STRING', 'description': NoesisL10n.tr('Data YYYY-MM-DD (opcional, padrão hoje).')},
+              'notes': {'type': 'STRING', 'description': NoesisL10n.tr('Anotações opcionais.')},
             },
             'required': ['subject', 'topic', 'duration_minutes'],
           },
         },
         {
           'name': 'update_study_session',
-          'description': 'Edita um registro do Diário de Estudos.',
+          'description': NoesisL10n.tr('Edita um registro do Diário de Estudos.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
               'session_id': {'type': 'STRING'},
-              'match_text': {'type': 'STRING', 'description': 'Busca por matéria ou tópico.'},
+              'match_text': {'type': 'STRING', 'description': NoesisL10n.tr('Busca por matéria ou tópico.')},
               'subject': {'type': 'STRING'},
               'topic': {'type': 'STRING'},
               'duration_minutes': {'type': 'INTEGER'},
@@ -233,36 +235,36 @@ class NoesisAgentTools {
         },
         {
           'name': 'delete_study_session',
-          'description': 'Exclui um registro do Diário de Estudos.',
+          'description': NoesisL10n.tr('Exclui um registro do Diário de Estudos.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
               'session_id': {'type': 'STRING'},
-              'match_text': {'type': 'STRING', 'description': 'Matéria ou tópico do registro.'},
+              'match_text': {'type': 'STRING', 'description': NoesisL10n.tr('Matéria ou tópico do registro.')},
             },
           },
         },
         // ─── META SEMANAL E DIÁRIA ───
         {
           'name': 'set_weekly_goal',
-          'description': 'Define ou atualiza a meta semanal de estudos do usuário.',
+          'description': NoesisL10n.tr('Define ou atualiza a meta semanal de estudos do usuário.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'hours': {'type': 'INTEGER', 'description': 'Horas por semana.'},
-              'minutes': {'type': 'INTEGER', 'description': 'Minutos adicionais (0 a 59).'},
+              'hours': {'type': 'INTEGER', 'description': NoesisL10n.tr('Horas por semana.')},
+              'minutes': {'type': 'INTEGER', 'description': NoesisL10n.tr('Minutos adicionais (0 a 59).')},
             },
             'required': ['hours'],
           },
         },
         {
           'name': 'set_daily_goal',
-          'description': 'Define ou atualiza a meta diária de estudos do usuário.',
+          'description': NoesisL10n.tr('Define ou atualiza a meta diária de estudos do usuário.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'hours': {'type': 'INTEGER', 'description': 'Horas por dia.'},
-              'minutes': {'type': 'INTEGER', 'description': 'Minutos adicionais (0 a 59).'},
+              'hours': {'type': 'INTEGER', 'description': NoesisL10n.tr('Horas por dia.')},
+              'minutes': {'type': 'INTEGER', 'description': NoesisL10n.tr('Minutos adicionais (0 a 59).')},
             },
             'required': ['hours'],
           },
@@ -270,7 +272,7 @@ class NoesisAgentTools {
         // ─── SIMULADOS ───
         {
           'name': 'create_quiz',
-          'description': 'Cria um novo simulado com questões personalizadas.',
+          'description': NoesisL10n.tr('Cria um novo simulado com questões personalizadas.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -284,7 +286,7 @@ class NoesisAgentTools {
         },
         {
           'name': 'delete_quiz',
-          'description': 'Remove um simulado salvo pelo ID ou título.',
+          'description': NoesisL10n.tr('Remove um simulado salvo pelo ID ou título.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -296,7 +298,7 @@ class NoesisAgentTools {
         // ─── FLASHCARDS ───
         {
           'name': 'create_flashcards',
-          'description': 'Cria um novo baralho de flashcards.',
+          'description': NoesisL10n.tr('Cria um novo baralho de flashcards.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -310,8 +312,8 @@ class NoesisAgentTools {
         },
         {
           'name': 'update_flashcard_deck',
-          'description':
-              'Edita um baralho de flashcards existente: renomear, adicionar cartões ou remover cartões.',
+          'description': NoesisL10n.tr(
+              'Edita um baralho de flashcards existente: renomear, adicionar cartões ou remover cartões.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -336,7 +338,7 @@ class NoesisAgentTools {
         },
         {
           'name': 'delete_flashcard_deck',
-          'description': 'Exclui um baralho de flashcards pelo ID ou título.',
+          'description': NoesisL10n.tr('Exclui um baralho de flashcards pelo ID ou título.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -348,29 +350,29 @@ class NoesisAgentTools {
         // ─── CADERNOS DE ESTUDO ───
         {
           'name': 'create_notebook_or_note',
-          'description':
-              'Cria um novo caderno de estudos e/ou adiciona uma anotação dentro de um caderno.',
+          'description': NoesisL10n.tr(
+              'Cria um novo caderno de estudos e/ou adiciona uma anotação dentro de um caderno.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
-              'notebook_title': {'type': 'STRING', 'description': 'Título do caderno.'},
-              'subject': {'type': 'STRING', 'description': 'Disciplina do caderno.'},
-              'description': {'type': 'STRING', 'description': 'Descrição do caderno (opcional).'},
-              'note_title': {'type': 'STRING', 'description': 'Título da anotação (opcional).'},
-              'note_content': {'type': 'STRING', 'description': 'Conteúdo Markdown da anotação.'},
+              'notebook_title': {'type': 'STRING', 'description': NoesisL10n.tr('Título do caderno.')},
+              'subject': {'type': 'STRING', 'description': NoesisL10n.tr('Disciplina do caderno.')},
+              'description': {'type': 'STRING', 'description': NoesisL10n.tr('Descrição do caderno (opcional).')},
+              'note_title': {'type': 'STRING', 'description': NoesisL10n.tr('Título da anotação (opcional).')},
+              'note_content': {'type': 'STRING', 'description': NoesisL10n.tr('Conteúdo Markdown da anotação.')},
               'tags': {
                 'type': 'ARRAY',
                 'items': {'type': 'STRING'},
               },
-              'needs_review': {'type': 'BOOLEAN', 'description': 'Se deve marcar a anotação para revisão.'},
+              'needs_review': {'type': 'BOOLEAN', 'description': NoesisL10n.tr('Se deve marcar a anotação para revisão.')},
             },
             'required': ['notebook_title'],
           },
         },
         {
           'name': 'update_notebook_or_note',
-          'description':
-              'Edita um caderno ou uma anotação existente (título, conteúdo, tags ou marcação de revisão).',
+          'description': NoesisL10n.tr(
+              'Edita um caderno ou uma anotação existente (título, conteúdo, tags ou marcação de revisão).'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -389,7 +391,7 @@ class NoesisAgentTools {
         },
         {
           'name': 'delete_notebook_or_note',
-          'description': 'Exclui uma anotação específica ou um caderno inteiro.',
+          'description': NoesisL10n.tr('Exclui uma anotação específica ou um caderno inteiro.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -403,7 +405,7 @@ class NoesisAgentTools {
         // ─── TRILHAS (ROADMAPS) ───
         {
           'name': 'create_roadmap',
-          'description': 'Cria uma nova trilha de estudos (roadmap) com etapas detalhadas.',
+          'description': NoesisL10n.tr('Cria uma nova trilha de estudos (roadmap) com etapas detalhadas.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -418,8 +420,8 @@ class NoesisAgentTools {
         },
         {
           'name': 'update_roadmap',
-          'description':
-              'Edita uma trilha (roadmap): alterar título/objetivo, adicionar etapa, marcar etapa como concluída/em andamento ou remover etapa.',
+          'description': NoesisL10n.tr(
+              'Edita uma trilha (roadmap): alterar título/objetivo, adicionar etapa, marcar etapa como concluída/em andamento ou remover etapa.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -429,15 +431,15 @@ class NoesisAgentTools {
               'new_goal': {'type': 'STRING'},
               'add_step_title': {'type': 'STRING'},
               'add_step_description': {'type': 'STRING'},
-              'step_match': {'type': 'STRING', 'description': 'Título da etapa para atualizar status/excluir.'},
-              'step_status': {'type': 'STRING', 'description': 'todo, doing ou done.'},
+              'step_match': {'type': 'STRING', 'description': NoesisL10n.tr('Título da etapa para atualizar status/excluir.')},
+              'step_status': {'type': 'STRING', 'description': NoesisL10n.tr('todo, doing ou done.')},
               'remove_step': {'type': 'BOOLEAN'},
             },
           },
         },
         {
           'name': 'delete_roadmap',
-          'description': 'Exclui uma trilha (roadmap) pelo ID ou título.',
+          'description': NoesisL10n.tr('Exclui uma trilha (roadmap) pelo ID ou título.'),
           'parameters': {
             'type': 'OBJECT',
             'properties': {
@@ -461,61 +463,116 @@ class NoesisAgentTools {
     final weekStudied = SupabaseService.computeCurrentWeekStudiedMinutes(sessions);
 
     final buf = StringBuffer();
-    buf.writeln('=== CONTEXTO REAL DA CONTA NO NOESIS ===');
+    buf.writeln(NoesisL10n.tr('=== CONTEXTO REAL DA CONTA NO NOESIS ==='));
     buf.writeln(
-      'Meta semanal: ${SupabaseService.formatGoalDuration(weekStudied)} estudados nesta semana / '
-      'meta de ${SupabaseService.formatGoalDuration(weeklyGoal)}.',
+      NoesisL10n.tr(
+        'Meta semanal: {studied} estudados nesta semana / meta de {goal}.',
+        {
+          'studied': SupabaseService.formatGoalDuration(weekStudied),
+          'goal': SupabaseService.formatGoalDuration(weeklyGoal),
+        },
+      ),
     );
 
-    buf.writeln('\n[Calendário: ${events.length} eventos]');
+    buf.writeln(NoesisL10n.tr('\n[Calendário: {count} eventos]', {'count': events.length}));
     for (final e in events.take(15)) {
       buf.writeln(
-        '- "${e['title']}" (${e['category'] ?? 'study'}) · início=${e['start_time']} · '
-        'concluído=${e['is_completed'] == true}',
+        NoesisL10n.tr(
+          '- "{title}" ({category}) · início={start} · concluído={done}',
+          {
+            'title': e['title'],
+            'category': e['category'] ?? 'study',
+            'start': e['start_time'],
+            'done': e['is_completed'] == true,
+          },
+        ),
       );
     }
 
-    buf.writeln('\n[Diário de Estudos: ${sessions.length} sessões recentes]');
+    buf.writeln(NoesisL10n.tr('\n[Diário de Estudos: {count} sessões recentes]', {'count': sessions.length}));
     for (final s in sessions.take(12)) {
       buf.writeln(
         '- ${s['study_date']} · ${s['subject']}: "${s['topic']}" (${s['duration_minutes']} min)',
       );
     }
 
-    buf.writeln('\n[Simulados salvos: ${exams.length + generatedQuizzes.length}]');
+    buf.writeln(NoesisL10n.tr('\n[Simulados salvos: {count}]', {'count': exams.length + generatedQuizzes.length}));
     for (final ex in exams.take(10)) {
       buf.writeln(
-        '- "${ex.title}" (${ex.subject}) · ${ex.scorePercentage.round()}% '
-        '(${ex.correctCount}/${ex.loadedCount} acertos)',
+        NoesisL10n.tr(
+          '- "{title}" ({subject}) · {pct}% ({correct}/{total} acertos)',
+          {
+            'title': ex.title,
+            'subject': ex.subject,
+            'pct': ex.scorePercentage.round(),
+            'correct': ex.correctCount,
+            'total': ex.loadedCount,
+          },
+        ),
       );
     }
     for (final q in generatedQuizzes.take(8)) {
       final qList = (q['questions_data'] as List?) ?? [];
       buf.writeln(
-        '- "${q['title']}" (${q['subject'] ?? 'Geral'}) · ${qList.length} questões (gerado)',
+        NoesisL10n.tr(
+          '- "{title}" ({subject}) · {count} questões (gerado)',
+          {
+            'title': q['title'],
+            'subject': q['subject'] ?? NoesisL10n.tr('Geral'),
+            'count': qList.length,
+          },
+        ),
       );
     }
 
-    buf.writeln('\n[Flashcards: ${decks.length} baralhos]');
+    buf.writeln(NoesisL10n.tr('\n[Flashcards: {count} baralhos]', {'count': decks.length}));
     for (final d in decks.take(12)) {
       buf.writeln(
-        '- "${d.title}" (${d.subject}) · ${d.cardCount} cartões (${d.pendingReviewCount()} p/ revisar)',
+        NoesisL10n.tr(
+          '- "{title}" ({subject}) · {cards} cartões ({pending} p/ revisar)',
+          {
+            'title': d.title,
+            'subject': d.subject,
+            'cards': d.cardCount,
+            'pending': d.pendingReviewCount(),
+          },
+        ),
       );
     }
 
-    buf.writeln('\n[Cadernos: ${notebooks.length}]');
+    buf.writeln(NoesisL10n.tr('\n[Cadernos: {count}]', {'count': notebooks.length}));
     for (final nb in notebooks.take(12)) {
       final noteTitles = nb.notes.take(5).map((n) {
-        final flag = n.needsReview ? ' [revisar]' : '';
+        final flag = n.needsReview ? NoesisL10n.tr(' [revisar]') : '';
         return '"${n.title}"$flag';
       }).join(', ');
-      buf.writeln('- "${nb.title}" (${nb.subject}, ${nb.noteCount} notas): $noteTitles');
+      buf.writeln(
+        NoesisL10n.tr(
+          '- "{title}" ({subject}, {count} notas): {notes}',
+          {
+            'title': nb.title,
+            'subject': nb.subject,
+            'count': nb.noteCount,
+            'notes': noteTitles,
+          },
+        ),
+      );
     }
 
-    buf.writeln('\n[Trilhas: ${roadmaps.length}]');
+    buf.writeln(NoesisL10n.tr('\n[Trilhas: {count}]', {'count': roadmaps.length}));
     for (final rm in roadmaps.take(10)) {
       final pct = (rm.progress * 100).round();
-      buf.writeln('- "${rm.title}" (${rm.subject}) · $pct% · ${rm.steps.length} etapas');
+      buf.writeln(
+        NoesisL10n.tr(
+          '- "{title}" ({subject}) · {pct}% · {count} etapas',
+          {
+            'title': rm.title,
+            'subject': rm.subject,
+            'pct': pct,
+            'count': rm.steps.length,
+          },
+        ),
+      );
     }
 
     return buf.toString();
@@ -541,13 +598,23 @@ class NoesisAgentTools {
 
     for (final ex in exams) {
       final qBuf = StringBuffer()
-        ..writeln('Simulado: ${ex.title} | Matéria: ${ex.subject} | Nota: ${ex.scorePercentage.round()}%')
-        ..writeln('Acertos: ${ex.correctCount} | Erros: ${ex.wrongCount} | Em branco: ${ex.blankCount}');
+        ..writeln(NoesisL10n.tr('Simulado: {title} | Matéria: {subject} | Nota: {score}%', {
+          'title': ex.title,
+          'subject': ex.subject,
+          'score': ex.scorePercentage.round(),
+        }))
+        ..writeln(NoesisL10n.tr('Acertos: {correct} | Erros: {wrong} | Em branco: {blank}', {
+          'correct': ex.correctCount,
+          'wrong': ex.wrongCount,
+          'blank': ex.blankCount,
+        }));
       for (int i = 0; i < math.min(12, ex.questions.length); i++) {
         final q = ex.questions[i];
         final userAns = ex.userAnswers[i];
         final rightIdx = q['correct_index'] as int? ?? 0;
-        final status = userAns == null ? 'Em branco' : (userAns == rightIdx ? 'Correta' : 'Errada');
+        final status = userAns == null
+            ? NoesisL10n.tr('Em branco')
+            : (userAns == rightIdx ? NoesisL10n.tr('Correta') : NoesisL10n.tr('Errada'));
         qBuf.writeln('Q${i + 1} [$status]: ${q['question'] ?? ''}');
       }
       list.add(
@@ -555,7 +622,10 @@ class NoesisAgentTools {
           id: 'quiz:${ex.id}',
           kind: 'quiz',
           title: ex.title,
-          subtitle: '${ex.subject} · ${ex.scorePercentage.round()}% (${ex.loadedCount} questões)',
+          subtitle: NoesisL10n.tr(
+            '{subject} · {pct}% ({count} questões)',
+            {'subject': ex.subject, 'pct': ex.scorePercentage.round(), 'count': ex.loadedCount},
+          ),
           content: qBuf.toString(),
         ),
       );
@@ -563,11 +633,15 @@ class NoesisAgentTools {
 
     for (final q in generatedQuizzes) {
       final qId = q['id']?.toString() ?? q['title']?.toString() ?? '';
-      final title = q['title']?.toString() ?? 'Simulado Noesis';
-      final subject = q['subject']?.toString() ?? 'Geral';
+      final title = q['title']?.toString() ?? NoesisL10n.tr('Simulado Noesis');
+      final subject = q['subject']?.toString() ?? NoesisL10n.tr('Geral');
       final qs = (q['questions_data'] as List?) ?? [];
       final qBuf = StringBuffer()
-        ..writeln('Simulado gerado: $title | Matéria: $subject | Questões: ${qs.length}');
+        ..writeln(NoesisL10n.tr('Simulado gerado: {title} | Matéria: {subject} | Questões: {count}', {
+          'title': title,
+          'subject': subject,
+          'count': qs.length,
+        }));
       for (int i = 0; i < math.min(12, qs.length); i++) {
         final item = qs[i];
         if (item is Map) {
@@ -579,7 +653,10 @@ class NoesisAgentTools {
           id: 'genquiz:$qId',
           kind: 'quiz',
           title: title,
-          subtitle: '$subject · ${qs.length} questões (gerado)',
+          subtitle: NoesisL10n.tr(
+            '{subject} · {count} questões (gerado)',
+            {'subject': subject, 'count': qs.length},
+          ),
           content: qBuf.toString(),
         ),
       );
@@ -587,10 +664,16 @@ class NoesisAgentTools {
 
     for (final nb in notebooks) {
       final nBuf = StringBuffer()
-        ..writeln('Caderno: ${nb.title} | Disciplina: ${nb.subject}')
-        ..writeln('Descrição: ${nb.description}');
+        ..writeln(NoesisL10n.tr('Caderno: {title} | Disciplina: {subject}', {
+          'title': nb.title,
+          'subject': nb.subject,
+        }))
+        ..writeln(NoesisL10n.tr('Descrição: {desc}', {'desc': nb.description}));
       for (final note in nb.notes) {
-        nBuf.writeln('\n--- Anotação: ${note.title} (revisar=${note.needsReview}) ---');
+        nBuf.writeln(NoesisL10n.tr('\n--- Anotação: {title} (revisar={review}) ---', {
+          'title': note.title,
+          'review': note.needsReview,
+        }));
         if (note.tags.isNotEmpty) nBuf.writeln('Tags: ${note.tags.join(', ')}');
         nBuf.writeln(note.content);
       }
@@ -599,7 +682,10 @@ class NoesisAgentTools {
           id: 'notebook:${nb.id}',
           kind: 'notebook',
           title: nb.title,
-          subtitle: '${nb.subject} · ${nb.noteCount} anotações',
+          subtitle: NoesisL10n.tr(
+            '{subject} · {count} anotações',
+            {'subject': nb.subject, 'count': nb.noteCount},
+          ),
           content: nBuf.toString(),
         ),
       );
@@ -607,17 +693,26 @@ class NoesisAgentTools {
 
     for (final deck in decks) {
       final dBuf = StringBuffer()
-        ..writeln('Baralho: ${deck.title} | Matéria: ${deck.subject}')
-        ..writeln('Cartões (${deck.cardCount}, ${deck.pendingReviewCount()} p/ revisar):');
+        ..writeln(NoesisL10n.tr('Baralho: {title} | Matéria: {subject}', {
+          'title': deck.title,
+          'subject': deck.subject,
+        }))
+        ..writeln(NoesisL10n.tr('Cartões ({total}, {pending} p/ revisar):', {
+          'total': deck.cardCount,
+          'pending': deck.pendingReviewCount(),
+        }));
       for (final c in deck.cards.take(25)) {
-        dBuf.writeln('- [${c.difficulty}] P: ${c.front} | R: ${c.back}');
+        dBuf.writeln('- [${c.difficulty}] ${NoesisL10n.tr('P: {front} | R: {back}', {'front': c.front, 'back': c.back})}');
       }
       list.add(
         NoesisAttachment(
           id: 'deck:${deck.id}',
           kind: 'flashcard_deck',
           title: deck.title,
-          subtitle: '${deck.subject} · ${deck.cardCount} cartões',
+          subtitle: NoesisL10n.tr(
+            '{subject} · {count} cartões',
+            {'subject': deck.subject, 'count': deck.cardCount},
+          ),
           content: dBuf.toString(),
         ),
       );
@@ -625,7 +720,11 @@ class NoesisAgentTools {
 
     for (final rm in roadmaps) {
       final rBuf = StringBuffer()
-        ..writeln('Trilha: ${rm.title} | Disciplina: ${rm.subject} | Objetivo: ${rm.goal}');
+        ..writeln(NoesisL10n.tr('Trilha: {title} | Disciplina: {subject} | Objetivo: {goal}', {
+          'title': rm.title,
+          'subject': rm.subject,
+          'goal': rm.goal,
+        }));
       for (final st in rm.steps) {
         rBuf.writeln('- [${st.status.label}] ${st.title} (${st.estimatedHours}h): ${st.description}');
       }
@@ -634,7 +733,10 @@ class NoesisAgentTools {
           id: 'roadmap:${rm.id}',
           kind: 'roadmap',
           title: rm.title,
-          subtitle: '${rm.subject} · ${(rm.progress * 100).round()}% · ${rm.steps.length} etapas',
+          subtitle: NoesisL10n.tr(
+            '{subject} · {pct}% · {count} etapas',
+            {'subject': rm.subject, 'pct': (rm.progress * 100).round(), 'count': rm.steps.length},
+          ),
           content: rBuf.toString(),
         ),
       );
@@ -681,10 +783,18 @@ class NoesisAgentTools {
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'flashcards_pending',
-          label: '🎴 Revisar ${shorten(topDeck.title, 18)} ($pending)',
-          prompt:
-              'Analise os $pending cartões pendentes do meu baralho "${topDeck.title}" (${topDeck.subject}) e me ajude a praticar com perguntas de active recall.',
-          tooltip: 'Baseado nos seus flashcards pendentes em ${topDeck.subject}',
+          label: NoesisL10n.tr(
+            '🎴 Revisar {title} ({count})',
+            {'title': shorten(topDeck.title, 18), 'count': pending},
+          ),
+          prompt: NoesisL10n.tr(
+            'Analise os {count} cartões pendentes do meu baralho "{title}" ({subject}) e me ajude a praticar com perguntas de active recall.',
+            {'count': pending, 'title': topDeck.title, 'subject': topDeck.subject},
+          ),
+          tooltip: NoesisL10n.tr(
+            'Baseado nos seus flashcards pendentes em {subject}',
+            {'subject': topDeck.subject},
+          ),
         ),
       );
     }
@@ -706,10 +816,15 @@ class NoesisAgentTools {
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'notebook_review',
-          label: '📓 Revisar nota: ${shorten(targetNote.title, 18)}',
-          prompt:
-              'Leia minha anotação "${targetNote.title}" no caderno "${targetNb.title}" (${targetNb.subject}), explique os pontos-chave e crie perguntas para revisão.',
-          tooltip: 'Anotação marcada para revisão no caderno ${targetNb.title}',
+          label: NoesisL10n.tr('📓 Revisar nota: {title}', {'title': shorten(targetNote.title, 18)}),
+          prompt: NoesisL10n.tr(
+            'Leia minha anotação "{note}" no caderno "{notebook}" ({subject}), explique os pontos-chave e crie perguntas para revisão.',
+            {'note': targetNote.title, 'notebook': targetNb.title, 'subject': targetNb.subject},
+          ),
+          tooltip: NoesisL10n.tr(
+            'Anotação marcada para revisão no caderno {notebook}',
+            {'notebook': targetNb.title},
+          ),
         ),
       );
     }
@@ -722,10 +837,15 @@ class NoesisAgentTools {
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'quiz_reinforce',
-          label: '📝 Reforçar ${shorten(exam.subject, 16)} (${exam.scorePercentage.round()}%)',
-          prompt:
-              'Analise meus erros no simulado "${exam.title}" (${exam.scorePercentage.round()}% de acerto em ${exam.subject}) e gere um simulado de reforço focado nessas lacunas.',
-          tooltip: 'Baseado no desempenho do simulado ${exam.title}',
+          label: NoesisL10n.tr(
+            '📝 Reforçar {subject} ({pct}%)',
+            {'subject': shorten(exam.subject, 16), 'pct': exam.scorePercentage.round()},
+          ),
+          prompt: NoesisL10n.tr(
+            'Analise meus erros no simulado "{title}" ({pct}% de acerto em {subject}) e gere um simulado de reforço focado nessas lacunas.',
+            {'title': exam.title, 'pct': exam.scorePercentage.round(), 'subject': exam.subject},
+          ),
+          tooltip: NoesisL10n.tr('Baseado no desempenho do simulado {title}', {'title': exam.title}),
         ),
       );
     }
@@ -733,15 +853,17 @@ class NoesisAgentTools {
     // 4. Continuidade da última sessão registrada no Diário de Estudos
     if (sessions.isNotEmpty) {
       final latest = sessions.first;
-      final subj = (latest['subject'] ?? 'Estudos').toString().trim();
+      final subj = (latest['subject'] ?? NoesisL10n.tr('Estudos')).toString().trim();
       final topic = (latest['topic'] ?? '').toString().trim();
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'session_followup',
-          label: '⏱️ Fixar ${shorten(topic.isNotEmpty ? topic : subj, 20)}',
-          prompt:
-              'Com base no que estudei por último ($subj${topic.isNotEmpty ? " · $topic" : ""}), faça um resumo prático e agende uma revisão espaçada no calendário.',
-          tooltip: 'Baseado na sua última sessão registrada no Diário',
+          label: NoesisL10n.tr('⏱️ Fixar {topic}', {'topic': shorten(topic.isNotEmpty ? topic : subj, 20)}),
+          prompt: NoesisL10n.tr(
+            'Com base no que estudei por último ({context}), faça um resumo prático e agende uma revisão espaçada no calendário.',
+            {'context': '$subj${topic.isNotEmpty ? ' · $topic' : ''}'},
+          ),
+          tooltip: NoesisL10n.tr('Baseado na sua última sessão registrada no Diário'),
         ),
       );
     }
@@ -756,14 +878,16 @@ class NoesisAgentTools {
       ..sort((a, b) => a['start_time'].toString().compareTo(b['start_time'].toString()));
     if (upcomingEvents.isNotEmpty) {
       final ev = upcomingEvents.first;
-      final title = (ev['title'] ?? 'Compromisso').toString();
+      final title = (ev['title'] ?? NoesisL10n.tr('Compromisso')).toString();
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'calendar_prep',
-          label: '📅 Preparar p/ ${shorten(title, 18)}',
-          prompt:
-              'Tenho "${ev['title']}" agendado no calendário. Monte um roteiro objetivo de revisão para chegar preparado.',
-          tooltip: 'Baseado no seu próximo evento do Calendário',
+          label: NoesisL10n.tr('📅 Preparar p/ {title}', {'title': shorten(title, 18)}),
+          prompt: NoesisL10n.tr(
+            'Tenho "{title}" agendado no calendário. Monte um roteiro objetivo de revisão para chegar preparado.',
+            {'title': ev['title']},
+          ),
+          tooltip: NoesisL10n.tr('Baseado no seu próximo evento do Calendário'),
         ),
       );
     }
@@ -775,10 +899,12 @@ class NoesisAgentTools {
         suggestions.add(
           NoesisQuickSuggestion(
             id: 'roadmap_next',
-            label: '🗺️ Avançar: ${shorten(nextStep.title, 18)}',
-            prompt:
-                'Na minha trilha "${rm.title}", me guie pela próxima etapa "${nextStep.title}" com resumo e exercício prático.',
-            tooltip: 'Próxima etapa pendente em ${rm.title}',
+            label: NoesisL10n.tr('🗺️ Avançar: {step}', {'step': shorten(nextStep.title, 18)}),
+            prompt: NoesisL10n.tr(
+              'Na minha trilha "{roadmap}", me guie pela próxima etapa "{step}" com resumo e exercício prático.',
+              {'roadmap': rm.title, 'step': nextStep.title},
+            ),
+            tooltip: NoesisL10n.tr('Próxima etapa pendente em {roadmap}', {'roadmap': rm.title}),
           ),
         );
         break;
@@ -791,30 +917,38 @@ class NoesisAgentTools {
       suggestions.add(
         NoesisQuickSuggestion(
           id: 'weekly_goal_gap',
-          label: '🎯 Bater meta (faltam ${SupabaseService.formatGoalDuration(remaining)})',
-          prompt:
-              'Ainda faltam ${SupabaseService.formatGoalDuration(remaining)} para minha meta semanal de ${SupabaseService.formatGoalDuration(weeklyGoal)}. Analise minha semana e agende blocos de estudo.',
-          tooltip: 'Calculado com base no seu progresso semanal real',
+          label: NoesisL10n.tr(
+            '🎯 Bater meta (faltam {remaining})',
+            {'remaining': SupabaseService.formatGoalDuration(remaining)},
+          ),
+          prompt: NoesisL10n.tr(
+            'Ainda faltam {remaining} para minha meta semanal de {goal}. Analise minha semana e agende blocos de estudo.',
+            {
+              'remaining': SupabaseService.formatGoalDuration(remaining),
+              'goal': SupabaseService.formatGoalDuration(weeklyGoal),
+            },
+          ),
+          tooltip: NoesisL10n.tr('Calculado com base no seu progresso semanal real'),
         ),
       );
     }
 
     // Fallbacks caso haja poucos dados cadastrados na conta
-    const fallbacks = [
+    final fallbacks = [
       NoesisQuickSuggestion(
         id: 'fallback_overview',
-        label: '✨ Plano de estudo de hoje',
-        prompt: 'Leia tudo o que tenho na minha conta e monte um plano objetivo para hoje.',
+        label: NoesisL10n.tr('✨ Plano de estudo de hoje'),
+        prompt: NoesisL10n.tr('Leia tudo o que tenho na minha conta e monte um plano objetivo para hoje.'),
       ),
       NoesisQuickSuggestion(
         id: 'fallback_quiz',
-        label: '📝 Criar simulado diagnóstico',
-        prompt: 'Crie um simulado de 5 questões para testar meu nível atual em Segurança e Redes.',
+        label: NoesisL10n.tr('📝 Criar simulado diagnóstico'),
+        prompt: NoesisL10n.tr('Crie um simulado de 5 questões para testar meu nível atual em Segurança e Redes.'),
       ),
       NoesisQuickSuggestion(
         id: 'fallback_calendar',
-        label: '📅 Agendar bloco de revisão',
-        prompt: 'Agende uma revisão de 1h no calendário para hoje às 19h.',
+        label: NoesisL10n.tr('📅 Agendar bloco de revisão'),
+        prompt: NoesisL10n.tr('Agende uma revisão de 1h no calendário para hoje às 19h.'),
       ),
     ];
 
@@ -893,9 +1027,17 @@ class NoesisAgentTools {
       final today = DateTime(base.year, base.month, base.day);
       final target = DateTime(dt.year, dt.month, dt.day);
       final diff = target.difference(today).inDays;
-      if (diff == 0) return 'Hoje';
-      if (diff == 1) return 'Amanhã';
-      const names = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+      if (diff == 0) return NoesisL10n.tr('Hoje');
+      if (diff == 1) return NoesisL10n.tr('Amanhã');
+      final names = [
+        NoesisL10n.tr('Segunda'),
+        NoesisL10n.tr('Terça'),
+        NoesisL10n.tr('Quarta'),
+        NoesisL10n.tr('Quinta'),
+        NoesisL10n.tr('Sexta'),
+        NoesisL10n.tr('Sábado'),
+        NoesisL10n.tr('Domingo'),
+      ];
       return names[(dt.weekday - 1) % 7];
     }
 
@@ -903,7 +1045,7 @@ class NoesisAgentTools {
       String fmt(DateTime d) => d.minute == 0
           ? '${d.hour}h'
           : '${d.hour}h${d.minute.toString().padLeft(2, '0')}';
-      return 'das ${fmt(st)} às ${fmt(en)}';
+      return NoesisL10n.tr('das {start} às {end}', {'start': fmt(st), 'end': fmt(en)});
     }
 
     String durationLabel(int minutes) {
@@ -932,7 +1074,7 @@ class NoesisAgentTools {
 
     if (upcomingExams.isNotEmpty) {
       final examEv = upcomingExams.first;
-      final examTitle = (examEv['title'] ?? 'Prova').toString();
+      final examTitle = (examEv['title'] ?? NoesisL10n.tr('Prova')).toString();
       final examStart = DateTime.parse(examEv['start_time'].toString());
       final slot = findFreeSlot(120, beforeDeadline: examStart, avoidStartKeys: usedKeys);
       if (slot != null) {
@@ -940,10 +1082,20 @@ class NoesisAgentTools {
         recommendations.add(
           CalendarAiRecommendation(
             id: 'cal_exam_prep',
-            message:
-                '${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)}. Quer um bloco de ${durationLabel(120)} de revisão antes de "$examTitle"?',
-            eventTitle: 'Revisão p/ $examTitle',
-            eventDescription: 'Bloco preparatório sugerido pelo Noesis AI antes do evento "$examTitle".',
+            message: NoesisL10n.tr(
+              '{day} está livre {window}. Quer um bloco de {duration} de revisão antes de "{exam}"?',
+              {
+                'day': dayLabel(slot.start),
+                'window': windowText(slot.start, slot.end),
+                'duration': durationLabel(120),
+                'exam': examTitle,
+              },
+            ),
+            eventTitle: NoesisL10n.tr('Revisão p/ {exam}', {'exam': examTitle}),
+            eventDescription: NoesisL10n.tr(
+              'Bloco preparatório sugerido pelo Noesis AI antes do evento "{exam}".',
+              {'exam': examTitle},
+            ),
             category: 'review',
             colorHex: '#3CCF9A',
             startTime: slot.start,
@@ -964,11 +1116,21 @@ class NoesisAgentTools {
         recommendations.add(
           CalendarAiRecommendation(
             id: 'cal_quiz_reinforce',
-            message:
-                'Você marcou ${targetExam.scorePercentage.round()}% em ${targetExam.subject}. ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)} — quer agendar ${durationLabel(90)} de reforço?',
-            eventTitle: 'Reforço · ${targetExam.subject}',
-            eventDescription:
-                'Revisão direcionada dos erros do simulado "${targetExam.title}" (${targetExam.scorePercentage.round()}%).',
+            message: NoesisL10n.tr(
+              'Você marcou {pct}% em {subject}. {day} está livre {window} — quer agendar {duration} de reforço?',
+              {
+                'pct': targetExam.scorePercentage.round(),
+                'subject': targetExam.subject,
+                'day': dayLabel(slot.start),
+                'window': windowText(slot.start, slot.end),
+                'duration': durationLabel(90),
+              },
+            ),
+            eventTitle: NoesisL10n.tr('Reforço · {subject}', {'subject': targetExam.subject}),
+            eventDescription: NoesisL10n.tr(
+              'Revisão direcionada dos erros do simulado "{title}" ({pct}%).',
+              {'title': targetExam.title, 'pct': targetExam.scorePercentage.round()},
+            ),
             category: 'lab',
             colorHex: '#F5A623',
             startTime: slot.start,
@@ -990,10 +1152,21 @@ class NoesisAgentTools {
         recommendations.add(
           CalendarAiRecommendation(
             id: 'cal_flashcards_due',
-            message:
-                'Há $pending flashcards pendentes em "${topDeck.title}". ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)} — quer reservar ${durationLabel(60)} de active recall?',
-            eventTitle: 'Flashcards · ${topDeck.subject}',
-            eventDescription: 'Revisão espaçada dos $pending cartões pendentes de "${topDeck.title}".',
+            message: NoesisL10n.tr(
+              'Há {count} flashcards pendentes em "{title}". {day} está livre {window} — quer reservar {duration} de active recall?',
+              {
+                'count': pending,
+                'title': topDeck.title,
+                'day': dayLabel(slot.start),
+                'window': windowText(slot.start, slot.end),
+                'duration': durationLabel(60),
+              },
+            ),
+            eventTitle: NoesisL10n.tr('Flashcards · {subject}', {'subject': topDeck.subject}),
+            eventDescription: NoesisL10n.tr(
+              'Revisão espaçada dos {count} cartões pendentes de "{title}".',
+              {'count': pending, 'title': topDeck.title},
+            ),
             category: 'review',
             colorHex: '#3CCF9A',
             startTime: slot.start,
@@ -1023,10 +1196,21 @@ class NoesisAgentTools {
         recommendations.add(
           CalendarAiRecommendation(
             id: 'cal_notebook_review',
-            message:
-                'Sua nota "${revNote.title}" (${revNb.subject}) está marcada para revisão. ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)} — quer agendar ${durationLabel(60)}?',
-            eventTitle: 'Revisar Nota · ${revNote.title}',
-            eventDescription: 'Revisão do caderno "${revNb.title}" (${revNb.subject}).',
+            message: NoesisL10n.tr(
+              'Sua nota "{note}" ({subject}) está marcada para revisão. {day} está livre {window} — quer agendar {duration}?',
+              {
+                'note': revNote.title,
+                'subject': revNb.subject,
+                'day': dayLabel(slot.start),
+                'window': windowText(slot.start, slot.end),
+                'duration': durationLabel(60),
+              },
+            ),
+            eventTitle: NoesisL10n.tr('Revisar Nota · {note}', {'note': revNote.title}),
+            eventDescription: NoesisL10n.tr(
+              'Revisão do caderno "{notebook}" ({subject}).',
+              {'notebook': revNb.title, 'subject': revNb.subject},
+            ),
             category: 'review',
             colorHex: '#3CCF9A',
             startTime: slot.start,
@@ -1038,21 +1222,40 @@ class NoesisAgentTools {
 
     // 5. Meta semanal restante + última disciplina estudada
     if (weeklyGoal > weekStudied || sessions.isNotEmpty) {
-      final lastSubject = sessions.isNotEmpty ? (sessions.first['subject'] ?? 'Estudos').toString() : 'Estudos';
+      final lastSubject = sessions.isNotEmpty
+          ? (sessions.first['subject'] ?? NoesisL10n.tr('Estudos')).toString()
+          : NoesisL10n.tr('Estudos');
       final remaining = weeklyGoal > weekStudied ? weeklyGoal - weekStudied : 120;
       final dur = remaining >= 120 ? 120 : (remaining >= 60 ? 60 : 60);
       final slot = findFreeSlot(dur, avoidStartKeys: usedKeys);
       if (slot != null) {
         markUsed(slot.start);
         final msg = weeklyGoal > weekStudied
-            ? 'Faltam ${SupabaseService.formatGoalDuration(remaining)} para sua meta semanal (último foco: $lastSubject). ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)} — quer um bloco de ${durationLabel(dur)}?'
-            : 'Para manter seu ritmo em $lastSubject, ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)}. Quer um bloco de ${durationLabel(dur)}?';
+            ? NoesisL10n.tr(
+                'Faltam {remaining} para sua meta semanal (último foco: {subject}). {day} está livre {window} — quer um bloco de {duration}?',
+                {
+                  'remaining': SupabaseService.formatGoalDuration(remaining),
+                  'subject': lastSubject,
+                  'day': dayLabel(slot.start),
+                  'window': windowText(slot.start, slot.end),
+                  'duration': durationLabel(dur),
+                },
+              )
+            : NoesisL10n.tr(
+                'Para manter seu ritmo em {subject}, {day} está livre {window}. Quer um bloco de {duration}?',
+                {
+                  'subject': lastSubject,
+                  'day': dayLabel(slot.start),
+                  'window': windowText(slot.start, slot.end),
+                  'duration': durationLabel(dur),
+                },
+              );
         recommendations.add(
           CalendarAiRecommendation(
             id: 'cal_weekly_goal',
             message: msg,
-            eventTitle: 'Estudo · $lastSubject',
-            eventDescription: 'Bloco planejado pelo Noesis AI para impulsionar sua meta semanal.',
+            eventTitle: NoesisL10n.tr('Estudo · {subject}', {'subject': lastSubject}),
+            eventDescription: NoesisL10n.tr('Bloco planejado pelo Noesis AI para impulsionar sua meta semanal.'),
             category: 'study',
             colorHex: '#7C6CF0',
             startTime: slot.start,
@@ -1072,10 +1275,21 @@ class NoesisAgentTools {
           recommendations.add(
             CalendarAiRecommendation(
               id: 'cal_roadmap_step',
-              message:
-                  'Na trilha "${rm.title}", falta a etapa "${nextStep.title}". ${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)} — quer reservar ${durationLabel(90)}?',
-              eventTitle: 'Trilha · ${nextStep.title}',
-              eventDescription: 'Etapa da trilha "${rm.title}" (${rm.subject}).',
+              message: NoesisL10n.tr(
+                'Na trilha "{roadmap}", falta a etapa "{step}". {day} está livre {window} — quer reservar {duration}?',
+                {
+                  'roadmap': rm.title,
+                  'step': nextStep.title,
+                  'day': dayLabel(slot.start),
+                  'window': windowText(slot.start, slot.end),
+                  'duration': durationLabel(90),
+                },
+              ),
+              eventTitle: NoesisL10n.tr('Trilha · {step}', {'step': nextStep.title}),
+              eventDescription: NoesisL10n.tr(
+                'Etapa da trilha "{roadmap}" ({subject}).',
+                {'roadmap': rm.title, 'subject': rm.subject},
+              ),
               category: 'study',
               colorHex: '#7C6CF0',
               startTime: slot.start,
@@ -1092,10 +1306,16 @@ class NoesisAgentTools {
       recommendations.add(
         CalendarAiRecommendation(
           id: 'cal_fallback',
-          message:
-              '${dayLabel(slot.start)} está livre ${windowText(slot.start, slot.end)}. Quer agendar ${durationLabel(90)} de estudo focado?',
-          eventTitle: 'Bloco de Estudo Focado',
-          eventDescription: 'Bloco sugerido pelo Noesis AI no horário livre da sua agenda.',
+          message: NoesisL10n.tr(
+            '{day} está livre {window}. Quer agendar {duration} de estudo focado?',
+            {
+              'day': dayLabel(slot.start),
+              'window': windowText(slot.start, slot.end),
+              'duration': durationLabel(90),
+            },
+          ),
+          eventTitle: NoesisL10n.tr('Bloco de Estudo Focado'),
+          eventDescription: NoesisL10n.tr('Bloco sugerido pelo Noesis AI no horário livre da sua agenda.'),
           category: 'study',
           colorHex: '#7C6CF0',
           startTime: slot.start,
@@ -1113,11 +1333,11 @@ class NoesisAgentTools {
     final lower = text.toLowerCase();
 
     DateTime targetDay = base;
-    if (lower.contains('depois de amanh')) {
+    if (NaturalDateKeywords.dayAfterTomorrowTokens.any(lower.contains)) {
       targetDay = base.add(const Duration(days: 2));
-    } else if (lower.contains('amanhã') || lower.contains('amanha')) {
+    } else if (NaturalDateKeywords.tomorrowTokens.any(lower.contains)) {
       targetDay = base.add(const Duration(days: 1));
-    } else if (!lower.contains('hoje')) {
+    } else if (!NaturalDateKeywords.todayTokens.any(lower.contains)) {
       final dateMatch = RegExp(r'\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b').firstMatch(lower);
       if (dateMatch != null) {
         final d = int.tryParse(dateMatch.group(1)!) ?? base.day;
@@ -1130,13 +1350,12 @@ class NoesisAgentTools {
         targetDay = DateTime(y, m.clamp(1, 12), d.clamp(1, 31));
       } else {
         int? targetWeekday;
-        if (lower.contains('segunda')) targetWeekday = DateTime.monday;
-        if (lower.contains('terça') || lower.contains('terca')) targetWeekday = DateTime.tuesday;
-        if (lower.contains('quarta')) targetWeekday = DateTime.wednesday;
-        if (lower.contains('quinta')) targetWeekday = DateTime.thursday;
-        if (lower.contains('sexta')) targetWeekday = DateTime.friday;
-        if (lower.contains('sábado') || lower.contains('sabado')) targetWeekday = DateTime.saturday;
-        if (lower.contains('domingo')) targetWeekday = DateTime.sunday;
+        for (final entry in NaturalDateKeywords.weekdayTokens.entries) {
+          if (entry.value.any(lower.contains)) {
+            targetWeekday = entry.key;
+            break;
+          }
+        }
 
         if (targetWeekday != null) {
           int daysToAdd = (targetWeekday - base.weekday + 7) % 7;
@@ -1150,15 +1369,22 @@ class NoesisAgentTools {
     int minute = 0;
 
     final colonMatch = RegExp(r'\b(\d{1,2}):(\d{2})\b').firstMatch(lower);
+    final amPmMatch = RegExp(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b').firstMatch(lower);
     final hMatch = RegExp(r'\b(\d{1,2})\s*h(?:(\d{2}))?\b').firstMatch(lower);
     final naturalHourMatch = RegExp(
-      r'(?:às|as|para\s+as|para\s+às|at[eé]\s+as)\s*(\d{1,2})(?:\s*(?:horas|da\s+manh[ãa]|da\s+tarde|da\s+noite|da\s+madrugada))?',
+      r'(?:às|as|para\s+as|para\s+às|at[eé]\s+as|at|a\s+las)\s*(\d{1,2})\b',
     ).firstMatch(lower);
 
-    if (lower.contains('meio-dia') || lower.contains('meio dia')) {
+    if (NaturalDateKeywords.noonTokens.any(lower.contains)) {
       hour = 12;
-    } else if (lower.contains('meia-noite') || lower.contains('meia noite')) {
+    } else if (NaturalDateKeywords.midnightTokens.any(lower.contains)) {
       hour = 0;
+    } else if (amPmMatch != null) {
+      hour = (int.tryParse(amPmMatch.group(1)!) ?? 14).clamp(0, 23);
+      minute = (int.tryParse(amPmMatch.group(2) ?? '0') ?? 0).clamp(0, 59);
+      final mer = amPmMatch.group(3);
+      if (mer == 'pm' && hour >= 1 && hour < 12) hour += 12;
+      if (mer == 'am' && hour == 12) hour = 0;
     } else if (colonMatch != null) {
       hour = (int.tryParse(colonMatch.group(1)!) ?? 14).clamp(0, 23);
       minute = (int.tryParse(colonMatch.group(2)!) ?? 0).clamp(0, 59);
@@ -1171,7 +1397,7 @@ class NoesisAgentTools {
       hour = (int.tryParse(naturalHourMatch.group(1)!) ?? 14).clamp(0, 23);
     }
 
-    if ((lower.contains('da tarde') || lower.contains('da noite')) && hour >= 1 && hour < 12) {
+    if (NaturalDateKeywords.afternoonNightTokens.any(lower.contains) && hour >= 1 && hour < 12) {
       hour += 12;
     }
 
@@ -1197,12 +1423,12 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Dados da conta consultados · $scope',
+          summary: NoesisL10n.tr('Dados da conta consultados · {scope}', {'scope': scope}),
           responsePayload: {'status': 'success', 'data': data},
         );
 
       case 'schedule_calendar_event':
-        final title = (args['title'] ?? 'Bloco de Estudo').toString().trim();
+        final title = (args['title'] ?? NoesisL10n.tr('Bloco de Estudo')).toString().trim();
         DateTime startTime;
         final rawIso = args['start_time_iso']?.toString() ?? '';
         final parsedIso = DateTime.tryParse(rawIso);
@@ -1227,7 +1453,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Evento agendado · ${_formatTimeBrief(startTime)} · $title',
+          summary: NoesisL10n.tr('Evento agendado · {time} · {title}', {
+            'time': _formatTimeBrief(startTime),
+            'title': title,
+          }),
           responsePayload: {
             'status': 'success',
             'title': title,
@@ -1252,8 +1481,8 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Evento não encontrado para edição',
-            responsePayload: {'status': 'not_found', 'message': 'Evento não encontrado.'},
+            summary: NoesisL10n.tr('Evento não encontrado para edição'),
+            responsePayload: {'status': 'not_found', 'message': NoesisL10n.tr('Evento não encontrado.')},
           );
         }
 
@@ -1264,7 +1493,7 @@ class NoesisAgentTools {
         final durMins = (args['duration_minutes'] as num?)?.toInt() ??
             oldEnd.difference(oldStart).inMinutes.clamp(15, 720);
         final newEnd = newStart.add(Duration(minutes: durMins));
-        final newTitle = (args['new_title'] ?? target['title'] ?? 'Evento').toString();
+        final newTitle = (args['new_title'] ?? target['title'] ?? NoesisL10n.tr('Evento')).toString();
         final newCat = (args['category'] ?? target['category'] ?? 'study').toString();
         final newDesc = args.containsKey('description')
             ? args['description']?.toString()
@@ -1289,7 +1518,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Calendário atualizado · $newTitle',
+          summary: NoesisL10n.tr('Calendário atualizado · {title}', {'title': newTitle}),
           responsePayload: {'status': 'success', 'title': newTitle},
         );
 
@@ -1309,7 +1538,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Evento não encontrado para exclusão',
+            summary: NoesisL10n.tr('Evento não encontrado para exclusão'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1318,13 +1547,13 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Evento removido · ${target['title']}',
+          summary: NoesisL10n.tr('Evento removido · {title}', {'title': target['title']}),
           responsePayload: {'status': 'success', 'removed_title': target['title']},
         );
 
       case 'log_study_session':
-        final subject = (args['subject'] ?? 'Estudos').toString().trim();
-        final topic = (args['topic'] ?? 'Geral').toString().trim();
+        final subject = (args['subject'] ?? NoesisL10n.tr('Estudos')).toString().trim();
+        final topic = (args['topic'] ?? NoesisL10n.tr('Geral')).toString().trim();
         final duration = ((args['duration_minutes'] as num?)?.toInt() ?? 60).clamp(1, 720);
         final studyDate =
             DateTime.tryParse(args['study_date_iso']?.toString() ?? '') ?? DateTime.now();
@@ -1341,7 +1570,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Sessão registrada · ${_formatDuration(duration)} em $subject',
+          summary: NoesisL10n.tr('Sessão registrada · {duration} em {subject}', {
+            'duration': _formatDuration(duration),
+            'subject': subject,
+          }),
           responsePayload: {'status': 'success', 'subject': subject, 'duration_minutes': duration},
         );
 
@@ -1362,11 +1594,11 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Sessão de estudo não encontrada',
+            summary: NoesisL10n.tr('Sessão de estudo não encontrada'),
             responsePayload: {'status': 'not_found'},
           );
         }
-        final newSubject = (args['subject'] ?? target['subject'] ?? 'Geral').toString();
+        final newSubject = (args['subject'] ?? target['subject'] ?? NoesisL10n.tr('Geral')).toString();
         final newTopic = (args['topic'] ?? target['topic'] ?? '').toString();
         final newDur = (args['duration_minutes'] as num?)?.toInt() ??
             (target['duration_minutes'] as num?)?.toInt() ??
@@ -1385,7 +1617,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Diário atualizado · $newSubject ($newTopic)',
+          summary: NoesisL10n.tr('Diário atualizado · {subject} ({topic})', {
+            'subject': newSubject,
+            'topic': newTopic,
+          }),
           responsePayload: {'status': 'success'},
         );
 
@@ -1406,7 +1641,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Sessão de estudo não encontrada para exclusão',
+            summary: NoesisL10n.tr('Sessão de estudo não encontrada para exclusão'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1415,7 +1650,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Registro removido do Diário · ${target['topic']}',
+          summary: NoesisL10n.tr('Registro removido do Diário · {topic}', {'topic': target['topic']}),
           responsePayload: {'status': 'success'},
         );
 
@@ -1431,8 +1666,10 @@ class NoesisAgentTools {
           parameters: args,
           status: 'completed',
           summary: total == 0
-              ? 'Meta semanal desativada (sem meta fixa)'
-              : 'Meta semanal ajustada para ${SupabaseService.formatGoalDuration(total)}',
+              ? NoesisL10n.tr('Meta semanal desativada (sem meta fixa)')
+              : NoesisL10n.tr('Meta semanal ajustada para {goal}', {
+                  'goal': SupabaseService.formatGoalDuration(total),
+                }),
           responsePayload: {'status': 'success', 'weekly_goal_minutes': total},
         );
 
@@ -1453,14 +1690,16 @@ class NoesisAgentTools {
           parameters: args,
           status: 'completed',
           summary: dTotal == 0
-              ? 'Meta diária desativada (sem meta fixa)'
-              : 'Meta diária ajustada para ${SupabaseService.formatGoalDuration(dTotal)}',
+              ? NoesisL10n.tr('Meta diária desativada (sem meta fixa)')
+              : NoesisL10n.tr('Meta diária ajustada para {goal}', {
+                  'goal': SupabaseService.formatGoalDuration(dTotal),
+                }),
           responsePayload: {'status': 'success', 'daily_goal_minutes': dTotal},
         );
 
       case 'create_quiz':
-        final title = (args['title'] ?? 'Simulado Noesis').toString().trim();
-        final subject = (args['subject'] ?? 'Tecnologia').toString().trim();
+        final title = (args['title'] ?? NoesisL10n.tr('Simulado Noesis')).toString().trim();
+        final subject = (args['subject'] ?? NoesisL10n.tr('Tecnologia')).toString().trim();
         final count = ((args['num_questions'] as num?)?.toInt() ?? 5).clamp(1, 200);
         final diff = (args['difficulty'] ?? 'Médio / Prático').toString();
         final questions = await generateQuiz(
@@ -1480,7 +1719,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Simulado criado · ${questions.length} questões · $title',
+          summary: NoesisL10n.tr('Simulado criado · {count} questões · {title}', {
+            'count': questions.length,
+            'title': title,
+          }),
           responsePayload: {'status': 'success', 'title': title, 'questions': questions.length},
           data: savedRecord,
         );
@@ -1504,7 +1746,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'completed',
-            summary: 'Simulado removido · ${targetAttempt.title}',
+            summary: NoesisL10n.tr('Simulado removido · {title}', {'title': targetAttempt.title}),
             responsePayload: {'status': 'success'},
           );
         }
@@ -1523,7 +1765,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'completed',
-            summary: 'Simulado removido · ${targetGen['title']}',
+            summary: NoesisL10n.tr('Simulado removido · {title}', {'title': targetGen['title']}),
             responsePayload: {'status': 'success'},
           );
         }
@@ -1531,17 +1773,20 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'failed',
-          summary: 'Simulado não encontrado',
+          summary: NoesisL10n.tr('Simulado não encontrado'),
           responsePayload: {'status': 'not_found'},
         );
 
       case 'create_flashcards':
-        final title = (args['title'] ?? 'Novo Baralho de Flashcards').toString().trim();
-        final subject = (args['subject'] ?? 'Geral').toString().trim();
+        final title = (args['title'] ?? NoesisL10n.tr('Novo Baralho de Flashcards')).toString().trim();
+        final subject = (args['subject'] ?? NoesisL10n.tr('Geral')).toString().trim();
         final topic = (args['topic'] ?? title).toString().trim();
         final count = ((args['num_cards'] as num?)?.toInt() ?? 5).clamp(1, 30);
         final enrichedTopic = attachmentContext != null && attachmentContext.trim().isNotEmpty
-            ? '$topic\n\nUse também o material anexado:\n${attachmentContext.substring(0, math.min(2500, attachmentContext.length))}'
+            ? NoesisL10n.tr('{topic}\n\nUse também o material anexado:\n{ctx}', {
+                'topic': topic,
+                'ctx': attachmentContext.substring(0, math.min(2500, attachmentContext.length)),
+              })
             : topic;
         final cardsData = await generateFlashcards(
           subject: subject,
@@ -1552,8 +1797,8 @@ class NoesisAgentTools {
           final val = e.value;
           return Flashcard(
             id: 'fc-${DateTime.now().millisecondsSinceEpoch}-${e.key}',
-            front: val['front']?.toString() ?? 'Pergunta',
-            back: val['back']?.toString() ?? 'Resposta',
+            front: val['front']?.toString() ?? NoesisL10n.tr('Pergunta'),
+            back: val['back']?.toString() ?? NoesisL10n.tr('Resposta'),
             tags: val['tags'] is List ? List<String>.from(val['tags']) : [subject, topic],
           );
         }).toList();
@@ -1561,7 +1806,7 @@ class NoesisAgentTools {
           id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
           title: title,
           subject: subject,
-          description: 'Baralho gerado pelo Noesis AI sobre $topic',
+          description: NoesisL10n.tr('Baralho gerado pelo Noesis AI sobre {topic}', {'topic': topic}),
           cards: flashcards,
           createdAt: DateTime.now(),
         );
@@ -1570,7 +1815,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Baralho criado · ${flashcards.length} cartões · $title',
+          summary: NoesisL10n.tr('Baralho criado · {count} cartões · {title}', {
+            'count': flashcards.length,
+            'title': title,
+          }),
           responsePayload: {'status': 'success', 'title': title, 'cards': flashcards.length},
           data: deck.toMap(),
         );
@@ -1589,7 +1837,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Baralho de flashcards não encontrado',
+            summary: NoesisL10n.tr('Baralho de flashcards não encontrado'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1626,7 +1874,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Baralho atualizado · ${updatedDeck.title} (${updatedDeck.cardCount} cartões)',
+          summary: NoesisL10n.tr('Baralho atualizado · {title} ({count} cartões)', {
+            'title': updatedDeck.title,
+            'count': updatedDeck.cardCount,
+          }),
           responsePayload: {'status': 'success', 'title': updatedDeck.title},
           data: updatedDeck.toMap(),
         );
@@ -1645,7 +1896,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Baralho não encontrado',
+            summary: NoesisL10n.tr('Baralho não encontrado'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1654,13 +1905,13 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Baralho excluído · ${target.title}',
+          summary: NoesisL10n.tr('Baralho excluído · {title}', {'title': target.title}),
           responsePayload: {'status': 'success'},
         );
 
       case 'create_notebook_or_note':
-        final nbTitle = (args['notebook_title'] ?? 'Caderno Noesis').toString().trim();
-        final subject = (args['subject'] ?? 'Geral').toString().trim();
+        final nbTitle = (args['notebook_title'] ?? NoesisL10n.tr('Caderno Noesis')).toString().trim();
+        final subject = (args['subject'] ?? NoesisL10n.tr('Geral')).toString().trim();
         final notebooks = await SupabaseService.getNotebooks();
         var notebook = notebooks
             .where((n) => n.title.toLowerCase() == nbTitle.toLowerCase())
@@ -1700,7 +1951,7 @@ class NoesisAgentTools {
           final newNote = StudyNote(
             id: 'note-${DateTime.now().millisecondsSinceEpoch}',
             notebookId: notebook.id,
-            title: noteTitle.isNotEmpty ? noteTitle : 'Nova Anotação',
+            title: noteTitle.isNotEmpty ? noteTitle : NoesisL10n.tr('Nova Anotação'),
             content: noteContent,
             tags: tags,
             needsReview: needsReview,
@@ -1712,8 +1963,11 @@ class NoesisAgentTools {
           parameters: args,
           status: 'completed',
           summary: noteTitle.isNotEmpty
-              ? 'Anotação criada · "$noteTitle" em ${notebook.title}'
-              : 'Caderno criado · ${notebook.title}',
+              ? NoesisL10n.tr('Anotação criada · "{note}" em {notebook}', {
+                  'note': noteTitle,
+                  'notebook': notebook.title,
+                })
+              : NoesisL10n.tr('Caderno criado · {notebook}', {'notebook': notebook.title}),
           responsePayload: {'status': 'success', 'notebook': notebook.title},
         );
 
@@ -1731,7 +1985,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Caderno não encontrado',
+            summary: NoesisL10n.tr('Caderno não encontrado'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1749,7 +2003,7 @@ class NoesisAgentTools {
               name: name,
               parameters: args,
               status: 'failed',
-              summary: 'Anotação não encontrada em ${targetNb.title}',
+              summary: NoesisL10n.tr('Anotação não encontrada em {notebook}', {'notebook': targetNb.title}),
               responsePayload: {'status': 'not_found'},
             );
           }
@@ -1768,7 +2022,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'completed',
-            summary: 'Anotação atualizada · ${updatedNote.title}',
+            summary: NoesisL10n.tr('Anotação atualizada · {title}', {'title': updatedNote.title}),
             responsePayload: {'status': 'success'},
           );
         }
@@ -1782,7 +2036,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Caderno atualizado · ${updatedNb.title}',
+          summary: NoesisL10n.tr('Caderno atualizado · {title}', {'title': updatedNb.title}),
           responsePayload: {'status': 'success'},
         );
 
@@ -1800,7 +2054,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Caderno não encontrado para exclusão',
+            summary: NoesisL10n.tr('Caderno não encontrado para exclusão'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1818,7 +2072,7 @@ class NoesisAgentTools {
               name: name,
               parameters: args,
               status: 'completed',
-              summary: 'Anotação excluída · ${targetNote.title}',
+              summary: NoesisL10n.tr('Anotação excluída · {title}', {'title': targetNote.title}),
               responsePayload: {'status': 'success'},
             );
           }
@@ -1828,14 +2082,14 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Caderno excluído · ${targetNb.title}',
+          summary: NoesisL10n.tr('Caderno excluído · {title}', {'title': targetNb.title}),
           responsePayload: {'status': 'success'},
         );
 
       case 'create_roadmap':
-        final subject = (args['subject'] ?? 'Geral').toString().trim();
-        final goal = (args['goal'] ?? (args['title'] ?? 'Dominar $subject')).toString().trim();
-        final level = (args['level'] ?? 'Intermediário').toString().trim();
+        final subject = (args['subject'] ?? NoesisL10n.tr('Geral')).toString().trim();
+        final goal = (args['goal'] ?? (args['title'] ?? NoesisL10n.tr('Dominar {subject}', {'subject': subject}))).toString().trim();
+        final level = (args['level'] ?? NoesisL10n.defaultRoadmapLevel).toString().trim();
         final weeks = ((args['estimated_weeks'] as num?)?.toInt() ?? 4).clamp(1, 52);
         final generated = await generateRoadmap(
           subject: subject,
@@ -1862,7 +2116,10 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Trilha criada · ${roadmap.title} (${roadmap.steps.length} etapas)',
+          summary: NoesisL10n.tr('Trilha criada · {title} ({steps} etapas)', {
+            'title': roadmap.title,
+            'steps': roadmap.steps.length,
+          }),
           responsePayload: {'status': 'success', 'title': roadmap.title, 'steps': roadmap.steps.length},
         );
 
@@ -1880,7 +2137,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Trilha não encontrada',
+            summary: NoesisL10n.tr('Trilha não encontrada'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1919,7 +2176,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Trilha atualizada · ${updatedRm.title}',
+          summary: NoesisL10n.tr('Trilha atualizada · {title}', {'title': updatedRm.title}),
           responsePayload: {'status': 'success', 'title': updatedRm.title},
         );
 
@@ -1937,7 +2194,7 @@ class NoesisAgentTools {
             name: name,
             parameters: args,
             status: 'failed',
-            summary: 'Trilha não encontrada para exclusão',
+            summary: NoesisL10n.tr('Trilha não encontrada para exclusão'),
             responsePayload: {'status': 'not_found'},
           );
         }
@@ -1946,7 +2203,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'completed',
-          summary: 'Trilha excluída · ${target.title}',
+          summary: NoesisL10n.tr('Trilha excluída · {title}', {'title': target.title}),
           responsePayload: {'status': 'success'},
         );
 
@@ -1955,7 +2212,7 @@ class NoesisAgentTools {
           name: name,
           parameters: args,
           status: 'failed',
-          summary: 'Ação desconhecida',
+          summary: NoesisL10n.tr('Ação desconhecida'),
           responsePayload: {'status': 'unknown_tool'},
         );
     }
@@ -1974,36 +2231,24 @@ class NoesisAgentTools {
     final lowerUser = userMessage.toLowerCase().trim();
     final lowerReply = aiReply.toLowerCase();
 
-    final replyClaimsAction = lowerReply.contains('acabei de') ||
-        lowerReply.contains('agendad') ||
-        lowerReply.contains('registr') ||
-        lowerReply.contains('criei') ||
-        lowerReply.contains('adicionei') ||
-        lowerReply.contains('excluí') ||
-        lowerReply.contains('exclui') ||
-        lowerReply.contains('atualizei');
+    final replyClaimsAction = NaturalDateKeywords.replyClaimTokens.any(lowerReply.contains);
 
-    final userAsksCalendarCreate = (lowerUser.contains('calendario') ||
-            lowerUser.contains('calendário') ||
-            lowerUser.contains('agend') ||
-            lowerUser.contains('aviso') ||
-            lowerUser.contains('marqu')) &&
-        (lowerUser.contains('cri') ||
-            lowerUser.contains('agend') ||
-            lowerUser.contains('adicion') ||
-            lowerUser.contains('marqu') ||
-            lowerUser.contains('coloc'));
+    final userAsksCalendarCreate =
+        NaturalDateKeywords.calendarNouns.any(lowerUser.contains) &&
+            NaturalDateKeywords.calendarVerbs.any(lowerUser.contains);
 
-    if (userAsksCalendarCreate && !lowerUser.contains('exclu') && !lowerUser.contains('remov')) {
+    if (userAsksCalendarCreate && !NaturalDateKeywords.excludeVerbs.any(lowerUser.contains)) {
       final startTime = parseNaturalDateTime(userMessage);
-      final category = lowerUser.contains('prova')
+      final category = NaturalDateKeywords.examKeywords.any(lowerUser.contains)
           ? 'exam'
-          : (lowerUser.contains('revis')
+          : (NaturalDateKeywords.reviewKeywords.any(lowerUser.contains)
               ? 'review'
-              : (lowerUser.contains('simulado') ? 'lab' : 'study'));
-      final title = lowerUser.contains('prova')
-          ? 'Prova'
-          : (lowerUser.contains('revis') ? 'Revisão de Estudos' : 'Bloco de Estudos');
+              : (NaturalDateKeywords.quizKeywords.any(lowerUser.contains) ? 'lab' : 'study'));
+      final title = NaturalDateKeywords.examKeywords.any(lowerUser.contains)
+          ? NoesisL10n.tr('Prova')
+          : (NaturalDateKeywords.reviewKeywords.any(lowerUser.contains)
+              ? NoesisL10n.tr('Revisão de Estudos')
+              : NoesisL10n.tr('Bloco de Estudos'));
       return executeTool(
         name: 'schedule_calendar_event',
         args: {
@@ -2022,12 +2267,12 @@ class NoesisAgentTools {
     }
 
     if (replyClaimsAction &&
-        (lowerUser.contains('registr') || lowerUser.contains('estudei')) &&
-        !lowerUser.contains('exclu')) {
+        NaturalDateKeywords.sessionKeywords.any(lowerUser.contains) &&
+        !NaturalDateKeywords.excludeVerbs.any(lowerUser.contains)) {
       return executeTool(
         name: 'log_study_session',
         args: {
-          'subject': 'Estudos',
+          'subject': NoesisL10n.tr('Estudos'),
           'topic': userMessage,
           'duration_minutes': 60,
         },
@@ -2039,7 +2284,7 @@ class NoesisAgentTools {
       );
     }
 
-    if (replyClaimsAction && lowerUser.contains('meta semanal')) {
+    if (replyClaimsAction && NaturalDateKeywords.weeklyGoalKeywords.any(lowerUser.contains)) {
       final hourMatch = RegExp(r'(\d+)\s*h').firstMatch(lowerUser);
       if (hourMatch != null) {
         final h = int.tryParse(hourMatch.group(1)!) ?? 25;
@@ -2055,7 +2300,7 @@ class NoesisAgentTools {
       }
     }
 
-    if (replyClaimsAction && (lowerUser.contains('meta diaria') || lowerUser.contains('meta diária'))) {
+    if (replyClaimsAction && NaturalDateKeywords.dailyGoalKeywords.any(lowerUser.contains)) {
       final hourMatch = RegExp(r'(\d+)\s*h').firstMatch(lowerUser);
       final minMatch = RegExp(r'(\d+)\s*m(?:in)?').firstMatch(lowerUser);
       if (hourMatch != null || minMatch != null) {
@@ -2092,14 +2337,14 @@ class NoesisAgentTools {
       result['weekly_goal'] = {
         'enabled': goal > 0,
         'goal_minutes': goal,
-        'goal_formatted': goal > 0 ? SupabaseService.formatGoalDuration(goal) : 'Sem meta definida',
+        'goal_formatted': goal > 0 ? SupabaseService.formatGoalDuration(goal) : NoesisL10n.tr('Sem meta definida'),
         'studied_this_week_minutes': week,
         'studied_this_week_formatted': SupabaseService.formatGoalDuration(week),
       };
       result['daily_goal'] = {
         'enabled': dailyGoal > 0,
         'goal_minutes': dailyGoal,
-        'goal_formatted': dailyGoal > 0 ? SupabaseService.formatGoalDuration(dailyGoal) : 'Sem meta definida',
+        'goal_formatted': dailyGoal > 0 ? SupabaseService.formatGoalDuration(dailyGoal) : NoesisL10n.tr('Sem meta definida'),
         'studied_today_minutes': today,
         'studied_today_formatted': SupabaseService.formatGoalDuration(today),
       };
@@ -2224,6 +2469,11 @@ class NoesisAgentTools {
     final mm = dt.month.toString().padLeft(2, '0');
     final hh = dt.hour.toString().padLeft(2, '0');
     final min = dt.minute.toString().padLeft(2, '0');
-    return '$dd/$mm às $hh:$min';
+    return NoesisL10n.tr('{dd}/{mm} às {hh}:{min}', {
+      'dd': dd,
+      'mm': mm,
+      'hh': hh,
+      'min': min,
+    });
   }
 }

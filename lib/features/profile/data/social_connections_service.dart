@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/shop_service.dart';
 import '../../../core/supabase_service.dart';
 import '../../quizzes/data/saved_exams_store_stub.dart'
@@ -20,18 +21,18 @@ class SocialConnectionsService {
   static const String _storageKey = 'noesis_social_connections_v1';
 
   final ValueNotifier<SocialGraphState> stateNotifier = ValueNotifier<SocialGraphState>(
-    const SocialGraphState(
+    SocialGraphState(
       currentUserProfile: PublicUserProfile(
         userId: 'local_user',
-        username: 'estudante',
-        displayName: 'Estudante',
+        username: NoesisL10n.tr('estudante'),
+        displayName: NoesisL10n.tr('Estudante'),
         isCurrentUser: true,
       ),
-      directory: [],
-      followingIds: {},
-      followingUsernames: {},
-      incomingFollowerIds: {},
-      incomingFollowerUsernames: {},
+      directory: const [],
+      followingIds: const {},
+      followingUsernames: const {},
+      incomingFollowerIds: const {},
+      incomingFollowerUsernames: const {},
       isLoading: true,
     ),
   );
@@ -149,8 +150,8 @@ class SocialConnectionsService {
       parsed.add(
         PublicUserProfile(
           userId: id,
-          username: handle.isEmpty ? 'estudante' : handle,
-          displayName: (map['full_name'] ?? 'Estudante').toString().trim(),
+          username: handle.isEmpty ? NoesisL10n.tr('estudante') : handle,
+          displayName: (map['full_name'] ?? NoesisL10n.tr('Estudante')).toString().trim(),
           avatarUrl: map['avatar_url']?.toString(),
           bio: map['bio']?.toString(),
           isVip: map['is_vip'] == true,
@@ -221,8 +222,8 @@ class SocialConnectionsService {
 
     return PublicUserProfile(
       userId: uid,
-      username: handle.isEmpty ? 'estudante' : handle,
-      displayName: rawName.isEmpty ? 'Estudante' : rawName,
+      username: handle.isEmpty ? NoesisL10n.tr('estudante') : handle,
+      displayName: rawName.isEmpty ? NoesisL10n.tr('Estudante') : rawName,
       avatarUrl: raw?['avatar_url']?.toString(),
       bio: raw?['bio']?.toString(),
       isVip: SupabaseService.isCurrentUserVip,

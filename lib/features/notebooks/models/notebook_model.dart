@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/localization/noesis_l10n.dart';
 
 class StudyLink {
   final String id;
@@ -63,7 +64,7 @@ class StudyLink {
     return StudyLink(
       id: map['id']?.toString() ?? 'link-${DateTime.now().millisecondsSinceEpoch}',
       url: urlStr,
-      title: map['title']?.toString() ?? (isImg ? 'Imagem Anexada' : 'Link de Estudo'),
+      title: map['title']?.toString() ?? (isImg ? NoesisL10n.tr('Imagem Anexada') : NoesisL10n.tr('Link de Estudo')),
       isImage: isImg,
       addedAt: map['added_at'] != null ? DateTime.tryParse(map['added_at'].toString()) ?? DateTime.now() : DateTime.now(),
     );
@@ -151,12 +152,14 @@ class StudyNote {
   }
 
   String reviewStatusReason({DateTime? referenceDate, int staleDays = 7}) {
-    if (needsReview) return 'Marcada para revisão';
+    if (needsReview) return NoesisL10n.tr('Marcada para revisão');
     final now = referenceDate ?? DateTime.now();
     final baseline = lastReviewedAt ?? updatedAt;
     final days = now.difference(baseline).inDays;
-    if (days >= staleDays) return 'Sem revisar há ${days}d';
-    return 'Em dia';
+    if (days >= staleDays) {
+      return NoesisL10n.tr('Sem revisar há {days}d', {'days': '$days'});
+    }
+    return NoesisL10n.tr('Em dia');
   }
 
   StudyNote copyWith({
@@ -335,8 +338,8 @@ class StudyNotebook {
     final notebookId = map['id']?.toString() ?? 'nb-${DateTime.now().millisecondsSinceEpoch}';
     return StudyNotebook(
       id: notebookId,
-      title: map['title']?.toString() ?? 'Novo Caderno',
-      subject: map['subject']?.toString() ?? 'Geral',
+      title: map['title']?.toString() ?? NoesisL10n.tr('Novo Caderno'),
+      subject: map['subject']?.toString() ?? NoesisL10n.tr('Geral'),
       description: map['description']?.toString() ?? '',
       colorHex: map['color_hex']?.toString() ?? '7C6CF0',
       iconCode: map['icon_code'] is int ? map['icon_code'] as int : 0xe3e6,

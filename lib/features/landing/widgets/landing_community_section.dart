@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
 import '../../../widgets/vip_privileges.dart';
@@ -24,7 +25,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
   String _selectedTab = 'chat';
   String? _selectedDiaryMember;
 
-  static const List<
+  static List<
       ({
         String name,
         String subject,
@@ -32,41 +33,41 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
         String inviteCode,
         int members,
         bool isLeader,
-      })> _groups = [
+      })> get _groups => [
     (
-      name: 'Estruturas & Algoritmos',
-      subject: 'Computação',
-      description: 'Árvores balanceadas, grafos, revisão espaçada e simulados semanais.',
+      name: NoesisL10n.tr('Estruturas & Algoritmos'),
+      subject: NoesisL10n.tr('Computação'),
+      description: NoesisL10n.tr('Árvores balanceadas, grafos, revisão espaçada e simulados semanais.'),
       inviteCode: 'NOE-4920',
       members: 14,
       isLeader: true,
     ),
     (
-      name: 'OAB & Constitucional',
-      subject: 'Direito',
-      description: 'Questões comentadas de 1ª e 2ª fase + cadernos colaborativos de súmulas.',
+      name: NoesisL10n.tr('OAB & Constitucional'),
+      subject: NoesisL10n.tr('Direito'),
+      description: NoesisL10n.tr('Questões comentadas de 1ª e 2ª fase + cadernos colaborativos de súmulas.'),
       inviteCode: 'NOE-8134',
       members: 22,
       isLeader: false,
     ),
     (
-      name: 'Medicina & USMLE',
-      subject: 'Medicina',
-      description: 'Casos clínicos com RAG, baralhos 3D espaçados e metas diárias no Diário.',
+      name: NoesisL10n.tr('Medicina & USMLE'),
+      subject: NoesisL10n.tr('Medicina'),
+      description: NoesisL10n.tr('Casos clínicos com RAG, baralhos 3D espaçados e metas diárias no Diário.'),
       inviteCode: 'NOE-6051',
       members: 18,
       isLeader: false,
     ),
   ];
 
-  static const List<({String id, String label, IconData icon})> _tabs = [
-    (id: 'chat', label: 'Chat (3)', icon: Icons.forum_rounded),
-    (id: 'simulados', label: 'Simulados (3)', icon: Icons.assignment_rounded),
-    (id: 'flashcards', label: 'Flashcards (3)', icon: Icons.style_rounded),
-    (id: 'cadernos', label: 'Cadernos (3)', icon: Icons.menu_book_rounded),
-    (id: 'trilhas', label: 'Trilhas (2)', icon: Icons.route_rounded),
-    (id: 'diario', label: 'Diário de Estudo', icon: Icons.auto_stories_rounded),
-    (id: 'ranking', label: 'Ranking', icon: Icons.emoji_events_rounded),
+  static List<({String id, String label, IconData icon})> get _tabs => [
+    (id: 'chat', label: NoesisL10n.tr('Chat (3)'), icon: Icons.forum_rounded),
+    (id: 'exams', label: NoesisL10n.tr('Simulados (3)'), icon: Icons.assignment_rounded),
+    (id: 'flashcards', label: NoesisL10n.tr('Flashcards (3)'), icon: Icons.style_rounded),
+    (id: 'notebooks', label: NoesisL10n.tr('Cadernos (3)'), icon: Icons.menu_book_rounded),
+    (id: 'roadmaps', label: NoesisL10n.tr('Trilhas (2)'), icon: Icons.route_rounded),
+    (id: 'diary', label: NoesisL10n.tr('Diário de Estudo'), icon: Icons.auto_stories_rounded),
+    (id: 'ranking', label: NoesisL10n.tr('Ranking'), icon: Icons.emoji_events_rounded),
   ];
 
   @override
@@ -105,7 +106,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                         : AsterConstants.claySubtleShadow,
                   ),
                   child: Text(
-                    'Grupos de Estudo',
+                    context.tr('Grupos de Estudo'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -115,7 +116,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Estudar em grupo muda o jogo',
+                  context.tr('Estudar em grupo muda o jogo'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: isWide ? 48 : (isCompact ? 30 : 38),
@@ -127,7 +128,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Compartilhe cadernos, baralhos, simulados e trilhas, acompanhe o Diário de Estudos por participante e suba no Ranking Interno de Insights.',
+                  context.tr('Compartilhe cadernos, baralhos, simulados e trilhas, acompanhe o Diário de Estudos por participante e suba no Ranking Interno de Insights.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: isCompact ? 15 : 17,
@@ -222,7 +223,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          g.name,
+                                          context.tr(g.name),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.manrope(
@@ -235,7 +236,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                         Row(
                                           children: [
                                             Text(
-                                              g.subject,
+                                              context.tr(g.subject),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w700,
@@ -243,7 +244,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                               ),
                                             ),
                                             Text(
-                                              ' · ${g.members} membros',
+                                              context.tr(' · {count} membros', {'count': g.members}),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
@@ -268,7 +269,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                         ),
                                       ),
                                       child: Text(
-                                        'Líder',
+                                        context.tr('Líder'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
@@ -319,9 +320,10 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                               child: Icon(Icons.arrow_back_rounded, size: 18, color: mutedCol),
                             ),
                             const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 4,
@@ -347,7 +349,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                         ),
                                       ),
                                       child: Text(
-                                        group.subject,
+                                        context.tr(group.subject),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
@@ -359,7 +361,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${group.members} membros · Código ${group.inviteCode}',
+                                  context.tr('{members} membros · Código {code}', {'members': group.members, 'code': group.inviteCode}),
                                   style: GoogleFonts.jetBrainsMono(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
@@ -367,6 +369,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                   ),
                                 ),
                               ],
+                              ),
                             ),
                           ],
                         ),
@@ -393,7 +396,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                     Icon(Icons.link_rounded, size: 15, color: textCol),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Copiar Link',
+                                      context.tr('Copiar Link'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
@@ -424,7 +427,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Convidar @',
+                                      context.tr('Convidar @'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w800,
@@ -440,7 +443,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      group.description,
+                      context.tr(group.description),
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -495,7 +498,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            t.label,
+                            context.tr(t.label),
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: on ? FontWeight.w800 : FontWeight.w700,
@@ -566,13 +569,13 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
   }) {
     if (_selectedTab == 'chat') {
       final msgs = switch (_selectedGroupIndex) {
-        1 => const [
+        1 => [
             (
               initial: 'D',
               name: 'Davi',
               handle: '@davi.jur',
               time: '18:02',
-              text: 'Subi o simulado OAB Comentado de Direito Constitucional no grupo.',
+              text: context.tr('Subi o simulado OAB Comentado de Direito Constitucional no grupo.'),
               color: AsterConstants.ambar,
               isMine: false,
               isLeader: false,
@@ -582,29 +585,29 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               name: 'Marina',
               handle: '@marina',
               time: '18:05',
-              text: 'Vou resolver agora e comparar nossas pontuações no Ranking do grupo.',
+              text: context.tr('Vou resolver agora e comparar nossas pontuações no Ranking do grupo.'),
               color: AsterConstants.lavanda,
               isMine: false,
               isLeader: true,
             ),
             (
               initial: 'V',
-              name: 'Você',
-              handle: '@estudante',
+              name: context.tr('Você'),
+              handle: '@${NoesisL10n.tr('estudante')}',
               time: '18:09',
-              text: 'Também compartilhei o baralho 3D de Controle de Constitucionalidade.',
+              text: context.tr('Também compartilhei o baralho 3D de Controle de Constitucionalidade.'),
               color: AsterConstants.menta,
               isMine: true,
               isLeader: false,
             ),
           ],
-        2 => const [
+        2 => [
             (
               initial: 'C',
               name: 'Caio',
               handle: '@caio.med',
               time: '14:20',
-              text: 'Montei uma trilha compartilhada de USMLE Step 1 para revisar esta semana.',
+              text: context.tr('Montei uma trilha compartilhada de USMLE Step 1 para revisar esta semana.'),
               color: AsterConstants.coral,
               isMine: false,
               isLeader: false,
@@ -614,29 +617,29 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               name: 'Marina',
               handle: '@marina',
               time: '14:24',
-              text: 'Estou fechando um bloco de 50m no Diário e já entro no baralho!',
+              text: context.tr('Estou fechando um bloco de 50m no Diário e já entro no baralho!'),
               color: AsterConstants.lavanda,
               isMine: false,
               isLeader: true,
             ),
             (
               initial: 'V',
-              name: 'Você',
-              handle: '@estudante',
+              name: context.tr('Você'),
+              handle: '@${NoesisL10n.tr('estudante')}',
               time: '14:30',
-              text: 'Bora! +24 Insights garantidos na sessão de hoje.',
+              text: context.tr('Bora! +24 Insights garantidos na sessão de hoje.'),
               color: AsterConstants.menta,
               isMine: true,
               isLeader: false,
             ),
           ],
-        _ => const [
+        _ => [
             (
               initial: 'M',
               name: 'Marina',
               handle: '@marina',
               time: '09:12',
-              text: 'Bloco de 50 minutos registrado no Diário. Quem entra no simulado de Árvores AVL?',
+              text: context.tr('Bloco de 50 minutos registrado no Diário. Quem entra no simulado de Árvores AVL?'),
               color: AsterConstants.lavanda,
               isMine: false,
               isLeader: true,
@@ -646,17 +649,17 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               name: 'Caio',
               handle: '@caio.dev',
               time: '09:14',
-              text: 'Eu! Vou revisar os flashcards 3D de Tabela Hash primeiro.',
+              text: context.tr('Eu! Vou revisar os flashcards 3D de Tabela Hash primeiro.'),
               color: AsterConstants.coral,
               isMine: false,
               isLeader: false,
             ),
             (
               initial: 'V',
-              name: 'Você',
-              handle: '@estudante',
+              name: context.tr('Você'),
+              handle: '@${NoesisL10n.tr('estudante')}',
               time: '09:18',
-              text: 'Compartilhei meu caderno de Complexidade O(n) na aba Cadernos.',
+              text: context.tr('Compartilhei meu caderno de Complexidade O(n) na aba Cadernos.'),
               color: AsterConstants.menta,
               isMine: true,
               isLeader: false,
@@ -684,7 +687,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Chat do Grupo',
+                      context.tr('Chat do Grupo'),
                       style: GoogleFonts.manrope(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
@@ -692,7 +695,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                       ),
                     ),
                     Text(
-                      'Converse, tire dúvidas e combine metas com os membros',
+                      context.tr('Converse, tire dúvidas e combine metas com os membros'),
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
                         color: mutedCol,
@@ -726,7 +729,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        m.name,
+                        context.tr(m.name),
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -743,7 +746,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                       ),
                       if (m.isLeader)
                         Text(
-                          '· Líder',
+                          context.tr('· Líder'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -761,7 +764,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    m.text,
+                    context.tr(m.text),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       height: 1.4,
@@ -813,11 +816,11 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
       );
     }
 
-    if (_selectedTab == 'diario') {
-      final logs = const [
-        (user: '@marina', name: 'Marina', subject: 'Árvores AVL & Rotações', mins: '55m', time: 'Hoje · 09:12'),
-        (user: '@caio', name: 'Caio', subject: 'Grafos & Dijkstra', mins: '1h 20m', time: 'Hoje · 11:05'),
-        (user: '@luna', name: 'Luna', subject: 'Programação Dinâmica', mins: '45m', time: 'Ontem · 20:30'),
+    if (_selectedTab == 'diary') {
+      final logs = [
+        (user: '@marina', name: 'Marina', subject: context.tr('Árvores AVL & Rotações'), mins: '55m', time: context.tr('Hoje · 09:12')),
+        (user: '@caio', name: 'Caio', subject: context.tr('Grafos & Dijkstra'), mins: '1h 20m', time: context.tr('Hoje · 11:05')),
+        (user: '@luna', name: 'Luna', subject: context.tr('Programação Dinâmica'), mins: '45m', time: context.tr('Ontem · 20:30')),
       ].where((l) => _selectedDiaryMember == null || l.user == _selectedDiaryMember).toList();
 
       return Column(
@@ -833,7 +836,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Diário de Estudos por Participante',
+                    context.tr('Diário de Estudos por Participante'),
                     style: GoogleFonts.manrope(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
@@ -841,7 +844,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                     ),
                   ),
                   Text(
-                    'Veja o que cada membro estudou e filtre por pessoa',
+                    context.tr('Veja o que cada membro estudou e filtre por pessoa'),
                     style: GoogleFonts.manrope(fontSize: 11.5, color: mutedCol),
                   ),
                 ],
@@ -855,7 +858,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                     onTap: () => setState(() => _selectedDiaryMember = u),
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     child: Container(
-                      padding: EdgeInsets.fromLTRB(u == null ? 10 : 6, 5, 10, 5),
+                      padding: EdgeInsetsDirectional.fromSTEB(u == null ? 10 : 6, 5, 10, 5),
                       decoration: BoxDecoration(
                         color: sel ? primary.withValues(alpha: 0.16) : cardCol,
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -874,7 +877,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                             const SizedBox(width: 6),
                           ],
                           Text(
-                            u ?? 'Todos (3)',
+                            u ?? context.tr('Todos (3)'),
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
@@ -915,8 +918,8 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                           fallbackColor: primary,
                           size: 38,
                         ),
-                        Positioned(
-                          right: -2,
+                        PositionedDirectional(
+                          end: -2,
                           bottom: -2,
                           child: Container(
                             width: 16,
@@ -941,7 +944,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${l.name} (${l.user}) · ${l.subject}',
+                            '${l.name} (${l.user}) · ${context.tr(l.subject)}',
                             style: GoogleFonts.manrope(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -949,7 +952,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                             ),
                           ),
                           Text(
-                            l.time,
+                            context.tr(l.time),
                             style: GoogleFonts.manrope(fontSize: 11, color: mutedCol),
                           ),
                         ],
@@ -973,10 +976,10 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
     }
 
     if (_selectedTab == 'ranking') {
-      const ranked = [
-        (name: 'Marina', handle: '@marina', stats: '14h20m no grupo', insights: '420'),
-        (name: 'Caio', handle: '@caio', stats: '11h50m no grupo', insights: '365'),
-        (name: 'Luna', handle: '@luna', stats: '10h15m no grupo', insights: '310'),
+      final ranked = [
+        (name: 'Marina', handle: '@marina', stats: context.tr('14h20m no grupo'), insights: '420'),
+        (name: 'Caio', handle: '@caio', stats: context.tr('11h50m no grupo'), insights: '365'),
+        (name: 'Luna', handle: '@luna', stats: context.tr('10h15m no grupo'), insights: '310'),
       ];
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -987,7 +990,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Ranking Interno de Insights (Estudo no Grupo)',
+                  context.tr('Ranking Interno de Insights (Estudo no Grupo)'),
                   style: GoogleFonts.manrope(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
@@ -1046,7 +1049,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                             ),
                           ),
                           Text(
-                            '${r.handle} · ${r.stats}',
+                            '${r.handle} · ${context.tr(r.stats)}',
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
@@ -1075,7 +1078,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
       );
     }
 
-    if (_selectedTab == 'simulados') {
+    if (_selectedTab == 'exams') {
       return _buildSimuladosTab(
         group: group,
         cardCol: cardCol,
@@ -1101,7 +1104,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
       );
     }
 
-    if (_selectedTab == 'cadernos') {
+    if (_selectedTab == 'notebooks') {
       return _buildCadernosTab(
         group: group,
         cardCol: cardCol,
@@ -1142,50 +1145,50 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
     required bool isCompact,
   }) {
     final exams = switch (_selectedGroupIndex) {
-      1 => const [
+      1 => [
           (
-            title: 'OAB 1ª Fase · Constitucional',
-            tag: 'Banca FGV · 20 questões',
-            accuracy: '82% acerto do grupo',
+            title: context.tr('OAB 1ª Fase · Constitucional'),
+            tag: context.tr('Banca FGV · 20 questões'),
+            accuracy: context.tr('82% acerto do grupo'),
             author: '@davi.jur',
             accent: AsterConstants.ambar,
           ),
           (
-            title: 'Controle de Constitucionalidade',
-            tag: 'RAG · PDF Comentado · 12q',
-            accuracy: '88% acerto do grupo',
+            title: context.tr('Controle de Constitucionalidade'),
+            tag: context.tr('RAG · PDF Comentado · 12q'),
+            accuracy: context.tr('88% acerto do grupo'),
             author: '@marina',
             accent: AsterConstants.menta,
           ),
         ],
-      2 => const [
+      2 => [
           (
-            title: 'USMLE Step 1 · Neuroanatomia',
-            tag: 'Oficial · 25 questões',
-            accuracy: '79% acerto do grupo',
+            title: context.tr('USMLE Step 1 · Neuroanatomia'),
+            tag: context.tr('Oficial · 25 questões'),
+            accuracy: context.tr('79% acerto do grupo'),
             author: '@caio.med',
             accent: AsterConstants.coral,
           ),
           (
-            title: 'Cardiologia Clínica · Casos RAG',
-            tag: 'Anexo .pdf · 15 questões',
-            accuracy: '86% acerto do grupo',
+            title: context.tr('Cardiologia Clínica · Casos RAG'),
+            tag: context.tr('Anexo .pdf · 15 questões'),
+            accuracy: context.tr('86% acerto do grupo'),
             author: '@marina',
             accent: AsterConstants.menta,
           ),
         ],
       _ => [
           (
-            title: 'Simulado · Árvores AVL & Grafos',
-            tag: 'RAG · 15 questões',
-            accuracy: '84% acerto do grupo',
+            title: context.tr('Simulado · Árvores AVL & Grafos'),
+            tag: context.tr('RAG · 15 questões'),
+            accuracy: context.tr('84% acerto do grupo'),
             author: '@marina',
             accent: AsterConstants.ambar,
           ),
           (
-            title: 'Prova Comentada · Tabela Hash & O(n)',
-            tag: 'Banca POSCOMP · 10q',
-            accuracy: '90% acerto do grupo',
+            title: context.tr('Prova Comentada · Tabela Hash & O(n)'),
+            tag: context.tr('Banca POSCOMP · 10q'),
+            accuracy: context.tr('90% acerto do grupo'),
             author: '@caio.dev',
             accent: AsterConstants.menta,
           ),
@@ -1207,7 +1210,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 Icon(Icons.assignment_rounded, size: 18, color: primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Simulados Compartilhados · ${group.subject}',
+                  context.tr('Simulados Compartilhados · {subject}', {'subject': context.tr(group.subject)}),
                   style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -1223,7 +1226,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
               child: Text(
-                '+ Anexar Simulado',
+                context.tr('+ Anexar Simulado'),
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
@@ -1269,7 +1272,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                 ),
                                 child: Text(
-                                  ex.tag,
+                                  context.tr(ex.tag),
                                   style: GoogleFonts.jetBrainsMono(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
@@ -1290,7 +1293,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            ex.title,
+                            context.tr(ex.title),
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -1304,7 +1307,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
-                                  ex.accuracy,
+                                  context.tr(ex.accuracy),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -1319,7 +1322,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                 ),
                                 child: Text(
-                                  'Resolver →',
+                                  context.tr('Resolver →'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w800,
@@ -1360,17 +1363,17 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
     required bool isCompact,
   }) {
     final decks = switch (_selectedGroupIndex) {
-      1 => const [
-          (title: 'Súmulas Vinculantes STF', total: 32, easy: 18, good: 9, hard: 5, owner: '@marina'),
-          (title: 'Remédios Constitucionais', total: 18, easy: 11, good: 5, hard: 2, owner: '@davi.jur'),
+      1 => [
+          (title: NoesisL10n.tr('Súmulas Vinculantes STF'), total: 32, easy: 18, good: 9, hard: 5, owner: '@marina'),
+          (title: NoesisL10n.tr('Remédios Constitucionais'), total: 18, easy: 11, good: 5, hard: 2, owner: '@davi.jur'),
         ],
-      2 => const [
-          (title: 'Farmacologia Autonômica 3D', total: 40, easy: 22, good: 12, hard: 6, owner: '@caio.med'),
-          (title: 'Ciclo Cardíaco & ECG', total: 24, easy: 16, good: 6, hard: 2, owner: '@marina'),
+      2 => [
+          (title: NoesisL10n.tr('Farmacologia Autonômica 3D'), total: 40, easy: 22, good: 12, hard: 6, owner: '@caio.med'),
+          (title: NoesisL10n.tr('Ciclo Cardíaco & ECG'), total: 24, easy: 16, good: 6, hard: 2, owner: '@marina'),
         ],
       _ => [
-          (title: 'Tabela Hash & Árvores Balanceadas', total: 28, easy: 16, good: 8, hard: 4, owner: '@marina'),
-          (title: 'Complexidade Assintótica O(n)', total: 20, easy: 14, good: 4, hard: 2, owner: '@caio.dev'),
+          (title: NoesisL10n.tr('Tabela Hash & Árvores Balanceadas'), total: 28, easy: 16, good: 8, hard: 4, owner: '@marina'),
+          (title: NoesisL10n.tr('Complexidade Assintótica O(n)'), total: 20, easy: 14, good: 4, hard: 2, owner: '@caio.dev'),
         ],
     };
 
@@ -1389,7 +1392,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                 Icon(Icons.style_rounded, size: 18, color: primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Baralhos 3D & Revisão Espaçada · ${group.name}',
+                  context.tr('Baralhos 3D & Revisão Espaçada · {group}', {'group': context.tr(group.name)}),
                   style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -1399,7 +1402,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               ],
             ),
             Text(
-              'Fácil 🟢 · Bom 🟡 · Difícil 🔴',
+              context.tr('Fácil 🟢 · Bom 🟡 · Difícil 🔴'),
               style: GoogleFonts.manrope(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
@@ -1444,7 +1447,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                 ),
                                 child: Text(
-                                  '${d.total} cartões 3D',
+                                  context.tr('{count} cartões 3D', {'count': d.total}),
                                   style: GoogleFonts.jetBrainsMono(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
@@ -1465,7 +1468,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            d.title,
+                            context.tr(d.title),
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -1492,7 +1495,11 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '${d.easy} fáceis · ${d.good} bons · ${d.hard} difíceis',
+                                  context.tr('{easy} fáceis · {good} bons · {hard} difíceis', {
+                                    'easy': d.easy,
+                                    'good': d.good,
+                                    'hard': d.hard,
+                                  }),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
@@ -1507,7 +1514,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                 ),
                                 child: Text(
-                                  'Revisar 3D',
+                                  context.tr('Revisar 3D'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w800,
@@ -1548,25 +1555,40 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
   }) {
     final notes = switch (_selectedGroupIndex) {
       1 => (
-          list: ['Controle Difuso x Concentrado', 'Cláusulas Pétreas (Art. 60 §4º)', 'Súmulas Comentadas'],
-          noteTitle: 'Controle Difuso vs. Concentrado',
-          author: 'Editado por @davi.jur · Markdown',
-          body: '• Controle Difuso: qualquer juiz ou tribunal analisa incidenter tantum (caso concreto).\n• Controle Concentrado (ADI/ADC/ADPF): STF decide com efeito erga omnes e vinculante.',
-          tip: 'Dica para prova: verificar modulação temporal (quórum de 2/3 no STF).',
+          list: [
+            NoesisL10n.tr('Controle Difuso x Concentrado'),
+            NoesisL10n.tr('Cláusulas Pétreas (Art. 60 §4º)'),
+            NoesisL10n.tr('Súmulas Comentadas'),
+          ],
+          noteTitle: NoesisL10n.tr('Controle Difuso vs. Concentrado'),
+          author: NoesisL10n.tr('Editado por @davi.jur · Markdown'),
+          body: NoesisL10n.tr(
+              '• Controle Difuso: qualquer juiz ou tribunal analisa incidenter tantum (caso concreto).\n• Controle Concentrado (ADI/ADC/ADPF): STF decide com efeito erga omnes e vinculante.'),
+          tip: NoesisL10n.tr('Dica para prova: verificar modulação temporal (quórum de 2/3 no STF).'),
         ),
       2 => (
-          list: ['Fisiologia Renal & Néfron', 'Protocolo Sepse & Lactato', 'Antiarrítmicos (Classes I–IV)'],
-          noteTitle: 'Fisiologia Renal · Filtração Glomerular',
-          author: 'Editado por @caio.med · Markdown',
-          body: '• TFG normal: ~125 mL/min (regulada por arteríola aferente e eferente).\n• Alça de Henle ascendente espessa: reabsorve Na⁺/K⁺/2Cl⁻ — alvo dos diuréticos de alça.',
-          tip: 'Flashcard ligado: revisar mecanismo da furosemida.',
+          list: [
+            NoesisL10n.tr('Fisiologia Renal & Néfron'),
+            NoesisL10n.tr('Protocolo Sepse & Lactato'),
+            NoesisL10n.tr('Antiarrítmicos (Classes I–IV)'),
+          ],
+          noteTitle: NoesisL10n.tr('Fisiologia Renal · Filtração Glomerular'),
+          author: NoesisL10n.tr('Editado por @caio.med · Markdown'),
+          body: NoesisL10n.tr(
+              '• TFG normal: ~125 mL/min (regulada por arteríola aferente e eferente).\n• Alça de Henle ascendente espessa: reabsorve Na⁺/K⁺/2Cl⁻ — alvo dos diuréticos de alça.'),
+          tip: NoesisL10n.tr('Flashcard ligado: revisar mecanismo da furosemida.'),
         ),
       _ => (
-          list: ['Complexidade & Notação Big-O', 'Árvores AVL vs. Rubro-Negra', 'Tabela Hash & Colisões'],
-          noteTitle: 'Complexidade & Árvores Balanceadas',
-          author: 'Editado por @luna · Markdown',
-          body: '• Árvore AVL: altura estrita h ≤ 1.44·log₂(n) — ideal quando há muito mais buscas do que inserções.\n• Tabela Hash: acesso médio O(1) usando espalhamento e fator de carga α controlado.',
-          tip: 'Conectado ao Simulado #1 e ao baralho principal do grupo.',
+          list: [
+            NoesisL10n.tr('Complexidade & Notação Big-O'),
+            NoesisL10n.tr('Árvores AVL vs. Rubro-Negra'),
+            NoesisL10n.tr('Tabela Hash & Colisões'),
+          ],
+          noteTitle: NoesisL10n.tr('Complexidade & Árvores Balanceadas'),
+          author: NoesisL10n.tr('Editado por @luna · Markdown'),
+          body: NoesisL10n.tr(
+              '• Árvore AVL: altura estrita h ≤ 1.44·log₂(n) — ideal quando há muito mais buscas do que inserções.\n• Tabela Hash: acesso médio O(1) usando espalhamento e fator de carga α controlado.'),
+          tip: NoesisL10n.tr('Conectado ao Simulado #1 e ao baralho principal do grupo.'),
         ),
     };
 
@@ -1590,7 +1612,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  notes.list[i],
+                  context.tr(notes.list[i]),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -1620,7 +1642,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
             children: [
               Expanded(
                 child: Text(
-                  notes.noteTitle,
+                  context.tr(notes.noteTitle),
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: 16.5,
                     fontWeight: FontWeight.w700,
@@ -1647,12 +1669,12 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
           ),
           const SizedBox(height: 3),
           Text(
-            notes.author,
+            context.tr(notes.author),
             style: GoogleFonts.manrope(fontSize: 11.5, color: mutedCol, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
           Text(
-            notes.body,
+            context.tr(notes.body),
             style: GoogleFonts.manrope(
               fontSize: 12.5,
               height: 1.5,
@@ -1666,10 +1688,10 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
             decoration: BoxDecoration(
               color: primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border(left: BorderSide(color: primary, width: 3)),
+              border: BorderDirectional(start: BorderSide(color: primary, width: 3)),
             ),
             child: Text(
-              notes.tip,
+              context.tr(notes.tip),
               style: GoogleFonts.manrope(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -1715,23 +1737,23 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
     required bool isCompact,
   }) {
     final steps = switch (_selectedGroupIndex) {
-      1 => const [
-          (title: 'Teoria Fundamental & Art. 5º', status: 'Concluída', done: true, current: false),
-          (title: 'Organização do Estado & Poderes', status: 'Concluída', done: true, current: false),
-          (title: 'Simulado RAG FGV Comentado', status: 'Em andamento · 65%', done: false, current: true),
-          (title: 'Revisão Espaçada de Súmulas', status: 'Próxima etapa', done: false, current: false),
+      1 => [
+          (title: NoesisL10n.tr('Teoria Fundamental & Art. 5º'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Organização do Estado & Poderes'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Simulado RAG FGV Comentado'), status: NoesisL10n.tr('Em andamento · 65%'), done: false, current: true),
+          (title: NoesisL10n.tr('Revisão Espaçada de Súmulas'), status: NoesisL10n.tr('Próxima etapa'), done: false, current: false),
         ],
-      2 => const [
-          (title: 'Módulo 1 · Fisiologia Base', status: 'Concluída', done: true, current: false),
-          (title: 'Módulo 2 · Farmacologia Clínica', status: 'Concluída', done: true, current: false),
-          (title: 'Simulado Integrado USMLE', status: 'Em andamento · 50%', done: false, current: true),
-          (title: 'Revisão Final em Grupo', status: 'Próxima etapa', done: false, current: false),
+      2 => [
+          (title: NoesisL10n.tr('Módulo 1 · Fisiologia Base'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Módulo 2 · Farmacologia Clínica'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Simulado Integrado USMLE'), status: NoesisL10n.tr('Em andamento · 50%'), done: false, current: true),
+          (title: NoesisL10n.tr('Revisão Final em Grupo'), status: NoesisL10n.tr('Próxima etapa'), done: false, current: false),
         ],
-      _ => const [
-          (title: 'Análise Assintótica & Big-O', status: 'Concluída', done: true, current: false),
-          (title: 'Listas, Pilhas, Filas & Hash', status: 'Concluída', done: true, current: false),
-          (title: 'Árvores AVL & Grafos · Simulado', status: 'Em andamento · 70%', done: false, current: true),
-          (title: 'Programação Dinâmica + Revisão 3D', status: 'Próxima etapa', done: false, current: false),
+      _ => [
+          (title: NoesisL10n.tr('Análise Assintótica & Big-O'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Listas, Pilhas, Filas & Hash'), status: NoesisL10n.tr('Concluída'), done: true, current: false),
+          (title: NoesisL10n.tr('Árvores AVL & Grafos · Simulado'), status: NoesisL10n.tr('Em andamento · 70%'), done: false, current: true),
+          (title: NoesisL10n.tr('Programação Dinâmica + Revisão 3D'), status: NoesisL10n.tr('Próxima etapa'), done: false, current: false),
         ],
     };
 
@@ -1751,7 +1773,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Trilha Guiada · ${group.name}',
+                  context.tr('Trilha Guiada · {group}', {'group': context.tr(group.name)}),
                   style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -1766,7 +1788,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: Text(
-                  '68% concluída',
+                  context.tr('68% concluída'),
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1813,7 +1835,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        st.title,
+                        context.tr(st.title),
                         style: GoogleFonts.manrope(
                           fontSize: 13.5,
                           fontWeight: st.current || st.done ? FontWeight.w800 : FontWeight.w600,
@@ -1822,7 +1844,7 @@ class _LandingCommunitySectionState extends State<LandingCommunitySection> {
                       ),
                     ),
                     Text(
-                      st.status,
+                      context.tr(st.status),
                       style: GoogleFonts.manrope(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,

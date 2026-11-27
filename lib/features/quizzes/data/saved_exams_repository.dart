@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/supabase_service.dart';
 import 'saved_exams_store_stub.dart'
     if (dart.library.io) 'saved_exams_store_io.dart'
@@ -126,13 +127,13 @@ class SavedExamAttempt {
 
     return SavedExamAttempt(
       id: (json['id'] ?? '').toString(),
-      groupKey: (json['groupKey'] ?? json['examModelName'] ?? json['subject'] ?? 'geral').toString(),
+      groupKey: (json['groupKey'] ?? json['examModelName'] ?? json['subject'] ?? NoesisL10n.tr('geral')).toString(),
       examModelId: json['examModelId']?.toString(),
-      examModelName: (json['examModelName'] ?? 'Simulado').toString(),
-      title: (json['title'] ?? 'Simulado').toString(),
-      subject: (json['subject'] ?? 'Geral').toString(),
+      examModelName: (json['examModelName'] ?? NoesisL10n.tr('Simulado')).toString(),
+      title: (json['title'] ?? NoesisL10n.tr('Simulado')).toString(),
+      subject: (json['subject'] ?? NoesisL10n.tr('Geral')).toString(),
       topic: (json['topic'] ?? '').toString(),
-      difficulty: (json['difficulty'] ?? 'Médio / Prático').toString(),
+      difficulty: (json['difficulty'] ?? NoesisL10n.tr('Médio / Prático')).toString(),
       createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
       elapsedSeconds: (json['elapsedSeconds'] as num?)?.toInt() ?? 0,
       targetTotalCount: (json['targetTotalCount'] as num?)?.toInt() ?? rawQuestions.length,
@@ -163,12 +164,12 @@ class SavedExamAttempt {
       }
     });
 
-    final subject = (row['subject'] ?? 'Geral').toString();
-    final title = (row['title'] ?? 'Simulado').toString();
+    final subject = (row['subject'] ?? NoesisL10n.tr('Geral')).toString();
+    final title = (row['title'] ?? NoesisL10n.tr('Simulado')).toString();
     final topic = (row['topic'] ?? title).toString();
     final examModelId = row['exam_model_id']?.toString();
     final examModelName = (row['exam_model_name'] ?? '').toString().trim();
-    final resolvedModelName = examModelName.isNotEmpty ? examModelName : 'Modo Livre';
+    final resolvedModelName = examModelName.isNotEmpty ? examModelName : NoesisL10n.tr('Modo Livre');
 
     final score = (row['score_percentage'] as num?)?.toDouble() ?? 0.0;
     final storedCorrect = (row['correct_count'] as num?)?.toInt();
@@ -289,7 +290,7 @@ class SavedExamsRepository {
     final score = questions.isNotEmpty ? (correct / questions.length) * 100.0 : 0.0;
     final resolvedModelName = (examModelName != null && examModelName.trim().isNotEmpty)
         ? examModelName.trim()
-        : 'Modo Livre';
+        : NoesisL10n.tr('Modo Livre');
     final displayTitle = (examModelName != null && examModelName.trim().isNotEmpty)
         ? examModelName.trim()
         : (topic.trim().isNotEmpty ? topic.trim() : subject.trim());
@@ -304,7 +305,7 @@ class SavedExamsRepository {
       ),
       examModelId: examModelId,
       examModelName: resolvedModelName,
-      title: displayTitle.isEmpty ? 'Simulado' : displayTitle,
+      title: displayTitle.isEmpty ? NoesisL10n.tr('Simulado') : displayTitle,
       subject: subject,
       topic: topic,
       difficulty: difficulty,

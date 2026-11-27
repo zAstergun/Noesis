@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'core/constants.dart';
 import 'core/desktop_window_service.dart';
+import 'core/localization/noesis_l10n.dart';
+import 'core/localization/noesis_locale_service.dart';
 import 'core/noesis_crm_service.dart';
 import 'core/notifications_service.dart';
 import 'core/shop_service.dart';
@@ -44,8 +45,9 @@ import 'widgets/weekly_goal_dialog.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar suporte a formatação de datas em português
-  await initializeDateFormatting('pt_BR', null);
+  // Inicializar idioma (manual > perfil > detecção automática > fallback Inglês)
+  // e formatação de datas para todos os 15 idiomas suportados
+  await NoesisLocaleService.ensureInitialized();
 
   // Inicializar controle nativo da janela desktop (Windows)
   await DesktopWindowService.ensureInitialized();
@@ -89,8 +91,31 @@ class AsterScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class NoesisApp extends StatelessWidget {
+class NoesisApp extends StatefulWidget {
   const NoesisApp({super.key});
+
+  @override
+  State<NoesisApp> createState() => _NoesisAppState();
+}
+
+class _NoesisAppState extends State<NoesisApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    super.didChangeLocales(locales);
+    NoesisLocaleService.handlePlatformLocalesChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,9 +124,11 @@ class NoesisApp extends StatelessWidget {
         AsterTheme.themeModeNotifier,
         AsterTheme.activeThemeIdNotifier,
         AsterTheme.customThemeColorsNotifier,
+        NoesisLocaleService.currentCodeNotifier,
       ]),
       builder: (context, _) {
         final themeMode = AsterTheme.themeModeNotifier.value;
+        final activeOption = NoesisLocaleService.currentLanguage;
         return MaterialApp(
           title: AsterConstants.appName,
           debugShowCheckedModeBanner: false,
@@ -109,11 +136,8 @@ class NoesisApp extends StatelessWidget {
           theme: AsterTheme.activeLightThemeData(),
           darkTheme: AsterTheme.activeDarkThemeData(),
           themeMode: themeMode,
-          locale: const Locale('pt', 'BR'),
-          supportedLocales: const [
-            Locale('pt', 'BR'),
-            Locale('en', 'US'),
-          ],
+          locale: activeOption.locale,
+          supportedLocales: NoesisLocaleService.supportedFlutterLocales,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -123,9 +147,20 @@ class NoesisApp extends StatelessWidget {
           // é feita pelo NoesisThemeTransitionOverlay diretamente na GPU.
           themeAnimationDuration: Duration.zero,
           builder: (context, child) {
-            return NoesisThemeTransitionOverlay(
-              child: InsightGainToastOverlay(
-                child: child ?? const SizedBox.shrink(),
+            return NoesisLocaleScope(
+              notifier: NoesisLocaleService.currentCodeNotifier,
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(
+                  fontFamilyFallback: AsterTheme.scriptFontFamilyFallback,
+                ),
+                child: Directionality(
+                  textDirection: NoesisLocaleService.textDirection,
+                  child: NoesisThemeTransitionOverlay(
+                    child: InsightGainToastOverlay(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
               ),
             );
           },
@@ -187,115 +222,115 @@ class _SidebarNavSection {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  static const List<_SidebarNavSection> _navSections = [
+  static List<_SidebarNavSection> get _navSections => [
     _SidebarNavSection(
       items: [
         _SidebarNavEntry(
           index: 0,
-          title: 'Dashboard',
-          shortTitle: 'Início',
+          title: NoesisL10n.tr('Dashboard'),
+          shortTitle: NoesisL10n.tr('Início'),
           icon: Icons.home_rounded,
-          subtitle: 'Timer e metas',
+          subtitle: NoesisL10n.tr('Timer e metas'),
         ),
         _SidebarNavEntry(
           index: 13,
-          title: 'Desempenho',
+          title: NoesisL10n.tr('Desempenho'),
           icon: Icons.analytics_rounded,
-          subtitle: 'Métricas e evolução',
+          subtitle: NoesisL10n.tr('Métricas e evolução'),
         ),
       ],
     ),
     _SidebarNavSection(
-      header: 'ESTUDO',
+      header: NoesisL10n.tr('ESTUDO'),
       items: [
         _SidebarNavEntry(
           index: 1,
-          title: 'Simulados',
+          title: NoesisL10n.tr('Simulados'),
           icon: Icons.assignment_rounded,
-          subtitle: 'Provas com IA e RAG',
+          subtitle: NoesisL10n.tr('Provas com IA e RAG'),
         ),
         _SidebarNavEntry(
           index: 2,
-          title: 'Flashcards',
+          title: NoesisL10n.tr('Flashcards'),
           icon: Icons.style_rounded,
-          subtitle: 'Revisão espaçada 3D',
+          subtitle: NoesisL10n.tr('Revisão espaçada 3D'),
         ),
         _SidebarNavEntry(
           index: 3,
-          title: 'Cadernos',
+          title: NoesisL10n.tr('Cadernos'),
           icon: Icons.menu_book_rounded,
-          subtitle: 'Resumos e anotações',
+          subtitle: NoesisL10n.tr('Resumos e anotações'),
         ),
         _SidebarNavEntry(
           index: 8,
-          title: 'Trilhas',
+          title: NoesisL10n.tr('Trilhas'),
           icon: Icons.route_rounded,
-          subtitle: 'Mapas de aprendizado',
+          subtitle: NoesisL10n.tr('Mapas de aprendizado'),
         ),
       ],
     ),
     _SidebarNavSection(
-      header: 'ROTINA & IA',
+      header: NoesisL10n.tr('ROTINA & IA'),
       items: [
         _SidebarNavEntry(
           index: 7,
-          title: 'Diário de Estudos',
-          shortTitle: 'Diário',
+          title: NoesisL10n.tr('Diário de Estudos'),
+          shortTitle: NoesisL10n.tr('Diário'),
           icon: Icons.auto_stories_rounded,
-          subtitle: 'Registro de sessões',
+          subtitle: NoesisL10n.tr('Registro de sessões'),
         ),
         _SidebarNavEntry(
           index: 5,
-          title: 'Calendário',
+          title: NoesisL10n.tr('Calendário'),
           icon: Icons.calendar_today_rounded,
-          subtitle: 'Agenda e revisões',
+          subtitle: NoesisL10n.tr('Agenda e revisões'),
         ),
         _SidebarNavEntry(
           index: 4,
-          title: 'Noesis AI',
+          title: NoesisL10n.tr('Noesis AI'),
           icon: Icons.smart_toy_rounded,
-          subtitle: 'Tutor cognitivo',
+          subtitle: NoesisL10n.tr('Tutor cognitivo'),
         ),
       ],
     ),
     _SidebarNavSection(
-      header: 'COMUNIDADE',
+      header: NoesisL10n.tr('COMUNIDADE'),
       items: [
         _SidebarNavEntry(
           index: 10,
-          title: 'Grupos',
+          title: NoesisL10n.tr('Grupos'),
           icon: Icons.groups_rounded,
-          subtitle: 'Estudo em equipe',
+          subtitle: NoesisL10n.tr('Estudo em equipe'),
         ),
         _SidebarNavEntry(
           index: 11,
-          title: 'Ranking',
+          title: NoesisL10n.tr('Ranking'),
           icon: Icons.emoji_events_rounded,
-          subtitle: 'Ligas semanais',
+          subtitle: NoesisL10n.tr('Ligas semanais'),
         ),
       ],
     ),
     _SidebarNavSection(
-      header: 'CONTA',
+      header: NoesisL10n.tr('CONTA'),
       items: [
         _SidebarNavEntry(
           index: 12,
-          title: 'Perfil',
+          title: NoesisL10n.tr('Perfil'),
           icon: Icons.person_rounded,
-          subtitle: 'Conquistas e social',
+          subtitle: NoesisL10n.tr('Conquistas e social'),
         ),
         _SidebarNavEntry(
           index: 9,
-          title: 'Loja',
+          title: NoesisL10n.tr('Loja'),
           icon: Icons.storefront_rounded,
-          subtitle: 'Temas e itens VIP',
+          subtitle: NoesisL10n.tr('Temas e itens VIP'),
         ),
         _SidebarNavEntry(
           index: 6,
-          title: 'Configurações',
-          shortTitle: 'Config',
+          title: NoesisL10n.tr('Configurações'),
+          shortTitle: NoesisL10n.tr('Config'),
           icon: Icons.settings_rounded,
-          subtitle: 'IA, temas e idioma',
+          subtitle: NoesisL10n.tr('IA, temas e idioma'),
         ),
       ],
     ),
@@ -550,7 +585,7 @@ class _RootScreenState extends State<RootScreen> {
             SnackBar(
               backgroundColor: AsterConstants.menta,
               content: Text(
-                'Link de confirmação reenviado para $email!',
+                context.tr('Link de confirmação reenviado para {email}!', {'email': email}),
                 style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),
@@ -595,7 +630,7 @@ class _RootScreenState extends State<RootScreen> {
             SnackBar(
               backgroundColor: AsterConstants.menta,
               content: Text(
-                'E-mail confirmado com sucesso!',
+                context.tr('E-mail confirmado com sucesso!'),
                 style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),
@@ -607,7 +642,7 @@ class _RootScreenState extends State<RootScreen> {
             SnackBar(
               backgroundColor: AsterConstants.ambar,
               content: Text(
-                'Ainda não detectamos a confirmação. Clique no link enviado para seu e-mail.',
+                context.tr('Ainda não detectamos a confirmação. Clique no link enviado para seu e-mail.'),
                 style: GoogleFonts.manrope(fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),
@@ -662,8 +697,8 @@ class _RootScreenState extends State<RootScreen> {
               Flexible(
                 child: Text(
                   hasEmail
-                      ? 'Confirme seu e-mail ($email) para validar e proteger sua conta.'
-                      : 'Confirme seu e-mail na caixa de entrada para validar sua conta.',
+                      ? context.tr('Confirme seu e-mail ({email}) para validar e proteger sua conta.', {'email': email})
+                      : context.tr('Confirme seu e-mail na caixa de entrada para validar sua conta.'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -696,7 +731,7 @@ class _RootScreenState extends State<RootScreen> {
                         )
                       : const Icon(Icons.refresh_rounded, size: 15),
                   label: Text(
-                    _isResendingEmailBanner ? 'Reenviando...' : 'Reenviar e-mail',
+                    _isResendingEmailBanner ? context.tr('Reenviando...') : context.tr('Reenviar e-mail'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -713,7 +748,7 @@ class _RootScreenState extends State<RootScreen> {
                   foregroundColor: textCol,
                 ),
                 child: Text(
-                  _isCheckingEmailBanner ? 'Verificando...' : 'Já confirmei',
+                  _isCheckingEmailBanner ? context.tr('Verificando...') : context.tr('Já confirmei'),
                   style: GoogleFonts.manrope(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -722,7 +757,7 @@ class _RootScreenState extends State<RootScreen> {
               ),
               IconButton(
                 key: const Key('email_verification_dismiss_button'),
-                tooltip: 'Lembrar depois',
+                tooltip: context.tr('Lembrar depois'),
                 onPressed: () => setState(() => _dismissedEmailBanner = true),
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
@@ -736,21 +771,22 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  String get _greeting {
+  String _greeting(BuildContext context) {
     final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return 'Bom dia';
-    if (hour >= 12 && hour < 18) return 'Boa tarde';
-    return 'Boa noite';
+    if (hour >= 5 && hour < 12) return context.tr('Bom dia');
+    if (hour >= 12 && hour < 18) return context.tr('Boa tarde');
+    return context.tr('Boa noite');
   }
 
   String _formatTodayDate() {
     final now = DateTime.now();
-    final formatter = DateFormat("EEEE, d 'de' MMMM", 'pt_BR');
+    final formatter = DateFormat.MMMMEEEEd(NoesisLocaleService.intlLocale);
     try {
       final text = formatter.format(now);
+      if (text.isEmpty) return NoesisL10n.tr('Hoje · Foco Ativo');
       return text[0].toUpperCase() + text.substring(1);
     } catch (_) {
-      return 'Hoje · Foco Ativo';
+      return NoesisL10n.tr('Hoje · Foco Ativo');
     }
   }
 
@@ -763,9 +799,9 @@ class _RootScreenState extends State<RootScreen> {
         builder: (dialogContext) {
           return Stack(
             children: [
-              Positioned(
+              PositionedDirectional(
                 top: DesktopTopBar.height + 6,
-                right: DesktopWindowService.isCustomFrameSupported ? 116 : 16,
+                end: DesktopWindowService.isCustomFrameSupported ? 116 : 16,
                 child: Material(
                   color: Colors.transparent,
                   child: ConstrainedBox(
@@ -853,7 +889,7 @@ class _RootScreenState extends State<RootScreen> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 12, 12),
                 child: Row(
                   children: [
                     Container(
@@ -871,7 +907,7 @@ class _RootScreenState extends State<RootScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'Notificações',
+                      dialogContext.tr('Notificações'),
                       style: GoogleFonts.manrope(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -887,7 +923,9 @@ class _RootScreenState extends State<RootScreen> {
                           borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                         ),
                         child: Text(
-                          '$unread ${unread == 1 ? 'nova' : 'novas'}',
+                          unread == 1
+                              ? dialogContext.tr('{count} nova', {'count': unread})
+                              : dialogContext.tr('{count} novas', {'count': unread}),
                           style: GoogleFonts.manrope(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
@@ -905,7 +943,7 @@ class _RootScreenState extends State<RootScreen> {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          'Marcar lidas',
+                          dialogContext.tr('Marcar lidas'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -946,7 +984,7 @@ class _RootScreenState extends State<RootScreen> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Tudo em dia!',
+                              dialogContext.tr('Tudo em dia!'),
                               style: GoogleFonts.manrope(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
@@ -955,7 +993,7 @@ class _RootScreenState extends State<RootScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Você não tem novas notificações no momento.',
+                              dialogContext.tr('Você não tem novas notificações no momento.'),
                               textAlign: TextAlign.center,
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
@@ -967,7 +1005,7 @@ class _RootScreenState extends State<RootScreen> {
                               onPressed: NotificationsService.instance.restoreAndRefresh,
                               icon: Icon(Icons.refresh_rounded, size: 15, color: primaryCol),
                               label: Text(
-                                'Verificar notificações',
+                                dialogContext.tr('Verificar notificações'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
@@ -1071,7 +1109,7 @@ class _RootScreenState extends State<RootScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     IconButton(
-                                      tooltip: 'Dispensar',
+                                      tooltip: dialogContext.tr('Dispensar'),
                                       icon: Icon(
                                         Icons.close_rounded,
                                         size: 15,
@@ -1099,7 +1137,7 @@ class _RootScreenState extends State<RootScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Toque para abrir no app',
+                        dialogContext.tr('Toque para abrir no app'),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           color: mutedCol.withValues(alpha: 0.75),
@@ -1113,7 +1151,7 @@ class _RootScreenState extends State<RootScreen> {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          'Limpar todas',
+                          dialogContext.tr('Limpar todas'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             color: mutedCol,
@@ -1223,7 +1261,7 @@ class _RootScreenState extends State<RootScreen> {
               ),
             ),
           IconButton(
-            tooltip: 'Dispensar aviso',
+            tooltip: context.tr('Dispensar aviso'),
             onPressed: () => setState(() {
               _dismissedAnnouncementFingerprint = announcement.fingerprint;
             }),
@@ -1265,7 +1303,7 @@ class _RootScreenState extends State<RootScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '${navInfo.entry.title} em manutenção',
+              context.tr('{module} em manutenção', {'module': context.tr(navInfo.entry.title)}),
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(
                 fontSize: 18,
@@ -1275,7 +1313,7 @@ class _RootScreenState extends State<RootScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Este módulo foi pausado temporariamente pela administração do ecossistema Aster.',
+              context.tr('Este módulo foi pausado temporariamente pela administração do ecossistema Aster.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(
                 fontSize: 13,
@@ -1286,7 +1324,7 @@ class _RootScreenState extends State<RootScreen> {
             FilledButton.icon(
               onPressed: () => RootScreen.switchTab(0),
               icon: const Icon(Icons.home_rounded, size: 18),
-              label: const Text('Voltar ao Dashboard'),
+              label: Text(context.tr('Voltar ao Dashboard')),
             ),
           ],
         ),
@@ -1314,7 +1352,7 @@ class _RootScreenState extends State<RootScreen> {
                 const NoesisLogo(size: 56, withShadow: true),
                 const SizedBox(height: 18),
                 Text(
-                  'Noesis em Manutenção',
+                  context.tr('Noesis em Manutenção'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 22,
@@ -1324,7 +1362,7 @@ class _RootScreenState extends State<RootScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  message,
+                  context.tr(message),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 14,
@@ -1336,7 +1374,7 @@ class _RootScreenState extends State<RootScreen> {
                 FilledButton.icon(
                   onPressed: () => unawaited(NoesisCrmService.instance.fetchRemoteConfig()),
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Verificar Novamente'),
+                  label: Text(context.tr('Verificar Novamente')),
                 ),
               ],
             ),
@@ -1407,7 +1445,7 @@ class _RootScreenState extends State<RootScreen> {
             ? rawFullName
             : (rawChannel.isNotEmpty
                 ? '@$rawChannel'
-                : (session?.user.email?.split('@').first ?? 'Estudante'));
+                : (session?.user.email?.split('@').first ?? context.tr('Estudante')));
         final initials = userName.isNotEmpty ? userName.substring(0, userName.length >= 2 ? 2 : 1).toUpperCase() : 'ES';
         final avatarImage = buildAvatarImageProvider(_userProfile?['avatar_url']?.toString());
         final isVip = SupabaseService.isCurrentUserVip;
@@ -1426,7 +1464,7 @@ class _RootScreenState extends State<RootScreen> {
             valueListenable: ShopService.instance.balanceNotifier,
             builder: (context, balance, _) {
               return Tooltip(
-                message: 'Saldo na Loja (${ShopService.currencyName})',
+                message: context.tr('Saldo na Loja ({currency})', {'currency': ShopService.currencyName}),
                 child: InkWell(
                   key: const Key('header_wallet_pill'),
                   onTap: () => RootScreen.switchTab(9),
@@ -1507,10 +1545,10 @@ class _RootScreenState extends State<RootScreen> {
                     ),
                   ),
                   if (unread > 0)
-                    Positioned(
+                    PositionedDirectional(
                       key: const Key('notifications_unread_dot'),
                       top: 1,
-                      right: 1,
+                      end: 1,
                       child: Container(
                         width: 10,
                         height: 10,
@@ -1539,7 +1577,7 @@ class _RootScreenState extends State<RootScreen> {
 
         Widget buildMobileAvatar({double radius = 17}) {
           return Tooltip(
-            message: 'Configurações do Perfil',
+            message: context.tr('Configurações do Perfil'),
             child: InkWell(
               key: const Key('mobile_profile_button'),
               customBorder: const CircleBorder(),
@@ -1582,15 +1620,15 @@ class _RootScreenState extends State<RootScreen> {
 
                 if (!isWideScreen && activeIndex != 0) {
                   final navInfo = _findNavEntry(activeIndex);
-                  final sectionLabel = navInfo.section ?? 'NOESIS';
+                  final sectionLabel = navInfo.section != null ? context.tr(navInfo.section!) : 'NOESIS';
                   return RepaintBoundary(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 14, isVip ? 20 : 16, 10),
+                      padding: EdgeInsetsDirectional.fromSTEB(16, 14, isVip ? 20 : 16, 10),
                       child: Row(
                         children: [
                           Expanded(
                             child: Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: AlignmentDirectional.centerStart,
                               child: InkWell(
                                 key: const Key('mobile_topbar_menu_pill'),
                                 onTap: openMobileMenu,
@@ -1619,8 +1657,8 @@ class _RootScreenState extends State<RootScreen> {
                                       Flexible(
                                         child: Text(
                                           isCompactPhone
-                                              ? navInfo.entry.title
-                                              : '$sectionLabel · ${navInfo.entry.title}',
+                                              ? context.tr(navInfo.entry.title)
+                                              : '$sectionLabel · ${context.tr(navInfo.entry.title)}',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.manrope(
@@ -1656,7 +1694,7 @@ class _RootScreenState extends State<RootScreen> {
 
                 return RepaintBoundary(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: EdgeInsetsDirectional.fromSTEB(
                       isWideScreen ? 28 : 16,
                       isWideScreen ? 22 : 14,
                       isWideScreen ? 28 : (isVip ? 20 : 16),
@@ -1677,7 +1715,7 @@ class _RootScreenState extends State<RootScreen> {
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                               ),
                               child: Text(
-                                '🔥 ${_currentStreakDays}d',
+                                context.tr('🔥 {days}d', {'days': _currentStreakDays}),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -1691,7 +1729,7 @@ class _RootScreenState extends State<RootScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '$_greeting, $userName.',
+                                '${_greeting(context)}, $userName.',
                                 style: GoogleFonts.manrope(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
@@ -1703,7 +1741,9 @@ class _RootScreenState extends State<RootScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    '${_formatTodayDate()} · $_currentStreakDays ${_currentStreakDays == 1 ? 'dia' : 'dias'} de streak ',
+                                    _currentStreakDays == 1
+                                        ? context.tr('{date} · {days} dia de streak ', {'date': _formatTodayDate(), 'days': _currentStreakDays})
+                                        : context.tr('{date} · {days} dias de streak ', {'date': _formatTodayDate(), 'days': _currentStreakDays}),
                                     style: GoogleFonts.manrope(
                                       fontSize: 13,
                                       color: AsterTheme.textMuted(context),
@@ -1716,10 +1756,11 @@ class _RootScreenState extends State<RootScreen> {
                                     builder: (context, shields, _) {
                                       if (shields <= 0) return const SizedBox.shrink();
                                       return Padding(
-                                        padding: const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsetsDirectional.only(start: 6),
                                         child: Tooltip(
-                                          message:
-                                              '$shields ${shields == 1 ? 'Protetor de Ofensiva ativo' : 'Protetores de Ofensiva ativos'}',
+                                          message: shields == 1
+                                              ? context.tr('{count} Protetor de Ofensiva ativo', {'count': shields})
+                                              : context.tr('{count} Protetores de Ofensiva ativos', {'count': shields}),
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 6,
@@ -1893,7 +1934,7 @@ class _RootScreenState extends State<RootScreen> {
                                             key: const ValueKey('sidebar_expanded_overflow'),
                                             minWidth: 236.0,
                                             maxWidth: 236.0,
-                                            alignment: Alignment.topLeft,
+                                            alignment: AlignmentDirectional.topStart,
                                             child: _buildExpandedSidebarPanel(
                                               context: context,
                                               isDark: isDark,
@@ -2006,7 +2047,7 @@ class _RootScreenState extends State<RootScreen> {
                                   child: _buildMobileNavItem(
                                     0,
                                     Icons.home_rounded,
-                                    'Dashboard',
+                                    context.tr('Dashboard'),
                                     activeIndex: activeIndex,
                                   ),
                                 ),
@@ -2014,7 +2055,7 @@ class _RootScreenState extends State<RootScreen> {
                                   child: _buildMobileNavItem(
                                     1,
                                     Icons.assignment_rounded,
-                                    'Simulados',
+                                    context.tr('Simulados'),
                                     activeIndex: activeIndex,
                                   ),
                                 ),
@@ -2022,7 +2063,7 @@ class _RootScreenState extends State<RootScreen> {
                                   child: _buildMobileNavItem(
                                     2,
                                     Icons.style_rounded,
-                                    'Flashcards',
+                                    context.tr('Flashcards'),
                                     activeIndex: activeIndex,
                                   ),
                                 ),
@@ -2030,7 +2071,7 @@ class _RootScreenState extends State<RootScreen> {
                                   child: _buildMobileNavItem(
                                     4,
                                     Icons.smart_toy_rounded,
-                                    'Noesis AI',
+                                    context.tr('Noesis AI'),
                                     activeIndex: activeIndex,
                                   ),
                                 ),
@@ -2076,12 +2117,12 @@ class _RootScreenState extends State<RootScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final section in _navSections) ...[
-                    if (section.header != null) _buildNavSectionHeader(section.header!),
+                    if (section.header != null) _buildNavSectionHeader(context.tr(section.header!)),
                     for (int i = 0; i < section.items.length; i++) ...[
                       if (i > 0) const SizedBox(height: 1),
                       _buildNavItem(
                         index: section.items[i].index,
-                        title: section.items[i].title,
+                        title: context.tr(section.items[i].title),
                         icon: section.items[i].icon,
                       ),
                     ],
@@ -2095,11 +2136,11 @@ class _RootScreenState extends State<RootScreen> {
           // Widget: Meta Diária & Meta Semanal (interativos e editáveis)
           _buildGoalCard(
             key: const Key('sidebar_daily_goal_card'),
-            tooltip: 'Clique para editar a meta diária',
-            title: 'META DIÁRIA',
+            tooltip: context.tr('Clique para editar a meta diária'),
+            title: context.tr('META DIÁRIA'),
             studiedMinutes: _dailyStudiedMinutes,
             goalMinutesListenable: SupabaseService.dailyGoalMinutesNotifier,
-            emptySuffix: 'hoje',
+            emptySuffix: context.tr('hoje'),
             progressColor: AsterTheme.primary(context),
             isDark: isDark,
             onTap: () => showDailyGoalEditorDialog(
@@ -2111,11 +2152,11 @@ class _RootScreenState extends State<RootScreen> {
           const SizedBox(height: 8),
           _buildGoalCard(
             key: const Key('sidebar_weekly_goal_card'),
-            tooltip: 'Clique para editar a meta semanal',
-            title: 'META SEMANAL',
+            tooltip: context.tr('Clique para editar a meta semanal'),
+            title: context.tr('META SEMANAL'),
             studiedMinutes: _weeklyStudiedMinutes,
             goalMinutesListenable: SupabaseService.weeklyGoalMinutesNotifier,
-            emptySuffix: 'na sem.',
+            emptySuffix: context.tr('na sem.'),
             progressColor: AsterTheme.secondary(context),
             isDark: isDark,
             onTap: () => showWeeklyGoalEditorDialog(
@@ -2128,7 +2169,7 @@ class _RootScreenState extends State<RootScreen> {
 
           // Botão oficial da comunidade Discord do Aster
           Tooltip(
-            message: 'Entrar na comunidade Discord do Aster (${AsterConstants.asterDiscordInviteCode})',
+            message: context.tr('Entrar na comunidade Discord do Aster ({code})', {'code': AsterConstants.asterDiscordInviteCode}),
             child: Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
@@ -2189,7 +2230,7 @@ class _RootScreenState extends State<RootScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Entrar no Discord',
+                                context.tr('Entrar no Discord'),
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
@@ -2200,7 +2241,7 @@ class _RootScreenState extends State<RootScreen> {
                               ),
                               const SizedBox(height: 1),
                               Text(
-                                'Comunidade Aster',
+                                context.tr('Comunidade Aster'),
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
                                   fontSize: 10,
@@ -2242,7 +2283,7 @@ class _RootScreenState extends State<RootScreen> {
             children: [
               Expanded(
                 child: Tooltip(
-                  message: 'Configurações do Perfil',
+                  message: context.tr('Configurações do Perfil'),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -2291,7 +2332,7 @@ class _RootScreenState extends State<RootScreen> {
                                   Text(
                                     rawChannel.isNotEmpty
                                         ? '@$rawChannel · ${isVip ? 'VIP · ' : ''}${_currentStreakDays}d'
-                                        : '${isVip ? 'VIP' : 'Pro'} · Streak ${_currentStreakDays}d',
+                                        : '${isVip ? 'VIP' : 'Pro'} · ${context.tr('Streak')} ${_currentStreakDays}d',
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
@@ -2322,7 +2363,7 @@ class _RootScreenState extends State<RootScreen> {
                   size: 18,
                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                 ),
-                tooltip: 'Sair',
+                tooltip: context.tr('Sair'),
                 onPressed: () {
                   SupabaseService.signOut();
                 },
@@ -2419,7 +2460,7 @@ class _RootScreenState extends State<RootScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            hasGoal ? '$pct%' : 'Sem meta',
+                            hasGoal ? '$pct%' : context.tr('Sem meta'),
                             style: GoogleFonts.manrope(
                               fontSize: hasGoal ? 11.5 : 10.5,
                               fontWeight: FontWeight.w700,
@@ -2497,7 +2538,7 @@ class _RootScreenState extends State<RootScreen> {
             child: Container(height: 1, color: dividerColor),
           ),
           _buildRailActionIcon(
-            tooltip: 'Metas de Estudo',
+            tooltip: context.tr('Metas de Estudo'),
             icon: Icons.track_changes_rounded,
             onTap: () => showDailyGoalEditorDialog(
               context,
@@ -2507,7 +2548,7 @@ class _RootScreenState extends State<RootScreen> {
           ),
           const SizedBox(height: 2),
           Tooltip(
-            message: 'Entrar no Discord (Comunidade Aster)',
+            message: context.tr('Entrar no Discord (Comunidade Aster)'),
             child: InkWell(
               onTap: _openDiscordUrl,
               borderRadius: BorderRadius.circular(10),
@@ -2535,7 +2576,7 @@ class _RootScreenState extends State<RootScreen> {
           ),
           const SizedBox(height: 2),
           Tooltip(
-            message: '$userName · Perfil',
+            message: context.tr('{user} · Perfil', {'user': userName}),
             child: InkWell(
               onTap: _openProfileSettings,
               borderRadius: BorderRadius.circular(10),
@@ -2570,7 +2611,7 @@ class _RootScreenState extends State<RootScreen> {
           ),
           const SizedBox(height: 2),
           _buildRailActionIcon(
-            tooltip: 'Sair',
+            tooltip: context.tr('Sair'),
             icon: Icons.logout_rounded,
             onTap: () => SupabaseService.signOut(),
           ),
@@ -2588,7 +2629,7 @@ class _RootScreenState extends State<RootScreen> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Tooltip(
-          message: entry.title,
+          message: context.tr(entry.title),
           waitDuration: const Duration(milliseconds: 260),
           child: Material(
             color: Colors.transparent,
@@ -2693,18 +2734,17 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   Color _sectionAccentColor(BuildContext context, String? header) {
-    switch (header) {
-      case 'ESTUDO':
-        return AsterConstants.ambar;
-      case 'ROTINA & IA':
-        return AsterConstants.menta;
-      case 'COMUNIDADE':
-        return AsterConstants.coral;
-      case 'CONTA':
-        return AsterTheme.primary(context);
-      default:
-        return AsterTheme.primary(context);
+    if (header == null) return AsterTheme.primary(context);
+    if (header == NoesisL10n.tr('ESTUDO') || header == NoesisL10n.tr('ESTUDO', null, 'br')) {
+      return AsterConstants.ambar;
     }
+    if (header == NoesisL10n.tr('ROTINA & IA') || header == NoesisL10n.tr('ROTINA & IA', null, 'br')) {
+      return AsterConstants.menta;
+    }
+    if (header == NoesisL10n.tr('COMUNIDADE') || header == NoesisL10n.tr('COMUNIDADE', null, 'br')) {
+      return AsterConstants.coral;
+    }
+    return AsterTheme.primary(context);
   }
 
   void _showMobileMenuSheet({
@@ -2824,7 +2864,7 @@ class _RootScreenState extends State<RootScreen> {
                                         Text(
                                           rawChannel.isNotEmpty
                                               ? '@$rawChannel · 🔥 ${_currentStreakDays}d'
-                                              : '${isVip ? 'VIP' : 'Estudante'} · 🔥 ${_currentStreakDays}d',
+                                              : '${isVip ? 'VIP' : context.tr('Estudante')} · 🔥 ${_currentStreakDays}d',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.manrope(
@@ -2841,7 +2881,7 @@ class _RootScreenState extends State<RootScreen> {
                             ),
                             const Spacer(),
                             IconButton(
-                              tooltip: 'Editar Perfil',
+                              tooltip: context.tr('Editar Perfil'),
                               icon: Icon(Icons.tune_rounded, size: 20, color: mutedCol),
                               onPressed: () {
                                 Navigator.of(sheetContext).pop();
@@ -2849,7 +2889,7 @@ class _RootScreenState extends State<RootScreen> {
                               },
                             ),
                             IconButton(
-                              tooltip: 'Sair',
+                              tooltip: context.tr('Sair'),
                               icon: const Icon(Icons.logout_rounded, size: 20, color: AsterConstants.coral),
                               onPressed: () {
                                 Navigator.of(sheetContext).pop();
@@ -2867,7 +2907,7 @@ class _RootScreenState extends State<RootScreen> {
                           onChanged: (value) => setSheetState(() => searchQuery = value),
                           style: GoogleFonts.manrope(fontSize: 13, color: textCol),
                           decoration: InputDecoration(
-                            hintText: 'Ir para módulo ou ferramenta...',
+                            hintText: context.tr('Ir para módulo ou ferramenta...'),
                             hintStyle: GoogleFonts.manrope(fontSize: 12.5, color: mutedCol),
                             prefixIcon: Icon(Icons.search_rounded, size: 19, color: mutedCol),
                             isDense: true,
@@ -2906,11 +2946,11 @@ class _RootScreenState extends State<RootScreen> {
                                   Expanded(
                                     child: _buildGoalCard(
                                       key: const Key('mobile_menu_daily_goal_card'),
-                                      tooltip: 'Editar meta diária',
-                                      title: 'META DIÁRIA',
+                                      tooltip: context.tr('Editar meta diária'),
+                                      title: context.tr('META DIÁRIA'),
                                       studiedMinutes: _dailyStudiedMinutes,
                                       goalMinutesListenable: SupabaseService.dailyGoalMinutesNotifier,
-                                      emptySuffix: 'hoje',
+                                      emptySuffix: context.tr('hoje'),
                                       progressColor: primaryCol,
                                       isDark: isDark,
                                       onTap: () {
@@ -2927,11 +2967,11 @@ class _RootScreenState extends State<RootScreen> {
                                   Expanded(
                                     child: _buildGoalCard(
                                       key: const Key('mobile_menu_weekly_goal_card'),
-                                      tooltip: 'Editar meta semanal',
-                                      title: 'META SEMANAL',
+                                      tooltip: context.tr('Editar meta semanal'),
+                                      title: context.tr('META SEMANAL'),
                                       studiedMinutes: _weeklyStudiedMinutes,
                                       goalMinutesListenable: SupabaseService.weeklyGoalMinutesNotifier,
-                                      emptySuffix: 'na sem.',
+                                      emptySuffix: context.tr('na sem.'),
                                       progressColor: AsterTheme.secondary(context),
                                       isDark: isDark,
                                       onTap: () {
@@ -2955,8 +2995,12 @@ class _RootScreenState extends State<RootScreen> {
                                   final filteredItems = section.items.where((item) {
                                     if (q.isEmpty) return true;
                                     return item.title.toLowerCase().contains(q) ||
+                                        context.tr(item.title).toLowerCase().contains(q) ||
                                         item.subtitle.toLowerCase().contains(q) ||
-                                        (section.header?.toLowerCase().contains(q) ?? false);
+                                        context.tr(item.subtitle).toLowerCase().contains(q) ||
+                                        (section.header?.toLowerCase().contains(q) ?? false) ||
+                                        (section.header != null &&
+                                            context.tr(section.header!).toLowerCase().contains(q));
                                   }).toList();
                                   if (filteredItems.isEmpty) {
                                     return const SizedBox.shrink();
@@ -2979,7 +3023,9 @@ class _RootScreenState extends State<RootScreen> {
                                             ),
                                             const SizedBox(width: 7),
                                             Text(
-                                              section.header ?? 'PRINCIPAL',
+                                              section.header != null
+                                                  ? context.tr(section.header!)
+                                                  : context.tr('PRINCIPAL'),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w800,
@@ -3072,7 +3118,7 @@ class _RootScreenState extends State<RootScreen> {
                                                               mainAxisSize: MainAxisSize.min,
                                                               children: [
                                                                 Text(
-                                                                  entry.title,
+                                                                  context.tr(entry.title),
                                                                   maxLines: 1,
                                                                   overflow: TextOverflow.ellipsis,
                                                                   style: GoogleFonts.manrope(
@@ -3085,7 +3131,7 @@ class _RootScreenState extends State<RootScreen> {
                                                                 ),
                                                                 if (entry.subtitle.isNotEmpty)
                                                                   Text(
-                                                                    entry.subtitle,
+                                                                    context.tr(entry.subtitle),
                                                                     maxLines: 1,
                                                                     overflow: TextOverflow.ellipsis,
                                                                     style: GoogleFonts.manrope(
@@ -3162,7 +3208,7 @@ class _RootScreenState extends State<RootScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  'Entrar no Discord',
+                                                  context.tr('Entrar no Discord'),
                                                   style: GoogleFonts.manrope(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w800,
@@ -3170,7 +3216,7 @@ class _RootScreenState extends State<RootScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  'Comunidade oficial Aster',
+                                                  context.tr('Comunidade oficial Aster'),
                                                   style: GoogleFonts.manrope(
                                                     fontSize: 11,
                                                     color: Colors.white.withValues(alpha: 0.82),
@@ -3317,7 +3363,9 @@ class _RootScreenState extends State<RootScreen> {
   }) {
     final cs = Theme.of(context).colorScheme;
     final activeEntry = isActive ? _findNavEntry(activeIndex).entry : null;
-    final label = activeEntry?.shortTitle ?? activeEntry?.title ?? 'Menu';
+    final label = activeEntry != null
+        ? context.tr(activeEntry.shortTitle ?? activeEntry.title)
+        : context.tr('Menu');
 
     return GestureDetector(
       key: const Key('mobile_menu_button'),
@@ -3345,9 +3393,9 @@ class _RootScreenState extends State<RootScreen> {
                   color: isActive ? cs.primary : cs.onSurfaceVariant,
                 ),
                 if (isActive)
-                  Positioned(
+                  PositionedDirectional(
                     top: -1,
-                    right: -4,
+                    end: -4,
                     child: Container(
                       width: 6,
                       height: 6,

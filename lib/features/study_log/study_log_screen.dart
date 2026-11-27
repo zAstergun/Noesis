@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
 import '../../widgets/weekly_goal_dialog.dart';
@@ -192,12 +194,14 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
   }
 
   String _formatDuration(int totalMinutes) {
-    if (totalMinutes <= 0) return '0m';
+    if (totalMinutes <= 0) return NoesisL10n.tr('0m');
     final h = totalMinutes ~/ 60;
     final m = totalMinutes % 60;
-    if (h > 0 && m > 0) return '${h}h ${m}m';
-    if (h > 0) return '${h}h';
-    return '${m}m';
+    if (h > 0 && m > 0) {
+      return NoesisL10n.tr('{h}h {m}m', {'h': '$h', 'm': '$m'});
+    }
+    if (h > 0) return NoesisL10n.tr('{h}h', {'h': '$h'});
+    return NoesisL10n.tr('{m}m', {'m': '$m'});
   }
 
   String _formatDayHeading(String dateKey) {
@@ -208,14 +212,20 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
 
     String formatted;
     try {
-      formatted = DateFormat("EEEE, d 'de' MMM", 'pt_BR').format(dt);
-      formatted = formatted[0].toUpperCase() + formatted.substring(1);
+      formatted = DateFormat.MMMEd(NoesisLocaleService.intlLocale).format(dt);
+      if (formatted.isNotEmpty) {
+        formatted = formatted[0].toUpperCase() + formatted.substring(1);
+      }
     } catch (_) {
       formatted = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
     }
 
-    if (dateKey == todayKey) return 'Hoje · $formatted';
-    if (dateKey == yesterdayKey) return 'Ontem · $formatted';
+    if (dateKey == todayKey) {
+      return NoesisL10n.tr('Hoje · {date}', {'date': formatted});
+    }
+    if (dateKey == yesterdayKey) {
+      return NoesisL10n.tr('Ontem · {date}', {'date': formatted});
+    }
     return formatted;
   }
 
@@ -312,8 +322,12 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
 
     if (subject.isEmpty || topic.isEmpty || duration <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Preencha a matéria, o que foi estudado e uma duração maior que 0 minutos.'),
+        SnackBar(
+          content: Text(
+            context.tr(
+              'Preencha a matéria, o que foi estudado e uma duração maior que 0 minutos.',
+            ),
+          ),
         ),
       );
       return;
@@ -333,7 +347,12 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
         _notesController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Estudo registrado: $subject (${_formatDuration(duration)})!'),
+            content: Text(
+              NoesisL10n.tr(
+                'Estudo registrado: {subject} ({duration})!',
+                {'subject': subject, 'duration': _formatDuration(duration)},
+              ),
+            ),
           ),
         );
       }
@@ -396,7 +415,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
 
   Future<void> _confirmDeleteSession(Map<String, dynamic> item) async {
     final id = (item['id'] ?? '').toString();
-    final subject = (item['subject'] ?? 'Estudo').toString();
+    final rawSubject = (item['subject'] ?? '').toString().trim();
+    final subject = rawSubject.isEmpty ? NoesisL10n.tr('Estudo') : rawSubject;
     final topic = (item['topic'] ?? '').toString();
     final mins = (item['duration_minutes'] as num?)?.toInt() ?? 0;
 
@@ -429,7 +449,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Excluir registro de estudo?',
+                          ctx.tr('Excluir registro de estudo?'),
                           style: GoogleFonts.manrope(
                             fontSize: 16.5,
                             fontWeight: FontWeight.w900,
@@ -474,7 +494,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       SoftClayPillButton(
-                        text: 'Cancelar',
+                        text: ctx.tr('Cancelar'),
                         isSecondary: true,
                         onPressed: () => Navigator.of(ctx).pop(false),
                       ),
@@ -489,7 +509,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           ),
                         ),
                         onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Excluir Registro'),
+                        child: Text(ctx.tr('Excluir Registro')),
                       ),
                     ],
                   ),
@@ -524,13 +544,17 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
     // Cálculo por matéria
     final minutesBySubject = <String, int>{};
     for (final s in _sessions) {
-      final subj = (s['subject'] ?? 'Geral').toString().trim();
+      final subj = (s['subject'] ?? context.tr('Geral')).toString().trim();
       final mins = (s['duration_minutes'] as num?)?.toInt() ?? 0;
       minutesBySubject[subj] = (minutesBySubject[subj] ?? 0) + mins;
     }
     final sortedSubjects = minutesBySubject.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final topSubject = sortedSubjects.isNotEmpty ? sortedSubjects.first.key : '—';
+    final topSubject = sortedSubjects.isNotEmpty
+        ? (sortedSubjects.first.key == NoesisL10n.tr('Geral', null, 'br')
+            ? context.tr('Geral')
+            : sortedSubjects.first.key)
+        : '—';
     final totalAllMinutes = minutesBySubject.values.fold<int>(0, (a, b) => a + b);
 
     // Filtros
@@ -613,7 +637,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'DIÁRIO DE ESTUDOS',
+                                context.tr('DIÁRIO DE ESTUDOS'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
@@ -623,7 +647,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Registre quanto tempo você estudou no dia e o conteúdo trabalhado',
+                                context.tr('Registre quanto tempo você estudou no dia e o conteúdo trabalhado'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12.5,
                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -636,7 +660,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                     );
 
                     final actionBtn = SoftClayPillButton(
-                      text: 'Novo Registro Completo',
+                      text: context.tr('Novo Registro Completo'),
                       icon: Icons.add_rounded,
                       onPressed: () => _openSessionDialog(),
                     );
@@ -647,7 +671,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                         children: [
                           titleBlock,
                           const SizedBox(height: 14),
-                          Align(alignment: Alignment.centerLeft, child: actionBtn),
+                          Align(alignment: AlignmentDirectional.centerStart, child: actionBtn),
                         ],
                       );
                     }
@@ -686,11 +710,17 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           final todayProgress = (todayMinutes / safeDaily).clamp(0.0, 1.0);
                           return _kpiBox(
                             key: const Key('study_log_daily_goal_kpi'),
-                            label: 'ESTUDADO HOJE',
+                            label: context.tr('ESTUDADO HOJE'),
                             value: _formatDuration(todayMinutes),
                             sub: hasDailyGoal
-                                ? 'Meta: ${_formatDuration(dailyGoalMinutes)} (${(todayProgress * 100).round()}%) · editar'
-                                : 'Sem meta fixa · definir',
+                                ? context.tr(
+                                    'Meta: {goal} ({pct}%) · editar',
+                                    {
+                                      'goal': _formatDuration(dailyGoalMinutes),
+                                      'pct': '${(todayProgress * 100).round()}',
+                                    },
+                                  )
+                                : context.tr('Sem meta fixa · definir'),
                             color: AsterTheme.primary(context),
                             icon: Icons.today_rounded,
                             progress: hasDailyGoal ? todayProgress : null,
@@ -704,25 +734,28 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                         },
                       ),
                       _kpiBox(
-                        label: 'ÚLTIMOS 7 DIAS',
+                        label: context.tr('ÚLTIMOS 7 DIAS'),
                         value: _formatDuration(weekMinutes),
-                        sub: '${filtered.length} registros visíveis',
+                        sub: context.tr(
+                          '{count} registros visíveis',
+                          {'count': '${filtered.length}'},
+                        ),
                         color: AsterConstants.menta,
                         icon: Icons.date_range_rounded,
                       ),
                       _kpiBox(
-                        label: 'DIAS REGISTRADOS',
-                        value: '$activeDays dias',
-                        sub: 'Consistência no diário',
+                        label: context.tr('DIAS REGISTRADOS'),
+                        value: context.tr('{days} dias', {'days': '$activeDays'}),
+                        sub: context.tr('Consistência no diário'),
                         color: AsterConstants.ambar,
                         icon: Icons.local_fire_department_rounded,
                       ),
                       _kpiBox(
-                        label: 'FOCO PRINCIPAL',
+                        label: context.tr('FOCO PRINCIPAL'),
                         value: topSubject,
                         sub: sortedSubjects.isNotEmpty
                             ? _formatDuration(sortedSubjects.first.value)
-                            : 'Sem registros',
+                            : context.tr('Sem registros'),
                         color: AsterConstants.coral,
                         icon: Icons.school_outlined,
                       ),
@@ -733,7 +766,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           final isLast = entry.key == cards.length - 1;
                           return Expanded(
                             child: Padding(
-                              padding: EdgeInsets.only(right: isLast ? 0 : 12),
+                              padding: EdgeInsetsDirectional.only(end: isLast ? 0 : 12),
                               child: entry.value,
                             ),
                           );
@@ -773,7 +806,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'REGISTRO RÁPIDO DO DIA',
+                                context.tr('REGISTRO RÁPIDO DO DIA'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w900,
@@ -787,13 +820,13 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                               runSpacing: 8,
                               children: [
                                 _softPill(
-                                  label: 'Hoje',
+                                  label: context.tr('Hoje'),
                                   selected: selectedKey == todayKey,
                                   color: AsterConstants.menta,
                                   onTap: () => setState(() => _selectedDate = DateTime.now()),
                                 ),
                                 _softPill(
-                                  label: 'Ontem',
+                                  label: context.tr('Ontem'),
                                   selected: selectedKey == yesterdayKey,
                                   color: AsterConstants.menta,
                                   onTap: () => setState(
@@ -802,8 +835,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 ),
                                 _softPill(
                                   label: isCustomDate
-                                      ? DateFormat('dd/MM/yyyy').format(_selectedDate)
-                                      : 'Outra data...',
+                                      ? DateFormat.yMd(NoesisLocaleService.intlLocale).format(_selectedDate)
+                                      : context.tr('Outra data...'),
                                   icon: Icons.calendar_today_rounded,
                                   selected: isCustomDate,
                                   color: AsterTheme.primary(context),
@@ -829,7 +862,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             Icon(Icons.flash_on_rounded, size: 15, color: AsterTheme.primary(context)),
                             const SizedBox(width: 6),
                             Text(
-                              'REGISTRO RÁPIDO DO DIA',
+                              context.tr('REGISTRO RÁPIDO DO DIA'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w900,
@@ -845,13 +878,13 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           runSpacing: 8,
                           children: [
                             _softPill(
-                              label: 'Hoje',
+                              label: context.tr('Hoje'),
                               selected: selectedKey == todayKey,
                               color: AsterConstants.menta,
                               onTap: () => setState(() => _selectedDate = DateTime.now()),
                             ),
                             _softPill(
-                              label: 'Ontem',
+                              label: context.tr('Ontem'),
                               selected: selectedKey == yesterdayKey,
                               color: AsterConstants.menta,
                               onTap: () => setState(
@@ -860,8 +893,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             ),
                             _softPill(
                               label: isCustomDate
-                                  ? DateFormat('dd/MM/yyyy').format(_selectedDate)
-                                  : 'Outra data...',
+                                  ? DateFormat.yMd(NoesisLocaleService.intlLocale).format(_selectedDate)
+                                  : context.tr('Outra data...'),
                               icon: Icons.calendar_today_rounded,
                               selected: isCustomDate,
                               color: AsterTheme.primary(context),
@@ -890,7 +923,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              'Suas matérias:',
+                              context.tr('Suas matérias:'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w800,
@@ -922,8 +955,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 onChanged: (_) => setState(() {}),
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'Matéria / Disciplina',
-                                  hint: 'Ex.: Matemática',
+                                  label: context.tr('Matéria / Disciplina'),
+                                  hint: context.tr('Ex.: Matemática'),
                                   prefixIcon: Icons.book_outlined,
                                 ),
                               ),
@@ -935,8 +968,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 controller: _topicController,
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'O que você estudou?',
-                                  hint: 'Ex.: Trigonometria, Lei de Ohm, Redação...',
+                                  label: context.tr('O que você estudou?'),
+                                  hint: context.tr('Ex.: Trigonometria, Lei de Ohm, Redação...'),
                                   prefixIcon: Icons.edit_note_rounded,
                                 ),
                               ),
@@ -950,7 +983,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 onChanged: (_) => setState(() => _userEditedDuration = true),
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'Horas',
+                                  label: context.tr('Horas'),
                                 ),
                               ),
                             ),
@@ -963,7 +996,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 onChanged: (_) => setState(() => _userEditedDuration = true),
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'Min',
+                                  label: context.tr('Min'),
                                 ),
                               ),
                             ),
@@ -975,8 +1008,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           onChanged: (_) => setState(() {}),
                           decoration: _softInputDecoration(
                             isDark: isDark,
-                            label: 'Matéria / Disciplina',
-                            hint: 'Ex.: Matemática',
+                            label: context.tr('Matéria / Disciplina'),
+                            hint: context.tr('Ex.: Matemática'),
                             prefixIcon: Icons.book_outlined,
                           ),
                         ),
@@ -985,8 +1018,8 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           controller: _topicController,
                           decoration: _softInputDecoration(
                             isDark: isDark,
-                            label: 'O que você estudou?',
-                            hint: 'Ex.: Trigonometria + 20 questões',
+                            label: context.tr('O que você estudou?'),
+                            hint: context.tr('Ex.: Trigonometria + 20 questões'),
                             prefixIcon: Icons.edit_note_rounded,
                           ),
                         ),
@@ -1000,7 +1033,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 onChanged: (_) => setState(() => _userEditedDuration = true),
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'Horas',
+                                  label: context.tr('Horas'),
                                 ),
                               ),
                             ),
@@ -1012,7 +1045,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 onChanged: (_) => setState(() => _userEditedDuration = true),
                                 decoration: _softInputDecoration(
                                   isDark: isDark,
-                                  label: 'Minutos',
+                                  label: context.tr('Minutos'),
                                 ),
                               ),
                             ),
@@ -1028,7 +1061,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            'Duração rápida:',
+                            context.tr('Duração rápida:'),
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
@@ -1056,15 +1089,15 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                               controller: _notesController,
                               decoration: _softInputDecoration(
                                 isDark: isDark,
-                                label: 'Observações / Onde parou (opcional)',
-                                hint: 'Ex.: Cap. 4 concluído; revisar regra de cadeia amanhã.',
+                                label: context.tr('Observações / Onde parou (opcional)'),
+                                hint: context.tr('Ex.: Cap. 4 concluído; revisar regra de cadeia amanhã.'),
                                 prefixIcon: Icons.notes_rounded,
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           SoftClayPillButton(
-                            text: _isSaving ? 'Salvando...' : 'Salvar Estudo',
+                            text: _isSaving ? context.tr('Salvando...') : context.tr('Salvar Estudo'),
                             icon: Icons.check_circle_outline_rounded,
                             onPressed: _isSaving ? () {} : _submitQuickEntry,
                           ),
@@ -1089,7 +1122,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'TEMPO DEDICADO POR MATÉRIA',
+                          context.tr('TEMPO DEDICADO POR MATÉRIA'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -1101,7 +1134,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                       if (_subjectFilter != null)
                         TextButton(
                           onPressed: () => setState(() => _subjectFilter = null),
-                          child: const Text('Limpar filtro'),
+                          child: Text(context.tr('Limpar filtro')),
                         ),
                     ],
                   ),
@@ -1179,7 +1212,10 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      'HISTÓRICO DIÁRIO (${filtered.length} REGISTROS)',
+                      context.tr(
+                        'HISTÓRICO DIÁRIO ({count} REGISTROS)',
+                        {'count': '${filtered.length}'},
+                      ),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1192,10 +1228,10 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                       runSpacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _periodChip('Todos', _StudyPeriodFilter.all),
-                        _periodChip('Hoje', _StudyPeriodFilter.today),
-                        _periodChip('7 dias', _StudyPeriodFilter.week),
-                        _periodChip('Mês', _StudyPeriodFilter.month),
+                        _periodChip(context.tr('Todos'), _StudyPeriodFilter.all),
+                        _periodChip(context.tr('Hoje'), _StudyPeriodFilter.today),
+                        _periodChip(context.tr('7 dias'), _StudyPeriodFilter.week),
+                        _periodChip(context.tr('Mês'), _StudyPeriodFilter.month),
                         SizedBox(
                           width: 230,
                           child: TextField(
@@ -1203,7 +1239,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             onChanged: (_) => setState(() {}),
                             decoration: _softInputDecoration(
                               isDark: isDark,
-                              label: 'Buscar matéria ou tema',
+                              label: context.tr('Buscar matéria ou tema'),
                               prefixIcon: Icons.search_rounded,
                               onAltSurface: false,
                             ).copyWith(
@@ -1245,7 +1281,7 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                             size: 38, color: AsterTheme.primary(context).withValues(alpha: 0.6)),
                         const SizedBox(height: 10),
                         Text(
-                          'Nenhum registro de estudo encontrado para esse filtro.',
+                          context.tr('Nenhum registro de estudo encontrado para esse filtro.'),
                           style: GoogleFonts.manrope(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
@@ -1287,7 +1323,10 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                                 ),
                               ),
                               SoftClayTag(
-                                label: 'Total do dia: ${_formatDuration(dayTotalMins)}',
+                                label: context.tr(
+                                  'Total do dia: {duration}',
+                                  {'duration': _formatDuration(dayTotalMins)},
+                                ),
                                 color: AsterConstants.menta,
                               ),
                             ],
@@ -1295,70 +1334,75 @@ class _StudyLogScreenState extends State<StudyLogScreen> {
                           const SizedBox(height: 10),
                           ...dayItems.map((item) {
                             final mins = (item['duration_minutes'] as num?)?.toInt() ?? 0;
-                            final subj = (item['subject'] ?? 'Geral').toString();
+                            final rawSubj = (item['subject'] ?? '').toString().trim();
+                            final subj = rawSubj.isEmpty ? context.tr('Geral') : rawSubj;
                             final topic = (item['topic'] ?? '').toString();
                             final notes = (item['notes'] ?? '').toString().trim();
 
-                            return Container(
-                              margin: const EdgeInsets.only(top: 8),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: ClipRRect(
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
-                                border: Border(
-                                  left: BorderSide(color: AsterTheme.primary(context), width: 3.5),
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
-                                          crossAxisAlignment: WrapCrossAlignment.center,
-                                          children: [
-                                            SoftClayTag(label: subj, color: AsterTheme.primary(context)),
-                                            SoftClayTag(label: _formatDuration(mins), color: AsterConstants.ambar),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          topic,
-                                          style: GoogleFonts.manrope(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
-                                          ),
-                                        ),
-                                        if (notes.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            notes,
-                                            style: GoogleFonts.manrope(
-                                              fontSize: 12,
-                                              height: 1.45,
-                                              color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
+                                    border: BorderDirectional(
+                                      start: BorderSide(color: AsterTheme.primary(context), width: 3.5),
                                     ),
                                   ),
-                                  IconButton(
-                                    tooltip: 'Editar registro',
-                                    onPressed: () => _openSessionDialog(editing: item),
-                                    icon: const Icon(Icons.edit_outlined, size: 17, color: AsterConstants.textMuted),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                SoftClayTag(label: subj, color: AsterTheme.primary(context)),
+                                                SoftClayTag(label: _formatDuration(mins), color: AsterConstants.ambar),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              topic,
+                                              style: GoogleFonts.manrope(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
+                                              ),
+                                            ),
+                                            if (notes.isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                notes,
+                                                style: GoogleFonts.manrope(
+                                                  fontSize: 12,
+                                                  height: 1.45,
+                                                  color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: context.tr('Editar registro'),
+                                        onPressed: () => _openSessionDialog(editing: item),
+                                        icon: const Icon(Icons.edit_outlined, size: 17, color: AsterConstants.textMuted),
+                                      ),
+                                      IconButton(
+                                        tooltip: context.tr('Excluir registro'),
+                                        onPressed: () => _confirmDeleteSession(item),
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AsterConstants.coral),
+                                      ),
+                                    ],
                                   ),
-                                  IconButton(
-                                    tooltip: 'Excluir registro',
-                                    onPressed: () => _confirmDeleteSession(item),
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 17, color: AsterConstants.coral),
-                                  ),
-                                ],
+                                ),
                               ),
                             );
                           }),
@@ -1701,15 +1745,15 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
     final n = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
 
     if (s.isEmpty) {
-      setState(() => _validationError = 'Informe a matéria ou disciplina estudada.');
+      setState(() => _validationError = context.tr('Informe a matéria ou disciplina estudada.'));
       return;
     }
     if (t.isEmpty) {
-      setState(() => _validationError = 'Descreva o que foi estudado nessa sessão.');
+      setState(() => _validationError = context.tr('Descreva o que foi estudado nessa sessão.'));
       return;
     }
     if (total <= 0) {
-      setState(() => _validationError = 'Defina uma duração maior que 0 minutos.');
+      setState(() => _validationError = context.tr('Defina uma duração maior que 0 minutos.'));
       return;
     }
 
@@ -1759,7 +1803,9 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.isEditing ? 'Editar Registro de Estudo' : 'Registrar Estudo do Dia',
+                          widget.isEditing
+                              ? context.tr('Editar Registro de Estudo')
+                              : context.tr('Registrar Estudo do Dia'),
                           style: GoogleFonts.manrope(
                             fontSize: 17.5,
                             fontWeight: FontWeight.w900,
@@ -1767,7 +1813,7 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                           ),
                         ),
                         Text(
-                          'Defina o dia, a matéria, o tempo dedicado e o conteúdo trabalhado.',
+                          context.tr('Defina o dia, a matéria, o tempo dedicado e o conteúdo trabalhado.'),
                           style: GoogleFonts.manrope(fontSize: 12, color: AsterConstants.textMuted),
                         ),
                       ],
@@ -1788,7 +1834,7 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                     children: [
                       // Data
                       Text(
-                        'DATA DO ESTUDO',
+                        context.tr('DATA DO ESTUDO'),
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -1802,13 +1848,13 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                         runSpacing: 8,
                         children: [
                           _modalPill(
-                            label: 'Hoje',
+                            label: context.tr('Hoje'),
                             selected: pickedKey == todayKey,
                             color: AsterConstants.menta,
                             onTap: () => setState(() => _pickedDate = DateTime.now()),
                           ),
                           _modalPill(
-                            label: 'Ontem',
+                            label: context.tr('Ontem'),
                             selected: pickedKey == yesterdayKey,
                             color: AsterConstants.menta,
                             onTap: () => setState(
@@ -1818,7 +1864,7 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                           _modalPill(
                             label: isCustomDate
                                 ? widget.formatDayHeading(_pickedDate)
-                                : 'Escolher no calendário',
+                                : context.tr('Escolher no calendário'),
                             icon: Icons.calendar_today_rounded,
                             selected: isCustomDate,
                             color: AsterTheme.primary(context),
@@ -1841,7 +1887,7 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                       // Sugestões de matéria (apenas matérias da conta)
                       if (widget.subjectSuggestions.isNotEmpty) ...[
                         Text(
-                          'MATÉRIA / DISCIPLINA',
+                          context.tr('MATÉRIA / DISCIPLINA'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -1872,8 +1918,8 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                         onChanged: (_) => setState(() => _validationError = null),
                         decoration: _modalFieldDecoration(
                           isDark: isDark,
-                          label: 'Matéria / Disciplina',
-                          hint: 'Ex.: Matemática, Biologia, Direito...',
+                          label: context.tr('Matéria / Disciplina'),
+                          hint: context.tr('Ex.: Matemática, Biologia, Direito...'),
                           prefixIcon: Icons.book_outlined,
                         ),
                       ),
@@ -1884,15 +1930,18 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                         onChanged: (_) => setState(() => _validationError = null),
                         decoration: _modalFieldDecoration(
                           isDark: isDark,
-                          label: 'O que foi estudado',
-                          hint: 'Ex.: Funções exponenciais + 15 questões ENEM',
+                          label: context.tr('O que foi estudado'),
+                          hint: context.tr('Ex.: Funções exponenciais + 15 questões ENEM'),
                           prefixIcon: Icons.edit_note_rounded,
                         ),
                       ),
                       const SizedBox(height: 16),
 
                       Text(
-                        'QUANTO TEMPO ESTUDOU (${widget.formatDuration(_currentMinutes)})',
+                        context.tr(
+                          'QUANTO TEMPO ESTUDOU ({duration})',
+                          {'duration': widget.formatDuration(_currentMinutes)},
+                        ),
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -1927,7 +1976,10 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                               controller: _hrsCtrl,
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setState(() => _validationError = null),
-                              decoration: _modalFieldDecoration(isDark: isDark, label: 'Horas'),
+                              decoration: _modalFieldDecoration(
+                                isDark: isDark,
+                                label: context.tr('Horas'),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1936,7 +1988,10 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                               controller: _minsCtrl,
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setState(() => _validationError = null),
-                              decoration: _modalFieldDecoration(isDark: isDark, label: 'Minutos'),
+                              decoration: _modalFieldDecoration(
+                                isDark: isDark,
+                                label: context.tr('Minutos'),
+                              ),
                             ),
                           ),
                         ],
@@ -1948,8 +2003,8 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                         maxLines: 3,
                         decoration: _modalFieldDecoration(
                           isDark: isDark,
-                          label: 'Resumo / Onde parou / Dificuldades (opcional)',
-                          hint: 'Anote pontos importantes para retomar amanhã...',
+                          label: context.tr('Resumo / Onde parou / Dificuldades (opcional)'),
+                          hint: context.tr('Anote pontos importantes para retomar amanhã...'),
                           prefixIcon: Icons.notes_rounded,
                         ),
                       ),
@@ -1975,13 +2030,15 @@ class _StudySessionDialogState extends State<_StudySessionDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   SoftClayPillButton(
-                    text: 'Cancelar',
+                    text: context.tr('Cancelar'),
                     isSecondary: true,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 10),
                   SoftClayPillButton(
-                    text: widget.isEditing ? 'Salvar Alterações' : 'Registrar Estudo',
+                    text: widget.isEditing
+                        ? context.tr('Salvar Alterações')
+                        : context.tr('Registrar Estudo'),
                     icon: Icons.check_circle_outline_rounded,
                     onPressed: _submit,
                   ),

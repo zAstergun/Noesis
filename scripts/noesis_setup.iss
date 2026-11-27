@@ -1,4 +1,4 @@
-; Script de instalação oficial do Noesis (Inno Setup 6)
+; Official Noesis Windows Desktop Installer script (Inno Setup 6)
 #ifndef MyAppVersion
   #define MyAppVersion "1.0.0"
 #endif
@@ -34,10 +34,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=yes
+LanguageDetectionMethod=uilanguage
 CloseApplications=yes
 VersionInfoVersion={#MyAppVersion}.0
 VersionInfoCompany=me.asterdev
-VersionInfoDescription=Instalador oficial do Noesis para Windows (x64)
+VersionInfoDescription=Noesis Windows Desktop Installer (x64)
 VersionInfoProductName=Noesis
 VersionInfoProductVersion={#MyAppVersion}.0
 VersionInfoCopyright=Copyright (C) 2026 me.asterdev
@@ -45,6 +47,19 @@ VersionInfoCopyright=Copyright (C) 2026 me.asterdev
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "chinesesimplified"; MessagesFile: "isl\ChineseSimplified.isl"
+Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
+Name: "vietnamese"; MessagesFile: "isl\Vietnamese.isl"
+Name: "indonesian"; MessagesFile: "isl\Indonesian.isl"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
+Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"
+Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
+Name: "portuguese"; MessagesFile: "compiler:Languages\Portuguese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

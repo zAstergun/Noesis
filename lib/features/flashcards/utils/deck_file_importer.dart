@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:es_compression/zstd.dart';
 import 'package:flutter/foundation.dart';
+import '../../../core/localization/agent_intent_keywords.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../models/flashcard_model.dart';
 
 class DeckFileContent {
@@ -65,7 +67,7 @@ class DeckFileImporter {
       text = String.fromCharCodes(bytes);
     }
 
-    final suggestedTitle = defaultTitle.isNotEmpty ? defaultTitle : 'Novo Baralho';
+    final suggestedTitle = defaultTitle.isNotEmpty ? defaultTitle : NoesisL10n.tr('Novo Baralho');
     final suggestedSubject = _inferSubject(suggestedTitle, text);
 
     final List<Flashcard> detectedCards = [];
@@ -144,7 +146,7 @@ class DeckFileImporter {
       fileName: fileName,
       fileSizeBytes: bytes.length,
       rawText: text,
-      suggestedTitle: suggestedTitle.isNotEmpty ? suggestedTitle : 'Novo Baralho Importado',
+      suggestedTitle: suggestedTitle.isNotEmpty ? suggestedTitle : NoesisL10n.tr('Novo Baralho Importado'),
       suggestedSubject: suggestedSubject,
       isAnkiFormat: isAnki && detectedCards.isNotEmpty,
       parsedCards: detectedCards,
@@ -232,14 +234,15 @@ class DeckFileImporter {
       // Tentar extrair o nome real do baralho da tabela 'col'
       try {
         final textPreview = utf8.decode(dbBytes, allowMalformed: true);
+        final ptDefaultDeck = NoesisL10n.tr('Padrão', null, 'br');
         final deckMatches = RegExp(r'"name":\s*"([^"]+)"').allMatches(textPreview);
         for (final m in deckMatches) {
           final n = m.group(1);
           if (n != null &&
               n != 'Default' &&
-              n != 'Padrão' &&
+              n != ptDefaultDeck &&
               !n.startsWith('Default::') &&
-              !n.startsWith('Padrão::')) {
+              !n.startsWith('$ptDefaultDeck::')) {
             detectedTitle = _cleanHtml(n.replaceAll('::', ' - ')).trim();
             break;
           }
@@ -278,15 +281,16 @@ class DeckFileImporter {
       return null;
     }
 
-    final suggestedTitle = detectedTitle.isNotEmpty ? detectedTitle : 'Baralho Anki';
+    final suggestedTitle =
+        detectedTitle.isNotEmpty ? detectedTitle : NoesisL10n.tr('Baralho Anki');
     final sampleContent = cards.take(15).map((c) => '${c.front} ${c.back}').join(' ');
     final suggestedSubject = _inferSubject(suggestedTitle, sampleContent);
 
     final buffer = StringBuffer();
-    buffer.writeln('Baralho Anki: $suggestedTitle');
-    buffer.writeln('Total de cartões identificados: ${cards.length}');
-    buffer.writeln('Disciplina inferida: $suggestedSubject\n');
-    buffer.writeln('Amostra de Flashcards do Baralho:');
+    buffer.writeln(NoesisL10n.tr('Baralho Anki: {title}', {'title': suggestedTitle}));
+    buffer.writeln(NoesisL10n.tr('Total de cartões identificados: {count}', {'count': '${cards.length}'}));
+    buffer.writeln('${NoesisL10n.tr('Disciplina inferida: {subject}', {'subject': suggestedSubject})}\n');
+    buffer.writeln(NoesisL10n.tr('Amostra de Flashcards do Baralho:'));
     for (int i = 0; i < cards.length && i < 30; i++) {
       buffer.writeln('P: ${cards[i].front}');
       buffer.writeln('R: ${cards[i].back}\n');
@@ -600,7 +604,7 @@ class DeckFileImporter {
   }
 
   static String _formatTitle(String raw) {
-    if (raw.isEmpty) return 'Estudos';
+    if (raw.isEmpty) return NoesisL10n.tr('Estudos');
     return raw.split(' ').map((w) {
       if (w.isEmpty) return '';
       return w[0].toUpperCase() + w.substring(1).toLowerCase();
@@ -609,43 +613,31 @@ class DeckFileImporter {
 
   static String _inferSubject(String title, String content) {
     final combined = '$title $content'.toLowerCase();
-    if (combined.contains('grammar') ||
-        combined.contains('lesson') ||
-        combined.contains('inglês') ||
-        combined.contains('english') ||
-        combined.contains('idioma') ||
-        combined.contains('vocab') ||
-        combined.contains('français') ||
-        combined.contains('espanhol') ||
-        combined.contains('alemão') ||
-        combined.contains('languages')) {
-      return 'Idiomas';
+    if (AgentIntentKeywords.languageSubjectMarkers.any(combined.contains)) {
+      return NoesisL10n.tr('Idiomas');
     }
     if (combined.contains('cripto') || combined.contains('pki') || combined.contains('cifra') || combined.contains('aes') || combined.contains('rsa')) {
-      return 'Criptografia';
+      return NoesisL10n.tr('Criptografia');
     }
-    if (combined.contains('owasp') || combined.contains('segurança') || combined.contains('security') || combined.contains('vulnerab') || combined.contains('firewall')) {
-      return 'Segurança';
+    if (combined.contains('owasp') || combined.contains(NoesisL10n.tr('segurança', null, 'br')) || combined.contains('security') || combined.contains('vulnerab') || combined.contains('firewall')) {
+      return NoesisL10n.tr('Segurança');
     }
     if (combined.contains('aws') || combined.contains('cloud') || combined.contains('nuvem') || combined.contains('docker') || combined.contains('kubernetes')) {
-      return 'Cloud & DevOps';
+      return NoesisL10n.tr('Cloud & DevOps');
     }
     if (combined.contains('rede') || combined.contains('tcp') || combined.contains('dns') || combined.contains('ip') || combined.contains('protocolo')) {
-      return 'Redes';
+      return NoesisL10n.tr('Redes');
     }
     if (combined.contains('algoritmo') || combined.contains('estrutura') || combined.contains('big-o') || combined.contains('grafo') || combined.contains('árvore')) {
-      return 'Algoritmos';
+      return NoesisL10n.tr('Algoritmos');
     }
     if (combined.contains('banco') || combined.contains('sql') || combined.contains('postgres') || combined.contains('database')) {
-      return 'Banco de Dados';
+      return NoesisL10n.tr('Banco de Dados');
     }
-    if (combined.contains('constitucional') || combined.contains('administrativo') || combined.contains('direito') || combined.contains('artigo') || combined.contains('lei')) {
-      return 'Direito';
+    if (AgentIntentKeywords.lawSubjectMarkers.any(combined.contains)) {
+      return NoesisL10n.tr('Direito');
     }
-    if (combined.contains('inglês') || combined.contains('english') || combined.contains('idioma') || combined.contains('vocab')) {
-      return 'Idiomas';
-    }
-    return 'Tecnologia';
+    return NoesisL10n.tr('Tecnologia');
   }
 }
 

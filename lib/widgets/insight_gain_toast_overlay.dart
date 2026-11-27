@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/shop_service.dart';
 import '../core/theme.dart';
 import 'insight_icon.dart';
@@ -108,29 +109,29 @@ class _InsightGainToastOverlayState extends State<InsightGainToastOverlay> {
     });
   }
 
-  String _sourceCategoryLabel(String source) {
+  String _sourceCategoryLabel(BuildContext context, String source) {
     switch (source) {
       case 'quiz_question':
       case 'exam_complete':
       case 'group_quiz':
-        return 'Simulado';
+        return context.tr('Simulado');
       case 'flashcard_review':
       case 'flashcard_redeem':
       case 'group_flashcard':
-        return 'Flashcard';
+        return context.tr('Flashcard');
       case 'group_diary':
-        return 'Diário do Grupo';
+        return context.tr('Diário do Grupo');
       case 'daily_goal':
       case 'weekly_goal':
-        return 'Meta';
+        return context.tr('Meta');
       case 'streak_milestone':
-        return 'Sequência';
+        return context.tr('Sequência');
       case 'ranking_reward':
-        return 'Ranking';
+        return context.tr('Ranking');
       case 'achievement':
-        return 'Conquista';
+        return context.tr('Conquista');
       default:
-        return 'Estudo';
+        return context.tr('Estudo');
     }
   }
 
@@ -144,11 +145,11 @@ class _InsightGainToastOverlayState extends State<InsightGainToastOverlay> {
       children: [
         widget.child,
         if (_entries.isNotEmpty)
-          Positioned(
+          PositionedDirectional(
             key: const Key('insight_gain_toast_container'),
             top: topPadding + 14,
-            right: isDesktop ? 20 : 14,
-            left: isDesktop ? null : 14,
+            end: isDesktop ? 20 : 14,
+            start: isDesktop ? null : 14,
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: isDesktop ? 360 : screenWidth - 28,
@@ -164,7 +165,7 @@ class _InsightGainToastOverlayState extends State<InsightGainToastOverlay> {
                         child: _InsightGainToastCard(
                           key: Key('insight_gain_toast_${entry.event.id}'),
                           event: entry.event,
-                          categoryLabel: _sourceCategoryLabel(entry.event.source),
+                          categoryLabel: _sourceCategoryLabel(context, entry.event.source),
                           dismissing: entry.dismissing,
                           onDismiss: () => _dismissEntry(entry.event.id),
                         ),

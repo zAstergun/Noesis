@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
@@ -213,10 +214,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     }).toList();
 
                     final title = activeFilter == _ProfileDirectoryFilter.following
-                        ? 'Seguindo'
+                        ? ctx.tr('Seguindo')
                         : activeFilter == _ProfileDirectoryFilter.followers
-                            ? 'Seguidores'
-                            : 'Explorar Estudantes';
+                            ? ctx.tr('Seguidores')
+                            : ctx.tr('Explorar Estudantes');
 
                     return Padding(
                       padding: const EdgeInsets.all(20),
@@ -252,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               ),
                               IconButton(
                                 visualDensity: VisualDensity.compact,
-                                tooltip: 'Fechar',
+                                tooltip: ctx.tr('Fechar'),
                                 onPressed: () => Navigator.of(ctx).pop(),
                                 icon: Icon(
                                   Icons.close_rounded,
@@ -269,7 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             children: [
                               SoftClayChoiceChip(
                                 key: const Key('profile_modal_tab_following'),
-                                label: 'Seguindo (${state.followingIds.length})',
+                                label: ctx.tr('Seguindo ({count})', {'count': state.followingIds.length}),
                                 selected: activeFilter == _ProfileDirectoryFilter.following,
                                 compact: true,
                                 onTap: () => setModalState(
@@ -278,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               ),
                               SoftClayChoiceChip(
                                 key: const Key('profile_modal_tab_followers'),
-                                label: 'Seguidores (${state.incomingFollowerIds.length})',
+                                label: ctx.tr('Seguidores ({count})', {'count': state.incomingFollowerIds.length}),
                                 selected: activeFilter == _ProfileDirectoryFilter.followers,
                                 compact: true,
                                 onTap: () => setModalState(
@@ -287,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               ),
                               SoftClayChoiceChip(
                                 key: const Key('profile_modal_tab_all'),
-                                label: 'Explorar (${state.directory.length})',
+                                label: ctx.tr('Explorar ({count})', {'count': state.directory.length}),
                                 selected: activeFilter == _ProfileDirectoryFilter.all,
                                 compact: true,
                                 onTap: () => setModalState(
@@ -312,8 +313,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     ),
                                     child: Text(
                                       activeFilter == _ProfileDirectoryFilter.following
-                                          ? 'Você ainda não segue ninguém. Use a barra de pesquisa no canto superior direito ou toque em Explorar.'
-                                          : 'Nenhum perfil nesta lista ainda.',
+                                          ? ctx.tr('Você ainda não segue ninguém. Use a barra de pesquisa no canto superior direito ou toque em Explorar.')
+                                          : ctx.tr('Nenhum perfil nesta lista ainda.'),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.manrope(
                                         fontSize: 12.5,
@@ -346,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               ),
                               onPressed: () => Navigator.of(ctx).pop(),
                               child: Text(
-                                'Fechar',
+                                ctx.tr('Fechar'),
                                 style: GoogleFonts.manrope(
                                   fontWeight: FontWeight.w800,
                                   color: primaryCol,
@@ -377,17 +378,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         ? Colors.white.withValues(alpha: 0.08)
         : primaryCol.withValues(alpha: 0.14);
 
+    final isRtl = Directionality.maybeOf(overlayCtx) == TextDirection.rtl;
     return Positioned.fill(
       child: IgnorePointer(
         ignoring: !_popoverVisible,
         child: CompositedTransformFollower(
           link: _searchLayerLink,
-          targetAnchor: Alignment.bottomRight,
-          followerAnchor: Alignment.topRight,
+          targetAnchor: isRtl ? Alignment.bottomLeft : Alignment.bottomRight,
+          followerAnchor: isRtl ? Alignment.topLeft : Alignment.topRight,
           offset: const Offset(0, 8),
           showWhenUnlinked: false,
           child: Align(
-            alignment: Alignment.topRight,
+            alignment: AlignmentDirectional.topEnd,
             child: TapRegion(
               groupId: _searchTapGroupId,
               onTapOutside: (_) => _closeSearchPopover(clearFocus: true),
@@ -411,7 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         end: Offset.zero,
                       ).animate(fade),
                       child: ScaleTransition(
-                        alignment: Alignment.topRight,
+                        alignment: isRtl ? Alignment.topLeft : Alignment.topRight,
                         scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
                         child: child,
                       ),
@@ -457,8 +459,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                   Expanded(
                                     child: Text(
                                       hasQuery
-                                          ? 'RESULTADOS (${matches.length})'
-                                          : 'SUGESTÕES DE PERFIS',
+                                          ? listCtx.tr('RESULTADOS ({count})', {'count': matches.length})
+                                          : listCtx.tr('SUGESTÕES DE PERFIS'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -486,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                           vertical: 2,
                                         ),
                                         child: Text(
-                                          'Limpar',
+                                          listCtx.tr('Limpar'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w800,
@@ -511,7 +513,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Nenhum perfil encontrado para "@${query.replaceFirst(RegExp(r'^@+'), '')}"',
+                                      listCtx.tr(
+                                        'Nenhum perfil encontrado para "@{query}"',
+                                        {'query': query.replaceFirst(RegExp(r'^@+'), '')},
+                                      ),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.manrope(
                                         fontSize: 12,
@@ -612,21 +617,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         NoesisEloBadge(tier: elo, size: 14),
                         if (isMutual) ...[
                           const SizedBox(width: 5),
-                          const SoftClayTag(
-                            label: 'Mútuo',
+                          SoftClayTag(
+                            label: ctx.tr('Mútuo'),
                             color: AsterConstants.menta,
                           ),
                         ] else if (followsMe) ...[
                           const SizedBox(width: 5),
                           SoftClayTag(
-                            label: 'Segue você',
+                            label: ctx.tr('Segue você'),
                             color: primaryCol,
                           ),
                         ],
                       ],
                     ),
                     Text(
-                      '@${profile.username} · Elo ${elo.name}',
+                      ctx.tr('@{username} · Elo {elo}', {'username': profile.username, 'elo': elo.localizedName}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -640,7 +645,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
               const SizedBox(width: 8),
               SoftClayChoiceChip(
-                label: isFollowing ? 'Seguindo' : 'Seguir',
+                label: isFollowing ? ctx.tr('Seguindo') : ctx.tr('Seguir'),
                 selected: isFollowing,
                 compact: true,
                 onTap: () => social.toggleFollow(profile),
@@ -731,7 +736,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Perfil',
+                                      context.tr('Perfil'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 22,
                                         fontWeight: FontWeight.w900,
@@ -777,7 +782,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                         ),
                                         decoration: InputDecoration(
                                           isDense: true,
-                                          hintText: 'Buscar perfil (@...)',
+                                          hintText: context.tr('Buscar perfil (@...)'),
                                           hintStyle: GoogleFonts.manrope(
                                             fontSize: 12.5,
                                             color: AsterTheme.textMuted(context),
@@ -800,7 +805,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                           ),
                                           suffixIcon: (hasActiveSearch || _popoverVisible)
                                               ? IconButton(
-                                                  tooltip: 'Fechar busca',
+                                                  tooltip: context.tr('Fechar busca'),
                                                   icon: const Icon(Icons.close_rounded, size: 17),
                                                   onPressed: () {
                                                     _searchCtrl.clear();
@@ -840,7 +845,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                 ),
                                 const SizedBox(width: 6),
                                 IconButton(
-                                  tooltip: 'Atualizar perfis',
+                                  tooltip: context.tr('Atualizar perfis'),
                                   onPressed: () {
                                     social.init(force: true);
                                     _loadAccountSummary();
@@ -878,8 +883,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                   isDark: isDark,
                                 ),
                               ),
-                              Positioned(
-                                right: 16,
+                              PositionedDirectional(
+                                end: 16,
                                 top: 14,
                                 child: Wrap(
                                   spacing: 8,
@@ -900,12 +905,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       onPressed: () => showPublicUserProfileModal(
                                         context,
                                         profile: me,
-                                        previewNotice: 'Como outros usuários veem seu perfil',
+                                        previewNotice: context.tr('Como outros usuários veem seu perfil'),
                                         onEditOwnProfile: () => _openEditProfile(me),
                                       ),
                                       icon: const Icon(Icons.visibility_rounded, size: 15),
                                       label: Text(
-                                        'Ver Perfil Público',
+                                        context.tr('Ver Perfil Público'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800,
@@ -914,7 +919,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                     ),
                                     SoftClayPillButton(
                                       key: const Key('profile_edit_button'),
-                                      text: 'Editar',
+                                      text: context.tr('Editar'),
                                       icon: Icons.edit_rounded,
                                       onPressed: () => _openEditProfile(me),
                                     ),
@@ -944,8 +949,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                             frameId: me.equippedFrameId,
                                             radius: 36,
                                           ),
-                                          Positioned(
-                                            right: -2,
+                                          PositionedDirectional(
+                                            end: -2,
                                             bottom: 0,
                                             child: Container(
                                               padding: const EdgeInsets.all(2.5),
@@ -1001,7 +1006,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                                     NoesisEloBadge(tier: elo, size: 15),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      'Elo ${elo.name}',
+                                                      context.tr('Elo {name}', {'name': elo.localizedName}),
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 11,
                                                         fontWeight: FontWeight.w800,
@@ -1023,7 +1028,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                   Text(
                                     (me.bio ?? '').trim().isNotEmpty
                                         ? me.bio!.trim()
-                                        : 'Adicione uma bio em Editar para mostrar o que você está estudando.',
+                                        : context.tr('Adicione uma bio em Editar para mostrar o que você está estudando.'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12.5,
                                       color: AsterTheme.textMuted(context),
@@ -1039,7 +1044,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                         context,
                                         key: const Key('profile_stat_following'),
                                         count: '${state.followingIds.length}',
-                                        label: 'Seguindo',
+                                        label: context.tr('Seguindo'),
                                         accent: primaryCol,
                                         onTap: () => _openConnectionsModal(
                                           _ProfileDirectoryFilter.following,
@@ -1049,7 +1054,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                         context,
                                         key: const Key('profile_stat_followers'),
                                         count: '${state.incomingFollowerIds.length}',
-                                        label: 'Seguidores',
+                                        label: context.tr('Seguidores'),
                                         accent: AsterConstants.menta,
                                         onTap: () => _openConnectionsModal(
                                           _ProfileDirectoryFilter.followers,
@@ -1058,7 +1063,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       _minimalStatPill(
                                         context,
                                         count: '+${me.weeklyInsights}',
-                                        label: 'Insights/sem',
+                                        label: context.tr('Insights/sem'),
                                         accent: AsterConstants.menta,
                                         trailing: const InsightCoinIcon(size: 13),
                                       ),
@@ -1067,7 +1072,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                         count: DashboardAnalytics.formatReadableDuration(
                                           me.weeklyMinutes,
                                         ),
-                                        label: '${me.streakDays}d streak',
+                                        label: context.tr('{streak}d streak', {'streak': me.streakDays}),
                                         accent: elo.accentColor,
                                       ),
                                     ],
@@ -1206,7 +1211,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Carreira Noética',
+                      context.tr('Carreira Noética'),
                       style: GoogleFonts.manrope(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -1214,7 +1219,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ),
                     ),
                     Text(
-                      'Elo ${elo.name} · ${elo.subtitle}',
+                      context.tr(
+                        'Elo {name} · {subtitle}',
+                        {'name': elo.localizedName, 'subtitle': elo.localizedSubtitle},
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -1229,7 +1237,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TextButton(
                 onPressed: () => RootScreen.switchTab(11),
                 child: Text(
-                  'Ranking',
+                  context.tr('Ranking'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -1245,7 +1253,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Expanded(
                 child: _compactJourneyCell(
                   context,
-                  label: 'Posição atual',
+                  label: context.tr('Posição atual'),
                   value: '#${board.currentUserRank}',
                   color: primaryCol,
                 ),
@@ -1254,8 +1262,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Expanded(
                 child: _compactJourneyCell(
                   context,
-                  label: 'Melhor Elo',
-                  value: bestElo.name,
+                  label: context.tr('Melhor Elo'),
+                  value: bestElo.localizedName,
                   color: bestElo.accentColor,
                 ),
               ),
@@ -1267,8 +1275,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Expanded(
                 child: _compactJourneyCell(
                   context,
-                  label: 'Pontuação acumulada',
-                  value: '${board.accumulatedRankingScore} pts',
+                  label: context.tr('Pontuação acumulada'),
+                  value: context.tr('{points} pts', {'points': board.accumulatedRankingScore}),
                   color: AsterConstants.menta,
                 ),
               ),
@@ -1276,8 +1284,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Expanded(
                 child: _compactJourneyCell(
                   context,
-                  label: 'Pódios · Permanência',
-                  value: '${board.top3Finishes} · ${board.retentionStreakWeeks} sem.',
+                  label: context.tr('Pódios · Permanência'),
+                  value: context.tr(
+                    '{top3} · {weeks} sem.',
+                    {'top3': board.top3Finishes, 'weeks': board.retentionStreakWeeks},
+                  ),
                   color: AsterTheme.text(context),
                 ),
               ),
@@ -1301,8 +1312,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 Expanded(
                   child: Text(
                     isMaxTier
-                        ? 'Você atingiu o topo da Escala Noética!'
-                        : 'Próximo patamar: Elo ${nextTier.name} (Top ${elo.promotionSlots} da semana)',
+                        ? context.tr('Você atingiu o topo da Escala Noética!')
+                        : context.tr(
+                            'Próximo patamar: Elo {elo} (Top {slots} da semana)',
+                            {'elo': nextTier.localizedName, 'slots': elo.promotionSlots},
+                          ),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
@@ -1400,7 +1414,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Identidade & Acervo',
+                      context.tr('Identidade & Acervo'),
                       style: GoogleFonts.manrope(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -1408,7 +1422,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ),
                     ),
                     Text(
-                      '$unlockedCosmeticsCount/$totalPaidCosmetics itens personalizados · ${shop.unlockedThemes.length}/${AsterTheme.availableThemes.length} temas',
+                      context.tr(
+                        '{unlockedItems}/{totalItems} itens personalizados · {unlockedThemes}/{totalThemes} temas',
+                        {
+                          'unlockedItems': unlockedCosmeticsCount,
+                          'totalItems': totalPaidCosmetics,
+                          'unlockedThemes': shop.unlockedThemes.length,
+                          'totalThemes': AsterTheme.availableThemes.length,
+                        },
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -1424,21 +1446,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           const SizedBox(height: 14),
           _equippedSlotRow(
             context,
-            slotLabel: 'Capa',
+            slotLabel: context.tr('Capa'),
             item: banner,
             isDark: isDark,
           ),
           const SizedBox(height: 6),
           _equippedSlotRow(
             context,
-            slotLabel: 'Moldura',
+            slotLabel: context.tr('Moldura'),
             item: frame,
             isDark: isDark,
           ),
           const SizedBox(height: 6),
           _equippedSlotRow(
             context,
-            slotLabel: 'Título',
+            slotLabel: context.tr('Título'),
             item: title,
             isDark: isDark,
           ),
@@ -1458,7 +1480,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          '${shop.balance} Insights · ${shop.streakProtectors}/${shop.maxStreakProtectors} selos',
+                          context.tr(
+                            '{balance} Insights · {protectors}/{maxProtectors} selos',
+                            {
+                              'balance': shop.balance,
+                              'protectors': shop.streakProtectors,
+                              'maxProtectors': shop.maxStreakProtectors,
+                            },
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
@@ -1482,7 +1511,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                 ),
                 child: Text(
-                  'Trocar',
+                  context.tr('Trocar'),
                   style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -1490,7 +1519,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TextButton(
                 onPressed: () => RootScreen.switchTab(9),
                 child: Text(
-                  'Loja',
+                  context.tr('Loja'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -1542,7 +1571,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           ),
           const Spacer(),
           Text(
-            item.name,
+            item.localizedName,
             style: GoogleFonts.manrope(
               fontSize: 12,
               fontWeight: FontWeight.w800,
@@ -1605,7 +1634,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   Icon(Icons.military_tech_rounded, size: 19, color: primaryCol),
                   const SizedBox(width: 8),
                   Text(
-                    'Marcos & Conquistas da Conta',
+                    context.tr('Marcos & Conquistas da Conta'),
                     style: GoogleFonts.manrope(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -1622,7 +1651,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   if (claimable.isNotEmpty)
                     SoftClayPillButton(
                       key: const Key('achievements_claim_all_btn'),
-                      text: 'Resgatar Tudo (+$claimableTotal)',
+                      text: context.tr('Resgatar Tudo (+{amount})', {'amount': claimableTotal}),
                       icon: Icons.redeem_rounded,
                       onPressed: () {
                         for (final ach in claimable) {
@@ -1635,7 +1664,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       },
                     ),
                   SoftClayTag(
-                    label: '$unlockedCount/${achievements.length} concluídos',
+                    label: context.tr(
+                      '{unlocked}/{total} concluídos',
+                      {'unlocked': unlockedCount, 'total': achievements.length},
+                    ),
                     color: unlockedCount > 0 ? AsterConstants.menta : primaryCol,
                   ),
                 ],
@@ -1728,7 +1760,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               const InsightCoinIcon(size: 13),
                               const SizedBox(width: 4),
                               Text(
-                                '+${m.rewardInsights} Insights',
+                                ctx.tr('+{amount} Insights', {'amount': m.rewardInsights}),
                                 style: GoogleFonts.jetBrainsMono(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
@@ -1755,7 +1787,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                     ),
                                     child: Text(
-                                      'Resgatar',
+                                      ctx.tr('Resgatar'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w900,
@@ -1766,7 +1798,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                 )
                               else if (claimed)
                                 Text(
-                                  'Resgatado ✓',
+                                  ctx.tr('Resgatado ✓'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w800,
@@ -1815,7 +1847,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Acervo & Matérias em Foco',
+                  context.tr('Acervo & Matérias em Foco'),
                   style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -1826,7 +1858,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TextButton(
                 onPressed: () => RootScreen.switchTab(13),
                 child: Text(
-                  'Desempenho',
+                  context.tr('Desempenho'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -1841,11 +1873,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             spacing: 8,
             runSpacing: 8,
             children: [
-              _compactPortfolioBadge(context, '$examsCount Simulados', primaryCol),
-              _compactPortfolioBadge(context, '$cardsCount Flashcards', AsterConstants.menta),
-              _compactPortfolioBadge(context, '$notesCount Notas', const Color(0xFF0EA5E9)),
-              _compactPortfolioBadge(context, '$roadmapsCount Trilhas', const Color(0xFFF59E0B)),
-              _compactPortfolioBadge(context, 'Total: $totalStudiedLabel', AsterTheme.text(context)),
+              _compactPortfolioBadge(context, context.tr('{count} Simulados', {'count': examsCount}), primaryCol),
+              _compactPortfolioBadge(context, context.tr('{count} Flashcards', {'count': cardsCount}), AsterConstants.menta),
+              _compactPortfolioBadge(context, context.tr('{count} Notas', {'count': notesCount}), const Color(0xFF0EA5E9)),
+              _compactPortfolioBadge(context, context.tr('{count} Trilhas', {'count': roadmapsCount}), const Color(0xFFF59E0B)),
+              _compactPortfolioBadge(context, context.tr('Total: {duration}', {'duration': totalStudiedLabel}), AsterTheme.text(context)),
             ],
           ),
           const SizedBox(height: 14),
@@ -1860,7 +1892,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 children: [
                   Expanded(
                     child: Text(
-                      'Registre sessões no Diário para destacar suas matérias principais no perfil.',
+                      context.tr('Registre sessões no Diário para destacar suas matérias principais no perfil.'),
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         color: AsterTheme.textMuted(context),
@@ -1870,7 +1902,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   const SizedBox(width: 10),
                   OutlinedButton(
                     onPressed: () => RootScreen.switchTab(7),
-                    child: const Text('Diário'),
+                    child: Text(context.tr('Diário')),
                   ),
                 ],
               ),
@@ -1962,7 +1994,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Meus Grupos de Estudos',
+                  context.tr('Meus Grupos de Estudos'),
                   style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -1973,7 +2005,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TextButton(
                 onPressed: () => RootScreen.switchTab(10),
                 child: Text(
-                  'Ver Grupos',
+                  context.tr('Ver Grupos'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -1995,7 +2027,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 children: [
                   Expanded(
                     child: Text(
-                      'Você ainda não participa de nenhum grupo. Crie ou entre em um grupo para estudar em equipe.',
+                      context.tr('Você ainda não participa de nenhum grupo. Crie ou entre em um grupo para estudar em equipe.'),
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         color: AsterTheme.textMuted(context),
@@ -2005,7 +2037,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   const SizedBox(width: 10),
                   OutlinedButton(
                     onPressed: () => RootScreen.switchTab(10),
-                    child: const Text('Grupos'),
+                    child: Text(context.tr('Grupos')),
                   ),
                 ],
               ),
@@ -2047,7 +2079,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                 ),
                               ),
                               Text(
-                                '${g.subject} · ${g.members.length} ${g.members.length == 1 ? 'membro' : 'membros'}',
+                                g.members.length == 1
+                                    ? context.tr('{subject} · {count} membro', {'subject': g.subject, 'count': g.members.length})
+                                    : context.tr('{subject} · {count} membros', {'subject': g.subject, 'count': g.members.length}),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
@@ -2059,7 +2093,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           ),
                         ),
                         SoftClayTag(
-                          label: isLeader ? 'Líder' : 'Membro',
+                          label: isLeader ? context.tr('Líder') : context.tr('Membro'),
                           color: isLeader ? primaryCol : AsterConstants.menta,
                         ),
                       ],
@@ -2185,19 +2219,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             const VipBadgePill(size: VipBadgeSize.xs, interactive: false),
                           NoesisEloBadge(tier: elo, size: 15),
                           if (isMutual)
-                            const SoftClayTag(
-                              label: 'Mútuo',
+                            SoftClayTag(
+                              label: context.tr('Mútuo'),
                               color: AsterConstants.menta,
                             )
                           else if (followsMe)
                             SoftClayTag(
-                              label: 'Segue você',
+                              label: context.tr('Segue você'),
                               color: AsterTheme.primary(context),
                             ),
                         ],
                       ),
                       Text(
-                        '@${profile.username} · Elo ${elo.name}',
+                        context.tr('@{username} · Elo {elo}', {'username': profile.username, 'elo': elo.localizedName}),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(
@@ -2217,7 +2251,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                   onPressed: () => showPublicUserProfileModal(context, profile: profile),
                   child: Text(
-                    'Ver',
+                    context.tr('Ver'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -2228,7 +2262,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 const SizedBox(width: 4),
                 SoftClayChoiceChip(
                   key: Key('profile_follow_btn_${profile.userId}'),
-                  label: isFollowing ? 'Seguindo' : 'Seguir',
+                  label: isFollowing ? context.tr('Seguindo') : context.tr('Seguir'),
                   selected: isFollowing,
                   compact: true,
                   onTap: () => social.toggleFollow(profile),

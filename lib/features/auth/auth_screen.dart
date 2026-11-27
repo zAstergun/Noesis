@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 import '../../core/constants.dart';
 import '../../core/desktop_window_service.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/theme.dart';
 import '../../core/supabase_service.dart';
 import '../../widgets/desktop_top_bar.dart';
@@ -69,7 +70,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final launched = await SupabaseService.signInWithOAuth(provider);
       if (!launched && mounted) {
         setState(() {
-          _errorMessage = 'Login externo cancelado ou não concluído.';
+          _errorMessage = context.tr('Login externo cancelado ou não concluído.');
         });
       }
     } catch (e) {
@@ -99,8 +100,9 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isSignUp && !widget.allowRegistration) {
       setState(() {
         _isSignUp = false;
-        _errorMessage =
-            'Novos cadastros estão temporariamente pausados pela administração.';
+        _errorMessage = context.tr(
+          'Novos cadastros estão temporariamente pausados pela administração.',
+        );
       });
       return;
     }
@@ -110,23 +112,23 @@ class _AuthScreenState extends State<AuthScreen> {
     final fullName = _fullNameController.text.trim();
 
     if (_isSignUp && fullName.isEmpty) {
-      setState(() => _errorMessage = 'Por favor, informe seu usuário.');
+      setState(() => _errorMessage = context.tr('Por favor, informe seu usuário.'));
       return;
     }
     if (email.isEmpty) {
-      setState(() => _errorMessage = 'Por favor, informe seu e-mail.');
+      setState(() => _errorMessage = context.tr('Por favor, informe seu e-mail.'));
       return;
     }
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      setState(() => _errorMessage = 'Por favor, informe um e-mail válido.');
+      setState(() => _errorMessage = context.tr('Por favor, informe um e-mail válido.'));
       return;
     }
     if (password.isEmpty) {
-      setState(() => _errorMessage = 'Por favor, informe sua senha.');
+      setState(() => _errorMessage = context.tr('Por favor, informe sua senha.'));
       return;
     }
     if (_isSignUp && password.length < 6) {
-      setState(() => _errorMessage = 'A senha precisa ter pelo menos 6 caracteres.');
+      setState(() => _errorMessage = context.tr('A senha precisa ter pelo menos 6 caracteres.'));
       return;
     }
 
@@ -147,7 +149,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (response.user != null && (response.user!.identities?.isEmpty ?? false)) {
           if (mounted) {
             setState(() {
-              _errorMessage = 'Já existe uma conta com esse e-mail.';
+              _errorMessage = context.tr('Já existe uma conta com esse e-mail.');
             });
           }
           return;
@@ -163,8 +165,10 @@ class _AuthScreenState extends State<AuthScreen> {
         if (mounted) {
           setState(() {
             _pendingConfirmationEmail = email;
-            _successMessage =
-                'Enviamos um link de confirmação para $email.';
+            _successMessage = context.tr(
+              'Enviamos um link de confirmação para {email}.',
+              {'email': email},
+            );
             _isSignUp = false;
           });
         }
@@ -203,8 +207,10 @@ class _AuthScreenState extends State<AuthScreen> {
       await SupabaseService.resendSignupConfirmation(email);
       if (mounted) {
         setState(() {
-          _successMessage =
-              'Novo link de confirmação enviado para $email! Verifique sua caixa de entrada e o spam.';
+          _successMessage = context.tr(
+            'Novo link de confirmação enviado para {email}! Verifique sua caixa de entrada e o spam.',
+            {'email': email},
+          );
         });
       }
     } catch (e) {
@@ -268,7 +274,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Recuperar Senha',
+                                  context.tr('Recuperar Senha'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -276,7 +282,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Instruções via e-mail',
+                                  context.tr('Instruções via e-mail'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: AsterConstants.textMuted,
@@ -313,7 +319,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 20),
                       ] else ...[
                         Text(
-                          'Digite seu e-mail cadastrado para enviarmos o link seguro de redefinição de senha.',
+                          context.tr('Digite seu e-mail cadastrado para enviarmos o link seguro de redefinição de senha.'),
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             color: AsterConstants.textMuted,
@@ -322,9 +328,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 16),
                         _buildInputField(
-                          label: 'E-MAIL',
+                          label: context.tr('E-MAIL'),
                           controller: resetEmailController,
-                          hint: 'seu-email@aster.app',
+                          hint: context.tr('seu-email@aster.app'),
                           icon: Icons.alternate_email_rounded,
                           keyboardType: TextInputType.emailAddress,
                         ),
@@ -344,7 +350,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   final mail = resetEmailController.text.trim();
                                   if (mail.isEmpty) {
                                     setDialogState(
-                                        () => resetError = 'Digite seu e-mail.');
+                                        () => resetError = context.tr('Digite seu e-mail.'));
                                     return;
                                   }
                                   setDialogState(() {
@@ -358,8 +364,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                       redirectTo: SupabaseService.authRedirectUrl(),
                                     );
                                     setDialogState(() {
-                                      resetSent =
-                                          'Link de redefinição enviado para $mail! Verifique sua caixa de entrada.';
+                                      resetSent = context.tr(
+                                        'Link de redefinição enviado para {email}! Verifique sua caixa de entrada.',
+                                        {'email': mail},
+                                      );
                                     });
                                   } catch (e) {
                                     setDialogState(() {
@@ -385,7 +393,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                       strokeWidth: 2, color: Colors.white),
                                 )
                               : Text(
-                                  'Enviar Link de Recuperação',
+                                  context.tr('Enviar Link de Recuperação'),
                                   style: GoogleFonts.manrope(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13),
@@ -417,7 +425,7 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          padding: const EdgeInsetsDirectional.only(start: 4, bottom: 6),
           child: Text(
             label,
             style: GoogleFonts.manrope(
@@ -509,7 +517,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Confirme seu e-mail',
+                      context.tr('Confirme seu e-mail'),
                       style: GoogleFonts.manrope(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -521,7 +529,8 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                _successMessage ?? 'Enviamos um link de confirmação para $email.',
+                _successMessage ??
+                    context.tr('Enviamos um link de confirmação para {email}.', {'email': email}),
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -531,7 +540,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Abra sua caixa de entrada e clique no link para validar sua conta antes de entrar. Se não encontrar, confira a pasta de spam ou promoções.',
+                context.tr('Abra sua caixa de entrada e clique no link para validar sua conta antes de entrar. Se não encontrar, confira a pasta de spam ou promoções.'),
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   color: AsterConstants.textMuted,
@@ -584,8 +593,8 @@ class _AuthScreenState extends State<AuthScreen> {
               : const Icon(Icons.refresh_rounded, size: 17),
           label: Text(
             _isResendingConfirmation
-                ? 'Reenviando...'
-                : 'Reenviar e-mail de confirmação',
+                ? context.tr('Reenviando...')
+                : context.tr('Reenviar e-mail de confirmação'),
             style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800),
           ),
         ),
@@ -610,7 +619,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           icon: const Icon(Icons.arrow_back_rounded, size: 16),
           label: Text(
-            'Voltar para o login',
+            context.tr('Voltar para o login'),
             style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
@@ -634,7 +643,9 @@ class _AuthScreenState extends State<AuthScreen> {
             children: [
               // Indicador deslizante animado (Sliding Pill)
               AnimatedAlign(
-                alignment: _isSignUp ? Alignment.centerRight : Alignment.centerLeft,
+                alignment: _isSignUp
+                    ? AlignmentDirectional.centerEnd
+                    : AlignmentDirectional.centerStart,
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOutCubic,
                 child: Container(
@@ -671,7 +682,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             fontWeight: !_isSignUp ? FontWeight.w800 : FontWeight.w600,
                             color: !_isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted,
                           ),
-                          child: const Text('Entrar'),
+                          child: Text(context.tr('Entrar')),
                         ),
                       ),
                     ),
@@ -684,8 +695,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           setState(() {
                             _isSignUp = false;
                             _successMessage = null;
-                            _errorMessage =
-                                'Novos cadastros estão temporariamente pausados pela administração.';
+                            _errorMessage = context.tr(
+                              'Novos cadastros estão temporariamente pausados pela administração.',
+                            );
                           });
                           return;
                         }
@@ -707,7 +719,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ? AsterConstants.textFaint
                                 : (_isSignUp ? AsterTheme.primary(context) : AsterConstants.textMuted),
                           ),
-                          child: const Text('Criar Conta'),
+                          child: Text(context.tr('Criar Conta')),
                         ),
                       ),
                     ),
@@ -774,8 +786,8 @@ class _AuthScreenState extends State<AuthScreen> {
                       },
                       child: Text(
                         _isSignUp
-                            ? 'Criar Conta Aster'
-                            : 'Entrar na Aster Account',
+                            ? context.tr('Criar Conta Aster')
+                            : context.tr('Entrar na Aster Account'),
                         key: ValueKey<bool>(_isSignUp),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.manrope(
@@ -915,7 +927,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     children: [
                       if (widget.onBackToLanding != null) ...[
                         Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: AlignmentDirectional.centerStart,
                           child: InkWell(
                             key: const Key('auth_back_to_landing_button'),
                             onTap: widget.onBackToLanding,
@@ -937,7 +949,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Voltar ao início',
+                                    context.tr('Voltar ao início'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1016,8 +1028,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           },
                           child: Text(
                             _isSignUp
-                                ? 'Crie seu acesso unificado para o ecossistema Aster'
-                                : 'Acesse seus estudos, cronogramas e inteligência cognitiva',
+                                ? context.tr('Crie seu acesso unificado para o ecossistema Aster')
+                                : context.tr('Acesse seus estudos, cronogramas e inteligência cognitiva'),
                             key: ValueKey<bool>(_isSignUp),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.manrope(
@@ -1091,8 +1103,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                         : const Icon(Icons.mark_email_read_outlined, size: 15),
                                     label: Text(
                                       _isResendingConfirmation
-                                          ? 'Reenviando...'
-                                          : 'Reenviar e-mail de confirmação',
+                                          ? context.tr('Reenviando...')
+                                          : context.tr('Reenviar e-mail de confirmação'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w800,
@@ -1149,9 +1161,9 @@ class _AuthScreenState extends State<AuthScreen> {
                               ? Column(
                                   children: [
                                     _buildInputField(
-                                      label: 'USUÁRIO',
+                                      label: context.tr('USUÁRIO'),
                                       controller: _fullNameController,
-                                      hint: 'Seu usuário',
+                                      hint: context.tr('Seu usuário'),
                                       icon: Icons.person_outline_rounded,
                                       onSubmitted: (_) => _submit(),
                                     ),
@@ -1162,9 +1174,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
 
                         _buildInputField(
-                          label: 'E-MAIL',
+                          label: context.tr('E-MAIL'),
                           controller: _emailController,
-                          hint: 'exemplo@aster.app',
+                          hint: context.tr('exemplo@aster.app'),
                           icon: Icons.alternate_email_rounded,
                           keyboardType: TextInputType.emailAddress,
                           onSubmitted: (_) => _submit(),
@@ -1172,7 +1184,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 14),
 
                         _buildInputField(
-                          label: 'SENHA',
+                          label: context.tr('SENHA'),
                           controller: _passwordController,
                           hint: '••••••••••••',
                           icon: Icons.lock_outline_rounded,
@@ -1239,7 +1251,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  'Lembrar sessão',
+                                                  context.tr('Lembrar sessão'),
                                                   style: GoogleFonts.manrope(
                                                     fontSize: 12,
                                                     color: AsterConstants.textMuted,
@@ -1259,7 +1271,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                           ),
                                           child: Text(
-                                            'Esqueceu a senha?',
+                                            context.tr('Esqueceu a senha?'),
                                             style: GoogleFonts.manrope(
                                               color: AsterTheme.primary(context),
                                               fontWeight: FontWeight.w700,
@@ -1291,7 +1303,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Text(
-                                'OU CONTINUE COM',
+                                context.tr('OU CONTINUE COM'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
@@ -1335,7 +1347,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               onPressed: () => SupabaseService.cancelPendingOAuth(),
                               icon: const Icon(Icons.close_rounded, size: 15),
                               label: Text(
-                                'Cancelar login no navegador',
+                                context.tr('Cancelar login no navegador'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -1357,7 +1369,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Criptografia de 256 bits · Aster Auth SSO',
+                              context.tr('Criptografia de 256 bits · Aster Auth SSO'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11,
                                 color: AsterConstants.textFaint,

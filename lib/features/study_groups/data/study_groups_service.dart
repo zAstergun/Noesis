@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/shop_service.dart';
 import '../../../core/supabase_service.dart';
 import '../../flashcards/models/flashcard_model.dart';
@@ -84,7 +85,7 @@ class StudyGroupsService {
     final profile = SupabaseService.userProfileNotifier.value;
     final raw = (profile?['channel'] ?? '').toString();
     final clean = SupabaseService.sanitizeUsername(raw);
-    return clean.isEmpty ? 'estudante' : clean;
+    return clean.isEmpty ? NoesisL10n.tr('estudante') : clean;
   }
 
   static String get currentUserDisplayName {
@@ -93,7 +94,7 @@ class StudyGroupsService {
     if (full.isNotEmpty) return full;
     final email = SupabaseService.currentUser?.email ?? '';
     if (email.contains('@')) return email.split('@').first;
-    return 'Estudante';
+    return NoesisL10n.tr('Estudante');
   }
 
   Future<void> init({bool force = false}) async {
@@ -215,7 +216,7 @@ class StudyGroupsService {
   Future<StudyGroupActionResult> createGroup({
     required String name,
     String description = '',
-    String subject = 'Geral',
+    String subject = '',
     String? actorUserId,
     String? actorUsername,
     String? actorDisplayName,
@@ -223,9 +224,9 @@ class StudyGroupsService {
     await init();
     final cleanName = name.trim();
     if (cleanName.isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe um nome para o grupo de estudos.',
+        error: NoesisL10n.tr('Informe um nome para o grupo de estudos.'),
       );
     }
 
@@ -250,7 +251,7 @@ class StudyGroupsService {
       id: 'grp-${now.microsecondsSinceEpoch}-${_groups.length}',
       name: cleanName,
       description: description.trim(),
-      subject: subject.trim().isEmpty ? 'Geral' : subject.trim(),
+      subject: subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim(),
       leaderId: uid,
       inviteCode: _generateInviteCode(_groups.length),
       members: [leader],
@@ -263,7 +264,7 @@ class StudyGroupsService {
     await _persist(changedGroup: group);
     return StudyGroupActionResult(
       ok: true,
-      message: 'Grupo "${group.name}" criado!',
+      message: NoesisL10n.tr('Grupo "{name}" criado!', {'name': group.name}),
       group: group,
     );
   }
@@ -282,13 +283,18 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Grupo não encontrado.'),
+      );
     }
     final group = _groups[idx];
     if (!group.canUserManageSettings(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas o criador/líder do grupo pode alterar estas configurações.',
+        error: NoesisL10n.tr(
+          'Apenas o criador/líder do grupo pode alterar estas configurações.',
+        ),
       );
     }
 
@@ -305,7 +311,7 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: 'Configurações do grupo atualizadas.',
+      message: NoesisL10n.tr('Configurações do grupo atualizadas.'),
       group: updated,
     );
   }
@@ -322,18 +328,18 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (!group.canUserManageSettings(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas o líder pode alterar permissões de membros.',
+        error: NoesisL10n.tr('Apenas o líder pode alterar permissões de membros.'),
       );
     }
     final mIdx = group.members.indexWhere((m) => m.userId == targetUserId);
     if (mIdx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Membro não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Membro não encontrado.'));
     }
     final updatedMembers = List<StudyGroupMember>.from(group.members);
     updatedMembers[mIdx] = updatedMembers[mIdx].copyWith(
@@ -362,28 +368,28 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (!group.canUserInvite(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Você não tem permissão para convidar neste grupo.',
+        error: NoesisL10n.tr('Você não tem permissão para convidar neste grupo.'),
       );
     }
 
     final cleanHandle = SupabaseService.sanitizeUsername(username);
     if (cleanHandle.length < 2) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe um @usuario válido (mínimo 2 caracteres).',
+        error: NoesisL10n.tr('Informe um @usuario válido (mínimo 2 caracteres).'),
       );
     }
 
     if (group.members.any((m) => m.username.toLowerCase() == cleanHandle)) {
       return StudyGroupActionResult(
         ok: false,
-        error: '@$cleanHandle já participa deste grupo.',
+        error: NoesisL10n.tr('@{handle} já participa deste grupo.', {'handle': cleanHandle}),
       );
     }
 
@@ -437,7 +443,7 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: '@$cleanHandle adicionado ao grupo!',
+      message: NoesisL10n.tr('@{handle} adicionado ao grupo!', {'handle': cleanHandle}),
       group: updated,
     );
   }
@@ -453,9 +459,9 @@ class StudyGroupsService {
     await init();
     final code = parseInviteCode(codeOrLink);
     if (code.isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Cole um código ou link de convite válido.',
+        error: NoesisL10n.tr('Cole um código ou link de convite válido.'),
       );
     }
 
@@ -491,7 +497,7 @@ class StudyGroupsService {
           await _persist();
           return StudyGroupActionResult(
             ok: true,
-            message: 'Você entrou no grupo "${joined.name}"!',
+            message: NoesisL10n.tr('Você entrou no grupo "{name}"!', {'name': joined.name}),
             group: joined,
           );
         }
@@ -514,9 +520,9 @@ class StudyGroupsService {
     }
 
     if (idx == -1) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Nenhum grupo encontrado para este código de convite.',
+        error: NoesisL10n.tr('Nenhum grupo encontrado para este código de convite.'),
       );
     }
 
@@ -524,7 +530,7 @@ class StudyGroupsService {
     if (group.members.any((m) => m.userId == uid)) {
       return StudyGroupActionResult(
         ok: true,
-        message: 'Você já faz parte de "${group.name}".',
+        message: NoesisL10n.tr('Você já faz parte de "{name}".', {'name': group.name}),
         group: group,
       );
     }
@@ -538,7 +544,7 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: 'Você entrou no grupo "${updated.name}"!',
+      message: NoesisL10n.tr('Você entrou no grupo "{name}"!', {'name': updated.name}),
       group: updated,
     );
   }
@@ -601,8 +607,11 @@ class StudyGroupsService {
           updatedAt: now,
         );
       },
-      successMessage: 'Caderno "${notebook.title}" anexado ao grupo!',
-      duplicateError: 'Este caderno já está anexado ao grupo.',
+      successMessage: NoesisL10n.tr(
+        'Caderno "{title}" anexado ao grupo!',
+        {'title': notebook.title},
+      ),
+      duplicateError: NoesisL10n.tr('Este caderno já está anexado ao grupo.'),
     );
   }
 
@@ -636,8 +645,11 @@ class StudyGroupsService {
           updatedAt: now,
         );
       },
-      successMessage: 'Baralho "${deck.title}" anexado ao grupo!',
-      duplicateError: 'Este baralho já está anexado ao grupo.',
+      successMessage: NoesisL10n.tr(
+        'Baralho "{title}" anexado ao grupo!',
+        {'title': deck.title},
+      ),
+      duplicateError: NoesisL10n.tr('Este baralho já está anexado ao grupo.'),
     );
   }
 
@@ -671,8 +683,11 @@ class StudyGroupsService {
           updatedAt: now,
         );
       },
-      successMessage: 'Simulado "${exam.title}" anexado ao grupo!',
-      duplicateError: 'Este simulado já está anexado ao grupo.',
+      successMessage: NoesisL10n.tr(
+        'Simulado "{title}" anexado ao grupo!',
+        {'title': exam.title},
+      ),
+      duplicateError: NoesisL10n.tr('Este simulado já está anexado ao grupo.'),
     );
   }
 
@@ -706,8 +721,11 @@ class StudyGroupsService {
           updatedAt: now,
         );
       },
-      successMessage: 'Trilha "${roadmap.title}" anexada ao grupo!',
-      duplicateError: 'Esta trilha já está anexada ao grupo.',
+      successMessage: NoesisL10n.tr(
+        'Trilha "{title}" anexada ao grupo!',
+        {'title': roadmap.title},
+      ),
+      duplicateError: NoesisL10n.tr('Esta trilha já está anexada ao grupo.'),
     );
   }
 
@@ -722,13 +740,15 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (!group.canUserEdit(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas o líder ou membros com permissão de edição podem anexar conteúdos.',
+        error: NoesisL10n.tr(
+          'Apenas o líder ou membros com permissão de edição podem anexar conteúdos.',
+        ),
       );
     }
 
@@ -753,13 +773,13 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (!group.canUserRemoveContent(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas o líder do grupo pode remover conteúdos anexados.',
+        error: NoesisL10n.tr('Apenas o líder do grupo pode remover conteúdos anexados.'),
       );
     }
 
@@ -793,7 +813,7 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: 'Conteúdo removido do grupo.',
+      message: NoesisL10n.tr('Conteúdo removido do grupo.'),
       group: updated,
     );
   }
@@ -813,24 +833,24 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Entre no grupo para registrar sessões no diário compartilhado.',
+        error: NoesisL10n.tr('Entre no grupo para registrar sessões no diário compartilhado.'),
       );
     }
     if (durationMinutes <= 0) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe uma duração maior que zero minutos.',
+        error: NoesisL10n.tr('Informe uma duração maior que zero minutos.'),
       );
     }
 
     final now = DateTime.now();
-    final cleanSubj = subject.trim().isEmpty ? 'Estudo' : subject.trim();
+    final cleanSubj = subject.trim().isEmpty ? NoesisL10n.tr('Estudo') : subject.trim();
     final entry = StudyGroupLogEntry(
       id: 'glog_${now.microsecondsSinceEpoch}',
       userId: uid,
@@ -848,7 +868,10 @@ class StudyGroupsService {
       groupId: groupId,
       source: 'group_diary',
       rawAmount: baseInsights,
-      description: 'Diário no grupo "${group.name}" · $cleanSubj',
+      description: NoesisL10n.tr(
+        'Diário no grupo "{group}" · {subject}',
+        {'group': group.name, 'subject': cleanSubj},
+      ),
       idempotentId: 'grp_log:${entry.id}',
     );
 
@@ -870,8 +893,11 @@ class StudyGroupsService {
     return StudyGroupActionResult(
       ok: true,
       message: earned > 0
-          ? 'Sessão registrada! +$earned Insights no ranking do grupo.'
-          : 'Sessão registrada no diário do grupo!',
+          ? NoesisL10n.tr(
+              'Sessão registrada! +{earned} Insights no ranking do grupo.',
+              {'earned': '$earned'},
+            )
+          : NoesisL10n.tr('Sessão registrada no diário do grupo!'),
       group: updated,
       earnedInsights: earned,
     );
@@ -906,19 +932,19 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     final member = group.memberFor(uid);
     if (member == null) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas membros podem conversar no chat do grupo.',
+        error: NoesisL10n.tr('Apenas membros podem conversar no chat do grupo.'),
       );
     }
     final cleanText = text.trim();
     if (cleanText.isEmpty) {
-      return const StudyGroupActionResult(ok: false, error: 'Digite uma mensagem.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Digite uma mensagem.'));
     }
 
     final now = DateTime.now();
@@ -953,18 +979,18 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     final msgIdx = group.chatMessages.indexWhere((m) => m.id == messageId);
     if (msgIdx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Mensagem não encontrada.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Mensagem não encontrada.'));
     }
     final target = group.chatMessages[msgIdx];
     if (target.userId != uid && !group.isLeader(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Você só pode apagar suas próprias mensagens.',
+        error: NoesisL10n.tr('Você só pode apagar suas próprias mensagens.'),
       );
     }
     final updated = group.copyWith(
@@ -992,7 +1018,10 @@ class StudyGroupsService {
   }) async {
     final cleanTitle = title.trim();
     if (cleanTitle.isEmpty) {
-      return const StudyGroupActionResult(ok: false, error: 'Informe um título para o caderno.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Informe um título para o caderno.'),
+      );
     }
     final now = DateTime.now();
     final nbId = 'gnb_${now.microsecondsSinceEpoch}';
@@ -1001,7 +1030,9 @@ class StudyGroupsService {
             StudyNote(
               id: 'gnote_${now.microsecondsSinceEpoch}',
               notebookId: nbId,
-              title: noteTitle.trim().isEmpty ? 'Anotação Inicial' : noteTitle.trim(),
+              title: noteTitle.trim().isEmpty
+                  ? NoesisL10n.tr('Anotação Inicial')
+                  : noteTitle.trim(),
               content: noteContent.trim(),
             ),
           ]
@@ -1010,7 +1041,7 @@ class StudyGroupsService {
     final nb = StudyNotebook(
       id: nbId,
       title: cleanTitle,
-      subject: subject.trim().isEmpty ? 'Geral' : subject.trim(),
+      subject: subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim(),
       notes: notes,
     );
     return attachNotebook(
@@ -1030,9 +1061,9 @@ class StudyGroupsService {
     String? actorUserId,
   }) async {
     if (noteTitle.trim().isEmpty || noteContent.trim().isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Preencha o título e o conteúdo da anotação.',
+        error: NoesisL10n.tr('Preencha o título e o conteúdo da anotação.'),
       );
     }
     return _updateContent(
@@ -1065,8 +1096,8 @@ class StudyGroupsService {
         }).toList();
         return g.copyWith(sharedNotebooks: nextNotebooks, updatedAt: now);
       },
-      successMessage: 'Anotação adicionada ao caderno do grupo!',
-      duplicateError: 'Não foi possível adicionar a anotação.',
+      successMessage: NoesisL10n.tr('Anotação adicionada ao caderno do grupo!'),
+      duplicateError: NoesisL10n.tr('Não foi possível adicionar a anotação.'),
     );
   }
 
@@ -1082,16 +1113,16 @@ class StudyGroupsService {
   }) async {
     final cleanTitle = title.trim();
     if (cleanTitle.isEmpty || cards.isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe o título e ao menos 1 flashcard.',
+        error: NoesisL10n.tr('Informe o título e ao menos 1 flashcard.'),
       );
     }
     final now = DateTime.now();
     final deck = FlashcardDeck(
       id: 'gdk_${now.microsecondsSinceEpoch}',
       title: cleanTitle,
-      subject: subject.trim().isEmpty ? 'Geral' : subject.trim(),
+      subject: subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim(),
       description: description.trim(),
       cards: cards,
       createdAt: now,
@@ -1117,18 +1148,18 @@ class StudyGroupsService {
   }) async {
     final cleanTitle = title.trim();
     if (cleanTitle.isEmpty || questions.isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe o título e ao menos 1 questão para o simulado.',
+        error: NoesisL10n.tr('Informe o título e ao menos 1 questão para o simulado.'),
       );
     }
     final now = DateTime.now();
-    final cleanSubj = subject.trim().isEmpty ? 'Geral' : subject.trim();
+    final cleanSubj = subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim();
     final exam = SavedExamAttempt(
       id: 'gex_${now.microsecondsSinceEpoch}',
       groupKey: 'group_${groupId}_${now.millisecondsSinceEpoch}',
       examModelId: null,
-      examModelName: 'Grupo · $cleanSubj',
+      examModelName: NoesisL10n.tr('Grupo · {subject}', {'subject': cleanSubj}),
       title: cleanTitle,
       subject: cleanSubj,
       topic: cleanSubj,
@@ -1164,18 +1195,18 @@ class StudyGroupsService {
   }) async {
     final cleanTitle = title.trim();
     if (cleanTitle.isEmpty || steps.isEmpty) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Informe o título e ao menos 1 etapa da trilha.',
+        error: NoesisL10n.tr('Informe o título e ao menos 1 etapa da trilha.'),
       );
     }
     final now = DateTime.now();
     final rm = StudyRoadmap(
       id: 'grm_${now.microsecondsSinceEpoch}',
       title: cleanTitle,
-      subject: subject.trim().isEmpty ? 'Geral' : subject.trim(),
-      goal: goal.trim().isEmpty ? 'Estudar em grupo' : goal.trim(),
-      level: 'Colaborativa',
+      subject: subject.trim().isEmpty ? NoesisL10n.tr('Geral') : subject.trim(),
+      goal: goal.trim().isEmpty ? NoesisL10n.tr('Estudar em grupo') : goal.trim(),
+      level: NoesisL10n.tr('Colaborativa'),
       steps: steps,
       createdAt: now,
       updatedAt: now,
@@ -1203,24 +1234,30 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Apenas membros podem estudar neste grupo.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Apenas membros podem estudar neste grupo.'),
+      );
     }
 
     final earned = ShopService.instance.awardGroupStudyReward(
       groupId: groupId,
       source: 'group_notebook',
       rawAmount: 3,
-      description: 'Leitura no grupo "${group.name}" · $notebookTitle',
+      description: NoesisL10n.tr(
+        'Leitura no grupo "{group}" · {title}',
+        {'group': group.name, 'title': notebookTitle},
+      ),
       idempotentId: 'grp_nb:$groupId:$uid:$shareId:$noteId',
     );
     if (earned <= 0) {
       return StudyGroupActionResult(
         ok: true,
-        message: 'Leitura já contabilizada para esta anotação neste grupo.',
+        message: NoesisL10n.tr('Leitura já contabilizada para esta anotação neste grupo.'),
         group: group,
         earnedInsights: 0,
       );
@@ -1235,7 +1272,10 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: '+$earned Insights no ranking do grupo!',
+      message: NoesisL10n.tr(
+        '+{earned} Insights no ranking do grupo!',
+        {'earned': '$earned'},
+      ),
       group: updated,
       earnedInsights: earned,
     );
@@ -1253,11 +1293,14 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para estudar os flashcards.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para estudar os flashcards.'),
+      );
     }
 
     int earned = 0;
@@ -1268,7 +1311,10 @@ class StudyGroupsService {
         groupId: groupId,
         source: 'group_flashcard',
         rawAmount: quality == 'hard' ? 1 : 2,
-        description: 'Flashcard no grupo "${group.name}" · $deckTitle',
+        description: NoesisL10n.tr(
+          'Flashcard no grupo "{group}" · {title}',
+          {'group': group.name, 'title': deckTitle},
+        ),
         idempotentId: 'grp_fc:$groupId:$uid:$shareId:$cardId:$dayIso',
       );
     }
@@ -1286,7 +1332,7 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: '+$earned Insights no grupo',
+      message: NoesisL10n.tr('+{earned} Insights no grupo', {'earned': '$earned'}),
       group: updated,
       earnedInsights: earned,
     );
@@ -1305,11 +1351,14 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para resolver o simulado.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para resolver o simulado.'),
+      );
     }
 
     final earned = ShopService.instance.awardForQuizAnswer(
@@ -1343,11 +1392,14 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para concluir o simulado.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para concluir o simulado.'),
+      );
     }
 
     final attemptId = 'grp_${groupId}_${shareId}_${uid}_${DateTime.now().microsecondsSinceEpoch}';
@@ -1370,7 +1422,10 @@ class StudyGroupsService {
     await _persist(changedGroup: updated);
     return StudyGroupActionResult(
       ok: true,
-      message: 'Simulado concluído no grupo! +$earned Insights no ranking.',
+      message: NoesisL10n.tr(
+        'Simulado concluído no grupo! +{earned} Insights no ranking.',
+        {'earned': '$earned'},
+      ),
       group: updated,
       earnedInsights: earned,
     );
@@ -1387,11 +1442,14 @@ class StudyGroupsService {
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
     if (idx == -1) {
-      return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
     }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para interagir com a trilha.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para interagir com a trilha.'),
+      );
     }
 
     String stepTitle = '';
@@ -1421,7 +1479,10 @@ class StudyGroupsService {
         groupId: groupId,
         source: 'group_roadmap',
         rawAmount: 5,
-        description: 'Etapa concluída no grupo "${group.name}" · $stepTitle',
+        description: NoesisL10n.tr(
+          'Etapa concluída no grupo "{group}" · {step}',
+          {'group': group.name, 'step': stepTitle},
+        ),
         idempotentId: 'grp_rm:$groupId:$uid:$shareId:$stepId',
       );
     }
@@ -1439,8 +1500,11 @@ class StudyGroupsService {
     return StudyGroupActionResult(
       ok: true,
       message: earned > 0
-          ? 'Etapa concluída! +$earned Insights no ranking do grupo.'
-          : 'Etapa atualizada!',
+          ? NoesisL10n.tr(
+              'Etapa concluída! +{earned} Insights no ranking do grupo.',
+              {'earned': '$earned'},
+            )
+          : NoesisL10n.tr('Etapa atualizada!'),
       group: updated,
       earnedInsights: earned,
     );
@@ -1482,7 +1546,9 @@ class StudyGroupsService {
     String? message,
   }) async {
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx == -1) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (idx == -1) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final group = _groups[idx];
     if (earned <= 0) {
       return StudyGroupActionResult(ok: true, group: group, earnedInsights: 0);
@@ -1538,17 +1604,24 @@ class StudyGroupsService {
         }
         return g.copyWith(sharedNotebooks: list, updatedAt: now);
       },
-      successMessage: 'Caderno "${notebook.title}" salvo no grupo!',
-      duplicateError: 'Erro ao salvar caderno.',
+      successMessage: NoesisL10n.tr(
+        'Caderno "{title}" salvo no grupo!',
+        {'title': notebook.title},
+      ),
+      duplicateError: NoesisL10n.tr('Erro ao salvar caderno.'),
     );
   }
 
   Future<StudyGroupActionResult> deleteGroupNotebook(String groupId, String notebookId) async {
     await init();
     final group = groupById(groupId);
-    if (group == null) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (group == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final item = group.sharedNotebooks.where((e) => e.sourceId == notebookId || e.data.id == notebookId).firstOrNull;
-    if (item == null) return const StudyGroupActionResult(ok: false, error: 'Caderno não encontrado.');
+    if (item == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Caderno não encontrado.'));
+    }
     return removeSharedContent(groupId: groupId, kind: StudyGroupContentKind.notebook, shareId: item.shareId);
   }
 
@@ -1578,8 +1651,11 @@ class StudyGroupsService {
         }).toList();
         return g.copyWith(sharedNotebooks: list, updatedAt: now);
       },
-      successMessage: 'Anotação "${note.title}" salva no caderno do grupo!',
-      duplicateError: 'Erro ao salvar anotação.',
+      successMessage: NoesisL10n.tr(
+        'Anotação "{title}" salva no caderno do grupo!',
+        {'title': note.title},
+      ),
+      duplicateError: NoesisL10n.tr('Erro ao salvar anotação.'),
     );
   }
 
@@ -1603,8 +1679,8 @@ class StudyGroupsService {
         }).toList();
         return g.copyWith(sharedNotebooks: list, updatedAt: now);
       },
-      successMessage: 'Anotação excluída do grupo.',
-      duplicateError: 'Erro ao excluir anotação.',
+      successMessage: NoesisL10n.tr('Anotação excluída do grupo.'),
+      duplicateError: NoesisL10n.tr('Erro ao excluir anotação.'),
     );
   }
 
@@ -1616,7 +1692,9 @@ class StudyGroupsService {
   ) async {
     await init();
     final group = groupById(groupId);
-    if (group == null) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (group == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final item = group.sharedNotebooks.where((e) => e.sourceId == notebookId || e.data.id == notebookId).firstOrNull;
     return recordGroupNotebookStudy(
       groupId: groupId,
@@ -1662,17 +1740,24 @@ class StudyGroupsService {
         }
         return g.copyWith(sharedDecks: list, updatedAt: now);
       },
-      successMessage: 'Baralho "${deck.title}" salvo no grupo!',
-      duplicateError: 'Erro ao salvar baralho.',
+      successMessage: NoesisL10n.tr(
+        'Baralho "{title}" salvo no grupo!',
+        {'title': deck.title},
+      ),
+      duplicateError: NoesisL10n.tr('Erro ao salvar baralho.'),
     );
   }
 
   Future<StudyGroupActionResult> deleteGroupDeck(String groupId, String deckId) async {
     await init();
     final group = groupById(groupId);
-    if (group == null) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (group == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final item = group.sharedDecks.where((e) => e.sourceId == deckId || e.data.id == deckId).firstOrNull;
-    if (item == null) return const StudyGroupActionResult(ok: false, error: 'Baralho não encontrado.');
+    if (item == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Baralho não encontrado.'));
+    }
     return removeSharedContent(groupId: groupId, kind: StudyGroupContentKind.deck, shareId: item.shareId);
   }
 
@@ -1690,10 +1775,12 @@ class StudyGroupsService {
     await init();
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx == -1) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (idx == -1) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final group = _groups[idx];
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para estudar.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Entre no grupo para estudar.'));
     }
 
     final earned = ShopService.instance.awardForFlashcardReview(
@@ -1701,7 +1788,7 @@ class StudyGroupsService {
       difficulty: difficulty,
       isDueForReview: isDueForReview,
       wasPreviouslyHard: wasPreviouslyHard,
-      deckTitle: 'Grupo ${group.name} · $deckTitle',
+      deckTitle: NoesisL10n.tr('Grupo {group} · {title}', {'group': group.name, 'title': deckTitle}),
       allowReviewBase: allowReviewBase,
     );
 
@@ -1749,11 +1836,16 @@ class StudyGroupsService {
     await init();
     final uid = actorUserId ?? currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx == -1) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (idx == -1) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final group = _groups[idx];
     final member = group.memberFor(uid);
     if (member == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para salvar simulados.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para salvar simulados.'),
+      );
     }
 
     final now = DateTime.now();
@@ -1796,9 +1888,13 @@ class StudyGroupsService {
   Future<StudyGroupActionResult> deleteGroupExam(String groupId, String attemptId) async {
     await init();
     final group = groupById(groupId);
-    if (group == null) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (group == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final item = group.sharedExams.where((e) => e.sourceId == attemptId || e.data.id == attemptId).firstOrNull;
-    if (item == null) return const StudyGroupActionResult(ok: false, error: 'Simulado não encontrado.');
+    if (item == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Simulado não encontrado.'));
+    }
     return removeSharedContent(groupId: groupId, kind: StudyGroupContentKind.exam, shareId: item.shareId);
   }
 
@@ -1809,7 +1905,9 @@ class StudyGroupsService {
   ) async {
     await init();
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx == -1) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (idx == -1) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final group = _groups[idx];
     final next = group.sharedExams.map((item) {
       if (item.sourceId != attemptId && item.data.id != attemptId) return item;
@@ -1867,7 +1965,12 @@ class StudyGroupsService {
       groupId: groupId,
       userId: uid,
       earned: earned,
-      message: earned > 0 ? 'Simulado concluído! +$earned Insights no ranking do grupo.' : null,
+      message: earned > 0
+          ? NoesisL10n.tr(
+              'Simulado concluído! +{earned} Insights no ranking do grupo.',
+              {'earned': '$earned'},
+            )
+          : null,
     );
   }
 
@@ -1875,19 +1978,26 @@ class StudyGroupsService {
     await init();
     final uid = currentUserId;
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx == -1) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (idx == -1) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final group = _groups[idx];
     final existingIdx = group.sharedRoadmaps.indexWhere(
       (e) => e.sourceId == roadmap.id || e.data.id == roadmap.id,
     );
     if (existingIdx == -1 && !group.canUserEdit(uid)) {
-      return const StudyGroupActionResult(
+      return StudyGroupActionResult(
         ok: false,
-        error: 'Apenas o líder ou membros com permissão de edição podem criar trilhas no grupo.',
+        error: NoesisL10n.tr(
+          'Apenas o líder ou membros com permissão de edição podem criar trilhas no grupo.',
+        ),
       );
     }
     if (group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para interagir.');
+      return StudyGroupActionResult(
+        ok: false,
+        error: NoesisL10n.tr('Entre no grupo para interagir.'),
+      );
     }
 
     final now = DateTime.now();
@@ -1927,9 +2037,13 @@ class StudyGroupsService {
   Future<StudyGroupActionResult> deleteGroupRoadmap(String groupId, String roadmapId) async {
     await init();
     final group = groupById(groupId);
-    if (group == null) return const StudyGroupActionResult(ok: false, error: 'Grupo não encontrado.');
+    if (group == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Grupo não encontrado.'));
+    }
     final item = group.sharedRoadmaps.where((e) => e.sourceId == roadmapId || e.data.id == roadmapId).firstOrNull;
-    if (item == null) return const StudyGroupActionResult(ok: false, error: 'Trilha não encontrada.');
+    if (item == null) {
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Trilha não encontrada.'));
+    }
     return removeSharedContent(groupId: groupId, kind: StudyGroupContentKind.roadmap, shareId: item.shareId);
   }
 
@@ -1943,20 +2057,28 @@ class StudyGroupsService {
     final uid = currentUserId;
     final group = groupById(groupId);
     if (group == null || group.memberFor(uid) == null) {
-      return const StudyGroupActionResult(ok: false, error: 'Entre no grupo para pontuar.');
+      return StudyGroupActionResult(ok: false, error: NoesisL10n.tr('Entre no grupo para pontuar.'));
     }
     final earned = ShopService.instance.awardGroupStudyReward(
       groupId: groupId,
       source: 'group_roadmap',
       rawAmount: 5,
-      description: 'Etapa concluída no grupo "${group.name}" · $stepTitle',
+      description: NoesisL10n.tr(
+        'Etapa concluída no grupo "{group}" · {step}',
+        {'group': group.name, 'step': stepTitle},
+      ),
       idempotentId: 'grp_rm:$groupId:$uid:$roadmapId:$stepId',
     );
     return _creditMemberInGroup(
       groupId: groupId,
       userId: uid,
       earned: earned,
-      message: earned > 0 ? 'Etapa concluída! +$earned Insights no ranking do grupo.' : null,
+      message: earned > 0
+          ? NoesisL10n.tr(
+              'Etapa concluída! +{earned} Insights no ranking do grupo.',
+              {'earned': '$earned'},
+            )
+          : null,
     );
   }
 

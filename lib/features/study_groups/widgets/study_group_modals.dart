@@ -4,6 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/shop_service.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
@@ -174,7 +175,7 @@ class NoesisGroupModalShell extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Fechar',
+                      tooltip: context.tr('Fechar'),
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
                         backgroundColor: AsterTheme.surfaceAlt(context),
@@ -264,9 +265,10 @@ Widget _modalFooterButtons(
   Key? confirmKey,
   required String confirmLabel,
   required VoidCallback onConfirm,
-  String cancelLabel = 'Cancelar',
+  String? cancelLabel,
   IconData? confirmIcon,
 }) {
+  final effectiveCancelLabel = cancelLabel ?? context.tr('Cancelar');
   final primaryCol = AsterTheme.primary(context);
   return Row(
     mainAxisAlignment: MainAxisAlignment.end,
@@ -282,7 +284,7 @@ Widget _modalFooterButtons(
           ),
         ),
         child: Text(
-          cancelLabel,
+          effectiveCancelLabel,
           style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w700),
         ),
       ),
@@ -320,47 +322,47 @@ Future<void> showCreateGroupModal(
   await showDialog<void>(
     context: context,
     builder: (_) => GroupDialogControllersHost(
-      initialTexts: const ['', 'Geral', ''],
+      initialTexts: ['', NoesisL10n.tr('Geral'), ''],
       builder: (dialogCtx, ctrls) {
         final nameCtrl = ctrls[0];
         final subjectCtrl = ctrls[1];
         final descCtrl = ctrls[2];
         return NoesisGroupModalShell(
           icon: Icons.group_add_rounded,
-          title: 'Criar Grupo de Estudos',
-          subtitle: 'Reúna colegas para estudar juntos em um só espaço',
+          title: dialogCtx.tr('Criar Grupo de Estudos'),
+          subtitle: dialogCtx.tr('Reúna colegas para estudar juntos em um só espaço'),
           maxWidth: 460,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Nome do grupo *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Nome do grupo *')),
               TextField(
                 key: const Key('create_group_name_field'),
                 controller: nameCtrl,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Squad CompTIA Security+',
+                  hintText: dialogCtx.tr('Ex.: Squad CompTIA Security+'),
                   prefixIcon: Icons.groups_rounded,
                 ),
               ),
               const SizedBox(height: 14),
-              _fieldLabel(dialogCtx, 'Matéria / Foco'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria / Foco')),
               TextField(
                 controller: subjectCtrl,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Cibersegurança, ENEM, Cloud AWS',
+                  hintText: dialogCtx.tr('Ex.: Cibersegurança, ENEM, Cloud AWS'),
                   prefixIcon: Icons.label_outline_rounded,
                 ),
               ),
               const SizedBox(height: 14),
-              _fieldLabel(dialogCtx, 'Descrição (opcional)'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Descrição (opcional)')),
               TextField(
                 controller: descCtrl,
                 maxLines: 2,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Objetivos, horários ou regras rápidas do grupo',
+                  hintText: dialogCtx.tr('Objetivos, horários ou regras rápidas do grupo'),
                 ),
               ),
             ],
@@ -368,7 +370,7 @@ Future<void> showCreateGroupModal(
           footer: _modalFooterButtons(
             dialogCtx,
             confirmKey: const Key('create_group_confirm_button'),
-            confirmLabel: 'Criar Grupo',
+            confirmLabel: dialogCtx.tr('Criar Grupo'),
             confirmIcon: Icons.rocket_launch_rounded,
             onConfirm: () async {
               final res = await StudyGroupsService.instance.createGroup(
@@ -380,9 +382,9 @@ Future<void> showCreateGroupModal(
               if (res.ok && res.group != null) {
                 Navigator.of(dialogCtx).pop();
                 onCreated(res.group!.id);
-                onFeedback(res.message ?? 'Grupo criado!');
+                onFeedback(res.message ?? NoesisL10n.tr('Grupo criado!'));
               } else {
-                onFeedback(res.error ?? 'Erro ao criar grupo.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Erro ao criar grupo.'), isError: true);
               }
             },
           ),
@@ -408,19 +410,19 @@ Future<void> showJoinGroupModal(
         final codeCtrl = ctrls[0];
         return NoesisGroupModalShell(
           icon: Icons.link_rounded,
-          title: 'Entrar por Link ou Código',
-          subtitle: 'Cole o convite compartilhado pelo líder do grupo',
+          title: dialogCtx.tr('Entrar por Link ou Código'),
+          subtitle: dialogCtx.tr('Cole o convite compartilhado pelo líder do grupo'),
           maxWidth: 440,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Link ou código de convite'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Link ou código de convite')),
               TextField(
                 key: const Key('join_group_code_field'),
                 controller: codeCtrl,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'NOE-A1B2C3 ou https://noesis.asterdev.me/grupos/...',
+                  hintText: dialogCtx.tr('NOE-A1B2C3 ou https://noesis.asterdev.me/grupos/...'),
                   prefixIcon: Icons.vpn_key_outlined,
                 ),
               ),
@@ -429,7 +431,7 @@ Future<void> showJoinGroupModal(
           footer: _modalFooterButtons(
             dialogCtx,
             confirmKey: const Key('join_group_confirm_button'),
-            confirmLabel: 'Entrar no Grupo',
+            confirmLabel: dialogCtx.tr('Entrar no Grupo'),
             confirmIcon: Icons.login_rounded,
             onConfirm: () async {
               final res = await StudyGroupsService.instance.joinByInviteLinkOrCode(
@@ -439,9 +441,9 @@ Future<void> showJoinGroupModal(
               if (res.ok && res.group != null) {
                 Navigator.of(dialogCtx).pop();
                 onJoined(res.group!.id);
-                onFeedback(res.message ?? 'Você entrou no grupo!');
+                onFeedback(res.message ?? NoesisL10n.tr('Você entrou no grupo!'));
               } else {
-                onFeedback(res.error ?? 'Convite inválido.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Convite inválido.'), isError: true);
               }
             },
           ),
@@ -481,27 +483,27 @@ Future<void> showInviteMemberModal(
 
             return NoesisGroupModalShell(
               icon: Icons.person_add_alt_1_rounded,
-              title: 'Convidar para "${group.name}"',
-              subtitle: 'Escolha alguém das suas conexões ou digite o @usuario',
+              title: dialogCtx.tr('Convidar para "{name}"', {'name': group.name}),
+              subtitle: dialogCtx.tr('Escolha alguém das suas conexões ou digite o @usuario'),
               maxWidth: 480,
               maxHeight: 620,
               body: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _fieldLabel(dialogCtx, '@usuario do colega'),
+                  _fieldLabel(dialogCtx, dialogCtx.tr('@usuario do colega')),
                   TextField(
                     key: const Key('invite_username_field'),
                     controller: userCtrl,
                     onChanged: (_) => setModalState(() {}),
                     decoration: noesisGroupInputDecoration(
                       dialogCtx,
-                      hintText: 'nome_do_colega',
+                      hintText: dialogCtx.tr('nome_do_colega'),
                       prefixText: '@',
                     ),
                   ),
                   if (suggestions.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _fieldLabel(dialogCtx, 'Sugestões rápidas'),
+                    _fieldLabel(dialogCtx, dialogCtx.tr('Sugestões rápidas')),
                     Column(
                       children: [
                         for (int idx = 0; idx < (suggestions.length > 6 ? 6 : suggestions.length); idx++) ...[
@@ -555,7 +557,7 @@ Future<void> showInviteMemberModal(
                                                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                   ),
                                                   child: Text(
-                                                    'Mútuo',
+                                                    dialogCtx.tr('Mútuo'),
                                                     style: GoogleFonts.manrope(
                                                       fontSize: 9.5,
                                                       fontWeight: FontWeight.w800,
@@ -587,13 +589,13 @@ Future<void> showInviteMemberModal(
                                         if (!dialogCtx.mounted) return;
                                         if (res.ok) {
                                           Navigator.of(dialogCtx).pop();
-                                          onFeedback(res.message ?? 'Convite enviado!');
+                                          onFeedback(res.message ?? NoesisL10n.tr('Convite enviado!'));
                                         } else {
-                                          onFeedback(res.error ?? 'Erro ao convidar.', isError: true);
+                                          onFeedback(res.error ?? NoesisL10n.tr('Erro ao convidar.'), isError: true);
                                         }
                                       },
                                       child: Text(
-                                        'Convidar',
+                                        dialogCtx.tr('Convidar'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w800,
@@ -636,9 +638,9 @@ Future<void> showInviteMemberModal(
                         TextButton(
                           onPressed: () async {
                             await Clipboard.setData(ClipboardData(text: group.inviteLink));
-                            onFeedback('Link copiado (${group.inviteCode})!');
+                            onFeedback(NoesisL10n.tr('Link copiado ({code})!', {'code': group.inviteCode}));
                           },
-                          child: const Text('Copiar'),
+                          child: Text(dialogCtx.tr('Copiar')),
                         ),
                       ],
                     ),
@@ -648,9 +650,9 @@ Future<void> showInviteMemberModal(
               footer: _modalFooterButtons(
                 dialogCtx,
                 confirmKey: const Key('invite_username_confirm_button'),
-                confirmLabel: 'Convidar',
+                confirmLabel: dialogCtx.tr('Convidar'),
                 confirmIcon: Icons.send_rounded,
-                cancelLabel: 'Fechar',
+                cancelLabel: dialogCtx.tr('Fechar'),
                 onConfirm: () async {
                   final res = await StudyGroupsService.instance.inviteMemberByUsername(
                     groupId: group.id,
@@ -659,9 +661,9 @@ Future<void> showInviteMemberModal(
                   if (!dialogCtx.mounted) return;
                   if (res.ok) {
                     Navigator.of(dialogCtx).pop();
-                    onFeedback(res.message ?? 'Convite enviado!');
+                    onFeedback(res.message ?? NoesisL10n.tr('Convite enviado!'));
                   } else {
-                    onFeedback(res.error ?? 'Erro ao convidar.', isError: true);
+                    onFeedback(res.error ?? NoesisL10n.tr('Erro ao convidar.'), isError: true);
                   }
                 },
               ),
@@ -700,30 +702,30 @@ Future<void> showAddStudyLogModal(
         return NoesisGroupModalShell(
           icon: Icons.auto_stories_rounded,
           iconColor: AsterConstants.menta,
-          title: 'Registrar no Diário do Grupo',
-          subtitle: 'Sessões contam tempo estudado e Insights para o ranking interno',
+          title: dialogCtx.tr('Registrar no Diário do Grupo'),
+          subtitle: dialogCtx.tr('Sessões contam tempo estudado e Insights para o ranking interno'),
           maxWidth: 470,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Matéria'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria')),
               TextField(
                 key: const Key('group_log_subject_field'),
                 controller: subjCtrl,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Redes, Segurança, Direito...',
+                  hintText: dialogCtx.tr('Ex.: Redes, Segurança, Direito...'),
                   prefixIcon: Icons.book_outlined,
                 ),
               ),
               const SizedBox(height: 14),
-              _fieldLabel(dialogCtx, 'Tópico estudado'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Tópico estudado')),
               TextField(
                 key: const Key('group_log_topic_field'),
                 controller: topicCtrl,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: VPC & Subnets, Criptografia assimétrica...',
+                  hintText: dialogCtx.tr('Ex.: VPC & Subnets, Criptografia assimétrica...'),
                   prefixIcon: Icons.topic_outlined,
                 ),
               ),
@@ -736,7 +738,9 @@ Future<void> showAddStudyLogModal(
                     children: [
                       _fieldLabel(
                         dialogCtx,
-                        'Duração (${DashboardAnalytics.formatReadableDuration(currentMins)})',
+                        dialogCtx.tr('Duração ({duration})', {
+                          'duration': DashboardAnalytics.formatReadableDuration(currentMins),
+                        }),
                       ),
                       Row(
                         children: [
@@ -750,8 +754,8 @@ Future<void> showAddStudyLogModal(
                               decoration: noesisGroupInputDecoration(
                                 dialogCtx,
                                 hintText: '0',
-                                labelText: 'Horas',
-                                suffixText: 'h',
+                                labelText: dialogCtx.tr('Horas'),
+                                suffixText: dialogCtx.tr('h'),
                                 prefixIcon: Icons.schedule_rounded,
                               ),
                             ),
@@ -767,8 +771,8 @@ Future<void> showAddStudyLogModal(
                               decoration: noesisGroupInputDecoration(
                                 dialogCtx,
                                 hintText: '30',
-                                labelText: 'Minutos',
-                                suffixText: 'min',
+                                labelText: dialogCtx.tr('Minutos'),
+                                suffixText: dialogCtx.tr('min'),
                                 prefixIcon: Icons.timer_outlined,
                               ),
                             ),
@@ -799,13 +803,13 @@ Future<void> showAddStudyLogModal(
                 },
               ),
               const SizedBox(height: 14),
-              _fieldLabel(dialogCtx, 'Observações (opcional)'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Observações (opcional)')),
               TextField(
                 controller: notesCtrl,
                 maxLines: 2,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Resumo rápido ou pontos de dúvida para o grupo',
+                  hintText: dialogCtx.tr('Resumo rápido ou pontos de dúvida para o grupo'),
                 ),
               ),
             ],
@@ -813,7 +817,7 @@ Future<void> showAddStudyLogModal(
           footer: _modalFooterButtons(
             dialogCtx,
             confirmKey: const Key('group_log_save_button'),
-            confirmLabel: 'Salvar Sessão',
+            confirmLabel: dialogCtx.tr('Salvar Sessão'),
             confirmIcon: Icons.add_task_rounded,
             onConfirm: () async {
               final mins = readTotalMins();
@@ -827,9 +831,9 @@ Future<void> showAddStudyLogModal(
               if (!dialogCtx.mounted) return;
               if (res.ok) {
                 Navigator.of(dialogCtx).pop();
-                onFeedback(res.message ?? 'Sessão registrada!');
+                onFeedback(res.message ?? NoesisL10n.tr('Sessão registrada!'));
               } else {
-                onFeedback(res.error ?? 'Erro ao registrar.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Erro ao registrar.'), isError: true);
               }
             },
           ),
@@ -853,24 +857,24 @@ Future<void> showAttachPersonalContentModal(
 
   final (title, icon, emptyText) = switch (kind) {
     StudyGroupContentKind.notebook => (
-        'Anexar Meu Caderno',
+        NoesisL10n.tr('Anexar Meu Caderno'),
         Icons.menu_book_rounded,
-        'Você ainda não possui cadernos pessoais disponíveis para anexar.',
+        NoesisL10n.tr('Você ainda não possui cadernos pessoais disponíveis para anexar.'),
       ),
     StudyGroupContentKind.deck => (
-        'Anexar Meu Baralho',
+        NoesisL10n.tr('Anexar Meu Baralho'),
         Icons.style_rounded,
-        'Você ainda não possui baralhos de flashcards disponíveis na sua conta.',
+        NoesisL10n.tr('Você ainda não possui baralhos de flashcards disponíveis na sua conta.'),
       ),
     StudyGroupContentKind.exam => (
-        'Anexar Meu Simulado',
+        NoesisL10n.tr('Anexar Meu Simulado'),
         Icons.assignment_rounded,
-        'Você ainda não possui simulados salvos disponíveis para anexar.',
+        NoesisL10n.tr('Você ainda não possui simulados salvos disponíveis para anexar.'),
       ),
     StudyGroupContentKind.roadmap => (
-        'Anexar Minha Trilha',
+        NoesisL10n.tr('Anexar Minha Trilha'),
         Icons.route_rounded,
-        'Você ainda não possui trilhas disponíveis na sua conta.',
+        NoesisL10n.tr('Você ainda não possui trilhas disponíveis na sua conta.'),
       ),
   };
 
@@ -898,7 +902,7 @@ Future<void> showAttachPersonalContentModal(
                 if (!dialogCtx.mounted) return;
                 Navigator.of(dialogCtx).pop();
                 onFeedback(
-                  res.ok ? (res.message ?? 'Anexado!') : (res.error ?? 'Erro ao anexar.'),
+                  res.ok ? (res.message ?? NoesisL10n.tr('Anexado!')) : (res.error ?? NoesisL10n.tr('Erro ao anexar.')),
                   isError: !res.ok,
                 );
               },
@@ -945,7 +949,7 @@ Future<void> showAttachPersonalContentModal(
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       ),
                       child: Text(
-                        'Anexar',
+                        dialogCtx.tr('Anexar'),
                         style: GoogleFonts.manrope(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -969,7 +973,10 @@ Future<void> showAttachPersonalContentModal(
                 itemIcon: Icons.menu_book_rounded,
                 accent: AsterConstants.lavanda,
                 itemTitle: nb.title,
-                itemSubtitle: '${nb.subject} · ${nb.notes.length} anotações',
+                itemSubtitle: dialogCtx.tr(
+                  '{subject} · {count} anotações',
+                  {'subject': nb.subject, 'count': nb.notes.length},
+                ),
                 onTap: () => StudyGroupsService.instance.attachNotebook(
                   groupId: group.id,
                   notebook: nb,
@@ -984,7 +991,10 @@ Future<void> showAttachPersonalContentModal(
                 itemIcon: Icons.style_rounded,
                 accent: AsterConstants.menta,
                 itemTitle: dk.title,
-                itemSubtitle: '${dk.subject} · ${dk.cards.length} cartões',
+                itemSubtitle: dialogCtx.tr(
+                  '{subject} · {count} cartões',
+                  {'subject': dk.subject, 'count': dk.cards.length},
+                ),
                 onTap: () => StudyGroupsService.instance.attachDeck(
                   groupId: group.id,
                   deck: dk,
@@ -999,7 +1009,10 @@ Future<void> showAttachPersonalContentModal(
                 itemIcon: Icons.assignment_rounded,
                 accent: AsterConstants.ambar,
                 itemTitle: ex.title,
-                itemSubtitle: '${ex.subject} · ${ex.questions.length} questões',
+                itemSubtitle: dialogCtx.tr(
+                  '{subject} · {count} questões',
+                  {'subject': ex.subject, 'count': ex.questions.length},
+                ),
                 onTap: () => StudyGroupsService.instance.attachExam(
                   groupId: group.id,
                   exam: ex,
@@ -1014,7 +1027,10 @@ Future<void> showAttachPersonalContentModal(
                 itemIcon: Icons.route_rounded,
                 accent: AsterTheme.primary(dialogCtx),
                 itemTitle: rm.title,
-                itemSubtitle: '${rm.subject} · ${rm.steps.length} etapas',
+                itemSubtitle: dialogCtx.tr(
+                  '{subject} · {count} etapas',
+                  {'subject': rm.subject, 'count': rm.steps.length},
+                ),
                 onTap: () => StudyGroupsService.instance.attachRoadmap(
                   groupId: group.id,
                   roadmap: rm,
@@ -1028,7 +1044,7 @@ Future<void> showAttachPersonalContentModal(
         modalKey: const Key('group_attach_personal_dialog'),
         icon: icon,
         title: title,
-        subtitle: 'Privacidade garantida: apenas você vê os itens da sua conta antes de anexar',
+        subtitle: dialogCtx.tr('Privacidade garantida: apenas você vê os itens da sua conta antes de anexar'),
         maxWidth: 520,
         maxHeight: 520,
         body: items.isEmpty
@@ -1060,7 +1076,7 @@ Future<void> showAttachPersonalContentModal(
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
               ),
-              child: const Text('Fechar'),
+              child: Text(dialogCtx.tr('Fechar')),
             ),
           ],
         ),
@@ -1085,48 +1101,48 @@ Future<void> showCreateGroupNotebookModal(
         return NoesisGroupModalShell(
           icon: Icons.menu_book_rounded,
           iconColor: AsterConstants.lavanda,
-          title: 'Novo Caderno do Grupo',
-          subtitle: 'Criado diretamente para os membros estudarem e lerem aqui',
+          title: dialogCtx.tr('Novo Caderno do Grupo'),
+          subtitle: dialogCtx.tr('Criado diretamente para os membros estudarem e lerem aqui'),
           maxWidth: 540,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Título do caderno *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Título do caderno *')),
               TextField(
                 key: const Key('group_create_nb_title_field'),
                 controller: ctrls[0],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Resumo de Redes TCP/IP',
+                  hintText: dialogCtx.tr('Ex.: Resumo de Redes TCP/IP'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Matéria'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria')),
               TextField(
                 controller: ctrls[1],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Redes e Infraestrutura',
+                  hintText: dialogCtx.tr('Ex.: Redes e Infraestrutura'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Título da 1ª anotação'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Título da 1ª anotação')),
               TextField(
                 controller: ctrls[2],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Camadas OSI vs TCP/IP',
+                  hintText: dialogCtx.tr('Ex.: Camadas OSI vs TCP/IP'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Conteúdo em Markdown'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Conteúdo em Markdown')),
               TextField(
                 key: const Key('group_create_nb_content_field'),
                 controller: ctrls[3],
                 maxLines: 5,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Use # títulos, **negrito**, listas ou ```blocos de código```',
+                  hintText: dialogCtx.tr('Use # títulos, **negrito**, listas ou ```blocos de código```'),
                 ),
               ),
             ],
@@ -1134,7 +1150,7 @@ Future<void> showCreateGroupNotebookModal(
           footer: _modalFooterButtons(
             dialogCtx,
             confirmKey: const Key('group_create_nb_confirm_button'),
-            confirmLabel: 'Criar Caderno',
+            confirmLabel: dialogCtx.tr('Criar Caderno'),
             onConfirm: () async {
               final res = await StudyGroupsService.instance.createGroupNotebook(
                 groupId: group.id,
@@ -1146,9 +1162,9 @@ Future<void> showCreateGroupNotebookModal(
               if (!dialogCtx.mounted) return;
               if (res.ok) {
                 Navigator.of(dialogCtx).pop();
-                onFeedback(res.message ?? 'Caderno criado no grupo!');
+                onFeedback(res.message ?? NoesisL10n.tr('Caderno criado no grupo!'));
               } else {
-                onFeedback(res.error ?? 'Erro ao criar caderno.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Erro ao criar caderno.'), isError: true);
               }
             },
           ),
@@ -1171,39 +1187,39 @@ Future<void> showCreateGroupDeckModal(
         return NoesisGroupModalShell(
           icon: Icons.style_rounded,
           iconColor: AsterConstants.menta,
-          title: 'Novo Baralho do Grupo',
-          subtitle: 'Adicione um flashcard por linha no formato Pergunta | Resposta',
+          title: dialogCtx.tr('Novo Baralho do Grupo'),
+          subtitle: dialogCtx.tr('Adicione um flashcard por linha no formato Pergunta | Resposta'),
           maxWidth: 540,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Título do baralho *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Título do baralho *')),
               TextField(
                 key: const Key('group_create_deck_title_field'),
                 controller: ctrls[0],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Portas TCP Essenciais',
+                  hintText: dialogCtx.tr('Ex.: Portas TCP Essenciais'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Matéria'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria')),
               TextField(
                 controller: ctrls[1],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Redes',
+                  hintText: dialogCtx.tr('Ex.: Redes'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Cartões (Pergunta | Resposta por linha) *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Cartões (Pergunta | Resposta por linha) *')),
               TextField(
                 key: const Key('group_create_deck_cards_field'),
                 controller: ctrls[2],
                 maxLines: 5,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Porta HTTPS? | 443\nPorta SSH? | 22',
+                  hintText: dialogCtx.tr('Porta HTTPS? | 443\nPorta SSH? | 22'),
                 ),
               ),
             ],
@@ -1211,7 +1227,7 @@ Future<void> showCreateGroupDeckModal(
           footer: _modalFooterButtons(
             dialogCtx,
             confirmKey: const Key('group_create_deck_confirm_button'),
-            confirmLabel: 'Criar Baralho',
+            confirmLabel: dialogCtx.tr('Criar Baralho'),
             onConfirm: () async {
               final now = DateTime.now();
               final cards = <Flashcard>[];
@@ -1239,9 +1255,12 @@ Future<void> showCreateGroupDeckModal(
               if (!dialogCtx.mounted) return;
               if (res.ok) {
                 Navigator.of(dialogCtx).pop();
-                onFeedback(res.message ?? 'Baralho criado no grupo!');
+                onFeedback(res.message ?? NoesisL10n.tr('Baralho criado no grupo!'));
               } else {
-                onFeedback(res.error ?? 'Informe ao menos uma linha Pergunta | Resposta.', isError: true);
+                onFeedback(
+                  res.error ?? NoesisL10n.tr('Informe ao menos uma linha Pergunta | Resposta.'),
+                  isError: true,
+                );
               }
             },
           ),
@@ -1264,59 +1283,59 @@ Future<void> showCreateGroupExamModal(
         return NoesisGroupModalShell(
           icon: Icons.assignment_rounded,
           iconColor: AsterConstants.ambar,
-          title: 'Novo Simulado do Grupo',
-          subtitle: 'Crie uma questão rápida para o grupo resolver e pontuar aqui dentro',
+          title: dialogCtx.tr('Novo Simulado do Grupo'),
+          subtitle: dialogCtx.tr('Crie uma questão rápida para o grupo resolver e pontuar aqui dentro'),
           maxWidth: 540,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Título do simulado *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Título do simulado *')),
               TextField(
                 controller: ctrls[0],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Checkpoint Semanal de Cloud',
+                  hintText: dialogCtx.tr('Ex.: Checkpoint Semanal de Cloud'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Matéria'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria')),
               TextField(
                 controller: ctrls[1],
-                decoration: noesisGroupInputDecoration(dialogCtx, hintText: 'Ex.: Cloud'),
+                decoration: noesisGroupInputDecoration(dialogCtx, hintText: dialogCtx.tr('Ex.: Cloud')),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Enunciado da questão *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Enunciado da questão *')),
               TextField(
                 controller: ctrls[2],
                 maxLines: 2,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Digite a pergunta...',
+                  hintText: dialogCtx.tr('Digite a pergunta...'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Alternativa correta *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Alternativa correta *')),
               TextField(
                 controller: ctrls[3],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Resposta certa',
+                  hintText: dialogCtx.tr('Resposta certa'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Outras alternativas (separadas por ;) *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Outras alternativas (separadas por ;) *')),
               TextField(
                 controller: ctrls[4],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Opção B; Opção C; Opção D',
+                  hintText: dialogCtx.tr('Opção B; Opção C; Opção D'),
                 ),
               ),
             ],
           ),
           footer: _modalFooterButtons(
             dialogCtx,
-            confirmLabel: 'Criar Simulado',
+            confirmLabel: dialogCtx.tr('Criar Simulado'),
             onConfirm: () async {
               final prompt = ctrls[2].text.trim();
               final correct = ctrls[3].text.trim();
@@ -1327,7 +1346,10 @@ Future<void> showCreateGroupExamModal(
                   .where((e) => e.isNotEmpty)
                   .toList();
               if (prompt.isEmpty || correct.isEmpty || others.isEmpty) {
-                onFeedback('Preencha enunciado, resposta correta e alternativas.', isError: true);
+                onFeedback(
+                  NoesisL10n.tr('Preencha enunciado, resposta correta e alternativas.'),
+                  isError: true,
+                );
                 return;
               }
               final res = await StudyGroupsService.instance.createGroupExam(
@@ -1345,9 +1367,9 @@ Future<void> showCreateGroupExamModal(
               if (!dialogCtx.mounted) return;
               if (res.ok) {
                 Navigator.of(dialogCtx).pop();
-                onFeedback(res.message ?? 'Simulado criado no grupo!');
+                onFeedback(res.message ?? NoesisL10n.tr('Simulado criado no grupo!'));
               } else {
-                onFeedback(res.error ?? 'Erro ao criar simulado.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Erro ao criar simulado.'), isError: true);
               }
             },
           ),
@@ -1369,50 +1391,53 @@ Future<void> showCreateGroupRoadmapModal(
       builder: (dialogCtx, ctrls) {
         return NoesisGroupModalShell(
           icon: Icons.route_rounded,
-          title: 'Nova Trilha do Grupo',
-          subtitle: 'Defina as etapas para o grupo acompanhar e concluir em conjunto',
+          title: dialogCtx.tr('Nova Trilha do Grupo'),
+          subtitle: dialogCtx.tr('Defina as etapas para o grupo acompanhar e concluir em conjunto'),
           maxWidth: 520,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldLabel(dialogCtx, 'Título da trilha *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Título da trilha *')),
               TextField(
                 controller: ctrls[0],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Rumo à Certificação AWS SAA',
+                  hintText: dialogCtx.tr('Ex.: Rumo à Certificação AWS SAA'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Matéria'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Matéria')),
               TextField(
                 controller: ctrls[1],
-                decoration: noesisGroupInputDecoration(dialogCtx, hintText: 'Ex.: Arquitetura Cloud'),
+                decoration: noesisGroupInputDecoration(
+                  dialogCtx,
+                  hintText: dialogCtx.tr('Ex.: Arquitetura Cloud'),
+                ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Objetivo'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Objetivo')),
               TextField(
                 controller: ctrls[2],
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: 'Ex.: Dominar redes, IAM e alta disponibilidade',
+                  hintText: dialogCtx.tr('Ex.: Dominar redes, IAM e alta disponibilidade'),
                 ),
               ),
               const SizedBox(height: 12),
-              _fieldLabel(dialogCtx, 'Etapas (uma por linha) *'),
+              _fieldLabel(dialogCtx, dialogCtx.tr('Etapas (uma por linha) *')),
               TextField(
                 controller: ctrls[3],
                 maxLines: 4,
                 decoration: noesisGroupInputDecoration(
                   dialogCtx,
-                  hintText: '1. Fundamentos de VPC\n2. Subnets e NAT Gateway\n3. IAM & Policies',
+                  hintText: dialogCtx.tr('1. Fundamentos de VPC\n2. Subnets e NAT Gateway\n3. IAM & Policies'),
                 ),
               ),
             ],
           ),
           footer: _modalFooterButtons(
             dialogCtx,
-            confirmLabel: 'Criar Trilha',
+            confirmLabel: dialogCtx.tr('Criar Trilha'),
             onConfirm: () async {
               final now = DateTime.now();
               final lines = ctrls[3]
@@ -1438,9 +1463,9 @@ Future<void> showCreateGroupRoadmapModal(
               if (!dialogCtx.mounted) return;
               if (res.ok) {
                 Navigator.of(dialogCtx).pop();
-                onFeedback(res.message ?? 'Trilha criada no grupo!');
+                onFeedback(res.message ?? NoesisL10n.tr('Trilha criada no grupo!'));
               } else {
-                onFeedback(res.error ?? 'Informe título e etapas.', isError: true);
+                onFeedback(res.error ?? NoesisL10n.tr('Informe título e etapas.'), isError: true);
               }
             },
           ),
@@ -1533,7 +1558,10 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
           icon: Icons.menu_book_rounded,
           iconColor: AsterConstants.lavanda,
           title: nb.title,
-          subtitle: '${nb.subject} · ${notes.length} anotações · por @${item.sharedByHandle}',
+          subtitle: context.tr(
+            '{subject} · {count} anotações · por @{handle}',
+            {'subject': nb.subject, 'count': notes.length, 'handle': item.sharedByHandle},
+          ),
           maxWidth: 780,
           maxHeight: 680,
           body: Column(
@@ -1557,7 +1585,7 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                       ),
                     if (widget.canEdit)
                       SoftClayChoiceChip(
-                        label: 'Nova anotação',
+                        label: context.tr('Nova anotação'),
                         icon: Icons.add_rounded,
                         selected: _addingNote,
                         accentColor: AsterConstants.menta,
@@ -1568,31 +1596,31 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                 ),
               if (notes.isEmpty && widget.canEdit && !_addingNote)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _addingNote = true),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('Adicionar primeira anotação'),
+                    label: Text(context.tr('Adicionar primeira anotação')),
                   ),
                 ),
               const SizedBox(height: 14),
               if (_addingNote) ...[
-                _fieldLabel(context, 'Título da anotação *'),
+                _fieldLabel(context, context.tr('Título da anotação *')),
                 TextField(
                   controller: _noteTitleCtrl,
                   decoration: noesisGroupInputDecoration(
                     context,
-                    hintText: 'Ex.: Resumo de Roteamento',
+                    hintText: context.tr('Ex.: Resumo de Roteamento'),
                   ),
                 ),
                 const SizedBox(height: 12),
-                _fieldLabel(context, 'Conteúdo (Markdown) *'),
+                _fieldLabel(context, context.tr('Conteúdo (Markdown) *')),
                 TextField(
                   controller: _noteContentCtrl,
                   maxLines: 6,
                   decoration: noesisGroupInputDecoration(
                     context,
-                    hintText: 'Escreva suas notas com # títulos, **destaque** ou ```código```',
+                    hintText: context.tr('Escreva suas notas com # títulos, **destaque** ou ```código```'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1601,7 +1629,7 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                   children: [
                     TextButton(
                       onPressed: () => setState(() => _addingNote = false),
-                      child: const Text('Cancelar'),
+                      child: Text(context.tr('Cancelar')),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
@@ -1620,12 +1648,12 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                             _addingNote = false;
                             _selectedIndex = notes.length;
                           });
-                          widget.onFeedback(res.message ?? 'Anotação adicionada!');
+                          widget.onFeedback(res.message ?? NoesisL10n.tr('Anotação adicionada!'));
                         } else {
-                          widget.onFeedback(res.error ?? 'Erro ao salvar.', isError: true);
+                          widget.onFeedback(res.error ?? NoesisL10n.tr('Erro ao salvar.'), isError: true);
                         }
                       },
-                      child: const Text('Salvar Anotação'),
+                      child: Text(context.tr('Salvar Anotação')),
                     ),
                   ],
                 ),
@@ -1637,7 +1665,7 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    'Este caderno ainda não possui anotações.',
+                    context.tr('Este caderno ainda não possui anotações.'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       color: AsterTheme.textMuted(context),
@@ -1668,7 +1696,7 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                       const SizedBox(height: 14),
                       MarkdownBody(
                         data: currentNote.content.trim().isEmpty
-                            ? '_Sem conteúdo._'
+                            ? context.tr('_Sem conteúdo._')
                             : currentNote.content,
                         selectable: true,
                         syntaxHighlighter: AsterCodeSyntaxHighlighter(isDark: isDark),
@@ -1720,9 +1748,8 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                           ),
                           blockquoteDecoration: BoxDecoration(
                             color: primaryCol.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border(
-                              left: BorderSide(color: primaryCol, width: 4),
+                            border: BorderDirectional(
+                              start: BorderSide(color: primaryCol, width: 4),
                             ),
                           ),
                           blockquotePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1766,8 +1793,8 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                   ),
                   label: Text(
                     _completedNoteIds.contains(currentNote.id)
-                        ? 'Leitura concluída'
-                        : 'Concluir leitura (+3 Insights)',
+                        ? context.tr('Leitura concluída')
+                        : context.tr('Concluir leitura (+3 Insights)'),
                     style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -1788,7 +1815,7 @@ class _GroupNotebookModalState extends State<_GroupNotebookModal> {
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                 ),
-                child: const Text('Fechar'),
+                child: Text(context.tr('Fechar')),
               ),
             ],
           ),
@@ -1872,12 +1899,12 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
       icon: Icons.style_rounded,
       iconColor: AsterConstants.menta,
       title: deck.title,
-      subtitle: '${deck.subject} · Estudando dentro do grupo',
+      subtitle: context.tr('{subject} · Estudando dentro do grupo', {'subject': deck.subject}),
       maxWidth: 580,
       maxHeight: 580,
       body: cards.isEmpty
           ? Text(
-              'Este baralho ainda não possui cartões.',
+              context.tr('Este baralho ainda não possui cartões.'),
               style: GoogleFonts.manrope(color: AsterTheme.textMuted(context)),
             )
           : _finished
@@ -1898,7 +1925,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Sessão concluída no grupo!',
+                      context.tr('Sessão concluída no grupo!'),
                       style: GoogleFonts.manrope(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -1912,7 +1939,10 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                         const InsightCoinIcon(size: 16),
                         const SizedBox(width: 6),
                         Text(
-                          '+$_sessionInsights Insights somados ao ranking do grupo',
+                          context.tr(
+                            '+{insights} Insights somados ao ranking do grupo',
+                            {'insights': _sessionInsights},
+                          ),
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -1929,7 +1959,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                         _finished = false;
                       }),
                       icon: const Icon(Icons.replay_rounded, size: 17),
-                      label: const Text('Estudar novamente'),
+                      label: Text(context.tr('Estudar novamente')),
                     ),
                   ],
                 )
@@ -1940,7 +1970,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Cartão ${_index + 1} de ${cards.length}',
+                          context.tr('Cartão {current} de {total}', {'current': _index + 1, 'total': cards.length}),
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1952,7 +1982,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                             const InsightCoinIcon(size: 14),
                             const SizedBox(width: 4),
                             Text(
-                              '+$_sessionInsights no grupo',
+                              context.tr('+{insights} no grupo', {'insights': _sessionInsights}),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -1997,7 +2027,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              _flipped ? 'RESPOSTA' : 'PERGUNTA',
+                              _flipped ? context.tr('RESPOSTA') : context.tr('PERGUNTA'),
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
@@ -2026,7 +2056,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                         key: const Key('group_flashcard_reveal_button'),
                         onPressed: () => setState(() => _flipped = true),
                         icon: const Icon(Icons.flip_rounded, size: 18),
-                        label: const Text('Mostrar Resposta'),
+                        label: Text(context.tr('Mostrar Resposta')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryCol,
                           foregroundColor: AsterTheme.onPrimary(context),
@@ -2042,10 +2072,10 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                         runSpacing: 8,
                         alignment: WrapAlignment.center,
                         children: [
-                          _rateButton('Errei', AsterConstants.coral, () => _rateCard('again'), key: const Key('group_fc_rate_again')),
-                          _rateButton('Difícil (+1)', AsterConstants.ambar, () => _rateCard('hard'), key: const Key('group_fc_rate_hard')),
-                          _rateButton('Bom (+2)', primaryCol, () => _rateCard('good'), key: const Key('group_fc_rate_good')),
-                          _rateButton('Fácil (+2)', AsterConstants.menta, () => _rateCard('easy'), key: const Key('group_fc_rate_easy')),
+                          _rateButton(context.tr('Errei'), AsterConstants.coral, () => _rateCard('again'), key: const Key('group_fc_rate_again')),
+                          _rateButton(context.tr('Difícil (+1)'), AsterConstants.ambar, () => _rateCard('hard'), key: const Key('group_fc_rate_hard')),
+                          _rateButton(context.tr('Bom (+2)'), primaryCol, () => _rateCard('good'), key: const Key('group_fc_rate_good')),
+                          _rateButton(context.tr('Fácil (+2)'), AsterConstants.menta, () => _rateCard('easy'), key: const Key('group_fc_rate_easy')),
                         ],
                       ),
                   ],
@@ -2060,7 +2090,7 @@ class _GroupDeckStudyDialogState extends State<_GroupDeckStudyDialog> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
             ),
-            child: const Text('Sair para o Grupo'),
+            child: Text(context.tr('Sair para o Grupo')),
           ),
         ],
       ),
@@ -2195,18 +2225,18 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
       icon: Icons.assignment_rounded,
       iconColor: AsterConstants.ambar,
       title: exam.title,
-      subtitle: '${exam.subject} · Resolvendo dentro do grupo',
+      subtitle: context.tr('{subject} · Resolvendo dentro do grupo', {'subject': exam.subject}),
       maxWidth: 660,
       maxHeight: 640,
       body: questions.isEmpty
-          ? const Text('Este simulado não possui questões.')
+          ? Text(context.tr('Este simulado não possui questões.'))
           : _finished
               ? Column(
                   children: [
                     const Icon(Icons.emoji_events_rounded, size: 48, color: AsterConstants.ambar),
                     const SizedBox(height: 10),
                     Text(
-                      'Simulado Finalizado!',
+                      context.tr('Simulado Finalizado!'),
                       style: GoogleFonts.manrope(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
@@ -2215,7 +2245,14 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Acertos: $_correctCount de ${questions.length} (${((_correctCount / questions.length) * 100).round()}%)',
+                      context.tr(
+                        'Acertos: {correct} de {total} ({pct}%)',
+                        {
+                          'correct': _correctCount,
+                          'total': questions.length,
+                          'pct': ((_correctCount / questions.length) * 100).round(),
+                        },
+                      ),
                       style: GoogleFonts.manrope(fontSize: 14, color: AsterTheme.textMuted(context)),
                     ),
                     const SizedBox(height: 8),
@@ -2225,7 +2262,10 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                         const InsightCoinIcon(size: 16),
                         const SizedBox(width: 6),
                         Text(
-                          '+$_sessionInsights Insights somados ao ranking do grupo',
+                          context.tr(
+                            '+{insights} Insights somados ao ranking do grupo',
+                            {'insights': _sessionInsights},
+                          ),
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -2246,7 +2286,7 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                         _shownAt = ShopService.currentNow();
                       }),
                       icon: const Icon(Icons.replay_rounded, size: 17),
-                      label: const Text('Refazer no Grupo'),
+                      label: Text(context.tr('Refazer no Grupo')),
                     ),
                   ],
                 )
@@ -2266,7 +2306,10 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Questão ${_index + 1} de ${questions.length}',
+                              context.tr(
+                                'Questão {current} de {total}',
+                                {'current': _index + 1, 'total': questions.length},
+                              ),
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -2274,7 +2317,7 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                               ),
                             ),
                             Text(
-                              '+$_sessionInsights Insights no grupo',
+                              context.tr('+{insights} Insights no grupo', {'insights': _sessionInsights}),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -2369,7 +2412,7 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
             ),
-            child: const Text('Fechar'),
+            child: Text(context.tr('Fechar')),
           ),
           if (!_finished && questions.isNotEmpty) ...[
             const SizedBox(width: 10),
@@ -2387,8 +2430,10 @@ class _GroupExamRunnerDialogState extends State<_GroupExamRunnerDialog> {
               ),
               child: Text(
                 _confirmed
-                    ? (_index + 1 >= questions.length ? 'Finalizar' : 'Próxima')
-                    : 'Confirmar Resposta',
+                    ? (_index + 1 >= questions.length
+                        ? context.tr('Finalizar')
+                        : context.tr('Próxima'))
+                    : context.tr('Confirmar Resposta'),
               ),
             ),
           ],
@@ -2427,7 +2472,10 @@ Future<void> showGroupRoadmapModal(
           modalKey: const Key('group_roadmap_modal'),
           icon: Icons.route_rounded,
           title: rm.title,
-          subtitle: '${rm.subject} · ${(rm.progress * 100).round()}% concluída no grupo',
+          subtitle: dialogCtx.tr(
+            '{subject} · {percent}% concluída no grupo',
+            {'subject': rm.subject, 'percent': (rm.progress * 100).round()},
+          ),
           maxWidth: 620,
           maxHeight: 620,
           body: Column(
@@ -2518,7 +2566,7 @@ Future<void> showGroupRoadmapModal(
                           ),
                         ),
                         Text(
-                          step.status.label,
+                          step.status.localizedLabel,
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -2544,7 +2592,7 @@ Future<void> showGroupRoadmapModal(
                     borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                   ),
                 ),
-                child: const Text('Fechar'),
+                child: Text(dialogCtx.tr('Fechar')),
               ),
             ],
           ),
@@ -2626,7 +2674,7 @@ class GroupMemberAvatar extends StatelessWidget {
       return avatarKey != null ? KeyedSubtree(key: avatarKey, child: circle) : circle;
     }
     return Tooltip(
-      message: 'Ver perfil de $displayName',
+      message: context.tr('Ver perfil de {name}', {'name': displayName}),
       child: InkWell(
         key: avatarKey,
         customBorder: const CircleBorder(),
@@ -2649,8 +2697,8 @@ Future<void> showGroupMemberProfileModal(
 }) async {
   final resolvedMember = member ?? (userId != null ? group.memberFor(userId) : null);
   final uid = resolvedMember?.userId ?? userId ?? '';
-  final displayName = resolvedMember?.displayName ?? fallbackName ?? 'Estudante';
-  final handle = resolvedMember?.username ?? fallbackUsername ?? 'estudante';
+  final displayName = resolvedMember?.displayName ?? fallbackName ?? NoesisL10n.tr('Estudante');
+  final handle = resolvedMember?.username ?? fallbackUsername ?? NoesisL10n.tr('estudante');
   final avatarUrl = resolvedMember?.avatarUrl ?? fallbackAvatarUrl;
   final isVip = resolvedMember?.isVip ?? fallbackIsVip;
   final isLeader = resolvedMember?.isLeader ?? (uid == group.leaderId);
@@ -2735,7 +2783,7 @@ Future<void> showGroupMemberProfileModal(
       return NoesisGroupModalShell(
         modalKey: const Key('group_member_profile_modal'),
         icon: Icons.badge_rounded,
-        title: 'Perfil do Membro',
+        title: dialogCtx.tr('Perfil do Membro'),
         subtitle: '@$handle · ${group.name}',
         maxWidth: 480,
         maxHeight: 600,
@@ -2803,7 +2851,9 @@ Future<void> showGroupMemberProfileModal(
                                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                               ),
                               child: Text(
-                                isLeader ? 'Criador / Líder' : 'Membro',
+                                isLeader
+                                    ? dialogCtx.tr('Criador / Líder')
+                                    : dialogCtx.tr('Membro'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
@@ -2813,7 +2863,7 @@ Future<void> showGroupMemberProfileModal(
                             ),
                             if (joinedLabel != null)
                               Text(
-                                'No grupo desde $joinedLabel',
+                                dialogCtx.tr('No grupo desde {date}', {'date': joinedLabel}),
                                 style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol),
                               ),
                           ],
@@ -2827,7 +2877,7 @@ Future<void> showGroupMemberProfileModal(
             const SizedBox(height: 16),
 
             // Bio
-            _fieldLabel(dialogCtx, 'Sobre'),
+            _fieldLabel(dialogCtx, dialogCtx.tr('Sobre')),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -2836,7 +2886,7 @@ Future<void> showGroupMemberProfileModal(
                 border: Border.all(color: AsterTheme.surfaceInset(dialogCtx)),
               ),
               child: Text(
-                bio.isNotEmpty ? bio : 'Nenhuma bio informada pelo estudante.',
+                bio.isNotEmpty ? bio : dialogCtx.tr('Nenhuma bio informada pelo estudante.'),
                 style: GoogleFonts.manrope(
                   fontSize: 12.5,
                   height: 1.45,
@@ -2848,7 +2898,7 @@ Future<void> showGroupMemberProfileModal(
             const SizedBox(height: 16),
 
             // Estatísticas dentro deste grupo
-            _fieldLabel(dialogCtx, 'Atividade neste grupo'),
+            _fieldLabel(dialogCtx, dialogCtx.tr('Atividade neste grupo')),
             LayoutBuilder(
               builder: (context, c) {
                 final w = (c.maxWidth - 10) / 2;
@@ -2859,7 +2909,7 @@ Future<void> showGroupMemberProfileModal(
                     SizedBox(
                       width: w,
                       child: statBox(
-                        'Insights no grupo',
+                        dialogCtx.tr('Insights no grupo'),
                         Row(
                           children: [
                             const InsightCoinIcon(size: 14),
@@ -2879,7 +2929,7 @@ Future<void> showGroupMemberProfileModal(
                     SizedBox(
                       width: w,
                       child: statBox(
-                        'Tempo no diário',
+                        dialogCtx.tr('Tempo no diário'),
                         Text(
                           DashboardAnalytics.formatReadableDuration(groupMinutes),
                           style: GoogleFonts.jetBrainsMono(
@@ -2893,7 +2943,7 @@ Future<void> showGroupMemberProfileModal(
                     SizedBox(
                       width: w,
                       child: statBox(
-                        'Mensagens no chat',
+                        dialogCtx.tr('Mensagens no chat'),
                         Text(
                           '$chatCount',
                           style: GoogleFonts.jetBrainsMono(
@@ -2907,7 +2957,7 @@ Future<void> showGroupMemberProfileModal(
                     SizedBox(
                       width: w,
                       child: statBox(
-                        'Itens anexados',
+                        dialogCtx.tr('Itens anexados'),
                         Text(
                           '$sharedCount',
                           style: GoogleFonts.jetBrainsMono(
@@ -2925,13 +2975,21 @@ Future<void> showGroupMemberProfileModal(
             const SizedBox(height: 16),
 
             // Permissões
-            _fieldLabel(dialogCtx, 'Permissões no grupo'),
+            _fieldLabel(dialogCtx, dialogCtx.tr('Permissões no grupo')),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                permPill(Icons.person_add_alt_1_rounded, canInvite ? 'Pode convidar' : 'Não convida', canInvite),
-                permPill(Icons.edit_note_rounded, canEdit ? 'Pode editar e anexar' : 'Apenas estuda', canEdit),
+                permPill(
+                  Icons.person_add_alt_1_rounded,
+                  canInvite ? dialogCtx.tr('Pode convidar') : dialogCtx.tr('Não convida'),
+                  canInvite,
+                ),
+                permPill(
+                  Icons.edit_note_rounded,
+                  canEdit ? dialogCtx.tr('Pode editar e anexar') : dialogCtx.tr('Apenas estuda'),
+                  canEdit,
+                ),
               ],
             ),
           ],
@@ -2959,7 +3017,7 @@ Future<void> showGroupMemberProfileModal(
                 if (!isSelf) ...[
                   SoftClayPillButton(
                     key: const Key('member_profile_follow_button'),
-                    text: isFollowing ? 'Seguindo' : 'Seguir',
+                    text: isFollowing ? footerCtx.tr('Seguindo') : footerCtx.tr('Seguir'),
                     icon: isFollowing ? Icons.check_rounded : Icons.person_add_alt_1_rounded,
                     isSecondary: isFollowing,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -2975,7 +3033,7 @@ Future<void> showGroupMemberProfileModal(
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                   ),
-                  child: const Text('Fechar'),
+                  child: Text(footerCtx.tr('Fechar')),
                 ),
               ],
             );

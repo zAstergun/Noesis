@@ -1,3 +1,5 @@
+import '../../../core/localization/noesis_l10n.dart';
+
 enum PerformancePeriod {
   days7,
   days30,
@@ -10,30 +12,30 @@ extension PerformancePeriodX on PerformancePeriod {
   String get label {
     switch (this) {
       case PerformancePeriod.days7:
-        return 'Últimos 7 dias';
+        return NoesisL10n.tr('Últimos 7 dias');
       case PerformancePeriod.days30:
-        return 'Últimos 30 dias';
+        return NoesisL10n.tr('Últimos 30 dias');
       case PerformancePeriod.days90:
-        return 'Últimos 90 dias';
+        return NoesisL10n.tr('Últimos 90 dias');
       case PerformancePeriod.allTime:
-        return 'Todo o histórico';
+        return NoesisL10n.tr('Todo o histórico');
       case PerformancePeriod.custom:
-        return 'Personalizado';
+        return NoesisL10n.tr('Personalizado');
     }
   }
 
   String get shortLabel {
     switch (this) {
       case PerformancePeriod.days7:
-        return '7 dias';
+        return NoesisL10n.tr('7 dias');
       case PerformancePeriod.days30:
-        return '30 dias';
+        return NoesisL10n.tr('30 dias');
       case PerformancePeriod.days90:
-        return '90 dias';
+        return NoesisL10n.tr('90 dias');
       case PerformancePeriod.allTime:
-        return 'Tudo';
+        return NoesisL10n.tr('Tudo');
       case PerformancePeriod.custom:
-        return 'Personalizado';
+        return NoesisL10n.tr('Personalizado');
     }
   }
 }
@@ -136,8 +138,8 @@ class PerformanceAiReview {
     return PerformanceAiReview(
       id: (json['id'] ?? '').toString(),
       createdAt: DateTime.tryParse((json['created_at'] ?? '').toString()) ?? DateTime.now(),
-      periodLabel: (json['period_label'] ?? 'Período').toString(),
-      summaryHeadline: (json['summary_headline'] ?? 'Review de Desempenho').toString(),
+      periodLabel: (json['period_label'] ?? NoesisL10n.tr('Período')).toString(),
+      summaryHeadline: (json['summary_headline'] ?? NoesisL10n.tr('Review de Desempenho')).toString(),
       markdownContent: (json['markdown_content'] ?? '').toString(),
       generatedWithLlm: json['generated_with_llm'] == true,
     );

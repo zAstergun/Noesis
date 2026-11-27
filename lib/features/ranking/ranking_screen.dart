@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/insights_economy_config.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/theme.dart';
 import '../../main.dart';
 import '../../widgets/insight_icon.dart';
@@ -36,13 +37,13 @@ class _RankingScreenState extends State<RankingScreen> {
 
   String _formatRemainingTime(DateTime weekEndsAt) {
     final diff = weekEndsAt.difference(RankingService.currentNow());
-    if (diff.isNegative) return 'Encerrando...';
+    if (diff.isNegative) return NoesisL10n.tr('Encerrando...');
     final days = diff.inDays;
     final hours = diff.inHours % 24;
     final mins = diff.inMinutes % 60;
-    if (days > 0) return '${days}d ${hours}h restantes';
-    if (hours > 0) return '${hours}h ${mins}m restantes';
-    return '${mins}m restantes';
+    if (days > 0) return NoesisL10n.tr('{days}d {hours}h restantes', {'days': days, 'hours': hours});
+    if (hours > 0) return NoesisL10n.tr('{hours}h {mins}m restantes', {'hours': hours, 'mins': mins});
+    return NoesisL10n.tr('{mins}m restantes', {'mins': mins});
   }
 
   void _openCompetitorProfileModal(BuildContext context, RankingCompetitor c, RankingEloTier elo) {
@@ -139,7 +140,7 @@ class _RankingScreenState extends State<RankingScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Ranking & Ligas Semanais',
+                                        context.tr('Ranking & Ligas Semanais'),
                                         style: GoogleFonts.manrope(
                                           fontSize: isDesktop ? 21 : 18.5,
                                           fontWeight: FontWeight.w900,
@@ -147,7 +148,7 @@ class _RankingScreenState extends State<RankingScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Jornada cognitiva semanal pelos Insights conquistados no Noesis',
+                                        context.tr('Jornada cognitiva semanal pelos Insights conquistados no Noesis'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 12.5,
                                           color: AsterTheme.textMuted(context),
@@ -191,7 +192,7 @@ class _RankingScreenState extends State<RankingScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Atualizar liga',
+                                  tooltip: context.tr('Atualizar liga'),
                                   onPressed: () => RankingService.instance.syncCurrentUserProgress(),
                                   icon: const Icon(Icons.refresh_rounded, size: 20),
                                 ),
@@ -237,7 +238,7 @@ class _RankingScreenState extends State<RankingScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Elo ${elo.name} · Chave da Semana',
+                                context.tr('Elo {name} · Chave da Semana', {'name': elo.localizedName}),
                                 style: GoogleFonts.manrope(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -254,8 +255,14 @@ class _RankingScreenState extends State<RankingScreen> {
                         const SizedBox(height: 4),
                         Text(
                           nextElo != null
-                              ? 'Os ${elo.promotionSlots} primeiros avançam para ${nextElo.name} no encerramento semanal (domingo às 23h59).'
-                              : 'Você está no elo máximo (${elo.name})! Disputa pelo pódio semanal.',
+                              ? context.tr(
+                                  'Os {slots} primeiros avançam para {elo} no encerramento semanal (domingo às 23h59).',
+                                  {'slots': elo.promotionSlots, 'elo': nextElo.localizedName},
+                                )
+                              : context.tr(
+                                  'Você está no elo máximo ({elo})! Disputa pelo pódio semanal.',
+                                  {'elo': elo.localizedName},
+                                ),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             color: AsterTheme.textMuted(context),
@@ -292,7 +299,13 @@ class _RankingScreenState extends State<RankingScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'Cada Insight obtido em Simulados (+${InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus}/questão), Flashcards e Metas soma na sua subida semanal.',
+                                  context.tr(
+                                    'Cada Insight obtido em Simulados (+{perQuestion}/questão), Flashcards e Metas soma na sua subida semanal.',
+                                    {
+                                      'perQuestion':
+                                          InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus,
+                                    },
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -309,12 +322,12 @@ class _RankingScreenState extends State<RankingScreen> {
                             OutlinedButton.icon(
                               onPressed: () => RootScreen.switchTab(1),
                               icon: const Icon(Icons.assignment_rounded, size: 15),
-                              label: const Text('Ir p/ Simulados'),
+                              label: Text(context.tr('Ir p/ Simulados')),
                             ),
                             OutlinedButton.icon(
                               onPressed: () => RootScreen.switchTab(2),
                               icon: const Icon(Icons.style_rounded, size: 15),
-                              label: const Text('Ir p/ Flashcards'),
+                              label: Text(context.tr('Ir p/ Flashcards')),
                             ),
                           ],
                         ),
@@ -351,13 +364,16 @@ class _RankingScreenState extends State<RankingScreen> {
     final String goalLabel;
     if (board.currentUserZone == RankingZone.demotion && prevElo != null && safeCutoffScore > 0) {
       targetScore = safeCutoffScore + 1;
-      goalLabel = 'Meta para sair do rebaixamento';
+      goalLabel = context.tr('Meta para sair do rebaixamento');
     } else if (nextElo != null && elo.promotionSlots > 0) {
       targetScore = promotionCutoffScore > 0 ? promotionCutoffScore + 1 : 1;
-      goalLabel = 'Rumo ao Elo ${nextElo.name} (Top ${elo.promotionSlots})';
+      goalLabel = context.tr(
+        'Rumo ao Elo {elo} (Top {slots})',
+        {'elo': nextElo.localizedName, 'slots': elo.promotionSlots},
+      );
     } else {
       targetScore = promotionCutoffScore > 0 ? promotionCutoffScore : 1;
-      goalLabel = 'Disputa pela liderança em ${elo.name}';
+      goalLabel = context.tr('Disputa pela liderança em {elo}', {'elo': elo.localizedName});
     }
 
     final double progressRatio = targetScore <= 0
@@ -390,7 +406,10 @@ class _RankingScreenState extends State<RankingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ESCALA NOÉTICA · NÍVEL ${elo.index + 1} DE $totalTiers',
+                        context.tr(
+                          'ESCALA NOÉTICA · NÍVEL {level} DE {total}',
+                          {'level': elo.index + 1, 'total': totalTiers},
+                        ),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -400,7 +419,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Elo atual: ${elo.name}',
+                        context.tr('Elo atual: {name}', {'name': elo.localizedName}),
                         style: GoogleFonts.manrope(
                           fontSize: 16.5,
                           fontWeight: FontWeight.w900,
@@ -408,7 +427,7 @@ class _RankingScreenState extends State<RankingScreen> {
                         ),
                       ),
                       Text(
-                        elo.subtitle,
+                        elo.localizedSubtitle,
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           color: AsterTheme.textMuted(context),
@@ -497,7 +516,7 @@ class _RankingScreenState extends State<RankingScreen> {
                         height: 9,
                         width: double.infinity,
                         color: AsterTheme.surfaceInset(context),
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: FractionallySizedBox(
                           widthFactor: val.clamp(0.03, 1.0),
                           child: Container(
@@ -537,7 +556,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                     ),
                     Text(
-                      'Toque em qualquer elo abaixo para ver detalhes',
+                      context.tr('Toque em qualquer elo abaixo para ver detalhes'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         color: AsterTheme.textMuted(context),
@@ -610,16 +629,16 @@ class _RankingScreenState extends State<RankingScreen> {
               final tiles = [
                 _summaryKpiTile(
                   context,
-                  label: 'POSIÇÃO NA LIGA',
+                  label: context.tr('POSIÇÃO NA LIGA'),
                   value: '#${board.currentUserRank}',
-                  subtitle: 'de ${standings.length} ativos nesta semana',
+                  subtitle: context.tr('de {count} ativos nesta semana', {'count': standings.length}),
                   accent: elo.accentColor,
                   icon: Icons.emoji_events_rounded,
                 ),
                 _summaryKpiTile(
                   context,
                   key: const Key('ranking_weekly_insights_kpi'),
-                  label: 'INSIGHTS DA SEMANA',
+                  label: context.tr('INSIGHTS DA SEMANA'),
                   value: '+${board.currentUserWeeklyInsights}',
                   subtitle: _zoneHelperText(
                     board.currentUserZone,
@@ -635,19 +654,33 @@ class _RankingScreenState extends State<RankingScreen> {
                 _summaryKpiTile(
                   context,
                   key: const Key('ranking_accumulated_score_kpi'),
-                  label: 'PONTUAÇÃO ACUMULADA',
-                  value: '${board.accumulatedRankingScore} pts',
-                  subtitle:
-                      '${board.retentionStreakWeeks} ${board.retentionStreakWeeks == 1 ? 'sem. seguida mantida' : 'sem. seguidas mantidas'} · próx. +${RankingEloCatalog.maintenancePointsForStreak(streakWeeks: board.retentionStreakWeeks + 1, eloIndex: board.currentEloIndex)} pts',
+                  label: context.tr('PONTUAÇÃO ACUMULADA'),
+                  value: context.tr('{points} pts', {'points': board.accumulatedRankingScore}),
+                  subtitle: context.tr(
+                    board.retentionStreakWeeks == 1
+                        ? '{weeks} sem. seguida mantida · próx. +{next} pts'
+                        : '{weeks} sem. seguidas mantidas · próx. +{next} pts',
+                    {
+                      'weeks': board.retentionStreakWeeks,
+                      'next': RankingEloCatalog.maintenancePointsForStreak(
+                        streakWeeks: board.retentionStreakWeeks + 1,
+                        eloIndex: board.currentEloIndex,
+                      ),
+                    },
+                  ),
                   accent: AsterConstants.ambar,
                   icon: Icons.local_fire_department_rounded,
                 ),
                 _summaryKpiTile(
                   context,
-                  label: 'MELHOR ELO',
-                  value: board.bestElo.name,
-                  subtitle:
-                      '${board.top3Finishes} ${board.top3Finishes == 1 ? 'pódio Top 3' : 'pódios Top 3'} · ${board.weeksCompeted} sem.',
+                  label: context.tr('MELHOR ELO'),
+                  value: board.bestElo.localizedName,
+                  subtitle: context.tr(
+                    board.top3Finishes == 1
+                        ? '{top3} pódio Top 3 · {weeks} sem.'
+                        : '{top3} pódios Top 3 · {weeks} sem.',
+                    {'top3': board.top3Finishes, 'weeks': board.weeksCompeted},
+                  ),
                   accent: AsterTheme.primary(context),
                   icon: Icons.workspace_premium_rounded,
                 ),
@@ -719,8 +752,8 @@ class _RankingScreenState extends State<RankingScreen> {
                   ),
                 ),
                 if (!isUnlocked)
-                  Positioned(
-                    right: -2,
+                  PositionedDirectional(
+                    end: -2,
                     bottom: -2,
                     child: Container(
                       width: 17,
@@ -738,8 +771,8 @@ class _RankingScreenState extends State<RankingScreen> {
                     ),
                   )
                 else if (isBelowOrAtCurrent && !isCurrent)
-                  Positioned(
-                    right: -2,
+                  PositionedDirectional(
+                    end: -2,
                     bottom: -2,
                     child: Container(
                       width: 17,
@@ -760,7 +793,7 @@ class _RankingScreenState extends State<RankingScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              tier.name,
+              tier.localizedName,
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -782,7 +815,7 @@ class _RankingScreenState extends State<RankingScreen> {
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
               child: Text(
-                isCurrent ? 'Atual' : 'Nível ${tier.index + 1}',
+                isCurrent ? context.tr('Atual') : context.tr('Nível {level}', {'level': tier.index + 1}),
                 style: GoogleFonts.manrope(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w800,
@@ -850,16 +883,16 @@ class _RankingScreenState extends State<RankingScreen> {
     final String statusText;
     final Color statusColor;
     if (isCurrent) {
-      statusText = 'Seu elo atual';
+      statusText = context.tr('Seu elo atual');
       statusColor = tier.accentColor;
     } else if (isNext) {
-      statusText = 'Próxima conquista';
+      statusText = context.tr('Próxima conquista');
       statusColor = AsterConstants.menta;
     } else if (isUnlocked) {
-      statusText = 'Já alcançado';
+      statusText = context.tr('Já alcançado');
       statusColor = AsterTheme.primary(context);
     } else {
-      statusText = 'A desbloquear';
+      statusText = context.tr('A desbloquear');
       statusColor = AsterTheme.textMuted(context);
     }
 
@@ -899,7 +932,10 @@ class _RankingScreenState extends State<RankingScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Elo ${tier.name} · ${tier.subtitle}',
+                        context.tr(
+                          'Elo {name} · {subtitle}',
+                          {'name': tier.localizedName, 'subtitle': tier.localizedSubtitle},
+                        ),
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -915,7 +951,7 @@ class _RankingScreenState extends State<RankingScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            tier.milestoneDescription,
+            tier.localizedMilestoneDescription,
             style: GoogleFonts.manrope(
               fontSize: 12,
               color: AsterTheme.textMuted(context),
@@ -931,8 +967,8 @@ class _RankingScreenState extends State<RankingScreen> {
                 context,
                 icon: Icons.arrow_upward_rounded,
                 label: tier.promotionSlots > 0
-                    ? 'Promoção: Top ${tier.promotionSlots} da chave'
-                    : 'Topo da Escala Noética',
+                    ? context.tr('Promoção: Top {slots} da chave', {'slots': tier.promotionSlots})
+                    : context.tr('Topo da Escala Noética'),
                 color: AsterConstants.menta,
               ),
               _rulePill(
@@ -941,23 +977,34 @@ class _RankingScreenState extends State<RankingScreen> {
                     ? Icons.arrow_downward_rounded
                     : Icons.verified_user_outlined,
                 label: tier.demotionSlots > 0
-                    ? 'Rebaixamento: últimos ${tier.demotionSlots}'
-                    : 'Sem rebaixamento',
+                    ? context.tr('Rebaixamento: últimos {slots}', {'slots': tier.demotionSlots})
+                    : context.tr('Sem rebaixamento'),
                 color: tier.demotionSlots > 0 ? AsterConstants.coral : AsterTheme.primary(context),
               ),
               _rulePill(
                 context,
                 icon: Icons.local_fire_department_rounded,
-                label:
-                    'Permanência: +$nextRetentionPts pts e +$nextRetentionInsights Insights (cresce a cada semana)',
+                label: context.tr(
+                  'Permanência: +{points} pts e +{insights} Insights (cresce a cada semana)',
+                  {'points': nextRetentionPts, 'insights': nextRetentionInsights},
+                ),
                 color: AsterConstants.ambar,
               ),
               _rulePill(
                 context,
                 icon: Icons.auto_awesome_rounded,
                 label: tier.index == 0
-                    ? 'Economia: Ganho base (1×) · Limite ${InsightsEconomyConfig.dailySoftCapForElo(0)}/dia'
-                    : 'Bônus do Elo: +${InsightsEconomyConfig.eloBonusPercent(tier.index)}% Insights · Limite ${InsightsEconomyConfig.dailySoftCapForElo(tier.index)}/dia (2× no VIP)',
+                    ? context.tr(
+                        'Economia: Ganho base (1×) · Limite {cap}/dia',
+                        {'cap': InsightsEconomyConfig.dailySoftCapForElo(0)},
+                      )
+                    : context.tr(
+                        'Bônus do Elo: +{bonus}% Insights · Limite {cap}/dia (2× no VIP)',
+                        {
+                          'bonus': InsightsEconomyConfig.eloBonusPercent(tier.index),
+                          'cap': InsightsEconomyConfig.dailySoftCapForElo(tier.index),
+                        },
+                      ),
                 color: tier.accentColor,
               ),
             ],
@@ -976,7 +1023,10 @@ class _RankingScreenState extends State<RankingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'RECOMPENSA POR COLOCAÇÃO AO SUBIR PARA ${RankingEloCatalog.tierAt(tier.index + 1).name.toUpperCase()}',
+                    context.tr(
+                      'RECOMPENSA POR COLOCAÇÃO AO SUBIR PARA {elo}',
+                      {'elo': RankingEloCatalog.tierAt(tier.index + 1).localizedName.toUpperCase()},
+                    ),
                     style: GoogleFonts.manrope(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
@@ -1083,7 +1133,7 @@ class _RankingScreenState extends State<RankingScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'PÓDIO DA SEMANA',
+            context.tr('PÓDIO DA SEMANA'),
             textAlign: TextAlign.center,
             style: GoogleFonts.manrope(
               fontSize: 10,
@@ -1162,7 +1212,7 @@ class _RankingScreenState extends State<RankingScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            competitor.isCurrentUser ? 'Você' : competitor.displayName.split(' ').first,
+            competitor.isCurrentUser ? context.tr('Você') : competitor.displayName.split(' ').first,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -1222,25 +1272,34 @@ class _RankingScreenState extends State<RankingScreen> {
     if (outcome.wasPromoted) {
       accent = AsterConstants.menta;
       icon = Icons.arrow_circle_up_rounded;
-      title =
-          'Promoção semanal (#${outcome.finalRank})! Você subiu de ${prev.name} para Elo ${next.name}!';
+      title = context.tr(
+        'Promoção semanal (#{rank})! Você subiu de {prev} para Elo {next}!',
+        {'rank': outcome.finalRank, 'prev': prev.localizedName, 'next': next.localizedName},
+      );
     } else if (outcome.wasDemoted) {
       accent = AsterConstants.coral;
       icon = Icons.arrow_circle_down_rounded;
-      title = 'Fechamento da semana anterior: você foi movido para Elo ${next.name}.';
+      title = context.tr(
+        'Fechamento da semana anterior: você foi movido para Elo {next}.',
+        {'next': next.localizedName},
+      );
     } else {
       accent = AsterTheme.primary(context);
       icon = Icons.check_circle_outline_rounded;
       final streakPart = outcome.retentionStreakWeeks > 0
-          ? ' · ${outcome.retentionStreakWeeks}ª sem. seguida'
+          ? context.tr(' · {weeks}ª sem. seguida', {'weeks': outcome.retentionStreakWeeks})
           : '';
-      title =
-          'Semana anterior encerrada (#${outcome.finalRank}) · Você manteve o Elo ${next.name}$streakPart.';
+      title = context.tr(
+        'Semana anterior encerrada (#{rank}) · Você manteve o Elo {next}{streakPart}.',
+        {'rank': outcome.finalRank, 'next': next.localizedName, 'streakPart': streakPart},
+      );
     }
 
     final rewardSummary = <String>[
-      if (outcome.rewardInsights > 0) '+${outcome.rewardInsights} Insights na carteira',
-      if (outcome.pointsEarned > 0) '+${outcome.pointsEarned} pts acumulados',
+      if (outcome.rewardInsights > 0)
+        context.tr('+{insights} Insights na carteira', {'insights': outcome.rewardInsights}),
+      if (outcome.pointsEarned > 0)
+        context.tr('+{points} pts acumulados', {'points': outcome.pointsEarned}),
     ].join(' · ');
 
     return Container(
@@ -1260,7 +1319,10 @@ class _RankingScreenState extends State<RankingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$title (+${outcome.weeklyInsights} Insights na semana ${outcome.weekId})',
+                  context.tr(
+                    '{title} (+{insights} Insights na semana {weekId})',
+                    {'title': title, 'insights': outcome.weeklyInsights, 'weekId': outcome.weekId},
+                  ),
                   style: GoogleFonts.manrope(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
@@ -1270,7 +1332,7 @@ class _RankingScreenState extends State<RankingScreen> {
                 if (rewardSummary.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
-                    'Recompensa recebida: $rewardSummary',
+                    context.tr('Recompensa recebida: {summary}', {'summary': rewardSummary}),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -1282,7 +1344,7 @@ class _RankingScreenState extends State<RankingScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Dispensar aviso',
+            tooltip: context.tr('Dispensar aviso'),
             onPressed: () => RankingService.instance.dismissLastOutcome(),
             icon: const Icon(Icons.close_rounded, size: 18),
           ),
@@ -1363,11 +1425,11 @@ class _RankingScreenState extends State<RankingScreen> {
   String _zoneLabel(RankingZone z) {
     switch (z) {
       case RankingZone.promotion:
-        return 'Zona de Promoção ↑';
+        return NoesisL10n.tr('Zona de Promoção ↑');
       case RankingZone.safe:
-        return 'Zona Segura';
+        return NoesisL10n.tr('Zona Segura');
       case RankingZone.demotion:
-        return 'Zona de Rebaixamento ↓';
+        return NoesisL10n.tr('Zona de Rebaixamento ↓');
     }
   }
 
@@ -1391,16 +1453,19 @@ class _RankingScreenState extends State<RankingScreen> {
   }) {
     if (zone == RankingZone.promotion) {
       return nextElo != null
-          ? 'Subindo para ${nextElo.name}!'
-          : 'No topo da escala Noesis!';
+          ? NoesisL10n.tr('Subindo para {elo}!', {'elo': nextElo.localizedName})
+          : NoesisL10n.tr('No topo da escala Noesis!');
     }
     if (zone == RankingZone.demotion && prevElo != null) {
-      return 'Atenção: risco de descer para ${prevElo.name}';
+      return NoesisL10n.tr('Atenção: risco de descer para {elo}', {'elo': prevElo.localizedName});
     }
     if (nextElo != null && promotionSlots > 0 && pointsToPromotion > 0) {
-      return 'Faltam +$pointsToPromotion para o Top $promotionSlots';
+      return NoesisL10n.tr(
+        'Faltam +{points} para o Top {slots}',
+        {'points': pointsToPromotion, 'slots': promotionSlots},
+      );
     }
-    return 'Mantendo seu elo esta semana';
+    return NoesisL10n.tr('Mantendo seu elo esta semana');
   }
 
   List<Widget> _buildZonedStandingsRows(
@@ -1454,13 +1519,19 @@ class _RankingScreenState extends State<RankingScreen> {
     switch (zone) {
       case RankingZone.promotion:
         icon = Icons.arrow_upward_rounded;
-        text = 'ZONA DE PROMOÇÃO · TOP $promotionSlots SOBEM PARA ${nextElo?.name.toUpperCase() ?? ''}';
+        text = context.tr(
+          'ZONA DE PROMOÇÃO · TOP {slots} SOBEM PARA {elo}',
+          {'slots': promotionSlots, 'elo': nextElo?.localizedName.toUpperCase() ?? ''},
+        );
       case RankingZone.safe:
         icon = Icons.horizontal_rule_rounded;
-        text = 'ZONA DE PERMANÊNCIA · MANTÉM O ELO';
+        text = context.tr('ZONA DE PERMANÊNCIA · MANTÉM O ELO');
       case RankingZone.demotion:
         icon = Icons.arrow_downward_rounded;
-        text = 'ZONA DE REBAIXAMENTO · ÚLTIMOS $demotionSlots DESCEM PARA ${prevElo?.name.toUpperCase() ?? ''}';
+        text = context.tr(
+          'ZONA DE REBAIXAMENTO · ÚLTIMOS {slots} DESCEM PARA {elo}',
+          {'slots': demotionSlots, 'elo': prevElo?.localizedName.toUpperCase() ?? ''},
+        );
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1564,7 +1635,7 @@ class _RankingScreenState extends State<RankingScreen> {
                           ),
                           if (c.isCurrentUser)
                             SoftClayTag(
-                              label: 'Você',
+                              label: context.tr('Você'),
                               color: primaryCol,
                             ),
                           if (c.isVip)
@@ -1573,7 +1644,14 @@ class _RankingScreenState extends State<RankingScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '@${c.username} · ${DashboardAnalytics.formatReadableDuration(c.weeklyMinutes)} na semana · ${c.streakDays}d streak',
+                        context.tr(
+                          '@{username} · {duration} na semana · {streak}d streak',
+                          {
+                            'username': c.username,
+                            'duration': DashboardAnalytics.formatReadableDuration(c.weeklyMinutes),
+                            'streak': c.streakDays,
+                          },
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
 import '../../core/insights_economy_config.dart';
+import '../../core/localization/agent_intent_keywords.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
@@ -55,7 +57,9 @@ class _ShopScreenState extends State<ShopScreen> {
           duration: const Duration(seconds: 3),
           backgroundColor: res.ok ? AsterConstants.menta : AsterConstants.coral,
           content: Text(
-            res.ok ? (res.message ?? '${item.name} equipado!') : (res.error ?? 'Saldo insuficiente.'),
+            res.ok
+                ? (res.message ?? NoesisL10n.tr('{item} equipado!', {'item': item.localizedName}))
+                : (res.error ?? NoesisL10n.tr('Saldo insuficiente.')),
             style: const TextStyle(color: Colors.white),
           ),
         ),
@@ -74,8 +78,8 @@ class _ShopScreenState extends State<ShopScreen> {
           backgroundColor: res.ok ? AsterConstants.menta : null,
           content: Text(
             res.ok
-                ? (res.message ?? 'Selo de Consistência guardado!')
-                : (res.error ?? 'Não foi possível guardar.'),
+                ? (res.message ?? NoesisL10n.tr('Selo de Consistência guardado!'))
+                : (res.error ?? NoesisL10n.tr('Não foi possível guardar.')),
             style: res.ok ? const TextStyle(color: Colors.white) : null,
           ),
         ),
@@ -95,11 +99,11 @@ class _ShopScreenState extends State<ShopScreen> {
             duration: const Duration(seconds: 3),
             backgroundColor: AsterTheme.primary(context),
             content: Text(
-              res.message ?? 'Tema ${option.name} desbloqueado!',
+              res.message ?? NoesisL10n.tr('Tema {name} desbloqueado!', {'name': option.localizedName}),
               style: TextStyle(color: AsterTheme.onPrimary(context)),
             ),
             action: SnackBarAction(
-              label: 'Equipar',
+              label: NoesisL10n.tr('Equipar'),
               textColor: AsterTheme.onPrimary(context),
               onPressed: () => AsterTheme.selectThemeOption(option.id),
             ),
@@ -112,7 +116,7 @@ class _ShopScreenState extends State<ShopScreen> {
           SnackBar(
             persist: false,
             duration: const Duration(seconds: 3),
-            content: Text(res.error ?? 'Saldo insuficiente.'),
+            content: Text(res.error ?? NoesisL10n.tr('Saldo insuficiente.')),
           ),
         );
     }
@@ -225,7 +229,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    'Loja do Noesis',
+                                    context.tr('Loja do Noesis'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w900,
@@ -240,7 +244,10 @@ class _ShopScreenState extends State<ShopScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Desbloqueie temas, protetores de ofensiva e novidades com ${ShopService.currencyName}',
+                              context.tr(
+                                'Desbloqueie temas, protetores de ofensiva e novidades com {currency}',
+                                {'currency': ShopService.currencyName},
+                              ),
                               style: GoogleFonts.manrope(
                                 fontSize: 13,
                                 color: AsterTheme.textMuted(context),
@@ -259,7 +266,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Loja do Noesis',
+                                  context.tr('Loja do Noesis'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
@@ -269,7 +276,10 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Desbloqueie temas, protetores de ofensiva e novidades com ${ShopService.currencyName}',
+                                  context.tr(
+                                    'Desbloqueie temas, protetores de ofensiva e novidades com {currency}',
+                                    {'currency': ShopService.currencyName},
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 13,
                                     color: AsterTheme.textMuted(context),
@@ -326,7 +336,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                         const VipCrownIcon(size: 14),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'Hoje: $todayEarned · Ilimitado',
+                                          context.tr('Hoje: {earned} · Ilimitado', {'earned': todayEarned}),
                                           style: GoogleFonts.jetBrainsMono(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w800,
@@ -338,8 +348,18 @@ class _ShopScreenState extends State<ShopScreen> {
                                     const SizedBox(height: 3),
                                     Text(
                                       eloPct > 0
-                                          ? '2× VIP · +$eloPct% ${eloTier.name} (${InsightsEconomyConfig.totalGainMultiplier(eloIndex: eloIndex, isVip: true).toStringAsFixed(1)}×)'
-                                          : 'Bônus VIP ativo · 2× Insights',
+                                          ? context.tr(
+                                              '2× VIP · +{pct}% {elo} ({mult}×)',
+                                              {
+                                                'pct': eloPct,
+                                                'elo': eloTier.localizedName,
+                                                'mult': InsightsEconomyConfig.totalGainMultiplier(
+                                                  eloIndex: eloIndex,
+                                                  isVip: true,
+                                                ).toStringAsFixed(1),
+                                              },
+                                            )
+                                          : context.tr('Bônus VIP ativo · 2× Insights'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -370,7 +390,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                         const InsightCoinIcon(size: 14),
                                         const SizedBox(width: 6),
                                         Text(
-                                          'Hoje: $todayEarned/$dailyCap',
+                                          context.tr('Hoje: {earned}/{cap}', {'earned': todayEarned, 'cap': dailyCap}),
                                           style: GoogleFonts.jetBrainsMono(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w800,
@@ -382,8 +402,18 @@ class _ShopScreenState extends State<ShopScreen> {
                                     const SizedBox(height: 4),
                                     Text(
                                       eloPct > 0
-                                          ? 'Elo ${eloTier.name}: +$eloPct% ganho · +${eloIndex * InsightsEconomyConfig.dailySoftCapBonusPerElo} limite'
-                                          : 'Elo ${eloTier.name}: suba de elo p/ +10% e +20 limite',
+                                          ? context.tr(
+                                              'Elo {elo}: +{pct}% ganho · +{capBonus} limite',
+                                              {
+                                                'elo': eloTier.localizedName,
+                                                'pct': eloPct,
+                                                'capBonus': eloIndex * InsightsEconomyConfig.dailySoftCapBonusPerElo,
+                                              },
+                                            )
+                                          : context.tr(
+                                              'Elo {elo}: suba de elo p/ +10% e +20 limite',
+                                              {'elo': eloTier.localizedName},
+                                            ),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w700,
@@ -449,7 +479,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Como ganhar ${ShopService.currencyName}',
+                                              context.tr('Como ganhar {currency}', {'currency': ShopService.currencyName}),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w800,
@@ -458,7 +488,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              'Estude com consistência para desbloquear novos temas na Loja',
+                                              context.tr('Estude com consistência para desbloquear novos temas na Loja'),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 color: AsterTheme.textMuted(context),
@@ -481,17 +511,26 @@ class _ShopScreenState extends State<ShopScreen> {
                                   context,
                                   icon: Icons.assignment_rounded,
                                   accent: primaryCol,
-                                  title: 'Simulados',
-                                  actionLabel: 'Ir para Simulados',
+                                  title: context.tr('Simulados'),
+                                  actionLabel: context.tr('Ir para Simulados'),
                                   onAction: () => RootScreen.switchTab(1),
                                   pushActionToBottom: wide,
                                   rules: [
                                     (
-                                      label: 'Questão (≥ 3s)',
-                                      value: '+${fmt(InsightsEconomyConfig.quizQuestionAnswered)} · +${fmt(InsightsEconomyConfig.quizQuestionAnswered + InsightsEconomyConfig.quizQuestionCorrectBonus)} acerto',
+                                      label: context.tr('Questão (≥ 3s)'),
+                                      value: context.tr(
+                                        '+{base} · +{correct} acerto',
+                                        {
+                                          'base': fmt(InsightsEconomyConfig.quizQuestionAnswered),
+                                          'correct': fmt(
+                                            InsightsEconomyConfig.quizQuestionAnswered +
+                                                InsightsEconomyConfig.quizQuestionCorrectBonus,
+                                          ),
+                                        },
+                                      ),
                                     ),
                                     (
-                                      label: 'Concluir prova',
+                                      label: context.tr('Concluir prova'),
                                       value: '+${fmt(InsightsEconomyConfig.examCompleted)} · +${fmt(InsightsEconomyConfig.examHighScoreBonus)} ≥80%',
                                     ),
                                   ],
@@ -500,18 +539,24 @@ class _ShopScreenState extends State<ShopScreen> {
                                   context,
                                   icon: Icons.style_rounded,
                                   accent: secondaryCol,
-                                  title: 'Flashcards',
-                                  actionLabel: 'Revisar Flashcards',
+                                  title: context.tr('Flashcards'),
+                                  actionLabel: context.tr('Revisar Flashcards'),
                                   onAction: () => RootScreen.switchTab(2),
                                   pushActionToBottom: wide,
                                   rules: [
                                     (
-                                      label: 'Revisão no prazo',
-                                      value: '+${fmt(InsightsEconomyConfig.flashcardDueReview)} por card',
+                                      label: context.tr('Revisão no prazo'),
+                                      value: context.tr(
+                                        '+{amount} por card',
+                                        {'amount': fmt(InsightsEconomyConfig.flashcardDueReview)},
+                                      ),
                                     ),
                                     (
-                                      label: 'Difícil superado',
-                                      value: '+${fmt(InsightsEconomyConfig.flashcardHardRedeemedBonus)} bônus',
+                                      label: context.tr('Difícil superado'),
+                                      value: context.tr(
+                                        '+{amount} bônus',
+                                        {'amount': fmt(InsightsEconomyConfig.flashcardHardRedeemedBonus)},
+                                      ),
                                     ),
                                   ],
                                 );
@@ -519,16 +564,16 @@ class _ShopScreenState extends State<ShopScreen> {
                                   context,
                                   icon: Icons.local_fire_department_rounded,
                                   accent: AsterConstants.ambar,
-                                  title: 'Metas & Streaks',
+                                  title: context.tr('Metas & Streaks'),
                                   pushActionToBottom: wide,
                                   rules: [
                                     (
-                                      label: 'Meta diária / semana',
+                                      label: context.tr('Meta diária / semana'),
                                       value: '+${fmt(InsightsEconomyConfig.dailyGoalHit)} / +${fmt(InsightsEconomyConfig.weeklyGoalHit)}',
                                     ),
                                     (
-                                      label: 'Marcos de streak',
-                                      value: '+${fmt(20)} a +${fmt(300)}',
+                                      label: context.tr('Marcos de streak'),
+                                      value: context.tr('+{min} a +{max}', {'min': fmt(20), 'max': fmt(300)}),
                                     ),
                                   ],
                                 );
@@ -574,7 +619,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           section: _ShopSection.all,
                           key: const Key('shop_section_all'),
                           icon: Icons.grid_view_rounded,
-                          label: 'Tudo',
+                          label: context.tr('Tudo'),
                           expand: w < 640,
                         ),
                         _buildSectionTab(
@@ -582,7 +627,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           section: _ShopSection.themes,
                           key: const Key('shop_section_themes'),
                           icon: Icons.palette_rounded,
-                          label: 'Temas & Visual',
+                          label: context.tr('Temas & Visual'),
                           expand: w < 640,
                         ),
                         _buildSectionTab(
@@ -590,7 +635,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           section: _ShopSection.arsenal,
                           key: const Key('shop_section_arsenal'),
                           icon: Icons.shield_rounded,
-                          label: 'Arsenal de Estudo',
+                          label: context.tr('Arsenal de Estudo'),
                           expand: w < 640,
                         ),
                         _buildSectionTab(
@@ -598,7 +643,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           section: _ShopSection.identity,
                           key: const Key('shop_section_identity'),
                           icon: Icons.workspace_premium_rounded,
-                          label: 'Identidade & Status',
+                          label: context.tr('Identidade & Status'),
                           expand: w < 640,
                         ),
                       ];
@@ -630,9 +675,9 @@ class _ShopScreenState extends State<ShopScreen> {
                       context,
                       icon: Icons.palette_rounded,
                       accent: primaryCol,
-                      title: 'Temas & Personalização Visual',
-                      subtitle: 'Paletas permanentes para transformar todo o visual do Noesis',
-                      badge: '${AsterTheme.availableThemes.length} temas + VIP',
+                      title: context.tr('Temas & Personalização Visual'),
+                      subtitle: context.tr('Paletas permanentes para transformar todo o visual do Noesis'),
+                      badge: context.tr('{count} temas + VIP', {'count': AsterTheme.availableThemes.length}),
                     ),
                     const SizedBox(height: 12),
 
@@ -641,11 +686,11 @@ class _ShopScreenState extends State<ShopScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _buildFilterChip(context, _ShopFilter.all, 'Todos (${AsterTheme.availableThemes.length})'),
-                        _buildFilterChip(context, _ShopFilter.available, 'Disponíveis'),
-                        _buildFilterChip(context, _ShopFilter.owned, 'Desbloqueados'),
-                        _buildFilterChip(context, _ShopFilter.light, 'Claros'),
-                        _buildFilterChip(context, _ShopFilter.dark, 'Escuros'),
+                        _buildFilterChip(context, _ShopFilter.all, context.tr('Todos ({count})', {'count': AsterTheme.availableThemes.length})),
+                        _buildFilterChip(context, _ShopFilter.available, context.tr('Disponíveis')),
+                        _buildFilterChip(context, _ShopFilter.owned, context.tr('Desbloqueados')),
+                        _buildFilterChip(context, _ShopFilter.light, context.tr('Claros')),
+                        _buildFilterChip(context, _ShopFilter.dark, context.tr('Escuros')),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -696,7 +741,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     const SizedBox(height: 20),
 
                     Text(
-                      'PERSONALIZAÇÃO VISUAL PERMANENTE · EM BREVE',
+                      context.tr('PERSONALIZAÇÃO VISUAL PERMANENTE · EM BREVE'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -707,47 +752,47 @@ class _ShopScreenState extends State<ShopScreen> {
                     const SizedBox(height: 10),
                     _buildRoadmapGrid(
                       context,
-                      items: const [
+                      items: [
                         (
                           icon: Icons.colorize_rounded,
-                          accent: Color(0xFF7C6CF0),
-                          title: 'Cor de destaque personalizada',
-                          description: 'Troque o roxo/destaque principal dentro de qualquer tema.',
+                          accent: const Color(0xFF7C6CF0),
+                          title: context.tr('Cor de destaque personalizada'),
+                          description: context.tr('Troque o roxo/destaque principal dentro de qualquer tema.'),
                           priceLabel: '250',
                         ),
                         (
                           icon: Icons.timer_rounded,
-                          accent: Color(0xFF0284C7),
-                          title: 'Estilos do timer',
-                          description: 'Visual em anel, digital grande, minimalista ou retrô.',
+                          accent: const Color(0xFF0284C7),
+                          title: context.tr('Estilos do timer'),
+                          description: context.tr('Visual em anel, digital grande, minimalista ou retrô.'),
                           priceLabel: '150–300',
                         ),
                         (
                           icon: Icons.wallpaper_rounded,
-                          accent: Color(0xFF10B981),
-                          title: 'Fundos do dashboard',
-                          description: 'Gradientes, padrões e texturas suaves de fundo.',
+                          accent: const Color(0xFF10B981),
+                          title: context.tr('Fundos do dashboard'),
+                          description: context.tr('Gradientes, padrões e texturas suaves de fundo.'),
                           priceLabel: '300',
                         ),
                         (
                           icon: Icons.text_fields_rounded,
-                          accent: Color(0xFFEC4899),
-                          title: 'Fontes da interface',
-                          description: 'Serifada para leitura longa nos cadernos ou monospace.',
+                          accent: const Color(0xFFEC4899),
+                          title: context.tr('Fontes da interface'),
+                          description: context.tr('Serifada para leitura longa nos cadernos ou monospace.'),
                           priceLabel: '200',
                         ),
                         (
                           icon: Icons.flip_rounded,
-                          accent: Color(0xFF8B5CF6),
-                          title: 'Estilo dos flashcards',
-                          description: 'Animação de virada, bordas e cores personalizadas do verso.',
+                          accent: const Color(0xFF8B5CF6),
+                          title: context.tr('Estilo dos flashcards'),
+                          description: context.tr('Animação de virada, bordas e cores personalizadas do verso.'),
                           priceLabel: '200',
                         ),
                         (
                           icon: Icons.interests_rounded,
-                          accent: Color(0xFFF97316),
-                          title: 'Ícones da barra lateral',
-                          description: 'Traço fino, preenchido ou duotone para toda a navegação.',
+                          accent: const Color(0xFFF97316),
+                          title: context.tr('Ícones da barra lateral'),
+                          description: context.tr('Traço fino, preenchido ou duotone para toda a navegação.'),
                           priceLabel: '300',
                         ),
                       ],
@@ -761,16 +806,18 @@ class _ShopScreenState extends State<ShopScreen> {
                         final shields = shop.streakProtectors;
                         final maxShields = shop.maxStreakProtectors;
                         final badgeText = shields == 0
-                            ? 'Nenhum selo guardado'
-                            : '$shields/$maxShields ${shields == 1 ? 'selo guardado' : 'selos guardados'}';
+                            ? context.tr('Nenhum selo guardado')
+                            : shields == 1
+                                ? context.tr('{shields}/{max} selo guardado', {'shields': shields, 'max': maxShields})
+                                : context.tr('{shields}/{max} selos guardados', {'shields': shields, 'max': maxShields});
                         return _buildSectionHeader(
                           context,
                           icon: Icons.donut_large_rounded,
                           customIcon: const ConsistencySealIcon(size: 24),
                           accent: AsterConstants.menta,
-                          title: 'Arsenal de Estudo',
+                          title: context.tr('Arsenal de Estudo'),
                           subtitle:
-                              'Utilitários para preservar sua consistência, manter o foco e acelerar revisões',
+                              context.tr('Utilitários para preservar sua consistência, manter o foco e acelerar revisões'),
                           badge: badgeText,
                         );
                       },
@@ -779,7 +826,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     _buildStreakProtectorCard(context, balance: balance),
                     const SizedBox(height: 18),
                     Text(
-                      'PRÓXIMOS UTILITÁRIOS · EM BREVE',
+                      context.tr('PRÓXIMOS UTILITÁRIOS · EM BREVE'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -790,47 +837,47 @@ class _ShopScreenState extends State<ShopScreen> {
                     const SizedBox(height: 10),
                     _buildRoadmapGrid(
                       context,
-                      items: const [
+                      items: [
                         (
                           icon: Icons.inventory_2_rounded,
-                          accent: Color(0xFF7C6CF0),
-                          title: 'Pacotes de decks prontos',
-                          description: 'Baralhos temáticos curados (ex.: Security+). Conteúdo extra por enquanto em breve.',
+                          accent: const Color(0xFF7C6CF0),
+                          title: context.tr('Pacotes de decks prontos'),
+                          description: context.tr('Baralhos temáticos curados (ex.: Security+). Conteúdo extra por enquanto em breve.'),
                           priceLabel: '300',
                         ),
                         (
                           icon: Icons.schedule_send_rounded,
-                          accent: Color(0xFF3DD598),
-                          title: 'Adiar revisão (consumível)',
-                          description: 'Máx. 1x por semana: empurra os flashcards do dia para amanhã sem quebrar a sequência.',
+                          accent: const Color(0xFF3DD598),
+                          title: context.tr('Adiar revisão (consumível)'),
+                          description: context.tr('Máx. 1x por semana: empurra os flashcards do dia para amanhã sem quebrar a sequência.'),
                           priceLabel: '60',
                         ),
                         (
                           icon: Icons.psychology_alt_rounded,
-                          accent: Color(0xFFEC4899),
-                          title: 'Personas do Noesis AI',
-                          description: 'Professor Socrático, Revisor Rigoroso e Explique como se eu tivesse 12 anos.',
+                          accent: const Color(0xFFEC4899),
+                          title: context.tr('Personas do Noesis AI'),
+                          description: context.tr('Professor Socrático, Revisor Rigoroso e Explique como se eu tivesse 12 anos.'),
                           priceLabel: '400',
                         ),
                         (
                           icon: Icons.headphones_rounded,
-                          accent: Color(0xFF06B6D4),
-                          title: 'Sons de foco no timer',
-                          description: 'Pacotes de chuva, lo-fi, ruído branco e biblioteca durante a sessão.',
+                          accent: const Color(0xFF06B6D4),
+                          title: context.tr('Sons de foco no timer'),
+                          description: context.tr('Pacotes de chuva, lo-fi, ruído branco e biblioteca durante a sessão.'),
                           priceLabel: '250',
                         ),
                         (
                           icon: Icons.widgets_rounded,
-                          accent: Color(0xFFF59E0B),
-                          title: 'Widgets extras do dashboard',
-                          description: 'Contagem regressiva para a prova e cartões avançados de ritmo.',
+                          accent: const Color(0xFFF59E0B),
+                          title: context.tr('Widgets extras do dashboard'),
+                          description: context.tr('Contagem regressiva para a prova e cartões avançados de ritmo.'),
                           priceLabel: '200',
                         ),
                         (
                           icon: Icons.event_available_rounded,
-                          accent: Color(0xFF10B981),
-                          title: 'Dia de folga semanal',
-                          description: 'Escolha 1 dia fixo de descanso na semana sem gastar selo de consistência.',
+                          accent: const Color(0xFF10B981),
+                          title: context.tr('Dia de folga semanal'),
+                          description: context.tr('Escolha 1 dia fixo de descanso na semana sem gastar selo de consistência.'),
                           priceLabel: '120',
                         ),
                       ],
@@ -843,10 +890,10 @@ class _ShopScreenState extends State<ShopScreen> {
                       context,
                       icon: Icons.workspace_premium_rounded,
                       accent: AsterVipColors.goldDark,
-                      title: 'Identidade & Status',
+                      title: context.tr('Identidade & Status'),
                       subtitle:
-                          'Capas, molduras e títulos compráveis com Insights ou exclusivos para assinantes VIP',
-                      badge: '${ProfileCosmeticsCatalog.all.length} itens + VIP',
+                          context.tr('Capas, molduras e títulos compráveis com Insights ou exclusivos para assinantes VIP'),
+                      badge: context.tr('{count} itens + VIP', {'count': ProfileCosmeticsCatalog.all.length}),
                     ),
                     const SizedBox(height: 12),
                     _buildIdentityStoreSection(
@@ -935,7 +982,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Livro de transações (${ShopService.currencyName})',
+                            context.tr('Livro de transações ({currency})', {'currency': ShopService.currencyName}),
                             style: GoogleFonts.manrope(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w800,
@@ -943,7 +990,7 @@ class _ShopScreenState extends State<ShopScreen> {
                             ),
                           ),
                           Text(
-                            'Acompanhe separadamente suas conquistas nos estudos e investimentos na Loja',
+                            context.tr('Acompanhe separadamente suas conquistas nos estudos e investimentos na Loja'),
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               color: AsterTheme.textMuted(context),
@@ -969,14 +1016,14 @@ class _ShopScreenState extends State<ShopScreen> {
                       context,
                       key: const Key('transactions_filter_all'),
                       filter: _TransactionFilter.all,
-                      label: 'Todos (${transactions.length})',
+                      label: context.tr('Todos ({count})', {'count': transactions.length}),
                       activeColor: primaryCol,
                     ),
                     _buildTxFilterPill(
                       context,
                       key: const Key('transactions_filter_earned'),
                       filter: _TransactionFilter.earned,
-                      label: 'Conquistados (${earnedList.length})',
+                      label: context.tr('Conquistados ({count})', {'count': earnedList.length}),
                       icon: Icons.south_west_rounded,
                       activeColor: AsterConstants.menta,
                     ),
@@ -984,7 +1031,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       context,
                       key: const Key('transactions_filter_spent'),
                       filter: _TransactionFilter.spent,
-                      label: 'Investidos (${spentList.length})',
+                      label: context.tr('Investidos ({count})', {'count': spentList.length}),
                       icon: Icons.north_east_rounded,
                       activeColor: AsterConstants.coral,
                     ),
@@ -1003,29 +1050,37 @@ class _ShopScreenState extends State<ShopScreen> {
                 _buildLedgerSummaryTile(
                   context,
                   key: const Key('ledger_summary_earned'),
-                  label: 'CONQUISTADOS NOS ESTUDOS',
+                  label: context.tr('CONQUISTADOS NOS ESTUDOS'),
                   amountText: '+$totalEarned',
-                  subtitle:
-                      '${earnedList.length} ${earnedList.length == 1 ? 'recompensa' : 'recompensas'} recebidas',
+                  subtitle: context.tr(
+                    earnedList.length == 1
+                        ? '{count} recompensa recebida'
+                        : '{count} recompensas recebidas',
+                    {'count': earnedList.length},
+                  ),
                   accent: AsterConstants.menta,
                   icon: Icons.trending_up_rounded,
                 ),
                 _buildLedgerSummaryTile(
                   context,
                   key: const Key('ledger_summary_spent'),
-                  label: 'INVESTIDOS NA LOJA',
+                  label: context.tr('INVESTIDOS NA LOJA'),
                   amountText: totalSpent > 0 ? '-$totalSpent' : '0',
-                  subtitle:
-                      '${spentList.length} ${spentList.length == 1 ? 'resgate realizado' : 'resgates realizados'}',
+                  subtitle: context.tr(
+                    spentList.length == 1
+                        ? '{count} resgate realizado'
+                        : '{count} resgates realizados',
+                    {'count': spentList.length},
+                  ),
                   accent: AsterConstants.coral,
                   icon: Icons.shopping_bag_outlined,
                 ),
                 _buildLedgerSummaryTile(
                   context,
                   key: const Key('ledger_summary_balance'),
-                  label: 'SALDO DISPONÍVEL',
+                  label: context.tr('SALDO DISPONÍVEL'),
                   amountText: '$currentBalance',
-                  subtitle: 'Pronto para usar na Loja',
+                  subtitle: context.tr('Pronto para usar na Loja'),
                   accent: primaryCol,
                   icon: Icons.account_balance_wallet_outlined,
                 ),
@@ -1074,8 +1129,8 @@ class _ShopScreenState extends State<ShopScreen> {
                   Expanded(
                     child: Text(
                       _txFilter == _TransactionFilter.spent
-                          ? 'Nenhum investimento realizado ainda — explore os temas e o Selo de Consistência acima.'
-                          : 'Nenhuma conquista registrada neste filtro ainda.',
+                          ? context.tr('Nenhum investimento realizado ainda — explore os temas e o Selo de Consistência acima.')
+                          : context.tr('Nenhuma conquista registrada neste filtro ainda.'),
                       style: GoogleFonts.manrope(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
@@ -1125,8 +1180,8 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
                 label: Text(
                   _showAllTransactions
-                      ? 'Mostrar menos'
-                      : 'Ver todas as movimentações (${filtered.length})',
+                      ? context.tr('Mostrar menos')
+                      : context.tr('Ver todas as movimentações ({count})', {'count': filtered.length}),
                   style: GoogleFonts.manrope(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -1260,45 +1315,46 @@ class _ShopScreenState extends State<ShopScreen> {
 
   ({String category, IconData icon}) _resolveTransactionMeta(ShopTransaction tx) {
     final descLower = tx.description.toLowerCase();
-    if (descLower.contains('no grupo')) {
-      return (category: 'Grupo', icon: Icons.groups_rounded);
+    if (AgentIntentKeywords.groupTxMarkers.any(descLower.contains) ||
+        descLower.contains(NoesisL10n.tr('Grupo').toLowerCase())) {
+      return (category: NoesisL10n.tr('Grupo'), icon: Icons.groups_rounded);
     }
     if (tx.reference == 'streak_protector') {
-      return (category: 'Selo de Consistência', icon: Icons.verified_outlined);
+      return (category: NoesisL10n.tr('Selo de Consistência'), icon: Icons.verified_outlined);
     }
     if (tx.reference.startsWith('theme:')) {
-      return (category: 'Tema', icon: Icons.palette_outlined);
+      return (category: NoesisL10n.tr('Tema'), icon: Icons.palette_outlined);
     }
     switch (tx.source) {
       case 'quiz_answer':
       case 'quiz_question':
       case 'quiz_complete':
       case 'exam_complete':
-        return (category: 'Simulado', icon: Icons.quiz_outlined);
+        return (category: NoesisL10n.tr('Simulado'), icon: Icons.quiz_outlined);
       case 'flashcard_review':
       case 'flashcard_hard_redeemed':
       case 'flashcard_redeem':
-        return (category: 'Flashcard', icon: Icons.style_outlined);
+        return (category: NoesisL10n.tr('Flashcard'), icon: Icons.style_outlined);
       case 'notebook_review':
-        return (category: 'Caderno', icon: Icons.menu_book_outlined);
+        return (category: NoesisL10n.tr('Caderno'), icon: Icons.menu_book_outlined);
       case 'daily_goal':
       case 'weekly_goal':
       case 'streak_milestone':
       case 'streak':
-        return (category: 'Meta & Consistência', icon: Icons.track_changes_rounded);
+        return (category: NoesisL10n.tr('Meta & Consistência'), icon: Icons.track_changes_rounded);
       case 'ranking_reward':
-        return (category: 'Ranking', icon: Icons.emoji_events_outlined);
+        return (category: NoesisL10n.tr('Ranking'), icon: Icons.emoji_events_outlined);
       case 'achievement':
-        return (category: 'Conquista', icon: Icons.military_tech_rounded);
+        return (category: NoesisL10n.tr('Conquista'), icon: Icons.military_tech_rounded);
       case 'theme_purchase':
-        return (category: 'Tema', icon: Icons.palette_outlined);
+        return (category: NoesisL10n.tr('Tema'), icon: Icons.palette_outlined);
       case 'streak_protector_purchase':
       case 'streak_protector':
-        return (category: 'Selo de Consistência', icon: Icons.verified_outlined);
+        return (category: NoesisL10n.tr('Selo de Consistência'), icon: Icons.verified_outlined);
       default:
         return tx.amount >= 0
-            ? (category: 'Conquista', icon: Icons.auto_awesome_outlined)
-            : (category: 'Resgate', icon: Icons.shopping_bag_outlined);
+            ? (category: NoesisL10n.tr('Conquista'), icon: Icons.auto_awesome_outlined)
+            : (category: NoesisL10n.tr('Resgate'), icon: Icons.shopping_bag_outlined);
     }
   }
 
@@ -1308,8 +1364,10 @@ class _ShopScreenState extends State<ShopScreen> {
     final txDay = DateTime(dt.year, dt.month, dt.day);
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');
-    if (txDay == today) return 'Hoje · $hh:$mm';
-    if (txDay == today.subtract(const Duration(days: 1))) return 'Ontem · $hh:$mm';
+    if (txDay == today) return NoesisL10n.tr('Hoje · {time}', {'time': '$hh:$mm'});
+    if (txDay == today.subtract(const Duration(days: 1))) {
+      return NoesisL10n.tr('Ontem · {time}', {'time': '$hh:$mm'});
+    }
     final dd = dt.day.toString().padLeft(2, '0');
     final mo = dt.month.toString().padLeft(2, '0');
     return '$dd/$mo · $hh:$mm';
@@ -1371,7 +1429,15 @@ class _ShopScreenState extends State<ShopScreen> {
                       ),
                     ),
                     Text(
-                      '${isFreeSeal ? 'Recompensa gratuita' : (isEarned ? 'Conquista' : 'Investimento')} · ${_formatTransactionTime(tx.createdAt)}',
+                      context.tr(
+                        '{kind} · {time}',
+                        {
+                          'kind': isFreeSeal
+                              ? context.tr('Recompensa gratuita')
+                              : (isEarned ? context.tr('Conquista') : context.tr('Investimento')),
+                          'time': _formatTransactionTime(tx.createdAt),
+                        },
+                      ),
                       style: GoogleFonts.manrope(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
@@ -1392,7 +1458,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             child: isFreeSeal
                 ? Text(
-                    '+1 Selo',
+                    context.tr('+1 Selo'),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -1773,7 +1839,7 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
         child: isFull
             ? Text(
-                'Estoque cheio ($maxShields/$maxShields)',
+                context.tr('Estoque cheio ({count}/{max})', {'count': maxShields, 'max': maxShields}),
                 style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
               )
             : Row(
@@ -1785,7 +1851,9 @@ class _ShopScreenState extends State<ShopScreen> {
                     const SizedBox(width: 6),
                   ],
                   Text(
-                    canAfford ? 'Guardar selo' : 'Precisa de $price',
+                    canAfford
+                        ? context.tr('Guardar selo')
+                        : context.tr('Precisa de {price}', {'price': price}),
                     style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                   ),
                 ],
@@ -1797,7 +1865,7 @@ class _ShopScreenState extends State<ShopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SELO DE CONSISTÊNCIA',
+          context.tr('SELO DE CONSISTÊNCIA'),
           style: GoogleFonts.manrope(
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
@@ -1830,7 +1898,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
         ),
         Text(
-          'guardados',
+          context.tr('guardados'),
           style: GoogleFonts.manrope(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -1854,7 +1922,7 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
         const SizedBox(height: 10),
         Text(
-          'Cada vaga guarda 1 selo.',
+          context.tr('Cada vaga guarda 1 selo.'),
           style: GoogleFonts.manrope(fontSize: 11, color: mutedCol),
         ),
         if (protectedDaysCount > 0) ...[
@@ -1866,7 +1934,9 @@ class _ShopScreenState extends State<ShopScreen> {
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
             ),
             child: Text(
-              '$protectedDaysCount ${protectedDaysCount == 1 ? 'dia protegido' : 'dias protegidos'}',
+              protectedDaysCount == 1
+                  ? context.tr('{count} dia protegido', {'count': protectedDaysCount})
+                  : context.tr('{count} dias protegidos', {'count': protectedDaysCount}),
               style: GoogleFonts.manrope(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
@@ -1882,7 +1952,7 @@ class _ShopScreenState extends State<ShopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'COMO APARECE NA SUA CONSISTÊNCIA',
+          context.tr('COMO APARECE NA SUA CONSISTÊNCIA'),
           style: GoogleFonts.manrope(
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
@@ -1919,7 +1989,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                 ),
                 const SizedBox(width: 5),
-                Text('sem estudo', style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
+                Text(context.tr('sem estudo'), style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
               ],
             ),
             Row(
@@ -1934,7 +2004,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                 ),
                 const SizedBox(width: 5),
-                Text('estudou', style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
+                Text(context.tr('estudou'), style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
               ],
             ),
             Row(
@@ -1947,14 +2017,14 @@ class _ShopScreenState extends State<ShopScreen> {
                   activeColor: secondaryCol,
                 ),
                 const SizedBox(width: 5),
-                Text('dia protegido', style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
+                Text(context.tr('dia protegido'), style: GoogleFonts.manrope(fontSize: 10.5, color: mutedCol)),
               ],
             ),
           ],
         ),
         const SizedBox(height: 8),
         Text(
-          'Passou um dia sem estudar? O selo entra sozinho e preenche a lacuna, então sua sequência continua.',
+          context.tr('Passou um dia sem estudar? O selo entra sozinho e preenche a lacuna, então sua sequência continua.'),
           style: GoogleFonts.manrope(
             fontSize: 11.5,
             height: 1.4,
@@ -1979,7 +2049,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      'COMO GANHAR SELOS GRÁTIS (MÁX. $maxShields GUARDADOS)',
+                      context.tr('COMO GANHAR SELOS GRÁTIS (MÁX. {max} GUARDADOS)', {'max': maxShields}),
                       style: GoogleFonts.manrope(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
@@ -1997,7 +2067,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '+1 selo grátis a cada 100 questões respondidas',
+                      context.tr('+1 selo grátis a cada 100 questões respondidas'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -2022,7 +2092,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '+1 selo grátis a cada 10h estudadas na semana',
+                      context.tr('+1 selo grátis a cada 10h estudadas na semana'),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -2042,7 +2112,7 @@ class _ShopScreenState extends State<ShopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'PREÇO',
+          context.tr('PREÇO'),
           style: GoogleFonts.manrope(
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
@@ -2086,7 +2156,7 @@ class _ShopScreenState extends State<ShopScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Seu saldo', style: GoogleFonts.manrope(fontSize: 11, color: mutedCol)),
+            Text(context.tr('Seu saldo'), style: GoogleFonts.manrope(fontSize: 11, color: mutedCol)),
             Text(
               '$balance / $price',
               style: GoogleFonts.jetBrainsMono(
@@ -2111,7 +2181,7 @@ class _ShopScreenState extends State<ShopScreen> {
         ctaButton,
         const SizedBox(height: 8),
         Text(
-          'Ganhe Insights estudando em Simulados e Flashcards.',
+          context.tr('Ganhe Insights estudando em Simulados e Flashcards.'),
           style: GoogleFonts.manrope(fontSize: 10.5, height: 1.35, color: mutedCol),
         ),
       ],
@@ -2166,8 +2236,8 @@ class _ShopScreenState extends State<ShopScreen> {
             spacing: 8,
             runSpacing: 6,
             children: [
-              _protectorTag(context, Icons.bolt_rounded, 'Ativação automática'),
-              _protectorTag(context, Icons.donut_large_rounded, 'Preserva sua consistência'),
+              _protectorTag(context, Icons.bolt_rounded, context.tr('Ativação automática')),
+              _protectorTag(context, Icons.donut_large_rounded, context.tr('Preserva sua consistência')),
               InkWell(
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 onTap: isVip ? null : () => showVipPrivilegesModal(context),
@@ -2191,8 +2261,11 @@ class _ShopScreenState extends State<ShopScreen> {
                       Flexible(
                         child: Text(
                           isVip
-                              ? 'VIP ativo: até 10 guardados · $monthlyFreeCount/2 grátis no mês'
-                              : 'VIP: até 10 guardados (2×) + 2 grátis/mês',
+                              ? context.tr(
+                                  'VIP ativo: até 10 guardados · {count}/2 grátis no mês',
+                                  {'count': monthlyFreeCount},
+                                )
+                              : context.tr('VIP: até 10 guardados (2×) + 2 grátis/mês'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -2305,7 +2378,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                 ),
                                 child: Text(
-                                  'Em breve',
+                                  context.tr('Em breve'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w800,
@@ -2419,7 +2492,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              option.name,
+                              option.localizedName,
                               style: GoogleFonts.manrope(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
@@ -2427,7 +2500,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               ),
                             ),
                             Text(
-                              option.tag,
+                              option.localizedTag,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.manrope(
@@ -2456,7 +2529,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       ),
                       const SizedBox(width: 6),
                       Tooltip(
-                        message: 'Pré-visualizar tema',
+                        message: context.tr('Pré-visualizar tema'),
                         child: Icon(
                           Icons.visibility_outlined,
                           size: 16,
@@ -2469,7 +2542,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 const SizedBox(height: 12),
 
                 Text(
-                  option.description,
+                  option.localizedDescription,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -2493,7 +2566,7 @@ class _ShopScreenState extends State<ShopScreen> {
                             (c) => Container(
                               width: 14,
                               height: 14,
-                              margin: const EdgeInsets.only(right: 5),
+                              margin: const EdgeInsetsDirectional.only(end: 5),
                               decoration: BoxDecoration(
                                 color: c,
                                 shape: BoxShape.circle,
@@ -2511,7 +2584,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'Em uso',
+                          context.tr('Em uso'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -2531,7 +2604,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         child: Text(
-                          'Equipar',
+                          context.tr('Equipar'),
                           style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                         ),
                       )
@@ -2557,7 +2630,9 @@ class _ShopScreenState extends State<ShopScreen> {
                             const InsightCoinIcon(size: 13),
                             const SizedBox(width: 5),
                             Text(
-                              canAfford ? 'Comprar · $price' : '$price',
+                              canAfford
+                                  ? context.tr('Comprar · {price}', {'price': price})
+                                  : '$price',
                               style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                             ),
                           ],
@@ -2621,7 +2696,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
-                                  customOpt.name,
+                                  customOpt.localizedName,
                                   style: GoogleFonts.manrope(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w800,
@@ -2632,7 +2707,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               ],
                             ),
                             Text(
-                              'VIP · Escolha as 6 cores RGB',
+                              context.tr('VIP · Escolha as 6 cores RGB'),
                               style: GoogleFonts.manrope(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w600,
@@ -2643,7 +2718,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         ),
                       ),
                       Tooltip(
-                        message: 'Pré-visualizar tema',
+                        message: context.tr('Pré-visualizar tema'),
                         child: Icon(
                           Icons.visibility_outlined,
                           size: 16,
@@ -2655,7 +2730,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Tema exclusivo para apoiadores VIP com editor RGB completo em Configurações.',
+                  context.tr('Tema exclusivo para apoiadores VIP com editor RGB completo em Configurações.'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -2666,7 +2741,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
                 const SizedBox(height: 12),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: OutlinedButton(
                     onPressed: () {
                       if (isVip) {
@@ -2681,7 +2756,9 @@ class _ShopScreenState extends State<ShopScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Text(
-                      isVip ? (equipped ? 'Editar em Config' : 'Abrir Editor RGB') : 'Exclusivo VIP',
+                      isVip
+                          ? (equipped ? context.tr('Editar em Config') : context.tr('Abrir Editor RGB'))
+                          : context.tr('Exclusivo VIP'),
                       style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                     ),
                   ),
@@ -2726,7 +2803,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Temas Especiais',
+                        context.tr('Temas Especiais'),
                         style: GoogleFonts.manrope(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -2734,7 +2811,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         ),
                       ),
                       Text(
-                        'Especiais · só por conquista',
+                        context.tr('Especiais · só por conquista'),
                         style: GoogleFonts.manrope(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -2749,7 +2826,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Temas especiais desbloqueados por grandes marcos (ex.: 30 dias de streak) na Fase 2.',
+            context.tr('Temas especiais desbloqueados por grandes marcos (ex.: 30 dias de streak) na Fase 2.'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.manrope(
@@ -2760,7 +2837,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           const SizedBox(height: 12),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
@@ -2768,7 +2845,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'Só por conquista',
+                context.tr('Só por conquista'),
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -2803,7 +2880,7 @@ class _ShopScreenState extends State<ShopScreen> {
           children: [
             SoftClayChoiceChip(
               key: const Key('shop_identity_tab_banner'),
-              label: 'Capas (${ProfileCosmeticsCatalog.banners.length})',
+              label: context.tr('Capas ({count})', {'count': ProfileCosmeticsCatalog.banners.length}),
               icon: Icons.gradient_rounded,
               selected: _identityCategory == ProfileCosmeticCategory.banner,
               compact: true,
@@ -2811,7 +2888,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             SoftClayChoiceChip(
               key: const Key('shop_identity_tab_frame'),
-              label: 'Molduras (${ProfileCosmeticsCatalog.frames.length})',
+              label: context.tr('Molduras ({count})', {'count': ProfileCosmeticsCatalog.frames.length}),
               icon: Icons.blur_circular_rounded,
               selected: _identityCategory == ProfileCosmeticCategory.frame,
               compact: true,
@@ -2819,7 +2896,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             SoftClayChoiceChip(
               key: const Key('shop_identity_tab_title'),
-              label: 'Títulos (${ProfileCosmeticsCatalog.titles.length})',
+              label: context.tr('Títulos ({count})', {'count': ProfileCosmeticsCatalog.titles.length}),
               icon: Icons.workspace_premium_rounded,
               selected: _identityCategory == ProfileCosmeticCategory.title,
               compact: true,
@@ -2827,7 +2904,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             SoftClayChoiceChip(
               key: const Key('shop_identity_filter_vip'),
-              label: 'Exclusivos VIP',
+              label: context.tr('Exclusivos VIP'),
               icon: Icons.workspace_premium_rounded,
               selected: _identityVipOnlyFilter,
               accentColor: AsterVipColors.goldDark,
@@ -2873,7 +2950,7 @@ class _ShopScreenState extends State<ShopScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Depois de desbloquear Capas, Molduras ou Títulos aqui, troque quando quiser em Perfil -> Editar.',
+                  context.tr('Depois de desbloquear Capas, Molduras ou Títulos aqui, troque quando quiser em Perfil -> Editar.'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2922,7 +2999,7 @@ class _ShopScreenState extends State<ShopScreen> {
             children: [
               Expanded(
                 child: Text(
-                  item.name,
+                  item.localizedName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -2940,7 +3017,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           const SizedBox(height: 3),
           Text(
-            item.subtitle,
+            item.localizedSubtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.manrope(
@@ -2959,7 +3036,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: Text(
-                      'Equipado',
+                      context.tr('Equipado'),
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -2991,7 +3068,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               const VipCrownIcon(size: 13),
                               const SizedBox(width: 5),
                               Text(
-                                'Exclusivo VIP',
+                                context.tr('Exclusivo VIP'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
@@ -3002,7 +3079,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           )
                         : unlocked || item.isFree
                             ? Text(
-                                item.isVipOnly ? 'Equipar VIP' : 'Equipar',
+                                item.isVipOnly ? context.tr('Equipar VIP') : context.tr('Equipar'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -3015,7 +3092,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                   const InsightCoinIcon(size: 13),
                                   const SizedBox(width: 5),
                                   Text(
-                                    '${item.price} Insights',
+                                    context.tr('{price} Insights', {'price': item.price}),
                                     style: GoogleFonts.jetBrainsMono(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -3097,7 +3174,7 @@ class _ShopScreenState extends State<ShopScreen> {
               Icon(item.icon, size: 13.5, color: item.accentColor),
               const SizedBox(width: 5),
               Text(
-                item.name,
+                item.localizedName,
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
@@ -3172,12 +3249,12 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
         final accent3 = option.accents.length > 2 ? option.accents[2] : AsterConstants.coral;
 
         final swatchEntries = [
-          (label: 'Fundo', color: option.bg),
-          (label: 'Cartões', color: option.surface),
-          (label: 'Primária', color: option.primary),
-          (label: 'Acento 1', color: accent1),
-          (label: 'Acento 2', color: accent2),
-          (label: 'Acento 3', color: accent3),
+          (label: context.tr('Fundo'), color: option.bg),
+          (label: context.tr('Cartões'), color: option.surface),
+          (label: context.tr('Primária'), color: option.primary),
+          (label: context.tr('Acento 1'), color: accent1),
+          (label: context.tr('Acento 2'), color: accent2),
+          (label: context.tr('Acento 3'), color: accent3),
         ];
 
         return Dialog(
@@ -3234,7 +3311,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      'Pré-visualização · ${option.name}',
+                                      context.tr('Pré-visualização · {name}', {'name': option.localizedName}),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.manrope(
@@ -3251,7 +3328,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                 ],
                               ),
                               Text(
-                                '${option.tag} · ${option.description}',
+                                '${option.localizedTag} · ${option.localizedDescription}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.manrope(
@@ -3263,7 +3340,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Fechar',
+                          tooltip: context.tr('Fechar'),
                           onPressed: () => Navigator.of(context).pop(),
                           icon: Icon(Icons.close_rounded, color: AsterTheme.textMuted(context)),
                         ),
@@ -3339,7 +3416,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                               Icon(Icons.home_rounded, size: 13, color: option.onPrimary),
                                               const SizedBox(width: 6),
                                               Text(
-                                                'Dashboard',
+                                                context.tr('Dashboard'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
@@ -3350,9 +3427,9 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                           ),
                                         ),
                                         const SizedBox(height: 6),
-                                        _mockSidebarItem(option, Icons.assignment_rounded, 'Simulados'),
+                                        _mockSidebarItem(option, Icons.assignment_rounded, context.tr('Simulados')),
                                         const SizedBox(height: 4),
-                                        _mockSidebarItem(option, Icons.style_rounded, 'Flashcards'),
+                                        _mockSidebarItem(option, Icons.style_rounded, context.tr('Flashcards')),
                                         const SizedBox(height: 16),
                                         Container(
                                           padding: const EdgeInsets.all(9),
@@ -3364,7 +3441,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'META SEMANAL',
+                                                context.tr('META SEMANAL'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 8.5,
                                                   fontWeight: FontWeight.w800,
@@ -3400,7 +3477,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Bom dia, Estudante.',
+                                                    context.tr('Bom dia, Estudante.'),
                                                     style: GoogleFonts.manrope(
                                                       fontSize: 15,
                                                       fontWeight: FontWeight.w800,
@@ -3408,7 +3485,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                     ),
                                                   ),
                                                   Text(
-                                                    '7 dias de streak · Foco ativo',
+                                                    context.tr('7 dias de streak · Foco ativo'),
                                                     style: GoogleFonts.manrope(
                                                       fontSize: 10.5,
                                                       color: option.mutedColor,
@@ -3458,7 +3535,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      'Revisões Hoje',
+                                                      context.tr('Revisões Hoje'),
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 10.5,
                                                         fontWeight: FontWeight.w700,
@@ -3467,7 +3544,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                      '18 cards',
+                                                      context.tr('18 cards'),
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 16,
                                                         fontWeight: FontWeight.w800,
@@ -3482,7 +3559,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                         borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text(
-                                                        '84% retenção',
+                                                        context.tr('84% retenção'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 9.5,
                                                           fontWeight: FontWeight.w800,
@@ -3506,7 +3583,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      'Simulado Ativo',
+                                                      context.tr('Simulado Ativo'),
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 10.5,
                                                         fontWeight: FontWeight.w700,
@@ -3515,7 +3592,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
-                                                      '30 questões',
+                                                      context.tr('30 questões'),
                                                       style: GoogleFonts.manrope(
                                                         fontSize: 16,
                                                         fontWeight: FontWeight.w800,
@@ -3530,7 +3607,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                         borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text(
-                                                        'Prazo: Amanhã',
+                                                        context.tr('Prazo: Amanhã'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 9.5,
                                                           fontWeight: FontWeight.w800,
@@ -3563,7 +3640,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
                                                   child: Text(
-                                                    'Pesquisar baralho ou caderno...',
+                                                    context.tr('Pesquisar baralho ou caderno...'),
                                                     maxLines: 1,
                                                     overflow: TextOverflow.ellipsis,
                                                     style: GoogleFonts.manrope(
@@ -3581,7 +3658,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                                 ),
                                                 child: Text(
-                                                  'Iniciar Sessão',
+                                                  context.tr('Iniciar Sessão'),
                                                   style: GoogleFonts.manrope(
                                                     fontSize: 10.5,
                                                     fontWeight: FontWeight.w800,
@@ -3610,8 +3687,8 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                             children: [
                               Text(
                                 isCustom
-                                    ? 'PALETA DO TEMPLATE · TOQUE PARA EDITAR'
-                                    : 'PALETA DO TEMPLATE',
+                                    ? context.tr('PALETA DO TEMPLATE · TOQUE PARA EDITAR')
+                                    : context.tr('PALETA DO TEMPLATE'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
@@ -3643,7 +3720,9 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                     size: 14,
                                   ),
                                   label: Text(
-                                    _showRgbEditor ? 'Ocultar RGB' : 'Editar RGB ao vivo',
+                                    _showRgbEditor
+                                        ? context.tr('Ocultar RGB')
+                                        : context.tr('Editar RGB ao vivo'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -3728,7 +3807,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                 setState(() => _selectedRgbSlot = slot);
                               },
                               margin: const EdgeInsets.only(top: 14),
-                              title: 'Prévia RGB em Tempo Real (6 Cores)',
+                              title: context.tr('Prévia RGB em Tempo Real (6 Cores)'),
                               onChanged: (nextColors) {
                                 setState(() => _previewCustomColors = nextColors);
                               },
@@ -3768,7 +3847,10 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                               const InsightCoinIcon(size: 16),
                               const SizedBox(width: 6),
                               Text(
-                                'Seu saldo: $balance ${ShopService.currencyName}',
+                                context.tr(
+                                  'Seu saldo: {balance} {currency}',
+                                  {'balance': balance, 'currency': ShopService.currencyName},
+                                ),
                                 style: GoogleFonts.jetBrainsMono(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -3782,8 +3864,8 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                             constraints: const BoxConstraints(maxWidth: 320),
                             child: Text(
                               isVip
-                                  ? 'Edite as cores acima e salve no tema VIP.'
-                                  : 'Teste sua paleta RGB ao vivo na prévia acima.',
+                                  ? context.tr('Edite as cores acima e salve no tema VIP.')
+                                  : context.tr('Teste sua paleta RGB ao vivo na prévia acima.'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.manrope(
@@ -3801,7 +3883,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(),
                               child: Text(
-                                'Fechar',
+                                context.tr('Fechar'),
                                 style: GoogleFonts.manrope(
                                   fontWeight: FontWeight.w700,
                                   color: AsterTheme.textMuted(context),
@@ -3824,7 +3906,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                   ),
                                   icon: const Icon(Icons.tune_rounded, size: 15),
                                   label: Text(
-                                    'Abrir RGB',
+                                    context.tr('Abrir RGB'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -3851,7 +3933,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                   foregroundColor: AsterVipColors.inkBase,
                                 ),
                                 child: Text(
-                                  isVip ? 'Salvar e Equipar' : 'Desbloquear VIP',
+                                  isVip ? context.tr('Salvar e Equipar') : context.tr('Desbloquear VIP'),
                                   style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
                                 ),
                               ),
@@ -3863,7 +3945,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  'Em uso',
+                                  context.tr('Em uso'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w800,
@@ -3883,7 +3965,7 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                   foregroundColor: AsterTheme.onPrimary(context),
                                 ),
                                 child: Text(
-                                  'Equipar ${option.name}',
+                                  context.tr('Equipar {name}', {'name': option.localizedName}),
                                   style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
                                 ),
                               )
@@ -3909,8 +3991,14 @@ class _ThemePreviewModalState extends State<_ThemePreviewModal> {
                                 ),
                                 label: Text(
                                   canAfford
-                                      ? 'Comprar por $price ${ShopService.currencySymbol}'
-                                      : 'Faltam ${price - balance} ${ShopService.currencySymbol}',
+                                      ? context.tr('Comprar por {price} {symbol}', {
+                                          'price': price,
+                                          'symbol': ShopService.currencySymbol,
+                                        })
+                                      : context.tr('Faltam {missing} {symbol}', {
+                                          'missing': price - balance,
+                                          'symbol': ShopService.currencySymbol,
+                                        }),
                                   style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
                                 ),
                               ),

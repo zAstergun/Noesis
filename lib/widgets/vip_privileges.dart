@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/supabase_service.dart';
 import '../features/auth/auth_screen.dart';
 
@@ -162,7 +163,7 @@ class VipBadgePill extends StatelessWidget {
 
     if (!interactive) return pill;
     return Tooltip(
-      message: 'Membro VIP Aster · Clique para ver privilégios VIP',
+      message: context.tr('Membro VIP Aster · Clique para ver privilégios VIP'),
       child: InkWell(
         onTap: onTap ?? () => showVipPrivilegesModal(context),
         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -247,9 +248,9 @@ class VipAvatarCircle extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         ring,
-        Positioned(
+        PositionedDirectional(
           top: -4,
-          right: -6,
+          end: -6,
           child: VipBadgePill(
             key: const Key('vip_avatar_badge'),
             size: badgeSize,
@@ -356,11 +357,11 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      Positioned(
+                      PositionedDirectional(
                         top: 0,
-                        right: 0,
+                        end: 0,
                         child: IconButton(
-                          tooltip: 'Fechar',
+                          tooltip: context.tr('Fechar'),
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close_rounded, color: Color(0xFF989BB8)),
                           constraints: const BoxConstraints(),
@@ -433,7 +434,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                     border: Border.all(color: AsterVipColors.gold.withValues(alpha: 0.32)),
                   ),
                   child: Text(
-                    'CARGO DE APOIADOR DOS PROJETOS DO ASTER',
+                    context.tr('CARGO DE APOIADOR DOS PROJETOS DO ASTER'),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -445,7 +446,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                 const SizedBox(height: 7),
 
                 Text(
-                  'Privilégios VIP no Noesis',
+                  context.tr('Privilégios VIP no Noesis'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 20,
@@ -456,7 +457,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'O VIP é o cargo oficial para apoiadores do ecossistema Aster. Ao se tornar VIP, seus privilégios são válidos em todos os projetos do Aster!',
+                  context.tr('O VIP é o cargo oficial para apoiadores do ecossistema Aster. Ao se tornar VIP, seus privilégios são válidos em todos os projetos do Aster!'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 12,
@@ -481,7 +482,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                         const SizedBox(width: 7),
                         Flexible(
                           child: Text(
-                            'Você já é um membro VIP ativo! Muito obrigado pelo apoio.',
+                            context.tr('Você já é um membro VIP ativo! Muito obrigado pelo apoio.'),
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -502,7 +503,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'PRIVILÉGIOS & VANTAGENS INCLUSAS',
+                      context.tr('PRIVILÉGIOS & VANTAGENS INCLUSAS'),
                       style: GoogleFonts.jetBrainsMono(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -517,7 +518,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Acesso Completo',
+                        context.tr('Acesso Completo'),
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
@@ -542,58 +543,58 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                       children: [
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.workspace_premium_rounded,
-                            title: 'Destaque & Selo VIP',
-                            description: 'Aro dourado e selo VIP em todos os projetos do Aster.',
+                            title: context.tr('Destaque & Selo VIP'),
+                            description: context.tr('Aro dourado e selo VIP em todos os projetos do Aster.'),
                           ),
                         ),
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.gif_box_rounded,
-                            title: 'Avatar com GIF Animado',
-                            description: 'Use GIFs animados como foto nos projetos do Aster.',
+                            title: context.tr('Avatar com GIF Animado'),
+                            description: context.tr('Use GIFs animados como foto nos projetos do Aster.'),
                           ),
                         ),
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.palette_rounded,
-                            title: 'Tema & Cores RGB VIP',
-                            description: 'Tema personalizado 6 cores e seletor RGB livre no app.',
+                            title: context.tr('Tema & Cores RGB VIP'),
+                            description: context.tr('Tema personalizado 6 cores e seletor RGB livre no app.'),
                           ),
                         ),
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.history_rounded,
-                            title: 'Histórico do Noesis AI',
-                            description: 'Acesse e retome conversas salvas no Noesis AI.',
+                            title: context.tr('Histórico do Noesis AI'),
+                            description: context.tr('Acesse e retome conversas salvas no Noesis AI.'),
                           ),
                         ),
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.bolt_rounded,
-                            title: 'Insights em Dobro (2×)',
-                            description: 'Dobra (2×) seus Insights base + bônus de Elo em simulados, flashcards e metas.',
+                            title: context.tr('Insights em Dobro (2×)'),
+                            description: context.tr('Dobra (2×) seus Insights base + bônus de Elo em simulados, flashcards e metas.'),
                           ),
                         ),
                         SizedBox(
                           width: tileW,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.all_inclusive_rounded,
-                            title: 'Ganho Diário Ilimitado',
-                            description: 'Sem limite diário ou redução de ganhos em nenhum Elo (dobro sobre todos os bônus).',
+                            title: context.tr('Ganho Diário Ilimitado'),
+                            description: context.tr('Sem limite diário ou redução de ganhos em nenhum Elo (dobro sobre todos os bônus).'),
                           ),
                         ),
                         SizedBox(
                           width: constraints.maxWidth,
-                          child: const _VipPerkTile(
+                          child: _VipPerkTile(
                             icon: Icons.donut_large_rounded,
-                            title: 'Selo de Consistência VIP (10 + 2/mês grátis)',
-                            description: 'Guarde até 10 selos de consistência (dobro de 5) e receba 2 grátis por mês.',
+                            title: context.tr('Selo de Consistência VIP (10 + 2/mês grátis)'),
+                            description: context.tr('Guarde até 10 selos de consistência (dobro de 5) e receba 2 grátis por mês.'),
                           ),
                         ),
                       ],
@@ -614,7 +615,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '⚡ Como ativar seus privilégios VIP:',
+                        context.tr('⚡ Como ativar seus privilégios VIP:'),
                         style: GoogleFonts.manrope(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -623,7 +624,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '1. Faça uma contribuição em donate.asterdev.me.\n2. Envie um e-mail para donate@asterdev.me com seu @usuario para ativarmos na sua conta Aster.',
+                        context.tr('1. Faça uma contribuição em donate.asterdev.me.\n2. Envie um e-mail para donate@asterdev.me com seu @usuario para ativarmos na sua conta Aster.'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           height: 1.38,
@@ -652,7 +653,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                         ),
                         icon: const Icon(Icons.open_in_new_rounded, size: 16),
                         label: Text(
-                          'Apoiar no donate.asterdev.me',
+                          context.tr('Apoiar no donate.asterdev.me'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
@@ -686,7 +687,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                           color: _copiedEmail ? AsterConstants.menta : AsterVipColors.gold,
                         ),
                         label: Text(
-                          _copiedEmail ? 'Copiado!' : 'donate@asterdev.me',
+                          _copiedEmail ? context.tr('Copiado!') : 'donate@asterdev.me',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
@@ -715,7 +716,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                         ),
                         icon: const DiscordLogoWidget(size: 15),
                         label: Text(
-                          'Discord do Aster',
+                          context.tr('Discord do Aster'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.manrope(
@@ -738,7 +739,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                           ),
                         ),
                         child: Text(
-                          'Fechar',
+                          context.tr('Fechar'),
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -764,7 +765,7 @@ class _VipPrivilegesModalState extends State<VipPrivilegesModal> {
                           Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
                           const SizedBox(height: 8),
                           Align(
-                            alignment: Alignment.centerRight,
+                            alignment: AlignmentDirectional.centerEnd,
                             child: closeButton,
                           ),
                         ],

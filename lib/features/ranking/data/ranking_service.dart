@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/shop_service.dart';
 import '../../../core/supabase_service.dart';
 import '../../quizzes/data/saved_exams_store_stub.dart'
@@ -167,9 +168,9 @@ class RankingService {
     _storedStreakDays = streakDays;
 
     final currentUid = SupabaseService.currentUser?.id ?? 'local_user';
-    final displayName = (profile?['full_name'] ?? 'Estudante').toString().trim();
+    final displayName = (profile?['full_name'] ?? NoesisL10n.tr('Estudante')).toString().trim();
     final username = SupabaseService.sanitizeUsername(
-      (profile?['channel'] ?? 'estudante').toString(),
+      (profile?['channel'] ?? NoesisL10n.tr('estudante')).toString(),
     );
     final avatarUrl = profile?['avatar_url']?.toString();
     final bio = profile?['bio']?.toString();
@@ -177,8 +178,8 @@ class RankingService {
 
     final currentCompetitor = RankingCompetitor(
       userId: currentUid,
-      username: username.isEmpty ? 'estudante' : username,
-      displayName: displayName.isEmpty ? 'Estudante' : displayName,
+      username: username.isEmpty ? NoesisL10n.tr('estudante') : username,
+      displayName: displayName.isEmpty ? NoesisL10n.tr('Estudante') : displayName,
       avatarUrl: avatarUrl,
       bio: bio,
       isVip: isVip,
@@ -237,8 +238,8 @@ class RankingService {
     final uid = SupabaseService.currentUser?.id ?? 'local_user';
     final snapshotUser = RankingCompetitor(
       userId: uid,
-      username: 'estudante',
-      displayName: 'Você',
+      username: NoesisL10n.tr('estudante'),
+      displayName: NoesisL10n.tr('Você'),
       isCurrentUser: true,
       eloIndex: prevElo,
       weeklyInsights: _storedWeekInsights,
@@ -278,11 +279,14 @@ class RankingService {
         targetEloIndex: nextElo,
       );
       _accumulatedRankingScore += pointsEarned;
-      final nextTierName = RankingEloCatalog.tierAt(nextElo).name;
+      final nextTierName = RankingEloCatalog.tierAt(nextElo).localizedName;
       ShopService.instance.awardForRankingReward(
         idempotentId: 'ranking_promo_${closedWeekId}_elo_$nextElo',
         amount: rewardInsights,
-        description: 'Promoção no Ranking (#$finalRank) · Elo $nextTierName',
+        description: NoesisL10n.tr(
+          'Promoção no Ranking (#{rank}) · Elo {tier}',
+          {'rank': '$finalRank', 'tier': nextTierName},
+        ),
       );
     } else if (nextElo == prevElo &&
         zone != RankingZone.demotion &&
@@ -301,8 +305,10 @@ class RankingService {
       ShopService.instance.awardForRankingReward(
         idempotentId: 'ranking_retention_${closedWeekId}_s$_retentionStreakWeeks',
         amount: rewardInsights,
-        description:
-            'Permanência no Ranking ($_retentionStreakWeeksª sem. seguida) · Elo ${tier.name}',
+        description: NoesisL10n.tr(
+          'Permanência no Ranking ({weeks}ª sem. seguida) · Elo {tier}',
+          {'weeks': '$_retentionStreakWeeks', 'tier': tier.localizedName},
+        ),
       );
     } else if (nextElo < prevElo) {
       // Rebaixamento reinicia a sequência consecutiva de permanência, preservando o acumulado já ganho
@@ -367,8 +373,8 @@ class RankingService {
         list.add(
           RankingCompetitor(
             userId: id,
-            username: SupabaseService.sanitizeUsername((map['channel'] ?? 'estudante').toString()),
-            displayName: (map['full_name'] ?? 'Estudante').toString(),
+            username: SupabaseService.sanitizeUsername((map['channel'] ?? NoesisL10n.tr('estudante')).toString()),
+            displayName: (map['full_name'] ?? NoesisL10n.tr('Estudante')).toString(),
             avatarUrl: map['avatar_url']?.toString(),
             bio: map['bio']?.toString(),
             isVip: map['is_vip'] == true,
@@ -432,18 +438,18 @@ class RankingService {
     required int needed,
     required String excludeUserId,
   }) {
-    const profiles = [
-      (handle: 'camila_sec', name: 'Camila Rocha', bio: 'Foco em Security+ e redes.', vip: true),
-      (handle: 'lucas_dev', name: 'Lucas Mendes', bio: 'Resolvendo simulados diários.', vip: false),
-      (handle: 'mariana_med', name: 'Mariana Alves', bio: 'Flashcards de revisão espaçada.', vip: true),
-      (handle: 'rafael_cloud', name: 'Rafael Costa', bio: 'Arquitetura Cloud e Linux.', vip: false),
-      (handle: 'beatriz_law', name: 'Beatriz Nunes', bio: 'Consistência acima de tudo.', vip: false),
-      (handle: 'pedro_ita', name: 'Pedro Henrique', bio: 'Trilhas intensivas de cálculo.', vip: true),
-      (handle: 'julia_ux', name: 'Júlia Martins', bio: 'Anotações organizadas por caderno.', vip: false),
-      (handle: 'thiago_net', name: 'Thiago Ribeiro', bio: 'Estudando protocolos TCP/IP.', vip: false),
-      (handle: 'larissa_bio', name: 'Larissa Gomes', bio: 'Meta diária firme todo dia.', vip: false),
-      (handle: 'bruno_data', name: 'Bruno Souza', bio: 'Banco de dados e estatística.', vip: true),
-      (handle: 'fernanda_en', name: 'Fernanda Lima', bio: 'Prática ativa de idiomas.', vip: false),
+    final profiles = [
+      (handle: 'camila_sec', name: 'Camila Rocha', bio: NoesisL10n.tr('Foco em Security+ e redes.'), vip: true),
+      (handle: 'lucas_dev', name: 'Lucas Mendes', bio: NoesisL10n.tr('Resolvendo simulados diários.'), vip: false),
+      (handle: 'mariana_med', name: 'Mariana Alves', bio: NoesisL10n.tr('Flashcards de revisão espaçada.'), vip: true),
+      (handle: 'rafael_cloud', name: 'Rafael Costa', bio: NoesisL10n.tr('Arquitetura Cloud e Linux.'), vip: false),
+      (handle: 'beatriz_law', name: 'Beatriz Nunes', bio: NoesisL10n.tr('Consistência acima de tudo.'), vip: false),
+      (handle: 'pedro_ita', name: 'Pedro Henrique', bio: NoesisL10n.tr('Trilhas intensivas de cálculo.'), vip: true),
+      (handle: 'julia_ux', name: 'Júlia Martins', bio: NoesisL10n.tr('Anotações organizadas por caderno.'), vip: false),
+      (handle: 'thiago_net', name: 'Thiago Ribeiro', bio: NoesisL10n.tr('Estudando protocolos TCP/IP.'), vip: false),
+      (handle: 'larissa_bio', name: 'Larissa Gomes', bio: NoesisL10n.tr('Meta diária firme todo dia.'), vip: false),
+      (handle: 'bruno_data', name: 'Bruno Souza', bio: NoesisL10n.tr('Banco de dados e estatística.'), vip: true),
+      (handle: 'fernanda_en', name: 'Fernanda Lima', bio: NoesisL10n.tr('Prática ativa de idiomas.'), vip: false),
     ];
 
     final baseForElo = 60 + eloIndex * 95;
@@ -467,7 +473,7 @@ class RankingService {
           userId: id,
           username: p.handle,
           displayName: p.name,
-          bio: p.bio,
+          bio: NoesisL10n.tr(p.bio),
           isVip: p.vip,
           eloIndex: eloIndex,
           weeklyInsights: insights,

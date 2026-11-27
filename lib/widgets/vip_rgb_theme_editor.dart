@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/supabase_service.dart';
 import '../core/theme.dart';
 import 'vip_privileges.dart';
@@ -400,7 +401,7 @@ class _VipRgbSpectrumPickerState extends State<VipRgbSpectrumPicker> {
             alignment: WrapAlignment.spaceBetween,
             children: [
               Text(
-                'TONS VIP',
+                context.tr('TONS VIP'),
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -552,7 +553,7 @@ Future<Color?> showVipRgbColorPickerDialog(
                           ),
                           const SizedBox(width: 9),
                           Text(
-                            'Seletor RGB VIP',
+                            context.tr('Seletor RGB VIP'),
                             style: GoogleFonts.manrope(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -570,7 +571,7 @@ Future<Color?> showVipRgbColorPickerDialog(
                               ),
                             ),
                             child: Text(
-                              'ATIVO',
+                              context.tr('ATIVO'),
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -604,7 +605,7 @@ Future<Color?> showVipRgbColorPickerDialog(
                           TextButton(
                             onPressed: () => Navigator.of(dialogCtx).pop(),
                             child: Text(
-                              'Cancelar',
+                              context.tr('Cancelar'),
                               style: GoogleFonts.manrope(
                                 color: const Color(0xFFA0A4C4),
                                 fontWeight: FontWeight.w700,
@@ -623,7 +624,7 @@ Future<Color?> showVipRgbColorPickerDialog(
                               ),
                             ),
                             child: Text(
-                              'Aplicar Cor',
+                              context.tr('Aplicar Cor'),
                               style: GoogleFonts.manrope(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
@@ -669,8 +670,8 @@ class VipRgbColorTrigger extends StatelessWidget {
       builder: (context, isVip, _) {
         return Tooltip(
           message: isVip
-              ? 'Escolher cor personalizada (Seletor RGB VIP)'
-              : 'Cores RGB personalizadas (Exclusivo VIP)',
+              ? context.tr('Escolher cor personalizada (Seletor RGB VIP)')
+              : context.tr('Cores RGB personalizadas (Exclusivo VIP)'),
           child: InkWell(
             key: const Key('vip_rgb_picker_trigger'),
             onTap: () async {
@@ -740,9 +741,9 @@ class VipRgbColorTrigger extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
+                PositionedDirectional(
                   top: -3,
-                  right: -3,
+                  end: -3,
                   child: Container(
                     width: 14,
                     height: 14,
@@ -791,14 +792,14 @@ class VipRgbThemeEditor extends StatefulWidget {
 }
 
 class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
-  static const List<({String label, String hint})> _slotMeta = [
-    (label: '1 · Fundo', hint: 'Cor de fundo geral'),
-    (label: '2 · Cartões', hint: 'Superfície de cards'),
-    (label: '3 · Primária', hint: 'Botões e destaques'),
-    (label: '4 · Acento 1', hint: 'Progresso e revisões'),
-    (label: '5 · Acento 2', hint: 'Metas e estatísticas'),
-    (label: '6 · Acento 3', hint: 'Alertas e provas'),
-  ];
+  static List<({String label, String hint})> get _slotMeta => [
+        (label: NoesisL10n.tr('1 · Fundo'), hint: NoesisL10n.tr('Cor de fundo geral')),
+        (label: NoesisL10n.tr('2 · Cartões'), hint: NoesisL10n.tr('Superfície de cards')),
+        (label: NoesisL10n.tr('3 · Primária'), hint: NoesisL10n.tr('Botões e destaques')),
+        (label: NoesisL10n.tr('4 · Acento 1'), hint: NoesisL10n.tr('Progresso e revisões')),
+        (label: NoesisL10n.tr('5 · Acento 2'), hint: NoesisL10n.tr('Metas e estatísticas')),
+        (label: NoesisL10n.tr('6 · Acento 3'), hint: NoesisL10n.tr('Alertas e provas')),
+      ];
 
   late int _selectedSlot;
 
@@ -849,7 +850,7 @@ class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  widget.title ?? 'Seletor RGB VIP (6 Cores)',
+                  widget.title ?? context.tr('Seletor RGB VIP (6 Cores)'),
                   style: GoogleFonts.manrope(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
@@ -862,7 +863,7 @@ class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
                 onPressed: widget.onReset,
                 icon: Icon(Icons.restart_alt_rounded, size: 15, color: AsterTheme.textMuted(context)),
                 label: Text(
-                  'Restaurar Padrão',
+                  context.tr('Restaurar Padrão'),
                   style: GoogleFonts.manrope(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -910,7 +911,7 @@ class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
                       ),
                       const SizedBox(width: 7),
                       Text(
-                        _slotMeta[idx].label,
+                        context.tr(_slotMeta[idx].label),
                         style: GoogleFonts.manrope(
                           fontSize: 11.5,
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -939,7 +940,7 @@ class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
                 Row(
                   children: [
                     Text(
-                      _slotMeta[_selectedSlot].label,
+                      context.tr(_slotMeta[_selectedSlot].label),
                       style: GoogleFonts.manrope(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -949,7 +950,7 @@ class _VipRgbThemeEditorState extends State<VipRgbThemeEditor> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _slotMeta[_selectedSlot].hint,
+                        context.tr(_slotMeta[_selectedSlot].hint),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(

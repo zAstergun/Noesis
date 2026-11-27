@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants.dart';
+import '../core/localization/noesis_l10n.dart';
 import '../core/shop_service.dart';
 import '../core/supabase_service.dart';
 import '../core/theme.dart';
@@ -131,7 +132,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
     final displayName = (profile['full_name'] ??
             user?.userMetadata?['full_name'] ??
             user?.userMetadata?['name'] ??
-            'Estudante')
+            NoesisL10n.tr('Estudante'))
         .toString();
 
     final rawChannel = (profile['channel'] ?? user?.userMetadata?['channel'] ?? '').toString();
@@ -200,8 +201,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
           if (SupabaseService.isGifUpload(bytes: picked.bytes, fileName: picked.fileName) &&
               !SupabaseService.isCurrentUserVip) {
             _showNotice(
-              'GIF Exclusivo para VIP',
-              'Apenas membros VIP podem usar GIFs na foto de perfil. Torne-se VIP para desbloquear avatares animados!',
+              context.tr('GIF Exclusivo para VIP'),
+              context.tr('Apenas membros VIP podem usar GIFs na foto de perfil. Torne-se VIP para desbloquear avatares animados!'),
               _ProfileNoticeTone.warning,
             );
             return;
@@ -215,7 +216,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       }
 
       final files = await FilePicker.pickFiles(
-        dialogTitle: 'Selecionar foto de perfil',
+        dialogTitle: context.tr('Selecionar foto de perfil'),
         type: FileType.image,
       );
       if (files.isEmpty || !mounted) return;
@@ -223,14 +224,14 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       final bytes = await file.readAsBytes();
       if (!mounted) return;
       if (bytes.length > 5 * 1024 * 1024) {
-        _showNotice('Arquivo Muito Grande', 'A foto de perfil deve ter no máximo 5 MB.', _ProfileNoticeTone.warning);
+        _showNotice(context.tr('Arquivo Muito Grande'), context.tr('A foto de perfil deve ter no máximo 5 MB.'), _ProfileNoticeTone.warning);
         return;
       }
       if (SupabaseService.isGifUpload(bytes: bytes, fileName: file.name) &&
           !SupabaseService.isCurrentUserVip) {
         _showNotice(
-          'GIF Exclusivo para VIP',
-          'Apenas membros VIP podem usar GIFs na foto de perfil. Torne-se VIP para desbloquear avatares animados!',
+          context.tr('GIF Exclusivo para VIP'),
+          context.tr('Apenas membros VIP podem usar GIFs na foto de perfil. Torne-se VIP para desbloquear avatares animados!'),
           _ProfileNoticeTone.warning,
         );
         return;
@@ -241,7 +242,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       });
     } catch (e) {
       if (mounted) {
-        _showNotice('Erro ao Selecionar Imagem', SupabaseService.translateAuthError(e), _ProfileNoticeTone.error);
+        _showNotice(context.tr('Erro ao Selecionar Imagem'), SupabaseService.translateAuthError(e), _ProfileNoticeTone.error);
       }
     }
   }
@@ -268,11 +269,11 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
     });
 
     if (res.ok) {
-      _showNotice('Foto Atualizada', res.message ?? 'Foto de perfil salva com sucesso!', _ProfileNoticeTone.success);
+      _showNotice(context.tr('Foto Atualizada'), res.message ?? context.tr('Foto de perfil salva com sucesso!'), _ProfileNoticeTone.success);
     } else {
       _showNotice(
-        res.requiresVip ? 'GIF Exclusivo para VIP' : 'Erro no Avatar',
-        res.error ?? 'Não foi possível enviar a imagem.',
+        res.requiresVip ? context.tr('GIF Exclusivo para VIP') : context.tr('Erro no Avatar'),
+        res.error ?? context.tr('Não foi possível enviar a imagem.'),
         res.requiresVip ? _ProfileNoticeTone.warning : _ProfileNoticeTone.error,
       );
     }
@@ -291,9 +292,9 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       }
     });
     if (res.ok) {
-      _showNotice('Foto Removida', res.message ?? 'Foto de perfil removida.', _ProfileNoticeTone.info);
+      _showNotice(context.tr('Foto Removida'), res.message ?? context.tr('Foto de perfil removida.'), _ProfileNoticeTone.info);
     } else {
-      _showNotice('Erro', res.error ?? 'Não foi possível remover a foto.', _ProfileNoticeTone.error);
+      _showNotice(context.tr('Erro'), res.error ?? context.tr('Não foi possível remover a foto.'), _ProfileNoticeTone.error);
     }
   }
 
@@ -314,9 +315,9 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         _currentSavedChannel = clean;
         _usernameController.text = clean;
       });
-      _showNotice('Perfil Atualizado', res.message ?? 'Suas informações foram salvas.', _ProfileNoticeTone.success);
+      _showNotice(context.tr('Perfil Atualizado'), res.message ?? context.tr('Suas informações foram salvas.'), _ProfileNoticeTone.success);
     } else {
-      _showNotice('Erro ao Salvar Perfil', res.error ?? 'Não foi possível atualizar o perfil.', _ProfileNoticeTone.error);
+      _showNotice(context.tr('Erro ao Salvar Perfil'), res.error ?? context.tr('Não foi possível atualizar o perfil.'), _ProfileNoticeTone.error);
     }
   }
 
@@ -330,12 +331,12 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
     if (res.ok) {
       final isSignedOut = SupabaseService.currentUser == null;
       _showNotice(
-        isSignedOut ? 'E-mail Atualizado' : 'Link de Confirmação Enviado',
-        res.message ?? 'E-mail atualizado.',
+        isSignedOut ? context.tr('E-mail Atualizado') : context.tr('Link de Confirmação Enviado'),
+        res.message ?? context.tr('E-mail atualizado.'),
         isSignedOut ? _ProfileNoticeTone.success : _ProfileNoticeTone.info,
       );
     } else {
-      _showNotice('Erro no E-mail', res.error ?? 'Não foi possível atualizar o e-mail.', _ProfileNoticeTone.warning);
+      _showNotice(context.tr('Erro no E-mail'), res.error ?? context.tr('Não foi possível atualizar o e-mail.'), _ProfileNoticeTone.warning);
     }
   }
 
@@ -354,9 +355,9 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       _currentPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
-      _showNotice('Senha Atualizada', res.message ?? 'Sua senha foi alterada com sucesso!', _ProfileNoticeTone.success);
+      _showNotice(context.tr('Senha Atualizada'), res.message ?? context.tr('Sua senha foi alterada com sucesso!'), _ProfileNoticeTone.success);
     } else {
-      _showNotice('Erro ao Alterar Senha', res.error ?? 'Não foi possível alterar a senha.', _ProfileNoticeTone.warning);
+      _showNotice(context.tr('Erro ao Alterar Senha'), res.error ?? context.tr('Não foi possível alterar a senha.'), _ProfileNoticeTone.warning);
     }
   }
 
@@ -369,10 +370,10 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
 
     final label = provider == OAuthProvider.google ? 'Google' : 'Discord';
     if (res.ok) {
-      _showNotice('Vincular $label', res.message ?? 'Fluxo iniciado.', _ProfileNoticeTone.info);
+      _showNotice(context.tr('Vincular {provider}', {'provider': label}), res.message ?? context.tr('Fluxo iniciado.'), _ProfileNoticeTone.info);
       await _loadIdentities();
     } else {
-      _showNotice('Erro ao Vincular $label', res.error ?? 'Falha ao vincular conta.', _ProfileNoticeTone.error);
+      _showNotice(context.tr('Erro ao Vincular {provider}', {'provider': label}), res.error ?? context.tr('Falha ao vincular conta.'), _ProfileNoticeTone.error);
     }
   }
 
@@ -380,8 +381,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
     _clearNotice();
     if (_identities.length <= 1) {
       _showNotice(
-        'Ação Bloqueada',
-        'Você precisa manter ao menos um método de login ativo para não perder o acesso à sua conta.',
+        context.tr('Ação Bloqueada'),
+        context.tr('Você precisa manter ao menos um método de login ativo para não perder o acesso à sua conta.'),
         _ProfileNoticeTone.warning,
       );
       return;
@@ -393,21 +394,21 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         backgroundColor: AsterTheme.card(ctx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
         title: Text(
-          'Desvincular $providerLabel?',
+          ctx.tr('Desvincular {provider}?', {'provider': providerLabel}),
           style: GoogleFonts.manrope(fontWeight: FontWeight.w800, color: AsterTheme.text(ctx)),
         ),
         content: Text(
-          'Tem certeza de que deseja desvincular sua conta $providerLabel? Você poderá reconectá-la a qualquer momento.',
+          ctx.tr('Tem certeza de que deseja desvincular sua conta {provider}? Você poderá reconectá-la a qualquer momento.', {'provider': providerLabel}),
           style: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.textMuted(ctx)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancelar', style: GoogleFonts.manrope(color: AsterTheme.textMuted(ctx), fontWeight: FontWeight.w700)),
+            child: Text(ctx.tr('Cancelar'), style: GoogleFonts.manrope(color: AsterTheme.textMuted(ctx), fontWeight: FontWeight.w700)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Desvincular', style: GoogleFonts.manrope(color: AsterConstants.coral, fontWeight: FontWeight.w800)),
+            child: Text(ctx.tr('Desvincular'), style: GoogleFonts.manrope(color: AsterConstants.coral, fontWeight: FontWeight.w800)),
           ),
         ],
       ),
@@ -422,10 +423,10 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
     if (!mounted) return;
 
     if (res.ok) {
-      _showNotice('Conta Desvinculada', res.message ?? 'Conta $providerLabel desvinculada com sucesso.', _ProfileNoticeTone.success);
+      _showNotice(context.tr('Conta Desvinculada'), res.message ?? context.tr('Conta {provider} desvinculada com sucesso.', {'provider': providerLabel}), _ProfileNoticeTone.success);
       await _loadIdentities();
     } else {
-      _showNotice('Erro ao Desvincular', res.error ?? 'Não foi possível desvincular.', _ProfileNoticeTone.error);
+      _showNotice(context.tr('Erro ao Desvincular'), res.error ?? context.tr('Não foi possível desvincular.'), _ProfileNoticeTone.error);
     }
   }
 
@@ -501,10 +502,10 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
       builder: (context, _) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final displayName = _nameController.text.trim().isEmpty
-            ? 'Estudante'
+            ? context.tr('Estudante')
             : _nameController.text.trim();
         final cleanChannel = SupabaseService.sanitizeUsername(_usernameController.text);
-        final handleLabel = cleanChannel.isEmpty ? '@usuario' : '@$cleanChannel';
+        final handleLabel = cleanChannel.isEmpty ? context.tr('@usuario') : '@$cleanChannel';
         final initials = displayName.substring(0, displayName.length >= 2 ? 2 : 1).toUpperCase();
 
         final ImageProvider<Object>? avatarProvider = _pendingAvatarBytes != null
@@ -548,7 +549,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
             ),
           ),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
+            padding: const EdgeInsetsDirectional.fromSTEB(22, 18, 16, 18),
             decoration: bannerDecoration,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -598,9 +599,9 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                         ),
                       ),
                     ),
-                    Positioned(
+                    PositionedDirectional(
                       bottom: -2,
-                      right: -2,
+                      end: -2,
                       child: Material(
                         color: isVip ? AsterVipColors.gold : primaryCol,
                         shape: const CircleBorder(),
@@ -671,7 +672,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                               border: Border.all(color: primaryCol.withValues(alpha: 0.32)),
                             ),
                             child: Text(
-                              cleanChannel.isEmpty ? '$handleLabel · padrão' : handleLabel,
+                              cleanChannel.isEmpty ? context.tr('{handle} · padrão', {'handle': handleLabel}) : handleLabel,
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -681,7 +682,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           ),
                           _buildStatusChip(
                             context,
-                            label: isAuthenticated ? 'Conta Aster' : 'Conta Local',
+                            label: isAuthenticated ? context.tr('Conta Aster') : context.tr('Conta Local'),
                             color: isAuthenticated ? AsterConstants.menta : AsterConstants.ambar,
                             backingColor: chipBackFill,
                           ),
@@ -709,7 +710,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                                     const VipCrownIcon(size: 11),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Ver Privilégios VIP',
+                                      context.tr('Ver Privilégios VIP'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w800,
@@ -723,7 +724,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           if (isAuthenticated)
                             _buildStatusChip(
                               context,
-                              label: isEmailConfirmed ? 'E-mail verificado' : 'E-mail não verificado',
+                              label: isEmailConfirmed ? context.tr('E-mail verificado') : context.tr('E-mail não verificado'),
                               color: isEmailConfirmed ? AsterConstants.menta : AsterConstants.ambar,
                               backingColor: chipBackFill,
                             ),
@@ -733,7 +734,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Fechar',
+                  tooltip: context.tr('Fechar'),
                   onPressed: () => Navigator.of(context).pop(),
                   style: chipBackFill != null
                       ? IconButton.styleFrom(backgroundColor: chipBackFill)
@@ -853,7 +854,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
               key: const Key('profile_tab_general'),
               index: 0,
               icon: Icons.person_outline_rounded,
-              label: 'Geral',
+              label: context.tr('Geral'),
               primaryCol: primaryCol,
             ),
           ),
@@ -864,7 +865,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
               key: const Key('profile_tab_security'),
               index: 1,
               icon: Icons.shield_outlined,
-              label: 'Segurança & Contas',
+              label: context.tr('Segurança & Contas'),
               primaryCol: primaryCol,
             ),
           ),
@@ -929,7 +930,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         // Foto de Perfil
         _buildSectionCard(
           context,
-          title: 'Foto de Perfil',
+          title: context.tr('Foto de Perfil'),
           accentColor: primaryCol,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -944,7 +945,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                     onPressed: _uploadingAvatar ? null : _pickAvatar,
                     icon: const Icon(Icons.upload_rounded, size: 16),
                     label: Text(
-                      'Alterar Foto',
+                      context.tr('Alterar Foto'),
                       style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w700),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -959,7 +960,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                       onPressed: _uploadingAvatar ? null : _removeAvatar,
                       icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AsterConstants.coral),
                       label: Text(
-                        'Remover Foto',
+                        context.tr('Remover Foto'),
                         style: GoogleFonts.manrope(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
@@ -969,8 +970,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                     ),
                   Text(
                     SupabaseService.isCurrentUserVip
-                        ? 'PNG, JPG, WEBP ou GIF animado até 5 MB'
-                        : 'PNG, JPG ou WEBP até 5 MB',
+                        ? context.tr('PNG, JPG, WEBP ou GIF animado até 5 MB')
+                        : context.tr('PNG, JPG ou WEBP até 5 MB'),
                     style: GoogleFonts.manrope(fontSize: 11.5, color: AsterTheme.textMuted(context)),
                   ),
                 ],
@@ -994,8 +995,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                       Expanded(
                         child: Text(
                           SupabaseService.isCurrentUserVip
-                              ? 'Seu passe VIP libera GIFs animados na foto de perfil.'
-                              : 'Apenas quem é VIP pode usar GIF na foto de perfil. Toque para ver os privilégios VIP.',
+                              ? context.tr('Seu passe VIP libera GIFs animados na foto de perfil.')
+                              : context.tr('Apenas quem é VIP pode usar GIF na foto de perfil. Toque para ver os privilégios VIP.'),
                           style: GoogleFonts.manrope(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
@@ -1030,7 +1031,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Prévia da nova foto',
+                              context.tr('Prévia da nova foto'),
                               style: GoogleFonts.manrope(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
@@ -1057,7 +1058,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                                   _pendingAvatarFileName = null;
                                 }),
                         child: Text(
-                          'Cancelar',
+                          context.tr('Cancelar'),
                           style: GoogleFonts.manrope(fontSize: 12, color: AsterTheme.textMuted(context)),
                         ),
                       ),
@@ -1071,7 +1072,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         child: Text(
-                          _uploadingAvatar ? 'Salvando...' : 'Salvar Foto',
+                          _uploadingAvatar ? context.tr('Salvando...') : context.tr('Salvar Foto'),
                           style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -1087,12 +1088,12 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         // Identidade (@usuario e Nome de Exibição — lógica StudioOS)
         _buildSectionCard(
           context,
-          title: 'Identidade & Nome de Usuário',
+          title: context.tr('Identidade & Nome de Usuário'),
           accentColor: AsterConstants.lavanda,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildFieldLabel(context, 'NOME DE EXIBIÇÃO'),
+              _buildFieldLabel(context, context.tr('NOME DE EXIBIÇÃO')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_name_field'),
@@ -1101,13 +1102,13 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 onChanged: (_) => setState(() {}),
                 decoration: _inputDecoration(
                   context,
-                  hint: 'Seu nome de exibição',
+                  hint: context.tr('Seu nome de exibição'),
                   icon: Icons.badge_outlined,
                 ),
                 style: GoogleFonts.manrope(fontSize: 13.5, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 10),
-              _buildFieldLabel(context, 'NOME DE USUÁRIO (@ ÚNICO)'),
+              _buildFieldLabel(context, context.tr('NOME DE USUÁRIO (@ ÚNICO)')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_username_field'),
@@ -1126,7 +1127,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 },
                 decoration: _inputDecoration(
                   context,
-                  hint: 'usuario',
+                  hint: context.tr('usuario'),
                   prefixText: '@',
                   icon: Icons.alternate_email_rounded,
                   enabled: !isUsernameLockedByVerification,
@@ -1164,8 +1165,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           Expanded(
                             child: Text(
                               isUsernameLockedByVerification
-                                  ? 'Confirme seu e-mail na caixa de entrada para poder alterar seu @usuario.'
-                                  : 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada para validar a conta.',
+                                  ? context.tr('Confirme seu e-mail na caixa de entrada para poder alterar seu @usuario.')
+                                  : context.tr('Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada para validar a conta.'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
@@ -1192,15 +1193,15 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                                         await SupabaseService.resendSignupConfirmation(email);
                                         if (mounted) {
                                           _showNotice(
-                                            'Confirmação Reenviada',
-                                            'Enviamos um novo link de confirmação para $email.',
+                                            NoesisL10n.tr('Confirmação Reenviada'),
+                                            NoesisL10n.tr('Enviamos um novo link de confirmação para {email}.', {'email': email}),
                                             _ProfileNoticeTone.success,
                                           );
                                         }
                                       } catch (e) {
                                         if (mounted) {
                                           _showNotice(
-                                            'Erro ao Reenviar',
+                                            NoesisL10n.tr('Erro ao Reenviar'),
                                             SupabaseService.translateAuthError(e),
                                             _ProfileNoticeTone.error,
                                           );
@@ -1220,8 +1221,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                               icon: const Icon(Icons.refresh_rounded, size: 14),
                               label: Text(
                                 _resendingEmailVerification
-                                    ? 'Reenviando...'
-                                    : 'Reenviar confirmação',
+                                    ? context.tr('Reenviando...')
+                                    : context.tr('Reenviar confirmação'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
@@ -1238,12 +1239,12 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'Apenas letras minúsculas, números, ".", "_" e "-".',
+                    context.tr('Apenas letras minúsculas, números, ".", "_" e "-".'),
                     style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.textMuted(context)),
                   ),
                 ),
               const SizedBox(height: 14),
-              _buildFieldLabel(context, 'BIO'),
+              _buildFieldLabel(context, context.tr('BIO')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_bio_field'),
@@ -1252,16 +1253,16 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 maxLength: 280,
                 decoration: _inputDecoration(
                   context,
-                  hint: 'Conte brevemente sobre seus objetivos de estudo...',
+                  hint: context.tr('Conte brevemente sobre seus objetivos de estudo...'),
                 ),
                 style: GoogleFonts.manrope(fontSize: 13, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 10),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: SoftClayPillButton(
                   key: const Key('profile_save_button'),
-                  text: _savingProfile ? 'Salvando...' : 'Salvar Perfil',
+                  text: _savingProfile ? context.tr('Salvando...') : context.tr('Salvar Perfil'),
                   onPressed: _savingProfile ? () {} : _saveProfile,
                 ),
               ),
@@ -1282,7 +1283,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
 
     return _buildSectionCard(
       context,
-      title: 'Capa, Moldura & Título',
+      title: context.tr('Capa, Moldura & Título'),
       accentColor: primaryCol,
       child: ListenableBuilder(
         listenable: Listenable.merge([
@@ -1305,7 +1306,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Selecione os itens já desbloqueados para personalizar seu perfil público.',
+                ctx.tr('Selecione os itens já desbloqueados para personalizar seu perfil público.'),
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   color: AsterTheme.textMuted(ctx),
@@ -1318,7 +1319,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 children: [
                   SoftClayChoiceChip(
                     key: const Key('profile_edit_cosmetic_tab_banner'),
-                    label: 'Capas',
+                    label: ctx.tr('Capas'),
                     icon: Icons.gradient_rounded,
                     selected: _cosmeticCategory == ProfileCosmeticCategory.banner,
                     compact: true,
@@ -1326,7 +1327,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                   ),
                   SoftClayChoiceChip(
                     key: const Key('profile_edit_cosmetic_tab_frame'),
-                    label: 'Molduras',
+                    label: ctx.tr('Molduras'),
                     icon: Icons.blur_circular_rounded,
                     selected: _cosmeticCategory == ProfileCosmeticCategory.frame,
                     compact: true,
@@ -1334,7 +1335,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                   ),
                   SoftClayChoiceChip(
                     key: const Key('profile_edit_cosmetic_tab_title'),
-                    label: 'Títulos',
+                    label: ctx.tr('Títulos'),
                     icon: Icons.workspace_premium_rounded,
                     selected: _cosmeticCategory == ProfileCosmeticCategory.title,
                     compact: true,
@@ -1356,8 +1357,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                         await shop.equipProfileItem(item.category, item.id);
                         if (!mounted) return;
                         _showNotice(
-                          'Visual Atualizado',
-                          '${item.name} equipado no seu perfil.',
+                          NoesisL10n.tr('Visual Atualizado'),
+                          NoesisL10n.tr('{item} equipado no seu perfil.', {'item': NoesisL10n.tr(item.name)}),
                           _ProfileNoticeTone.success,
                         );
                       },
@@ -1383,7 +1384,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                               Container(
                                 width: 18,
                                 height: 14,
-                                margin: const EdgeInsets.only(right: 7),
+                                margin: const EdgeInsetsDirectional.only(end: 7),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(5),
                                   gradient: LinearGradient(colors: item.gradientColors),
@@ -1394,7 +1395,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                               const SizedBox(width: 6),
                             ],
                             Text(
-                              item.name,
+                              ctx.tr(item.name),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -1436,8 +1437,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                       Expanded(
                         child: Text(
                           isVip
-                              ? '${lockedItems.length} itens adicionais disponíveis na Loja com Insights.'
-                              : '${lockedItems.length} itens (incluindo exclusivos VIP) disponíveis na Loja.',
+                              ? ctx.tr('{count} itens adicionais disponíveis na Loja com Insights.', {'count': lockedItems.length})
+                              : ctx.tr('{count} itens (incluindo exclusivos VIP) disponíveis na Loja.', {'count': lockedItems.length}),
                           style: GoogleFonts.manrope(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
@@ -1455,7 +1456,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           },
                           icon: const Icon(Icons.storefront_rounded, size: 15),
                           label: Text(
-                            'Abrir Loja',
+                            ctx.tr('Abrir Loja'),
                             style: GoogleFonts.manrope(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
@@ -1485,17 +1486,17 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         // 1. E-mail Vinculado
         _buildSectionCard(
           context,
-          title: 'E-mail Vinculado',
+          title: context.tr('E-mail Vinculado'),
           accentColor: AsterConstants.menta,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Pode ser alterado. Em contas Aster, exige confirmação na caixa de entrada.',
+                context.tr('Pode ser alterado. Em contas Aster, exige confirmação na caixa de entrada.'),
                 style: GoogleFonts.manrope(fontSize: 11.5, color: AsterTheme.textMuted(context)),
               ),
               const SizedBox(height: 10),
-              _buildFieldLabel(context, 'ENDEREÇO DE E-MAIL'),
+              _buildFieldLabel(context, context.tr('ENDEREÇO DE E-MAIL')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_email_field'),
@@ -1503,14 +1504,14 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: _inputDecoration(
                   context,
-                  hint: 'seu-email@aster.app',
+                  hint: context.tr('seu-email@aster.app'),
                   icon: Icons.mail_outline_rounded,
                 ),
                 style: GoogleFonts.manrope(fontSize: 13.5, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 12),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: OutlinedButton(
                   key: const Key('profile_update_email_button'),
                   onPressed: _savingEmail ? null : _saveEmail,
@@ -1521,7 +1522,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    _savingEmail ? 'Salvando...' : 'Atualizar E-mail',
+                    _savingEmail ? context.tr('Salvando...') : context.tr('Atualizar E-mail'),
                     style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -1534,12 +1535,12 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         // 2. Alterar Senha
         _buildSectionCard(
           context,
-          title: 'Alterar Senha',
+          title: context.tr('Alterar Senha'),
           accentColor: AsterConstants.ambar,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildFieldLabel(context, 'SENHA ATUAL'),
+              _buildFieldLabel(context, context.tr('SENHA ATUAL')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_current_password_field'),
@@ -1561,7 +1562,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 style: GoogleFonts.manrope(fontSize: 13.5, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 12),
-              _buildFieldLabel(context, 'NOVA SENHA (MÍN. 8 CARACTERES)'),
+              _buildFieldLabel(context, context.tr('NOVA SENHA (MÍN. 8 CARACTERES)')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_new_password_field'),
@@ -1583,7 +1584,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 style: GoogleFonts.manrope(fontSize: 13.5, color: AsterTheme.text(context)),
               ),
               const SizedBox(height: 12),
-              _buildFieldLabel(context, 'CONFIRMAR NOVA SENHA'),
+              _buildFieldLabel(context, context.tr('CONFIRMAR NOVA SENHA')),
               const SizedBox(height: 6),
               TextField(
                 key: const Key('profile_confirm_password_field'),
@@ -1606,7 +1607,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
               ),
               const SizedBox(height: 14),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: OutlinedButton(
                   key: const Key('profile_update_password_button'),
                   onPressed: _savingPassword ? null : _savePassword,
@@ -1617,7 +1618,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    _savingPassword ? 'Atualizando...' : 'Atualizar Senha',
+                    _savingPassword ? context.tr('Atualizando...') : context.tr('Atualizar Senha'),
                     style: GoogleFonts.manrope(fontSize: 12.5, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -1630,11 +1631,11 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
         // 3. Autenticação SSO / Contas Vinculadas (Google / Gmail & Discord)
         _buildSectionCard(
           context,
-          title: 'Contas Vinculadas (SSO)',
+          title: context.tr('Contas Vinculadas (SSO)'),
           accentColor: primaryCol,
           trailing: IconButton(
             key: const Key('profile_refresh_identities_button'),
-            tooltip: 'Atualizar conexões',
+            tooltip: context.tr('Atualizar conexões'),
             onPressed: _loadingIdentities ? null : _loadIdentities,
             icon: Icon(Icons.refresh_rounded, size: 18, color: AsterTheme.textMuted(context)),
           ),
@@ -1655,7 +1656,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Entre com uma conta Aster para vincular seu Gmail ou Discord.',
+                          context.tr('Entre com uma conta Aster para vincular seu Gmail ou Discord.'),
                           style: GoogleFonts.manrope(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
@@ -1669,7 +1670,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                           widget.onRequestSignIn?.call();
                         },
                         child: Text(
-                          'Fazer Login',
+                          context.tr('Fazer Login'),
                           style: GoogleFonts.manrope(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w800,
@@ -1769,9 +1770,9 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                       child: Text(
                         connected != null
                             ? (connected.accountLabel != null
-                                ? 'Conectado (${connected.accountLabel})'
-                                : 'Conectado')
-                            : 'Não conectado',
+                                ? context.tr('Conectado ({account})', {'account': connected.accountLabel})
+                                : context.tr('Conectado'))
+                            : context.tr('Não conectado'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.manrope(
@@ -1790,8 +1791,8 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
           if (connected != null)
             Tooltip(
               message: canUnlink
-                  ? 'Desvincular conta $title'
-                  : 'Mantenha ao menos uma forma de login vinculada à sua conta.',
+                  ? context.tr('Desvincular conta {provider}', {'provider': title})
+                  : context.tr('Mantenha ao menos uma forma de login vinculada à sua conta.'),
               child: OutlinedButton(
                 key: unlinkKey,
                 onPressed: canUnlink ? () => _handleUnlinkIdentity(connected, title) : null,
@@ -1805,7 +1806,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: Text(
-                  'Desvincular',
+                  context.tr('Desvincular'),
                   style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -1820,7 +1821,7 @@ class _ProfileSettingsDialogState extends State<ProfileSettingsDialog> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(
-                'Vincular',
+                context.tr('Vincular'),
                 style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
               ),
             ),

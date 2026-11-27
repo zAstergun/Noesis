@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/localization/noesis_l10n.dart';
 
 class Flashcard {
   final String id;
@@ -74,17 +75,17 @@ class Flashcard {
   String reviewReason({DateTime? referenceDate}) {
     switch (difficulty) {
       case 'hard':
-        return 'Difícil · reforçar';
+        return NoesisL10n.tr('Difícil · reforçar');
       case 'unreviewed':
-        return 'Nunca estudado';
+        return NoesisL10n.tr('Nunca estudado');
       case 'good':
         return needsReview(referenceDate: referenceDate)
-            ? 'Revisão espaçada (24h+)'
-            : 'Estudado hoje';
+            ? NoesisL10n.tr('Revisão espaçada (24h+)')
+            : NoesisL10n.tr('Estudado hoje');
       case 'easy':
-        return 'Dominado';
+        return NoesisL10n.tr('Dominado');
       default:
-        return 'Pendente';
+        return NoesisL10n.tr('Pendente');
     }
   }
 
@@ -245,8 +246,8 @@ class FlashcardDeck {
 
     return FlashcardDeck(
       id: map['id']?.toString() ?? 'deck-${DateTime.now().millisecondsSinceEpoch}',
-      title: map['title']?.toString() ?? 'Novo Baralho',
-      subject: map['subject']?.toString() ?? 'Geral',
+      title: map['title']?.toString() ?? NoesisL10n.tr('Novo Baralho'),
+      subject: map['subject']?.toString() ?? NoesisL10n.tr('Geral'),
       description: map['description']?.toString() ?? '',
       cards: parsedCards,
       createdAt: map['created_at'] != null ? (DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()) : DateTime.now(),

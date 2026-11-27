@@ -1,3 +1,4 @@
+import '../../../core/localization/noesis_l10n.dart';
 import '../../flashcards/models/flashcard_model.dart';
 import '../../notebooks/models/notebook_model.dart';
 import '../../quizzes/data/saved_exams_repository.dart';
@@ -79,7 +80,7 @@ class StudyGroupMember {
     return StudyGroupMember(
       userId: (json['user_id'] ?? '').toString(),
       username: (json['username'] ?? '').toString(),
-      displayName: (json['display_name'] ?? 'Estudante').toString(),
+      displayName: (json['display_name'] ?? NoesisL10n.tr('Estudante')).toString(),
       avatarUrl: json['avatar_url']?.toString(),
       bio: json['bio']?.toString(),
       isVip: json['is_vip'] == true,
@@ -132,7 +133,7 @@ class StudyGroupChatMessage {
     return StudyGroupChatMessage(
       id: (json['id'] ?? '').toString(),
       userId: (json['user_id'] ?? '').toString(),
-      senderName: (json['sender_name'] ?? 'Estudante').toString(),
+      senderName: (json['sender_name'] ?? NoesisL10n.tr('Estudante')).toString(),
       senderUsername: (json['sender_username'] ?? '').toString(),
       senderAvatarUrl: json['sender_avatar_url']?.toString(),
       isVip: json['is_vip'] == true,
@@ -182,9 +183,9 @@ class StudyGroupLogEntry {
     return StudyGroupLogEntry(
       id: (json['id'] ?? '').toString(),
       userId: (json['user_id'] ?? '').toString(),
-      memberName: (json['member_name'] ?? 'Estudante').toString(),
+      memberName: (json['member_name'] ?? NoesisL10n.tr('Estudante')).toString(),
       memberUsername: (json['member_username'] ?? '').toString(),
-      subject: (json['subject'] ?? 'Estudo').toString(),
+      subject: (json['subject'] ?? NoesisL10n.tr('Estudo')).toString(),
       topic: (json['topic'] ?? '').toString(),
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 0,
       notes: json['notes']?.toString(),
@@ -499,7 +500,7 @@ class StudyGroup {
         shareId: (raw['share_id'] ?? '').toString(),
         sourceId: (raw['source_id'] ?? '').toString(),
         sharedByUserId: (raw['shared_by_user_id'] ?? '').toString(),
-        sharedByName: (raw['shared_by_name'] ?? 'Estudante').toString(),
+        sharedByName: (raw['shared_by_name'] ?? NoesisL10n.tr('Estudante')).toString(),
         sharedByHandle: (raw['shared_by_handle'] ?? '').toString(),
         sharedAt: DateTime.tryParse((raw['shared_at'] ?? '').toString()) ?? DateTime.now(),
         data: parseSharedMeta(raw, parser),
@@ -508,9 +509,9 @@ class StudyGroup {
 
     return StudyGroup(
       id: (json['id'] ?? '').toString(),
-      name: (json['name'] ?? 'Grupo de Estudos').toString(),
+      name: (json['name'] ?? NoesisL10n.tr('Grupo de Estudos')).toString(),
       description: (json['description'] ?? '').toString(),
-      subject: (json['subject'] ?? 'Geral').toString(),
+      subject: (json['subject'] ?? NoesisL10n.tr('Geral')).toString(),
       leaderId: (json['leader_id'] ?? '').toString(),
       inviteCode: (json['invite_code'] ?? '').toString(),
       allowMemberInvites: json['allow_member_invites'] == true,

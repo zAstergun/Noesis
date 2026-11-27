@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
 import '../../widgets/vip_rgb_theme_editor.dart';
@@ -120,7 +122,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Não foi possível abrir o link: $url')),
+            SnackBar(content: Text(NoesisL10n.tr('Não foi possível abrir o link: {url}', {'url': url}))),
           );
         }
       }
@@ -133,7 +135,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   void _openNotebookModal({StudyNotebook? notebook}) {
     final isEditing = notebook != null;
     final titleCtrl = TextEditingController(text: notebook?.title ?? '');
-    final subjectCtrl = TextEditingController(text: notebook?.subject ?? 'Tecnologia');
+    final subjectCtrl = TextEditingController(text: notebook?.subject ?? context.tr('Tecnologia'));
     final descCtrl = TextEditingController(text: notebook?.description ?? '');
     String selectedColor = notebook?.colorHex ?? '7C6CF0';
     bool isSaving = false;
@@ -182,7 +184,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isEditing ? 'Editar Caderno ✏️' : 'Novo Caderno de Estudo 📚',
+                                  isEditing ? dialogCtx.tr('Editar Caderno ✏️') : dialogCtx.tr('Novo Caderno de Estudo 📚'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -190,7 +192,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                 ),
                                 Text(
-                                  isEditing ? 'Atualize as informações do seu caderno' : 'Crie um espaço temático para anotações, links e imagens',
+                                  isEditing
+                                      ? dialogCtx.tr('Atualize as informações do seu caderno')
+                                      : dialogCtx.tr('Crie um espaço temático para anotações, links e imagens'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -209,7 +213,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
 
                       // Título
                       Text(
-                        'TÍTULO DO CADERNO *',
+                        dialogCtx.tr('TÍTULO DO CADERNO *'),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -220,15 +224,15 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       const SizedBox(height: 4),
                       TextField(
                         controller: titleCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Ex: Criptografia & Redes, Direito Constitucional...',
+                        decoration: InputDecoration(
+                          hintText: dialogCtx.tr('Ex: Criptografia & Redes, Direito Constitucional...'),
                         ),
                       ),
                       const SizedBox(height: 14),
 
                       // Matéria
                       Text(
-                        'DISCIPLINA / MATÉRIA',
+                        dialogCtx.tr('DISCIPLINA / MATÉRIA'),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -239,15 +243,15 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       const SizedBox(height: 4),
                       TextField(
                         controller: subjectCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Ex: Tecnologia, Direito, Idiomas, Matemática...',
+                        decoration: InputDecoration(
+                          hintText: dialogCtx.tr('Ex: Tecnologia, Direito, Idiomas, Matemática...'),
                         ),
                       ),
                       const SizedBox(height: 14),
 
                       // Descrição
                       Text(
-                        'DESCRIÇÃO (OPCIONAL)',
+                        dialogCtx.tr('DESCRIÇÃO (OPCIONAL)'),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -259,15 +263,15 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       TextField(
                         controller: descCtrl,
                         maxLines: 2,
-                        decoration: const InputDecoration(
-                          hintText: 'Objetivo, ementa ou foco deste caderno...',
+                        decoration: InputDecoration(
+                          hintText: dialogCtx.tr('Objetivo, ementa ou foco deste caderno...'),
                         ),
                       ),
                       const SizedBox(height: 16),
 
                       // Cor Temática
                       Text(
-                        'COR DE DESTAQUE',
+                        dialogCtx.tr('COR DE DESTAQUE'),
                         style: GoogleFonts.manrope(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -333,14 +337,18 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         children: [
                           TextButton(
                             onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                            child: const Text('Cancelar'),
+                            child: Text(dialogCtx.tr('Cancelar')),
                           ),
                           const SizedBox(width: 10),
                           ElevatedButton.icon(
                             icon: isSaving
                                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.check_rounded, size: 18),
-                            label: Text(isSaving ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Criar Caderno')),
+                            label: Text(
+                              isSaving
+                                  ? dialogCtx.tr('Salvando...')
+                                  : (isEditing ? dialogCtx.tr('Salvar Alterações') : dialogCtx.tr('Criar Caderno')),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _parseColor(selectedColor),
                               foregroundColor: Colors.white,
@@ -350,10 +358,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 ? null
                                 : () async {
                                     final title = titleCtrl.text.trim();
-                                    final subject = subjectCtrl.text.trim().isNotEmpty ? subjectCtrl.text.trim() : 'Geral';
+                                    final subject = subjectCtrl.text.trim().isNotEmpty
+                                        ? subjectCtrl.text.trim()
+                                        : NoesisL10n.tr('Geral');
                                     if (title.isEmpty) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Por favor, informe o título do caderno.')),
+                                        SnackBar(content: Text(NoesisL10n.tr('Por favor, informe o título do caderno.'))),
                                       );
                                       return;
                                     }
@@ -386,7 +396,13 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     if (!mounted) return;
 
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Caderno "$title" ${isEditing ? "atualizado" : "criado"} com sucesso! 🎉')),
+                                      SnackBar(
+                                        content: Text(
+                                          isEditing
+                                              ? NoesisL10n.tr('Caderno "{title}" atualizado com sucesso! 🎉', {'title': title})
+                                              : NoesisL10n.tr('Caderno "{title}" criado com sucesso! 🎉', {'title': title}),
+                                        ),
+                                      ),
                                     );
                                   },
                           ),
@@ -411,12 +427,17 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text('Excluir Caderno?', style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
-          content: Text('Tem certeza que deseja excluir "${notebook.title}" e todas as suas ${notebook.notes.length} anotações? Esta ação não pode ser desfeita.'),
+          title: Text(ctx.tr('Excluir Caderno?'), style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
+          content: Text(
+            ctx.tr(
+              'Tem certeza que deseja excluir "{title}" e todas as suas {count} anotações? Esta ação não pode ser desfeita.',
+              {'title': notebook.title, 'count': notebook.notes.length},
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
+              child: Text(ctx.tr('Cancelar')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
@@ -438,12 +459,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   await _loadNotebooks();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Caderno "${notebook.title}" excluído.')),
+                      SnackBar(content: Text(NoesisL10n.tr('Caderno "{title}" excluído.', {'title': notebook.title}))),
                     );
                   }
                 }
               },
-              child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+              child: Text(ctx.tr('Excluir'), style: const TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -513,7 +534,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isEditing ? 'Editar Anotação 📝' : 'Nova Anotação 📝',
+                                  isEditing ? dialogCtx.tr('Editar Anotação 📝') : dialogCtx.tr('Nova Anotação 📝'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -521,7 +542,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Caderno: ${notebook.title} · Anote conceitos, adicione referências e links com imagens renderizadas',
+                                  dialogCtx.tr(
+                                    'Caderno: {title} · Anote conceitos, adicione referências e links com imagens renderizadas',
+                                    {'title': notebook.title},
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -547,7 +571,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TÍTULO DA ANOTAÇÃO *',
+                                  dialogCtx.tr('TÍTULO DA ANOTAÇÃO *'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -558,9 +582,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 const SizedBox(height: 4),
                                 TextField(
                                   controller: titleCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Ex: Resumo sobre Protocolos de Enlace e Criptografia...',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: InputDecoration(
+                                    hintText: dialogCtx.tr('Ex: Resumo sobre Protocolos de Enlace e Criptografia...'),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   ),
                                 ),
                               ],
@@ -573,7 +597,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TAGS (SEPARADAS POR VÍRGULA)',
+                                  dialogCtx.tr('TAGS (SEPARADAS POR VÍRGULA)'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -584,9 +608,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 const SizedBox(height: 4),
                                 TextField(
                                   controller: tagsCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Ex: Redes, TLS, Resumo',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: InputDecoration(
+                                    hintText: dialogCtx.tr('Ex: Redes, TLS, Resumo'),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   ),
                                 ),
                               ],
@@ -608,7 +632,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'CONTEÚDO DA ANOTAÇÃO (SUPORTA MARKDOWN) *',
+                                    dialogCtx.tr('CONTEÚDO DA ANOTAÇÃO (SUPORTA MARKDOWN) *'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
@@ -641,8 +665,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                   height: 1.5,
                                                   color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                                                 ),
-                                                decoration: const InputDecoration(
-                                                  hintText: 'Escreva suas notas de estudo aqui...\n\nVocê pode usar títulos (# Título), tópicos (* item), blocos de código (```codigo```) ou colar links.',
+                                                decoration: InputDecoration(
+                                                  hintText: dialogCtx.tr(
+                                                    'Escreva suas notas de estudo aqui...\n\nVocê pode usar títulos (# Título), tópicos (* item), blocos de código (```codigo```) ou colar links.',
+                                                  ),
                                                   border: InputBorder.none,
                                                   enabledBorder: InputBorder.none,
                                                   focusedBorder: InputBorder.none,
@@ -652,10 +678,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               ),
                                             ),
                                           ),
-                                          // Barra de Ações e Aviso posicionada dentro do bloco da anotação (canto inferior direito)
-                                          Positioned(
+                                          // Barra de Ações e Aviso posicionada dentro do bloco da anotação (canto inferior final)
+                                          PositionedDirectional(
                                             bottom: 8,
-                                            right: 10,
+                                            end: 10,
                                             child: previousNoteText != null
                                                 // Aviso inline que aparece SOMENTE no bloco da anotação com botão para retornar
                                                 ? Container(
@@ -680,7 +706,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                         const Icon(Icons.check_circle_rounded, size: 13, color: AsterConstants.menta),
                                                         const SizedBox(width: 5),
                                                         Text(
-                                                          'Formatado com IA ✨',
+                                                          dialogCtx.tr('Formatado com IA ✨'),
                                                           style: GoogleFonts.manrope(
                                                             fontSize: 10.5,
                                                             fontWeight: FontWeight.w700,
@@ -709,7 +735,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                                 Icon(Icons.undo_rounded, size: 12, color: AsterTheme.primary(context)),
                                                                 const SizedBox(width: 3),
                                                                 Text(
-                                                                  'Retornar',
+                                                                  dialogCtx.tr('Retornar'),
                                                                   style: GoogleFonts.manrope(
                                                                     fontSize: 10.5,
                                                                     fontWeight: FontWeight.w800,
@@ -799,14 +825,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                               ),
                                                               const SizedBox(width: 6),
                                                               Text(
-                                                                'Formatando...',
+                                                                dialogCtx.tr('Formatando...'),
                                                                 style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                               ),
                                                             ] else ...[
                                                               Icon(Icons.auto_awesome_rounded, size: 12, color: AsterTheme.primary(context)),
                                                               const SizedBox(width: 5),
                                                               Text(
-                                                                'Corrigir Formatação com IA ✨',
+                                                                dialogCtx.tr('Corrigir Formatação com IA ✨'),
                                                                 style: GoogleFonts.manrope(fontSize: 10.5, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                               ),
                                                             ],
@@ -841,7 +867,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'LINKS & IMAGENS ANEXADAS 🖼️',
+                                      dialogCtx.tr('LINKS & IMAGENS ANEXADAS 🖼️'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,
@@ -851,7 +877,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'Adicione URLs de sites de estudo ou links de imagens para renderização visual automática na anotação.',
+                                      dialogCtx.tr('Adicione URLs de sites de estudo ou links de imagens para renderização visual automática na anotação.'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -871,7 +897,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           Row(
                                             children: [
                                               SoftClayChoiceChip(
-                                                label: 'Imagem 🖼️',
+                                                label: dialogCtx.tr('Imagem 🖼️'),
                                                 icon: Icons.image_rounded,
                                                 selected: isImageToggle,
                                                 compact: true,
@@ -879,7 +905,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               SoftClayChoiceChip(
-                                                label: 'Link Web 🔗',
+                                                label: dialogCtx.tr('Link Web 🔗'),
                                                 icon: Icons.link_rounded,
                                                 selected: !isImageToggle,
                                                 compact: true,
@@ -901,7 +927,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           TextField(
                                             controller: newTitleCtrl,
                                             decoration: InputDecoration(
-                                              hintText: isImageToggle ? 'Legenda da imagem (opcional)' : 'Título do link de referência',
+                                              hintText: isImageToggle
+                                                  ? dialogCtx.tr('Legenda da imagem (opcional)')
+                                                  : dialogCtx.tr('Título do link de referência'),
                                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                             ),
                                           ),
@@ -921,7 +949,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                   alignment: Alignment.center,
                                                   color: AsterConstants.coral.withValues(alpha: 0.1),
                                                   child: Text(
-                                                    'URL de imagem inválida ou inacessível',
+                                                    ctx.tr('URL de imagem inválida ou inacessível'),
                                                     style: GoogleFonts.manrope(fontSize: 10, color: AsterConstants.coral),
                                                   ),
                                                 ),
@@ -934,7 +962,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             width: double.infinity,
                                             child: ElevatedButton.icon(
                                               icon: const Icon(Icons.add_rounded, size: 16),
-                                              label: Text(isImageToggle ? 'Adicionar Imagem' : 'Adicionar Link'),
+                                              label: Text(isImageToggle ? dialogCtx.tr('Adicionar Imagem') : dialogCtx.tr('Adicionar Link')),
                                               style: ElevatedButton.styleFrom(
                                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                                 backgroundColor: AsterTheme.primary(context),
@@ -944,14 +972,16 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                 final url = newUrlCtrl.text.trim();
                                                 if (url.isEmpty || !url.startsWith('http')) {
                                                   ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Por favor, informe uma URL válida iniciando com http:// ou https://')),
+                                                    SnackBar(
+                                                      content: Text(NoesisL10n.tr('Por favor, informe uma URL válida iniciando com http:// ou https://')),
+                                                    ),
                                                   );
                                                   return;
                                                 }
 
                                                 final title = newTitleCtrl.text.trim().isNotEmpty
                                                     ? newTitleCtrl.text.trim()
-                                                    : (isImageToggle ? 'Imagem de Estudo' : url);
+                                                    : (isImageToggle ? NoesisL10n.tr('Imagem de Estudo') : url);
 
                                                 setModalState(() {
                                                   draftLinks.add(
@@ -978,7 +1008,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       child: draftLinks.isEmpty
                                           ? Center(
                                               child: Text(
-                                                'Nenhum link ou imagem adicionado ainda.',
+                                                dialogCtx.tr('Nenhum link ou imagem adicionado ainda.'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11,
                                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1086,7 +1116,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    draftNeedsReview ? 'Marcada para revisão' : 'Marcar para revisar',
+                                    draftNeedsReview
+                                        ? dialogCtx.tr('Marcada para revisão')
+                                        : dialogCtx.tr('Marcar para revisar'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1102,14 +1134,18 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                           const Spacer(),
                           TextButton(
                             onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
-                            child: const Text('Cancelar'),
+                            child: Text(dialogCtx.tr('Cancelar')),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             icon: isSaving
                                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.save_rounded, size: 18),
-                            label: Text(isSaving ? 'Salvando...' : 'Salvar Anotação 💾'),
+                            label: Text(
+                              isSaving
+                                  ? dialogCtx.tr('Salvando...')
+                                  : dialogCtx.tr('Salvar Anotação 💾'),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AsterTheme.primary(context),
                               foregroundColor: AsterTheme.onPrimary(context),
@@ -1122,7 +1158,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     final content = contentCtrl.text.trim();
                                     if (title.isEmpty) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Por favor, informe o título da anotação.')),
+                                        SnackBar(content: Text(NoesisL10n.tr('Por favor, informe o título da anotação.'))),
                                       );
                                       return;
                                     }
@@ -1171,7 +1207,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     });
 
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Anotação "$title" salva com sucesso! 🎉')),
+                                      SnackBar(
+                                        content: Text(
+                                          NoesisL10n.tr('Anotação "{title}" salva com sucesso! 🎉', {'title': title}),
+                                        ),
+                                      ),
                                     );
                                   },
                           ),
@@ -1199,12 +1239,12 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text('Excluir Anotação?', style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
-          content: Text('Deseja excluir permanentemente a anotação "${note.title}"?'),
+          title: Text(ctx.tr('Excluir Anotação?'), style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
+          content: Text(ctx.tr('Deseja excluir permanentemente a anotação "{title}"?', {'title': note.title})),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
+              child: Text(ctx.tr('Cancelar')),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
@@ -1225,12 +1265,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   await _loadNotebooks();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Anotação "${note.title}" excluída.')),
+                      SnackBar(
+                        content: Text(NoesisL10n.tr('Anotação "{title}" excluída.', {'title': note.title})),
+                      ),
                     );
                   }
                 }
               },
-              child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+              child: Text(ctx.tr('Excluir'), style: const TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -1331,7 +1373,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    widget.groupScope != null ? 'Cadernos do Grupo 📚' : 'Cadernos de Estudo 📚',
+                    widget.groupScope != null
+                        ? context.tr('Cadernos do Grupo 📚')
+                        : context.tr('Cadernos de Estudo 📚'),
                     style: GoogleFonts.manrope(
                       fontSize: isCompactPage ? 22 : 26,
                       fontWeight: FontWeight.w800,
@@ -1346,7 +1390,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: Text(
-                      '${_notebooks.length} Cadernos',
+                      context.tr('{count} Cadernos', {'count': _notebooks.length}),
                       style: GoogleFonts.manrope(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1359,8 +1403,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
               const SizedBox(height: 6),
               Text(
                 widget.groupScope != null
-                    ? 'Crie cadernos, formate anotações com IA ✨ ou anexe seus próprios cadernos ao grupo.'
-                    : 'Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.',
+                    ? context.tr('Crie cadernos, formate anotações com IA ✨ ou anexe seus próprios cadernos ao grupo.')
+                    : context.tr('Organize seus resumos conceituais, salve links de referência e visualize imagens anexadas para memorização ativa.'),
                 style: GoogleFonts.manrope(
                   fontSize: isCompactPage ? 13 : 14,
                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1379,7 +1423,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         key: const Key('group_attach_notebook_button'),
                         onPressed: widget.groupScope!.onAttachExisting,
                         icon: const Icon(Icons.attach_file_rounded, size: 18),
-                        label: const Text('Anexar Meu Caderno'),
+                        label: Text(context.tr('Anexar Meu Caderno')),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
@@ -1388,7 +1432,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     ElevatedButton.icon(
                       key: widget.groupScope != null ? const Key('group_create_notebook_button') : null,
                       icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Novo Caderno'),
+                      label: Text(context.tr('Novo Caderno')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AsterTheme.primary(context),
                         foregroundColor: AsterTheme.onPrimary(context),
@@ -1443,28 +1487,28 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   childAspectRatio: isWide ? 2.4 : 1.8,
                   children: [
                     _buildMetricCard(
-                      title: 'Cadernos Ativos',
+                      title: context.tr('Cadernos Ativos'),
                       value: '${_notebooks.length}',
                       icon: Icons.menu_book_rounded,
                       color: AsterTheme.primary(context),
                       isDark: isDark,
                     ),
                     _buildMetricCard(
-                      title: 'Anotações Totais',
+                      title: context.tr('Anotações Totais'),
                       value: '$totalNotes',
                       icon: Icons.note_alt_rounded,
                       color: AsterConstants.menta,
                       isDark: isDark,
                     ),
                     _buildMetricCard(
-                      title: 'Atualizadas (7d)',
+                      title: context.tr('Atualizadas (7d)'),
                       value: '$recentNotes7d',
                       icon: Icons.update_rounded,
                       color: AsterConstants.ambar,
                       isDark: isDark,
                     ),
                     _buildMetricCard(
-                      title: 'Tempo de Revisão',
+                      title: context.tr('Tempo de Revisão'),
                       value: estimatedReviewMinutes > 0 ? '~$estimatedReviewMinutes min' : '0 min',
                       icon: Icons.schedule_rounded,
                       color: AsterConstants.coral,
@@ -1496,7 +1540,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                         child: TextField(
                           controller: _searchCtrl,
                           decoration: InputDecoration(
-                            hintText: 'Pesquisar cadernos, anotações ou termos-chave...',
+                            hintText: context.tr('Pesquisar cadernos, anotações ou termos-chave...'),
                             prefixIcon: const Icon(Icons.search_rounded, size: 20),
                             fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                             filled: true,
@@ -1557,8 +1601,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               const SizedBox(width: 8),
                               Text(
                                 totalNotesToReview > 0
-                                    ? 'Revisar e Marcar ($totalNotesToReview)'
-                                    : 'Revisar e Marcar ✓',
+                                    ? context.tr('Revisar e Marcar ({count})', {'count': totalNotesToReview})
+                                    : context.tr('Revisar e Marcar ✓'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w800,
@@ -1580,7 +1624,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     children: [
                       _buildNotebookFilterChip(
                         key: const Key('notebooks_filter_all'),
-                        label: 'Todos (${_notebooks.length})',
+                        label: context.tr('Todos ({count})', {'count': _notebooks.length}),
                         icon: Icons.menu_book_rounded,
                         selected: _notebookReviewFilter == _NotebookReviewFilter.all,
                         activeColor: AsterTheme.primary(context),
@@ -1589,7 +1633,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       _buildNotebookFilterChip(
                         key: const Key('notebooks_filter_to_review'),
-                        label: 'Para Revisar ($notebooksToReviewCount)',
+                        label: context.tr('Para Revisar ({count})', {'count': notebooksToReviewCount}),
                         icon: Icons.bookmark_rounded,
                         selected: _notebookReviewFilter == _NotebookReviewFilter.toReview,
                         activeColor: AsterConstants.ambar,
@@ -1598,7 +1642,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       _buildNotebookFilterChip(
                         key: const Key('notebooks_filter_up_to_date'),
-                        label: 'Em Dia ($notebooksUpToDateCount)',
+                        label: context.tr('Em Dia ({count})', {'count': notebooksUpToDateCount}),
                         icon: Icons.check_circle_rounded,
                         selected: _notebookReviewFilter == _NotebookReviewFilter.upToDate,
                         activeColor: AsterConstants.menta,
@@ -1616,7 +1660,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       children: subjects.map((sub) {
                         final isSelected = _selectedSubjectFilter == sub;
                         return Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsetsDirectional.only(end: 8),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                             onTap: () => setState(() => _selectedSubjectFilter = sub),
@@ -1638,7 +1682,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     const SizedBox(width: 5),
                                   ],
                                   Text(
-                                    sub,
+                                    sub == 'Todos' ? context.tr('Todos') : sub,
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -1670,7 +1714,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       Icon(Icons.menu_book_rounded, size: 54, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                       const SizedBox(height: 14),
                       Text(
-                        'Nenhum caderno encontrado.',
+                        context.tr('Nenhum caderno encontrado.'),
                         style: GoogleFonts.manrope(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -1679,7 +1723,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Crie um novo caderno para organizar seus estudos com links e imagens!',
+                        context.tr('Crie um novo caderno para organizar seus estudos com links e imagens!'),
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1688,7 +1732,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       const SizedBox(height: 18),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add_rounded),
-                        label: const Text('Criar Primeiro Caderno'),
+                        label: Text(context.tr('Criar Primeiro Caderno')),
                         style: ElevatedButton.styleFrom(backgroundColor: AsterTheme.primary(context), foregroundColor: Colors.white),
                         onPressed: () => _openNotebookModal(),
                       ),
@@ -1764,7 +1808,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                           ),
                                           child: Text(
-                                            isUpToDate ? 'Em dia ✓' : '$pendingCount p/ revisar',
+                                            isUpToDate
+                                                ? context.tr('Em dia ✓')
+                                                : context.tr('{count} p/ revisar', {'count': pendingCount}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w800,
@@ -1788,33 +1834,36 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     if (val == 'delete') _confirmDeleteNotebook(nb);
                                   },
                                   itemBuilder: (popCtx) => [
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'review_manage',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.bookmark_added_rounded, size: 18, color: AsterConstants.ambar),
-                                          SizedBox(width: 8),
-                                          Text('Marcar o que revisar'),
+                                          const Icon(Icons.bookmark_added_rounded, size: 18, color: AsterConstants.ambar),
+                                          const SizedBox(width: 8),
+                                          Text(popCtx.tr('Marcar o que revisar')),
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'edit',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.edit_note_rounded, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Editar Caderno'),
+                                          const Icon(Icons.edit_note_rounded, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(popCtx.tr('Editar Caderno')),
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                          SizedBox(width: 8),
-                                          Text('Excluir Caderno', style: TextStyle(color: AsterConstants.coral)),
+                                          const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            popCtx.tr('Excluir Caderno'),
+                                            style: const TextStyle(color: AsterConstants.coral),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1838,7 +1887,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              nb.description.isNotEmpty ? nb.description : 'Sem descrição.',
+                              nb.description.isNotEmpty ? nb.description : context.tr('Sem descrição.'),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.manrope(
@@ -1859,14 +1908,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     lastEdit = note.updatedAt;
                                   }
                                 }
-                                final updatedStr = DateFormat('dd/MM').format(lastEdit);
+                                final updatedStr = DateFormat.Md(NoesisLocaleService.intlLocale).format(lastEdit);
                                 return Wrap(
                                   spacing: 8,
                                   runSpacing: 6,
                                   children: [
-                                    _buildBadge(Icons.note_alt_outlined, '${nb.noteCount} notas', isDark),
-                                    _buildBadge(Icons.tag_rounded, '${uniqueTags.length} tópicos', isDark),
-                                    _buildBadge(Icons.update_rounded, 'Atual. $updatedStr', isDark),
+                                    _buildBadge(Icons.note_alt_outlined, context.tr('{count} notas', {'count': nb.noteCount}), isDark),
+                                    _buildBadge(Icons.tag_rounded, context.tr('{count} tópicos', {'count': uniqueTags.length}), isDark),
+                                    _buildBadge(Icons.update_rounded, context.tr('Atual. {date}', {'date': updatedStr}), isDark),
                                   ],
                                 );
                               },
@@ -1878,7 +1927,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               width: double.infinity,
                               child: ElevatedButton.icon(
                                 icon: const Icon(Icons.auto_stories_rounded, size: 16),
-                                label: const Text('Abrir Caderno 📖'),
+                                label: Text(context.tr('Abrir Caderno 📖')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: nbColor,
                                   foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
@@ -2051,8 +2100,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
           backgroundColor: updated.needsReview ? AsterConstants.ambar : AsterTheme.primary(context),
           content: Text(
             updated.needsReview
-                ? '"${note.title}" marcada para revisão!'
-                : 'Marcação de revisão removida de "${note.title}".',
+                ? NoesisL10n.tr('"{title}" marcada para revisão!', {'title': note.title})
+                : NoesisL10n.tr('Marcação de revisão removida de "{title}".', {'title': note.title}),
           ),
         ),
       );
@@ -2095,8 +2144,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
           backgroundColor: AsterConstants.menta,
           content: Text(
             groupEarned > 0
-                ? 'Revisão de "${note.title}" concluída! +$groupEarned Insights no grupo ✓'
-                : 'Revisão de "${note.title}" concluída! ✓',
+                ? NoesisL10n.tr(
+                    'Revisão de "{title}" concluída! +{earned} Insights no grupo ✓',
+                    {'title': note.title, 'earned': groupEarned},
+                  )
+                : NoesisL10n.tr('Revisão de "{title}" concluída! ✓', {'title': note.title}),
           ),
         ),
       );
@@ -2168,8 +2220,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               children: [
                                 Text(
                                   focusNotebook != null
-                                      ? 'Revisão · ${focusNotebook.title}'
-                                      : 'Revisão dos Cadernos de Estudo',
+                                      ? dialogCtx.tr('Revisão · {title}', {'title': focusNotebook.title})
+                                      : dialogCtx.tr('Revisão dos Cadernos de Estudo'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
@@ -2177,7 +2229,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Veja o que precisa ser revisado e marque ou conclua revisões rapidamente.',
+                                  dialogCtx.tr('Veja o que precisa ser revisado e marque ou conclua revisões rapidamente.'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2215,7 +2267,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      'Para Revisar (${dueEntries.length})',
+                                      dialogCtx.tr('Para Revisar ({count})', {'count': dueEntries.length}),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w800,
@@ -2241,7 +2293,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      'Marcar o que revisar (${allEntries.length})',
+                                      dialogCtx.tr('Marcar o que revisar ({count})', {'count': allEntries.length}),
                                       style: GoogleFonts.manrope(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w800,
@@ -2271,7 +2323,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               const Icon(Icons.verified_rounded, size: 36, color: AsterConstants.menta),
                               const SizedBox(height: 10),
                               Text(
-                                'Nenhuma anotação pendente de revisão!',
+                                dialogCtx.tr('Nenhuma anotação pendente de revisão!'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -2280,7 +2332,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Use a aba "Marcar o que revisar" para escolher tópicos que deseja revisar.',
+                                dialogCtx.tr('Use a aba "Marcar o que revisar" para escolher tópicos que deseja revisar.'),
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
@@ -2418,7 +2470,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             ),
                                           ),
                                           Text(
-                                            'Leitura ~${n.estimatedReviewMinutes} min · Revisada ${n.reviewCount}x',
+                                            dialogCtx.tr(
+                                              'Leitura ~{minutes} min · Revisada {count}x',
+                                              {'minutes': n.estimatedReviewMinutes, 'count': n.reviewCount},
+                                            ),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2429,7 +2484,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     IconButton(
-                                      tooltip: 'Marcar como revisada agora',
+                                      tooltip: dialogCtx.tr('Marcar como revisada agora'),
                                       icon: const Icon(Icons.check_circle_outline_rounded, color: AsterConstants.menta),
                                       onPressed: () async {
                                         await _completeNoteReview(nb, n);
@@ -2459,7 +2514,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           _onlyNotesToReview = false;
                                         });
                                       },
-                                      child: const Text('Revisar'),
+                                      child: Text(dialogCtx.tr('Revisar')),
                                     ),
                                   ],
                                 ),
@@ -2497,12 +2552,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
   }
 
   String _monthNamePt(int month) {
-    const months = [
-      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
-    ];
-    if (month >= 1 && month <= 12) return months[month - 1];
-    return '';
+    if (month < 1 || month > 12) return '';
+    try {
+      return DateFormat.MMMM(NoesisLocaleService.intlLocale)
+          .format(DateTime(2024, month, 1))
+          .toLowerCase();
+    } catch (_) {
+      return '';
+    }
   }
 
   // ----------------------------------------------------
@@ -2582,10 +2639,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             return AppBar(
               leadingWidth: shiftLeft ? 138 : null,
               leading: Padding(
-                padding: EdgeInsets.only(left: shiftLeft ? 84 : 0),
+                padding: EdgeInsetsDirectional.only(start: shiftLeft ? 84 : 0),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Voltar à lista de cadernos',
+                  tooltip: context.tr('Voltar à lista de cadernos'),
                   onPressed: () {
                     setState(() {
                       _selectedNotebook = null;
@@ -2634,7 +2691,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     ],
                   ),
                   Text(
-                    '${notebook.notes.length} anotações · ${notebook.totalLinksCount} links · ${notebook.totalImagesCount} imagens',
+                    context.tr(
+                      '{notesCount} anotações · {linksCount} links · {imagesCount} imagens',
+                      {
+                        'notesCount': notebook.notes.length,
+                        'linksCount': notebook.totalLinksCount,
+                        'imagesCount': notebook.totalImagesCount,
+                      },
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(fontSize: 11, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
@@ -2645,7 +2709,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   ? [
                       OutlinedButton.icon(
                         icon: const Icon(Icons.edit_note_rounded, size: 16),
-                        label: const Text('Editar Caderno'),
+                        label: Text(context.tr('Editar Caderno')),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
@@ -2654,7 +2718,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Nova Anotação 📝'),
+                        label: Text(context.tr('Nova Anotação 📝')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: nbColor,
                           foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
@@ -2669,14 +2733,14 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     ]
                   : [
                       IconButton(
-                        tooltip: 'Editar Caderno',
+                        tooltip: context.tr('Editar Caderno'),
                         icon: const Icon(Icons.edit_note_rounded, size: 22),
                         onPressed: () => _openNotebookModal(notebook: notebook),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsetsDirectional.only(end: 10),
                         child: IconButton.filled(
-                          tooltip: 'Nova Anotação',
+                          tooltip: context.tr('Nova Anotação'),
                           style: IconButton.styleFrom(
                             backgroundColor: nbColor,
                             foregroundColor: ThemeData.estimateBrightnessForColor(nbColor) == Brightness.light
@@ -2702,19 +2766,19 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     Icon(Icons.edit_note_rounded, size: 58, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                     const SizedBox(height: 14),
                     Text(
-                      'Caderno vazio.',
+                      context.tr('Caderno vazio.'),
                       style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Adicione sua primeira anotação para começar a estudar este tema.',
+                      context.tr('Adicione sua primeira anotação para começar a estudar este tema.'),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.manrope(fontSize: 13, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Criar Nova Anotação'),
+                      label: Text(context.tr('Criar Nova Anotação')),
                       style: ElevatedButton.styleFrom(backgroundColor: nbColor, foregroundColor: Colors.white),
                       onPressed: () => _openNoteEditorModal(),
                     ),
@@ -2729,8 +2793,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   width: isSplitPane ? 320 : double.infinity,
                   decoration: isSplitPane
                       ? BoxDecoration(
-                          border: Border(
-                            right: BorderSide(
+                          border: BorderDirectional(
+                            end: BorderSide(
                               color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset,
                             ),
                           ),
@@ -2753,7 +2817,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         controller: _notesSearchCtrl,
                                         style: GoogleFonts.manrope(fontSize: 12.5),
                                         decoration: InputDecoration(
-                                          hintText: 'Buscar tags, nomes ou data...',
+                                          hintText: context.tr('Buscar tags, nomes ou data...'),
                                           hintStyle: GoogleFonts.manrope(
                                             fontSize: 11.5,
                                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2800,7 +2864,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   PopupMenuButton<String>(
-                                    tooltip: 'Filtrar ou ordenar por data',
+                                    tooltip: context.tr('Filtrar ou ordenar por data'),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusMedium)),
                                     icon: Container(
                                       width: 38,
@@ -2831,10 +2895,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           initialDate: _selectedDateFilter ?? DateTime.now(),
                                           firstDate: DateTime(2020),
                                           lastDate: DateTime(2035),
-                                          locale: const Locale('pt', 'BR'),
-                                          helpText: 'Selecionar Data',
-                                          cancelText: 'Cancelar',
-                                          confirmText: 'OK',
+                                          locale: NoesisLocaleService.currentLocale,
+                                          helpText: context.tr('Selecionar Data'),
+                                          cancelText: context.tr('Cancelar'),
+                                          confirmText: context.tr('OK'),
                                           builder: (context, child) {
                                             return Theme(
                                               data: isDark
@@ -2876,21 +2940,27 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             const SizedBox(width: 8),
                                             Text(
                                               _selectedDateFilter == null
-                                                  ? 'Filtrar por data...'
-                                                  : 'Alterar data (${DateFormat('dd/MM/yyyy').format(_selectedDateFilter!)})',
+                                                  ? popCtx.tr('Filtrar por data...')
+                                                  : popCtx.tr(
+                                                      'Alterar data ({date})',
+                                                      {'date': DateFormat.yMd(NoesisLocaleService.intlLocale).format(_selectedDateFilter!)},
+                                                    ),
                                               style: GoogleFonts.manrope(fontSize: 12.5),
                                             ),
                                           ],
                                         ),
                                       ),
                                       if (_selectedDateFilter != null)
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
                                           value: 'clear_date',
                                           child: Row(
                                             children: [
-                                              Icon(Icons.clear_rounded, size: 18, color: AsterConstants.coral),
-                                              SizedBox(width: 8),
-                                              Text('Remover filtro de data', style: TextStyle(color: AsterConstants.coral, fontSize: 12.5)),
+                                              const Icon(Icons.clear_rounded, size: 18, color: AsterConstants.coral),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                popCtx.tr('Remover filtro de data'),
+                                                style: const TextStyle(color: AsterConstants.coral, fontSize: 12.5),
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -2906,7 +2976,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'Mais recentes primeiro',
+                                              popCtx.tr('Mais recentes primeiro'),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'recent' ? FontWeight.w700 : FontWeight.w500,
@@ -2927,7 +2997,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'Mais antigas primeiro',
+                                              popCtx.tr('Mais antigas primeiro'),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'oldest' ? FontWeight.w700 : FontWeight.w500,
@@ -2948,7 +3018,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'Ordem Alfabética (A-Z)',
+                                              popCtx.tr('Ordem Alfabética (A-Z)'),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
                                                 fontWeight: _noteSortOrder == 'az' ? FontWeight.w700 : FontWeight.w500,
@@ -2994,7 +3064,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                           ),
                                           const SizedBox(width: 5),
                                           Text(
-                                            'Só p/ revisar (${notebook.pendingReviewCount()})',
+                                            context.tr('Só p/ revisar ({count})', {'count': notebook.pendingReviewCount()}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -3038,9 +3108,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                                         children: allTags.map((tag) {
                                           final isSelected = _selectedTagFilter == tag;
-                                          final labelText = tag == 'Todas' ? 'Todas' : '#$tag';
+                                          final labelText = tag == 'Todas' ? context.tr('Todas') : '#$tag';
                                           return Padding(
-                                            padding: const EdgeInsets.only(right: 6),
+                                            padding: const EdgeInsetsDirectional.only(end: 6),
                                             child: InkWell(
                                               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                               onTap: () => setState(() => _selectedTagFilter = tag),
@@ -3099,7 +3169,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                             Icon(Icons.calendar_today_rounded, size: 10, color: AsterTheme.primary(context)),
                                             const SizedBox(width: 4),
                                             Text(
-                                              DateFormat('dd/MM/yyyy').format(_selectedDateFilter!),
+                                              DateFormat.yMd(NoesisLocaleService.intlLocale).format(_selectedDateFilter!),
                                               style: GoogleFonts.manrope(
                                                 fontSize: 10.5,
                                                 fontWeight: FontWeight.w700,
@@ -3117,7 +3187,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                       const SizedBox(width: 6),
                                     ],
                                     Text(
-                                      '${filteredNotes.length} de ${notebook.notes.length}',
+                                      context.tr(
+                                        '{filtered} de {total}',
+                                        {'filtered': filteredNotes.length, 'total': notebook.notes.length},
+                                      ),
                                       style: GoogleFonts.manrope(
                                         fontSize: 10.5,
                                         color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -3134,7 +3207,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         });
                                       },
                                       child: Text(
-                                        'Limpar',
+                                        context.tr('Limpar'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
@@ -3171,7 +3244,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         ),
                                         const SizedBox(height: 10),
                                         Text(
-                                          'Nenhuma anotação encontrada',
+                                          context.tr('Nenhuma anotação encontrada'),
                                           textAlign: TextAlign.center,
                                           style: GoogleFonts.manrope(
                                             fontSize: 13,
@@ -3181,7 +3254,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Tente alterar os termos da busca, tags ou data.',
+                                          context.tr('Tente alterar os termos da busca, tags ou data.'),
                                           textAlign: TextAlign.center,
                                           style: GoogleFonts.manrope(
                                             fontSize: 11,
@@ -3191,7 +3264,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         const SizedBox(height: 12),
                                         TextButton.icon(
                                           icon: const Icon(Icons.refresh_rounded, size: 14),
-                                          label: const Text('Limpar filtros'),
+                                          label: Text(context.tr('Limpar filtros')),
                                           style: TextButton.styleFrom(
                                             foregroundColor: AsterTheme.primary(context),
                                             textStyle: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
@@ -3273,7 +3346,9 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                               ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              n.content.isNotEmpty ? n.content.replaceAll(RegExp(r'[#*`\n]'), ' ').trim() : 'Sem texto.',
+                                              n.content.isNotEmpty
+                                                  ? n.content.replaceAll(RegExp(r'[#*`\n]'), ' ').trim()
+                                                  : context.tr('Sem texto.'),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: GoogleFonts.manrope(
@@ -3330,7 +3405,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                                 ],
                                                 const Spacer(),
                                                 Text(
-                                                  DateFormat('dd/MM').format(n.updatedAt),
+                                                  DateFormat.Md(NoesisLocaleService.intlLocale).format(n.updatedAt),
                                                   style: GoogleFonts.manrope(fontSize: 10, color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                                 ),
                                               ],
@@ -3349,7 +3424,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 final readerPane = currentReadingNote == null
                     ? Center(
                         child: Text(
-                          'Selecione uma anotação para visualizar.',
+                          context.tr('Selecione uma anotação para visualizar.'),
                           style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                         ),
                       )
@@ -3415,7 +3490,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                     Icon(Icons.arrow_back_rounded, size: 16, color: AsterTheme.primary(context)),
                     const SizedBox(width: 6),
                     Text(
-                      'Voltar às anotações',
+                      context.tr('Voltar às anotações'),
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -3452,7 +3527,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'Atualizado em ${DateFormat("d 'de' MMMM 'às' HH:mm", 'pt_BR').format(note.updatedAt)}',
+                          context.tr(
+                            'Atualizado em {date}',
+                            {'date': DateFormat.MMMd(NoesisLocaleService.intlLocale).add_Hm().format(note.updatedAt)},
+                          ),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -3495,7 +3573,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                   size: 16,
                   color: note.needsReview ? AsterConstants.ambar : AsterTheme.primary(context),
                 ),
-                label: Text(note.needsReview ? 'Marcada p/ revisar' : 'Marcar p/ revisar'),
+                label: Text(
+                  note.needsReview
+                      ? context.tr('Marcada p/ revisar')
+                      : context.tr('Marcar p/ revisar'),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: note.needsReview ? AsterConstants.ambar : null,
                   side: BorderSide(
@@ -3513,7 +3595,11 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 ElevatedButton.icon(
                   key: const Key('note_complete_review_button'),
                   icon: const Icon(Icons.check_circle_rounded, size: 16),
-                  label: Text(widget.groupScope != null ? 'Concluir Leitura' : 'Concluir Revisão'),
+                  label: Text(
+                    widget.groupScope != null
+                        ? context.tr('Concluir Leitura')
+                        : context.tr('Concluir Revisão'),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AsterConstants.menta,
                     foregroundColor: Colors.white,
@@ -3525,7 +3611,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('Editar'),
+                  label: Text(context.tr('Editar')),
                   onPressed: () => _openNoteEditorModal(note: note),
                 ),
               ],
@@ -3533,7 +3619,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AsterConstants.coral),
-                  tooltip: 'Excluir anotação',
+                  tooltip: context.tr('Excluir anotação'),
                   onPressed: () => _confirmDeleteNote(note),
                 ),
               ],
@@ -3568,7 +3654,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        'Imagens Anexadas ao Estudo (${images.length})',
+                        context.tr('Imagens Anexadas ao Estudo ({count})', {'count': images.length}),
                         style: GoogleFonts.manrope(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -3634,7 +3720,10 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                         const Icon(Icons.broken_image_rounded, size: 36, color: AsterConstants.coral),
                                         const SizedBox(height: 8),
                                         Text(
-                                          'Não foi possível carregar a imagem da URL:\n$imgUrl',
+                                          context.tr(
+                                            'Não foi possível carregar a imagem da URL:\n{url}',
+                                            {'url': imgUrl},
+                                          ),
                                           textAlign: TextAlign.center,
                                           style: GoogleFonts.manrope(fontSize: 11, color: AsterConstants.coral),
                                         ),
@@ -3665,7 +3754,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                                   const SizedBox(width: 8),
                                   TextButton.icon(
                                     icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                                    label: const Text('Abrir Imagem'),
+                                    label: Text(context.tr('Abrir Imagem')),
                                     style: TextButton.styleFrom(
                                       visualDensity: VisualDensity.compact,
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -3700,7 +3789,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
             ),
             child: note.content.trim().isEmpty
                 ? Text(
-                    'Esta anotação ainda não possui texto explicativo. Clique em "Editar" para adicionar.',
+                    context.tr('Esta anotação ainda não possui texto explicativo. Clique em "Editar" para adicionar.'),
                     style: GoogleFonts.manrope(
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
@@ -3755,9 +3844,8 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       blockquoteDecoration: BoxDecoration(
                         color: AsterTheme.primary(context).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border(
-                          left: BorderSide(
+                        border: BorderDirectional(
+                          start: BorderSide(
                             color: AsterTheme.primary(context),
                             width: 4,
                           ),
@@ -3801,7 +3889,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        'Links & Referências Úteis (${generalLinks.length})',
+                        context.tr('Links & Referências Úteis ({count})', {'count': generalLinks.length}),
                         style: GoogleFonts.manrope(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -3856,7 +3944,7 @@ class _NotebooksScreenState extends State<NotebooksScreen> {
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                            label: const Text('Visitar'),
+                            label: Text(context.tr('Visitar')),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AsterTheme.primary(context),
                               foregroundColor: AsterTheme.onPrimary(context),

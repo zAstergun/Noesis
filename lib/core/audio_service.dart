@@ -4,6 +4,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'gemini_service.dart';
+import 'localization/noesis_locale_service.dart';
+import 'localization/tts_language_vocab.dart';
 import 'tts/tts_helper.dart';
 
 class AudioService {
@@ -57,7 +59,7 @@ class AudioService {
           lang = audioSource.substring(firstColon + 1, secondColon);
           text = audioSource.substring(secondColon + 1);
         } else {
-          lang = 'pt-BR';
+          lang = NoesisLocaleService.bcp47;
           text = audioSource.substring(firstColon + 1);
         }
 
@@ -195,21 +197,42 @@ class AudioService {
     return 'speech:$lang:$cleanText';
   }
 
-  /// Detecta com precisão o idioma do texto (inglês, português, espanhol, etc.)
+  /// Detecta o idioma do texto (incluindo scripts e fallback no idioma ativo do app).
   static String detectLanguage(String text) {
+    if (RegExp(r'[\u0600-\u06FF]').hasMatch(text)) return 'ar-SA';
+    if (RegExp(r'[\u0400-\u04FF]').hasMatch(text)) return 'ru-RU';
+    if (RegExp(r'[\u3040-\u309F\u30A0-\u30FF]').hasMatch(text)) return 'ja-JP';
+    if (RegExp(r'[\uAC00-\uD7AF\u1100-\u11FF]').hasMatch(text)) return 'ko-KR';
+    if (RegExp(r'[\u4E00-\u9FFF]').hasMatch(text)) return 'zh-CN';
+    if (RegExp(r'[ăâđêôơưĂÂĐÊÔƠƯ]|[àảãáạằẳẵắặầẩẫấậèẻẽéẹềểễếệìỉĩíịòỏõóọồổỗốộờởỡớợùủũúụừửữứựỳỷỹýỵ]', caseSensitive: false).hasMatch(text) &&
+        RegExp(r'[đơưăạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]', caseSensitive: false).hasMatch(text)) {
+      return 'vn-VN';
+    }
+
     final lower = text.toLowerCase();
 
     // 1. Verificação de caracteres e acentos típicos
-    final ptAccentMatches = RegExp(r'[ãõáéíóúâêôàç]').allMatches(lower).length;
+    final ptStrongAccents = RegExp(r'[ãõç]').allMatches(lower).length;
+    final ptSoftAccents = RegExp(r'[áéíóúâêôà]').allMatches(lower).length;
     final esAccentMatches = RegExp(r'[ñ¿¡]').allMatches(lower).length;
+    final deAccentMatches = RegExp(r'[äöüß]').allMatches(lower).length;
 
     // 2. Extração de palavras e tokens limpos
-    final words = lower.split(RegExp(r'[^a-z0-9áéíóúâêôãõàçñ]+')).where((w) => w.isNotEmpty).toList();
-    if (words.isEmpty) return 'pt-BR';
+    final words = lower
+        .split(RegExp(r'[^a-z0-9áéíóúâêôãõàçñäöüßèîûùëïü]+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return NoesisLocaleService.bcp47;
 
     int enScore = 0;
-    int ptScore = ptAccentMatches * 3;
+    int ptScore = ptStrongAccents * 4 + ptSoftAccents;
     int esScore = esAccentMatches * 4;
+    int frScore = RegExp(r'[èàùâêîôûëïç]').allMatches(lower).length;
+    int deScore = deAccentMatches * 4;
+
+    if (RegExp(r"\b[\p{L}]+(?:ción|dad|tad)\b", unicode: true).hasMatch(lower)) {
+      esScore += 3;
+    }
 
     // Vocabulário frequente em inglês
     const enVocab = {
@@ -233,36 +256,62 @@ class AudioService {
       enScore += 5;
     }
 
-    // Vocabulário frequente em português
-    const ptVocab = {
-      'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'de', 'do', 'da', 'dos', 'das', 'em', 'no',
-      'na', 'nos', 'nas', 'para', 'por', 'com', 'sem', 'sob', 'sobre', 'que', 'se', 'mas', 'ou',
-      'como', 'quando', 'onde', 'porque', 'porquê', 'mais', 'menos', 'muito', 'pouco', 'já', 'ainda',
-      'sempre', 'nunca', 'sim', 'não', 'ele', 'ela', 'eles', 'elas', 'eu', 'você', 'vocês', 'nós',
-      'meu', 'minha', 'meus', 'minhas', 'seu', 'sua', 'seus', 'suas', 'nosso', 'nossa', 'nossos',
-      'nossas', 'este', 'esta', 'estes', 'estas', 'esse', 'essa', 'esses', 'essas', 'isto', 'isso',
-      'aquilo', 'ser', 'estar', 'ter', 'haver', 'fazer', 'ir', 'dizer', 'dar', 'ver', 'saber',
-      'poder', 'querer', 'falar', 'português', 'estudo', 'resposta', 'pergunta', 'é', 'são', 'foi',
-      'está', 'estão', 'tem', 'têm', 'chave', 'simétrica', 'assimétrica', 'sociedade', 'vazamento',
-      'rede', 'segurança', 'banco', 'dados', 'servidor', 'troca', 'privada', 'pública', 'compartilhada'
-    };
+    // Vocabulário frequente em português (importado de localization/tts_language_vocab.dart)
+    const ptVocab = kPortugueseTtsVocab;
 
     // Vocabulário comum em espanhol
     const esVocab = {
       'el', 'los', 'las', 'del', 'al', 'con', 'sin', 'pero', 'por', 'para', 'como', 'cuando', 'donde',
       'porque', 'más', 'menos', 'muy', 'poco', 'ya', 'siempre', 'nunca', 'sí', 'no', 'yo', 'él', 'ella',
-      'ellos', 'ellas', 'usted', 'ustedes', 'nosotros', 'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'nuestro'
+      'ellos', 'ellas', 'usted', 'ustedes', 'nosotros', 'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'nuestro',
+      'una', 'unos', 'unas', 'y', 'sistema', 'seguridad', 'cifrado', 'usa', 'usar', 'datos', 'red',
+      'clave', 'estudio', 'hola', 'gracias', 'buenos', 'buenas', 'tardes', 'días'
+    };
+
+    // Vocabulário comum em francês
+    const frVocab = {
+      'bonjour', 'salut', 'merci', 'comment', 'allez', 'vous', 'nous', 'aujourd', 'hui', 'avec',
+      'pour', 'dans', 'une', 'des', 'les', 'est', 'sont', 'je', 'tu', 'il', 'elle', 'et', 'qui',
+      'que', 'oui', 'non', 'étude', 'réseau', 'sécurité'
+    };
+
+    // Vocabulário comum em alemão
+    const deVocab = {
+      'guten', 'morgen', 'tag', 'abend', 'danke', 'bitte', 'hallo', 'das', 'ist', 'ein', 'eine',
+      'der', 'die', 'und', 'mit', 'für', 'ich', 'sie', 'wir', 'nicht', 'auf', 'studium',
+      'sicherheit', 'netzwerk'
     };
 
     for (final word in words) {
       if (enVocab.contains(word)) enScore += 2;
       if (ptVocab.contains(word)) ptScore += 2;
       if (esVocab.contains(word)) esScore += 2;
+      if (frVocab.contains(word)) frScore += 3;
+      if (deVocab.contains(word)) deScore += 3;
     }
 
-    if (esScore > enScore && esScore > ptScore) return 'es-ES';
-    if (enScore > ptScore) return 'en-US';
-    return 'pt-BR';
+    final scores = <String, int>{
+      'es-ES': esScore,
+      'fr-FR': frScore,
+      'de-DE': deScore,
+      'en-US': enScore,
+      'pt': ptScore,
+    };
+    String bestLang = '';
+    int bestScore = 0;
+    scores.forEach((langCode, score) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestLang = langCode;
+      }
+    });
+    if (bestScore > 0) {
+      if (bestLang == 'pt') {
+        return NoesisLocaleService.currentCode == 'pt' ? 'pt-PT' : 'pt-BR';
+      }
+      return bestLang;
+    }
+    return NoesisLocaleService.bcp47;
   }
 
   static String _detectLanguage(String text) => detectLanguage(text);

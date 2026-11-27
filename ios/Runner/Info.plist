@@ -6,6 +6,24 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>pt-BR</string>
+		<string>en</string>
+		<string>es</string>
+		<string>ja</string>
+		<string>zh</string>
+		<string>ko</string>
+		<string>vi</string>
+		<string>id</string>
+		<string>fr</string>
+		<string>de</string>
+		<string>it</string>
+		<string>nl</string>
+		<string>ru</string>
+		<string>ar</string>
+		<string>pt-PT</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Noesis</string>
 	<key>CFBundleExecutable</key>

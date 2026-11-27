@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
 import '../../../widgets/noesis_logo.dart';
@@ -72,46 +73,51 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
   int? _selectedOption;
   int _quizAnswerEpoch = 0;
 
-  static const String _aiDemoPrompt =
-      'Crie um simulado de Estruturas de Dados, gere flashcards e agende revisão para sexta.';
+  static String get _aiDemoPrompt => NoesisL10n.tr(
+      'Crie um simulado de Estruturas de Dados, gere flashcards e agende revisão para sexta.');
 
-  static const List<({String src, String question, List<String> options, int answer, String explanation})>
-      _ragQuestions = [
+  static List<({String src, String question, List<String> options, int answer, String explanation})>
+      get _ragQuestions => [
     (
       src: 'estruturas-de-dados.pdf · p.14',
-      question:
-          'Qual é a complexidade média de busca em uma tabela hash bem dimensionada?',
+      question: NoesisL10n.tr(
+          'Qual é a complexidade média de busca em uma tabela hash bem dimensionada?'),
       options: ['O(n)', 'O(log n)', 'O(1)', 'O(n log n)'],
       answer: 2,
-      explanation:
-          'Conforme o trecho citado, com boa função de espalhamento e fator de carga controlado, o acesso médio é constante: O(1).',
+      explanation: NoesisL10n.tr(
+          'Conforme o trecho citado, com boa função de espalhamento e fator de carga controlado, o acesso médio é constante: O(1).'),
     ),
     (
       src: 'estruturas-de-dados.pdf · p.22',
-      question: 'Qual estrutura de dados segue estritamente a política LIFO?',
-      options: ['Fila', 'Pilha', 'Lista circular', 'Heap binário'],
+      question: NoesisL10n.tr('Qual estrutura de dados segue estritamente a política LIFO?'),
+      options: [
+        NoesisL10n.tr('Fila'),
+        NoesisL10n.tr('Pilha'),
+        NoesisL10n.tr('Lista circular'),
+        NoesisL10n.tr('Heap binário'),
+      ],
       answer: 1,
-      explanation:
-          'A pilha remove primeiro o último elemento inserido (Last In, First Out).',
+      explanation: NoesisL10n.tr(
+          'A pilha remove primeiro o último elemento inserido (Last In, First Out).'),
     ),
     (
       src: 'estruturas-de-dados.pdf · p.31',
-      question:
-          'Em uma árvore binária de busca balanceada (AVL), a busca custa no pior caso…',
+      question: NoesisL10n.tr(
+          'Em uma árvore binária de busca balanceada (AVL), a busca custa no pior caso…'),
       options: ['O(log n)', 'O(n²)', 'O(1)', 'O(n)'],
       answer: 0,
-      explanation:
-          'O balanceamento garante altura proporcional a log n, descartando metade da subárvore a cada comparação.',
+      explanation: NoesisL10n.tr(
+          'O balanceamento garante altura proporcional a log n, descartando metade da subárvore a cada comparação.'),
     ),
   ];
 
   static const List<int> _heatMinutes = [0, 45, 90, 150, 240];
-  static const List<String> _heatLabels = [
-    'sem estudo',
-    'foco leve',
-    'foco moderado',
-    'foco forte',
-    'foco máximo',
+  static List<String> get _heatLabels => [
+    NoesisL10n.tr('sem estudo'),
+    NoesisL10n.tr('foco leve'),
+    NoesisL10n.tr('foco moderado'),
+    NoesisL10n.tr('foco forte'),
+    NoesisL10n.tr('foco máximo'),
   ];
 
   @override
@@ -176,6 +182,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
   }
 
   void _runAiSimulation() {
+    final prompt = context.tr(_aiDemoPrompt);
     _stopAiSimulation();
     setState(() {
       _typedPrompt = '';
@@ -190,9 +197,9 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
     var cursor = 0;
     void typeNext() {
       if (!mounted) return;
-      if (cursor < _aiDemoPrompt.length) {
-        cursor = math.min(_aiDemoPrompt.length, cursor + step);
-        setState(() => _typedPrompt = _aiDemoPrompt.substring(0, cursor));
+      if (cursor < prompt.length) {
+        cursor = math.min(prompt.length, cursor + step);
+        setState(() => _typedPrompt = prompt.substring(0, cursor));
         _aiTimers.add(Timer(const Duration(milliseconds: 28), typeNext));
       } else {
         _aiTimers.add(Timer(const Duration(milliseconds: 220), () {
@@ -275,7 +282,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 const SizedBox(width: 10),
                 Flexible(
                   child: Text(
-                    'Cognitive OS & AI Study Engine · Ecossistema Aster',
+                    context.tr('Cognitive OS & AI Study Engine · Ecossistema Aster'),
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
                       fontSize: isCompact ? 11.5 : 13,
@@ -305,7 +312,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   color: textCol,
                 ),
                 children: [
-                  const TextSpan(text: 'O sistema operacional cognitivo que '),
+                  TextSpan(text: context.tr('O sistema operacional cognitivo que ')),
                   WidgetSpan(
                     alignment: PlaceholderAlignment.baseline,
                     baseline: TextBaseline.alphabetic,
@@ -318,7 +325,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         ],
                       ).createShader(bounds),
                       child: Text(
-                        'estuda com você.',
+                        context.tr('estuda com você.'),
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: isWide ? 66 : (isCompact ? 34 : 48),
                           fontWeight: FontWeight.w700,
@@ -343,7 +350,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Text(
-              'Foco Stopwatch & Pomodoro, simulados com RAG sobre 39 bancas, flashcards 3D, cadernos, trilhas, agenda em 4 visões e um agente autônomo com 20 ferramentas.',
+              context.tr('Foco Stopwatch & Pomodoro, simulados com RAG sobre 39 bancas, flashcards 3D, cadernos, trilhas, agenda em 4 visões e um agente autônomo com 20 ferramentas.'),
               textAlign: TextAlign.center,
               style: GoogleFonts.manrope(
                 fontSize: isCompact ? 15 : 18,
@@ -366,12 +373,12 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
             children: [
               _HeroPrimaryButton(
                 key: const Key('landing_open_login_button'),
-                label: 'Acessar ferramenta',
+                label: context.tr('Acessar ferramenta'),
                 icon: Icons.arrow_forward_rounded,
                 onTap: widget.onOpenLogin,
               ),
               _HeroSoftButton(
-                label: 'Explorar recursos',
+                label: context.tr('Explorar recursos'),
                 icon: Icons.play_circle_outline_rounded,
                 onTap: widget.onExploreResources,
               ),
@@ -381,17 +388,17 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
         const SizedBox(height: 22),
 
         // Fatos rápidos reais do Noesis
-        const LandingEntrance(
-          delay: Duration(milliseconds: 370),
+        LandingEntrance(
+          delay: const Duration(milliseconds: 370),
           child: Wrap(
             alignment: WrapAlignment.center,
             spacing: 20,
             runSpacing: 8,
             children: [
-              _HeroFact(label: 'Aster Account SSO (OAuth + Email)'),
-              _HeroFact(label: '14 módulos integrados'),
-              _HeroFact(label: '7 provedores de IA'),
-              _HeroFact(label: 'Windows · Web · Android · iOS'),
+              _HeroFact(label: context.tr('Aster Account SSO (OAuth + Email)')),
+              _HeroFact(label: context.tr('14 módulos integrados')),
+              _HeroFact(label: context.tr('7 provedores de IA')),
+              _HeroFact(label: context.tr('Windows · Web · Android · iOS')),
             ],
           ),
         ),
@@ -519,10 +526,10 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                                   compact: true,
                                   selectedIndex: _activeTab,
                                   onSelect: _selectTab,
-                                  items: const [
-                                    (icon: Icons.timer_rounded, label: 'Timer'),
-                                    (icon: Icons.auto_awesome_rounded, label: 'Noesis AI'),
-                                    (icon: Icons.assignment_rounded, label: 'Simulados'),
+                                  items: [
+                                    (icon: Icons.timer_rounded, label: context.tr('Timer')),
+                                    (icon: Icons.auto_awesome_rounded, label: context.tr('Noesis AI')),
+                                    (icon: Icons.assignment_rounded, label: context.tr('Simulados')),
                                   ],
                                 ),
                               ),
@@ -540,7 +547,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'noesis://prévia',
+                                  context.tr('noesis://prévia'),
                                   style: GoogleFonts.jetBrainsMono(
                                     fontSize: 11.5,
                                     color: mutedCol,
@@ -580,9 +587,9 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
 
             // Chips flutuantes posicionados nas bordas externas sem cobrir métricas
             if (isWide) ...[
-              Positioned(
+              PositionedDirectional(
                 top: 60,
-                left: -28,
+                start: -28,
                 child: LandingFloatingBob(
                   phaseShift: 0.0,
                   amplitude: 8.0,
@@ -595,7 +602,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         const InsightCoinIcon(size: 16),
                         const SizedBox(width: 7),
                         Text(
-                          '+24 Insights',
+                          context.tr('+24 Insights'),
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -607,9 +614,9 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   ),
                 ),
               ),
-              Positioned(
+              PositionedDirectional(
                 bottom: -20,
-                right: 56,
+                end: 56,
                 child: LandingFloatingBob(
                   phaseShift: 2.1,
                   amplitude: 7.0,
@@ -622,7 +629,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         Icon(Icons.auto_awesome_rounded, size: 15, color: primary),
                         const SizedBox(width: 7),
                         Text(
-                          '20 ações no agente',
+                          context.tr('20 ações no agente'),
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
@@ -653,9 +660,9 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
   }) {
     final selLevel = _heatLevels[_selectedHeatIndex];
     final selMins = _heatMinutes[selLevel];
-    final selName = _heatLabels[selLevel];
+    final selName = context.tr(_heatLabels[selLevel]);
     const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-    final dayName = dayNames[_selectedHeatIndex % 7];
+    final dayName = context.tr(dayNames[_selectedHeatIndex % 7]);
     final onPrimary = AsterTheme.onPrimary(context);
 
     final sessionGoalSecs = _isPomodoroMode ? 25 * 60 : 90 * 60;
@@ -679,7 +686,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 children: [
                   Expanded(
                     child: Text(
-                      'SESSÃO DE FOCO',
+                      context.tr('SESSÃO DE FOCO'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -705,7 +712,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       ),
                       child: Text(
-                        _isPomodoroMode ? 'Pomodoro 25m' : 'Stopwatch',
+                        _isPomodoroMode ? context.tr('Pomodoro 25m') : context.tr('Stopwatch'),
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
@@ -727,7 +734,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         const InsightCoinIcon(size: 13),
                         const SizedBox(width: 5),
                         Text(
-                          '+24 INSIGHTS',
+                          context.tr('+24 INSIGHTS'),
                           style: GoogleFonts.manrope(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -774,7 +781,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            'Estruturas de Dados · bloco 3',
+                            context.tr('Estruturas de Dados · bloco 3'),
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.manrope(
                               fontSize: 12.5,
@@ -799,7 +806,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         Icon(Icons.flag_outlined, size: 13.5, color: primary),
                         const SizedBox(width: 5),
                         Text(
-                          'Meta ${_isPomodoroMode ? "25m" : "90m"}',
+                          context.tr('Meta {goal}', {'goal': _isPomodoroMode ? '25m' : '90m'}),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -825,21 +832,30 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Progresso da sessão',
-                          style: GoogleFonts.manrope(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: mutedCol,
+                        Expanded(
+                          child: Text(
+                            context.tr('Progresso da sessão'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: mutedCol,
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          'Checkpoint #1 · 00:14:20',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            color: primary,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            context.tr('Checkpoint #1 · 00:14:20'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: primary,
+                            ),
                           ),
                         ),
                       ],
@@ -853,7 +869,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         widthFactor: sessionProgress,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
@@ -908,7 +924,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                             ),
                             const SizedBox(width: 7),
                             Text(
-                              _timerRunning ? 'Pausar' : 'Retomar',
+                              _timerRunning ? context.tr('Pausar') : context.tr('Retomar'),
                               style: GoogleFonts.manrope(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
@@ -935,7 +951,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                       child: Text(
-                        'Reiniciar',
+                        context.tr('Reiniciar'),
                         style: GoogleFonts.manrope(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
@@ -956,23 +972,23 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
       (
         icon: Icons.assignment_turned_in_rounded,
         color: primary,
-        title: 'Simulados',
-        value: '12 feitos',
-        sub: 'Média 84% acerto',
+        title: context.tr('Simulados'),
+        value: context.tr('12 feitos'),
+        sub: context.tr('Média 84% acerto'),
       ),
       (
         icon: Icons.style_rounded,
         color: AsterConstants.ambar,
-        title: 'Flashcards',
-        value: '18 p/ revisar',
-        sub: '4 cadernos ativos',
+        title: context.tr('Flashcards'),
+        value: context.tr('18 p/ revisar'),
+        sub: context.tr('4 cadernos ativos'),
       ),
       (
         icon: Icons.route_rounded,
         color: AsterConstants.coral,
-        title: 'Trilhas',
-        value: '68% concl.',
-        sub: '3 eventos na semana',
+        title: context.tr('Trilhas'),
+        value: context.tr('68% concl.'),
+        sub: context.tr('3 eventos na semana'),
       ),
     ];
 
@@ -1002,7 +1018,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    item.title,
+                    context.tr(item.title),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
@@ -1012,7 +1028,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                     ),
                   ),
                   Text(
-                    item.value,
+                    context.tr(item.value),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
@@ -1022,7 +1038,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                     ),
                   ),
                   Text(
-                    item.sub,
+                    context.tr(item.sub),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
@@ -1085,7 +1101,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
               Row(
                 children: [
                   Text(
-                    'META SEMANAL',
+                    context.tr('META SEMANAL'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -1120,7 +1136,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   curve: kLandingFluidCurve,
                   builder: (context, progress, _) {
                     return Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: FractionallySizedBox(
                         widthFactor: progress.clamp(0.0, 1.0),
                         heightFactor: 1.0,
@@ -1154,7 +1170,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 Row(
                   children: [
                     Text(
-                      'ÚLTIMOS 7 DIAS',
+                      context.tr('ÚLTIMOS 7 DIAS'),
                       style: GoogleFonts.manrope(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -1170,7 +1186,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                       ),
                       child: Text(
-                        '+18% vs sem. ant.',
+                        context.tr('+18% vs sem. ant.'),
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -1189,7 +1205,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                       for (int i = 0; i < weekDayBars.length; i++)
                         Expanded(
                           child: Padding(
-                            padding: EdgeInsets.only(right: i == 6 ? 0 : 6),
+                            padding: EdgeInsetsDirectional.only(end: i == 6 ? 0 : 6),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -1233,7 +1249,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
               Row(
                 children: [
                   Text(
-                    'HEATMAP DE FOCO',
+                    context.tr('HEATMAP DE FOCO'),
                     style: GoogleFonts.manrope(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -1243,7 +1259,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   ),
                   const Spacer(),
                   Text(
-                    '15 semanas',
+                    context.tr('15 semanas'),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -1258,7 +1274,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 children: List.generate(15, (col) {
                   return Expanded(
                     child: Padding(
-                      padding: EdgeInsets.only(right: col == 14 ? 0 : (isCompact ? 3 : 4)),
+                      padding: EdgeInsetsDirectional.only(end: col == 14 ? 0 : (isCompact ? 3 : 4)),
                       child: Column(
                         children: List.generate(7, (row) {
                           final idx = col * 7 + row;
@@ -1370,10 +1386,10 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
     required Color cardCol,
     required Color insetCol,
   }) {
-    const actions = [
-      'Gerar simulado',
-      'Criar flashcards',
-      'Agendar revisão',
+    final actions = [
+      context.tr('Gerar simulado'),
+      context.tr('Criar flashcards'),
+      context.tr('Agendar revisão'),
     ];
 
     final feedContent = Column(
@@ -1389,7 +1405,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
               child: Text(
-                '7 provedores · 20 ferramentas ativas',
+                context.tr('7 provedores · 20 ferramentas ativas'),
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -1402,7 +1418,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
               onPressed: _runAiSimulation,
               icon: const Icon(Icons.replay_rounded, size: 15),
               label: Text(
-                'Reproduzir',
+                context.tr('Reproduzir'),
                 style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
@@ -1412,21 +1428,21 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
 
         if (_aiSent) ...[
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 560),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: primary,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(6),
+                borderRadius: const BorderRadiusDirectional.only(
+                  topStart: Radius.circular(20),
+                  topEnd: Radius.circular(20),
+                  bottomStart: Radius.circular(20),
+                  bottomEnd: Radius.circular(6),
                 ),
               ),
               child: Text(
-                _aiDemoPrompt,
+                context.tr(_aiDemoPrompt),
                 style: GoogleFonts.manrope(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
@@ -1472,7 +1488,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                       ),
                     const SizedBox(width: 7),
                     Text(
-                      actions[i],
+                      context.tr(actions[i]),
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1511,7 +1527,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                     ),
                     const SizedBox(width: 9),
                     Text(
-                      'Noesis AI · Agente Cognitivo',
+                      context.tr('Noesis AI · Agente Cognitivo'),
                       style: GoogleFonts.manrope(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -1522,7 +1538,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Pronto! Organizei tudo diretamente nos seus módulos:',
+                  context.tr('Pronto! Organizei tudo diretamente nos seus módulos:'),
                   style: GoogleFonts.manrope(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1532,8 +1548,8 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 const SizedBox(height: 8),
                 _AiActionResultRow(
                   icon: Icons.assignment_rounded,
-                  title: 'Simulado · Estruturas de Dados',
-                  tool: 'Simulado pronto',
+                  title: context.tr('Simulado · Estruturas de Dados'),
+                  tool: context.tr('Simulado pronto'),
                   cardCol: cardCol,
                   insetCol: insetCol,
                   primary: primary,
@@ -1543,8 +1559,8 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 const SizedBox(height: 6),
                 _AiActionResultRow(
                   icon: Icons.style_rounded,
-                  title: 'Baralho 3D com revisão espaçada',
-                  tool: 'Baralho salvo',
+                  title: context.tr('Baralho 3D com revisão espaçada'),
+                  tool: context.tr('Baralho salvo'),
                   cardCol: cardCol,
                   insetCol: insetCol,
                   primary: primary,
@@ -1554,8 +1570,8 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 const SizedBox(height: 6),
                 _AiActionResultRow(
                   icon: Icons.calendar_today_rounded,
-                  title: 'Revisão agendada para sexta às 19h',
-                  tool: 'No Calendário',
+                  title: context.tr('Revisão agendada para sexta às 19h'),
+                  tool: context.tr('No Calendário'),
                   cardCol: cardCol,
                   insetCol: insetCol,
                   primary: primary,
@@ -1570,7 +1586,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
             padding: EdgeInsets.symmetric(vertical: isCompact ? 42 : 160),
             child: Center(
               child: Text(
-                'Iniciando demonstração do agente cognitivo…',
+                context.tr('Iniciando demonstração do agente cognitivo…'),
                 style: GoogleFonts.manrope(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
@@ -1600,7 +1616,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
           const SizedBox(height: 12),
           // Barra de entrada do chat
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 8, 8),
             decoration: BoxDecoration(
               color: altCol,
               borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
@@ -1612,7 +1628,9 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _typedPrompt.isNotEmpty ? '$_typedPrompt|' : 'Pergunte algo ou anexe um PDF à Noesis…',
+                    _typedPrompt.isNotEmpty
+                        ? '$_typedPrompt|'
+                        : context.tr('Pergunte algo ou anexe um PDF à Noesis…'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.manrope(
@@ -1679,7 +1697,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
               ),
               child: Text(
-                'Simulado RAG · 39 Bancas',
+                context.tr('Simulado RAG · 39 Bancas'),
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -1700,7 +1718,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   Icon(Icons.description_rounded, size: 13.5, color: mutedCol),
                   const SizedBox(width: 5),
                   Text(
-                    q.src,
+                    context.tr(q.src),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -1729,7 +1747,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
         ),
         const SizedBox(height: 16),
         Text(
-          q.question,
+          context.tr(q.question),
           style: GoogleFonts.spaceGrotesk(
             fontSize: isCompact ? 18 : 22,
             fontWeight: FontWeight.w700,
@@ -1769,7 +1787,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                   child: _QuizOptionFeedbackTile(
                     key: ValueKey('quiz_opt_${_quizIndex}_$i'),
                     letter: letters[i],
-                    text: q.options[i],
+                    text: context.tr(q.options[i]),
                     answered: answered,
                     isSelected: i == _selectedOption,
                     isRightOption: i == q.answer,
@@ -1813,7 +1831,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 ],
                 Expanded(
                   child: Text(
-                    '${isCorrect ? "Acertou! (+3 Insights) " : "Quase! "}${q.explanation}',
+                    '${isCorrect ? context.tr('Acertou! (+3 Insights) ') : context.tr('Quase! ')}${context.tr(q.explanation)}',
                     style: GoogleFonts.manrope(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
@@ -1852,7 +1870,7 @@ class _LandingHeroSectionState extends State<LandingHeroSection>
                 return Container(
                   width: 28,
                   height: 6,
-                  margin: const EdgeInsets.only(right: 6),
+                  margin: const EdgeInsetsDirectional.only(end: 6),
                   decoration: BoxDecoration(
                     color: on ? primary : insetCol,
                     borderRadius: BorderRadius.circular(6),

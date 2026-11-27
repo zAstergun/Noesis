@@ -12,6 +12,7 @@ import '../features/roadmaps/models/roadmap_model.dart';
 import 'constants.dart';
 import 'gemini_service.dart';
 import 'insights_economy_config.dart';
+import 'localization/noesis_l10n.dart';
 import 'shop_service.dart';
 import 'supabase_service.dart';
 import 'theme.dart';
@@ -522,12 +523,13 @@ class NotificationsService {
     // -1. Confirmação de e-mail pendente
     if (!isEmailConfirmed) {
       list.add(
-        const NoesisNotification(
+        NoesisNotification(
           id: 'email_verification_pending',
-          title: 'Confirme seu e-mail',
-          message:
-              'Verifique sua caixa de entrada e clique no link de validação para proteger sua conta Aster e liberar alterações de @usuário.',
-          timeLabel: 'Conta',
+          title: NoesisL10n.tr('Confirme seu e-mail'),
+          message: NoesisL10n.tr(
+            'Verifique sua caixa de entrada e clique no link de validação para proteger sua conta Aster e liberar alterações de @usuário.',
+          ),
+          timeLabel: NoesisL10n.tr('Conta'),
           icon: Icons.mark_email_unread_rounded,
           tone: NotificationTone.coral,
           targetTab: 6,
@@ -539,12 +541,23 @@ class NotificationsService {
     // 0. Bônus de boas-vindas ao entrar pela primeira vez no Noesis (+100 Insights)
     if (hasWelcomeBonus) {
       list.add(
-        const NoesisNotification(
+        NoesisNotification(
           id: 'welcome_insights_bonus',
-          title: 'Bônus de boas-vindas · +${InsightsEconomyConfig.welcomeBonus} ${InsightsEconomyConfig.currencyName}',
-          message:
-              'Você recebeu ${InsightsEconomyConfig.welcomeBonus} ${InsightsEconomyConfig.currencyName} pelo seu primeiro acesso ao Noesis! Use na Loja para desbloquear novos temas.',
-          timeLabel: 'Boas-vindas',
+          title: NoesisL10n.tr(
+            'Bônus de boas-vindas · +{amount} {currency}',
+            {
+              'amount': InsightsEconomyConfig.welcomeBonus,
+              'currency': InsightsEconomyConfig.currencyName,
+            },
+          ),
+          message: NoesisL10n.tr(
+            'Você recebeu {amount} {currency} pelo seu primeiro acesso ao Noesis! Use na Loja para desbloquear novos temas.',
+            {
+              'amount': InsightsEconomyConfig.welcomeBonus,
+              'currency': InsightsEconomyConfig.currencyName,
+            },
+          ),
+          timeLabel: NoesisL10n.tr('Boas-vindas'),
           icon: Icons.celebration_rounded,
           tone: NotificationTone.amber,
           targetTab: 9,
@@ -574,7 +587,7 @@ class NotificationsService {
     for (final item in upcoming.take(2)) {
       final evt = item.event;
       final start = item.start;
-      final titleText = (evt['title'] ?? 'Compromisso de estudo').toString().trim();
+      final titleText = (evt['title'] ?? NoesisL10n.tr('Compromisso de estudo')).toString().trim();
       final category = (evt['category'] ?? 'study').toString();
       final isExam = category == 'exam';
       final dayKey = '${start.year}-${start.month}-${start.day}-${start.hour}';
@@ -583,7 +596,7 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: id,
-          title: isExam ? 'Prova / Marco Próximo' : 'Agenda Próxima',
+          title: isExam ? NoesisL10n.tr('Prova / Marco Próximo') : NoesisL10n.tr('Agenda Próxima'),
           message: '$titleText · ${_formatRelativeFuture(now, start)}.',
           timeLabel: _formatTimeBadge(now, start),
           icon: isExam ? Icons.event_available_rounded : Icons.schedule_rounded,
@@ -596,13 +609,16 @@ class NotificationsService {
 
     if (upcoming.isEmpty && overdueToday.isNotEmpty) {
       final first = overdueToday.first;
-      final titleText = (first.event['title'] ?? 'Bloco pendente').toString().trim();
+      final titleText = (first.event['title'] ?? NoesisL10n.tr('Bloco pendente')).toString().trim();
       list.add(
         NoesisNotification(
           id: 'cal_pending_${first.event['id'] ?? titleText}_${todayStart.toIso8601String().substring(0, 10)}',
-          title: 'Bloco Pendente Hoje',
-          message: '"$titleText" estava previsto para ${_formatClock(first.start)} e ainda não foi concluído.',
-          timeLabel: 'Hoje',
+          title: NoesisL10n.tr('Bloco Pendente Hoje'),
+          message: NoesisL10n.tr(
+            '"{title}" estava previsto para {time} e ainda não foi concluído.',
+            {'title': titleText, 'time': _formatClock(first.start)},
+          ),
+          timeLabel: NoesisL10n.tr('Hoje'),
           icon: Icons.event_note_rounded,
           tone: NotificationTone.amber,
           targetTab: 5,
@@ -627,9 +643,19 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'fc_due_${totalCardsDue}_${topDeck.id}',
-          title: '$totalCardsDue ${totalCardsDue == 1 ? 'card' : 'cards'} para revisar',
-          message: 'Priorize "${topDeck.title}" ($topDeckDue pendente${topDeckDue == 1 ? '' : 's'}) para consolidar a memória.',
-          timeLabel: 'Agora',
+          title: totalCardsDue == 1
+              ? NoesisL10n.tr('{count} card para revisar', {'count': totalCardsDue})
+              : NoesisL10n.tr('{count} cards para revisar', {'count': totalCardsDue}),
+          message: topDeckDue == 1
+              ? NoesisL10n.tr(
+                  'Priorize "{deck}" ({count} pendente) para consolidar a memória.',
+                  {'deck': topDeck.title, 'count': topDeckDue},
+                )
+              : NoesisL10n.tr(
+                  'Priorize "{deck}" ({count} pendentes) para consolidar a memória.',
+                  {'deck': topDeck.title, 'count': topDeckDue},
+                ),
+          timeLabel: NoesisL10n.tr('Agora'),
           icon: Icons.style_rounded,
           tone: NotificationTone.primary,
           targetTab: 2,
@@ -653,11 +679,16 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'nb_review_$notesToReview',
-          title: '$notesToReview ${notesToReview == 1 ? 'anotação para revisar' : 'anotações para revisar'}',
+          title: notesToReview == 1
+              ? NoesisL10n.tr('{count} anotação para revisar', {'count': notesToReview})
+              : NoesisL10n.tr('{count} anotações para revisar', {'count': notesToReview}),
           message: firstNotebookTitle != null
-              ? 'Resumo em "$firstNotebookTitle" aguardando revisão espaçada.'
-              : 'Você tem resumos marcados para revisão nos Cadernos.',
-          timeLabel: 'Cadernos',
+              ? NoesisL10n.tr(
+                  'Resumo em "{notebook}" aguardando revisão espaçada.',
+                  {'notebook': firstNotebookTitle},
+                )
+              : NoesisL10n.tr('Você tem resumos marcados para revisão nos Cadernos.'),
+          timeLabel: NoesisL10n.tr('Cadernos'),
           icon: Icons.menu_book_rounded,
           tone: NotificationTone.secondary,
           targetTab: 3,
@@ -684,10 +715,15 @@ class NotificationsService {
         list.add(
           NoesisNotification(
             id: 'daily_goal_reached_$dayId',
-            title: 'Meta Diária Atingida 🎯',
-            message:
-                'Você completou ${SupabaseService.formatGoalDuration(todayMinutes)} hoje (meta de ${SupabaseService.formatGoalDuration(dailyGoalMinutes)}).',
-            timeLabel: 'Hoje',
+            title: NoesisL10n.tr('Meta Diária Atingida 🎯'),
+            message: NoesisL10n.tr(
+              'Você completou {completed} hoje (meta de {goal}).',
+              {
+                'completed': SupabaseService.formatGoalDuration(todayMinutes),
+                'goal': SupabaseService.formatGoalDuration(dailyGoalMinutes),
+              },
+            ),
+            timeLabel: NoesisL10n.tr('Hoje'),
             icon: Icons.today_rounded,
             tone: NotificationTone.secondary,
             targetTab: 7,
@@ -699,10 +735,15 @@ class NotificationsService {
         list.add(
           NoesisNotification(
             id: 'daily_goal_almost_$dayId',
-            title: 'Reta Final da Meta Diária',
-            message:
-                'Faltam apenas ${SupabaseService.formatGoalDuration(remainingDaily)} para bater ${SupabaseService.formatGoalDuration(dailyGoalMinutes)} hoje.',
-            timeLabel: 'Hoje',
+            title: NoesisL10n.tr('Reta Final da Meta Diária'),
+            message: NoesisL10n.tr(
+              'Faltam apenas {remaining} para bater {goal} hoje.',
+              {
+                'remaining': SupabaseService.formatGoalDuration(remainingDaily),
+                'goal': SupabaseService.formatGoalDuration(dailyGoalMinutes),
+              },
+            ),
+            timeLabel: NoesisL10n.tr('Hoje'),
             icon: Icons.today_rounded,
             tone: NotificationTone.primary,
             targetTab: 7,
@@ -716,10 +757,15 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'goal_reached_$weekId',
-          title: 'Meta Semanal Atingida 🎯',
-          message:
-              'Você completou ${SupabaseService.formatGoalDuration(weeklyMinutes)} nesta semana (meta de ${SupabaseService.formatGoalDuration(weeklyGoalMinutes)}).',
-          timeLabel: 'Esta semana',
+          title: NoesisL10n.tr('Meta Semanal Atingida 🎯'),
+          message: NoesisL10n.tr(
+            'Você completou {completed} nesta semana (meta de {goal}).',
+            {
+              'completed': SupabaseService.formatGoalDuration(weeklyMinutes),
+              'goal': SupabaseService.formatGoalDuration(weeklyGoalMinutes),
+            },
+          ),
+          timeLabel: NoesisL10n.tr('Esta semana'),
           icon: Icons.emoji_events_rounded,
           tone: NotificationTone.secondary,
           targetTab: 0,
@@ -731,10 +777,15 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'goal_almost_$weekId',
-          title: 'Reta Final da Meta Semanal',
-          message:
-              'Faltam apenas ${SupabaseService.formatGoalDuration(remaining)} para bater ${SupabaseService.formatGoalDuration(weeklyGoalMinutes)} na semana.',
-          timeLabel: 'Esta semana',
+          title: NoesisL10n.tr('Reta Final da Meta Semanal'),
+          message: NoesisL10n.tr(
+            'Faltam apenas {remaining} para bater {goal} na semana.',
+            {
+              'remaining': SupabaseService.formatGoalDuration(remaining),
+              'goal': SupabaseService.formatGoalDuration(weeklyGoalMinutes),
+            },
+          ),
+          timeLabel: NoesisL10n.tr('Esta semana'),
           icon: Icons.track_changes_rounded,
           tone: NotificationTone.primary,
           targetTab: 7,
@@ -747,9 +798,11 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'streak_${streakDays}_${todayStart.month}_${todayStart.day}',
-          title: 'Sequência Ativa · $streakDays ${streakDays == 1 ? 'dia' : 'dias'} 🔥',
-          message: 'Você manteve consistência nos estudos. Continue registrando no Diário para ampliar sua sequência.',
-          timeLabel: 'Hoje',
+          title: streakDays == 1
+              ? NoesisL10n.tr('Sequência Ativa · {days} dia 🔥', {'days': streakDays})
+              : NoesisL10n.tr('Sequência Ativa · {days} dias 🔥', {'days': streakDays}),
+          message: NoesisL10n.tr('Você manteve consistência nos estudos. Continue registrando no Diário para ampliar sua sequência.'),
+          timeLabel: NoesisL10n.tr('Hoje'),
           icon: Icons.local_fire_department_rounded,
           tone: NotificationTone.secondary,
           targetTab: 7,
@@ -760,9 +813,9 @@ class NotificationsService {
       list.add(
         NoesisNotification(
           id: 'study_today_${todayStart.year}-${todayStart.month}-${todayStart.day}',
-          title: 'Registre seu estudo de hoje',
-          message: 'Nenhuma sessão registrada hoje ainda. Abra o Diário de Estudos para iniciar sua sequência.',
-          timeLabel: 'Hoje',
+          title: NoesisL10n.tr('Registre seu estudo de hoje'),
+          message: NoesisL10n.tr('Nenhuma sessão registrada hoje ainda. Abra o Diário de Estudos para iniciar sua sequência.'),
+          timeLabel: NoesisL10n.tr('Hoje'),
           icon: Icons.auto_stories_rounded,
           tone: NotificationTone.primary,
           targetTab: 7,
@@ -782,11 +835,22 @@ class NotificationsService {
           NoesisNotification(
             id: 'exam_${latest.id}_$pct',
             title: needsReinforcement
-                ? 'Revisão Recomendada em Simulado'
-                : 'Simulado Concluído ($pct%)',
+                ? NoesisL10n.tr('Revisão Recomendada em Simulado')
+                : NoesisL10n.tr('Simulado Concluído ({pct}%)', {'pct': pct}),
             message: needsReinforcement
-                ? 'Em "${latest.title}" você atingiu $pct%. Revise seus erros para fixar os pontos fracos.'
-                : 'Último desempenho em "${latest.title}": $pct% de acertos (${latest.correctCount}/${latest.loadedCount}).',
+                ? NoesisL10n.tr(
+                    'Em "{title}" você atingiu {pct}%. Revise seus erros para fixar os pontos fracos.',
+                    {'title': latest.title, 'pct': pct},
+                  )
+                : NoesisL10n.tr(
+                    'Último desempenho em "{title}": {pct}% de acertos ({correct}/{total}).',
+                    {
+                      'title': latest.title,
+                      'pct': pct,
+                      'correct': latest.correctCount,
+                      'total': latest.loadedCount,
+                    },
+                  ),
             timeLabel: _formatPastAge(now, latest.createdAt),
             icon: Icons.quiz_rounded,
             tone: needsReinforcement ? NotificationTone.coral : NotificationTone.secondary,
@@ -813,9 +877,12 @@ class NotificationsService {
         list.add(
           NoesisNotification(
             id: 'roadmap_${rm.id}_${nextStep.id}',
-            title: 'Próxima Etapa · ${rm.title}',
-            message: 'Continue sua trilha em "${nextStep.title}" (${(rm.progress * 100).round()}% concluída).',
-            timeLabel: 'Trilhas',
+            title: NoesisL10n.tr('Próxima Etapa · {title}', {'title': rm.title}),
+            message: NoesisL10n.tr(
+              'Continue sua trilha em "{step}" ({pct}% concluída).',
+              {'step': nextStep.title, 'pct': (rm.progress * 100).round()},
+            ),
+            timeLabel: NoesisL10n.tr('Trilhas'),
             icon: Icons.route_rounded,
             tone: NotificationTone.primary,
             targetTab: 8,
@@ -829,11 +896,11 @@ class NotificationsService {
     // 7. Chave de IA ausente
     if (!hasConfiguredAiKey) {
       list.add(
-        const NoesisNotification(
+        NoesisNotification(
           id: 'ai_key_missing',
-          title: 'Chave de IA não configurada',
-          message: 'Adicione sua chave de API em Configurações para habilitar o Noesis AI e geradores inteligentes.',
-          timeLabel: 'Configuração',
+          title: NoesisL10n.tr('Chave de IA não configurada'),
+          message: NoesisL10n.tr('Adicione sua chave de API em Configurações para habilitar o Noesis AI e geradores inteligentes.'),
+          timeLabel: NoesisL10n.tr('Configuração'),
           icon: Icons.settings_suggest_rounded,
           tone: NotificationTone.amber,
           targetTab: 6,
@@ -864,31 +931,31 @@ class NotificationsService {
     final today = DateTime(now.year, now.month, now.day);
     final startDay = DateTime(start.year, start.month, start.day);
     final diffDays = startDay.difference(today).inDays;
-    if (diffDays <= 0) return 'Hoje · ${_formatClock(start)}';
-    if (diffDays == 1) return 'Amanhã · ${_formatClock(start)}';
+    if (diffDays <= 0) return NoesisL10n.tr('Hoje · {time}', {'time': _formatClock(start)});
+    if (diffDays == 1) return NoesisL10n.tr('Amanhã · {time}', {'time': _formatClock(start)});
     return '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')} · ${_formatClock(start)}';
   }
 
   static String _formatRelativeFuture(DateTime now, DateTime start) {
     final mins = start.difference(now).inMinutes;
-    if (mins <= 0) return 'começa agora (${_formatClock(start)})';
-    if (mins < 60) return 'em $mins min (${_formatClock(start)})';
+    if (mins <= 0) return NoesisL10n.tr('começa agora ({time})', {'time': _formatClock(start)});
+    if (mins < 60) return NoesisL10n.tr('em {mins} min ({time})', {'mins': mins, 'time': _formatClock(start)});
     final hours = start.difference(now).inHours;
     if (hours < 24 && start.day == now.day) {
-      return 'hoje às ${_formatClock(start)}';
+      return NoesisL10n.tr('hoje às {time}', {'time': _formatClock(start)});
     }
     return _formatTimeBadge(now, start);
   }
 
   static String _formatPastAge(DateTime now, DateTime past) {
     final mins = now.difference(past).inMinutes;
-    if (mins < 2) return 'Agora';
-    if (mins < 60) return 'Há $mins min';
+    if (mins < 2) return NoesisL10n.tr('Agora');
+    if (mins < 60) return NoesisL10n.tr('Há {mins} min', {'mins': mins});
     final hours = now.difference(past).inHours;
-    if (hours < 24) return 'Há ${hours}h';
+    if (hours < 24) return NoesisL10n.tr('Há {hours}h', {'hours': hours});
     final days = now.difference(past).inDays;
-    if (days == 1) return 'Ontem';
-    return 'Há $days dias';
+    if (days == 1) return NoesisL10n.tr('Ontem');
+    return NoesisL10n.tr('Há {days} dias', {'days': days});
   }
 
   /// Marca uma notificação específica como lida e persiste.

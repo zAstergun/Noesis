@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import '../../core/localization/noesis_l10n.dart';
+import '../../core/localization/noesis_locale_service.dart';
 import '../../core/shop_service.dart';
 import '../flashcards/models/flashcard_model.dart';
 import '../notebooks/models/notebook_model.dart';
@@ -209,27 +212,34 @@ class DashboardAnalytics {
   DashboardAnalytics._();
 
   static String formatCompactDuration(int totalMinutes) {
-    if (totalMinutes <= 0) return '0m';
+    if (totalMinutes <= 0) return NoesisL10n.tr('0m');
     final h = totalMinutes ~/ 60;
     final m = totalMinutes % 60;
-    if (h == 0) return '${m}m';
-    if (m == 0) return '${h}h';
-    return '${h}h${m.toString().padLeft(2, '0')}';
+    if (h == 0) return NoesisL10n.tr('{m}m', {'m': '$m'});
+    if (m == 0) return NoesisL10n.tr('{h}h', {'h': '$h'});
+    return NoesisL10n.tr(
+      '{h}h{m}',
+      {'h': '$h', 'm': m.toString().padLeft(2, '0')},
+    );
   }
 
   static String formatReadableDuration(int totalMinutes) {
-    if (totalMinutes <= 0) return '0m';
+    if (totalMinutes <= 0) return NoesisL10n.tr('0m');
     final h = totalMinutes ~/ 60;
     final m = totalMinutes % 60;
-    if (h == 0) return '${m}m';
-    if (m == 0) return '${h}h';
-    return '${h}h ${m}m';
+    if (h == 0) return NoesisL10n.tr('{m}m', {'m': '$m'});
+    if (m == 0) return NoesisL10n.tr('{h}h', {'h': '$h'});
+    return NoesisL10n.tr('{h}h {m}m', {'h': '$h', 'm': '$m'});
   }
 
   static DateTime _dayOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
-  static String _weekdayLetter(int weekday) {
-    switch (weekday) {
+  static String _weekdayLetter(DateTime d) {
+    try {
+      final formatted = DateFormat.EEEEE(NoesisLocaleService.intlLocale).format(d);
+      if (formatted.isNotEmpty) return formatted.toUpperCase();
+    } catch (_) {}
+    switch (d.weekday) {
       case DateTime.monday:
         return 'S';
       case DateTime.tuesday:
@@ -251,20 +261,20 @@ class DashboardAnalytics {
   static String _weekdayName(int weekday) {
     switch (weekday) {
       case DateTime.monday:
-        return 'Seg';
+        return NoesisL10n.tr('Seg');
       case DateTime.tuesday:
-        return 'Ter';
+        return NoesisL10n.tr('Ter');
       case DateTime.wednesday:
-        return 'Qua';
+        return NoesisL10n.tr('Qua');
       case DateTime.thursday:
-        return 'Qui';
+        return NoesisL10n.tr('Qui');
       case DateTime.friday:
-        return 'Sex';
+        return NoesisL10n.tr('Sex');
       case DateTime.saturday:
-        return 'Sáb';
+        return NoesisL10n.tr('Sáb');
       case DateTime.sunday:
       default:
-        return 'Dom';
+        return NoesisL10n.tr('Dom');
     }
   }
 
@@ -315,11 +325,18 @@ class DashboardAnalytics {
       final fraction = maxMins > 0
           ? (m > 0 ? math.max(0.14, m / maxMins) : 0.06)
           : 0.06;
+      String fullDayLabel;
+      try {
+        fullDayLabel = DateFormat.MMMEd(NoesisLocaleService.intlLocale).format(d);
+      } catch (_) {
+        fullDayLabel =
+            '${_weekdayName(d.weekday)} ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+      }
       bars.add(
         DashboardDayBar(
           date: d,
-          dayLetter: _weekdayLetter(d.weekday),
-          fullDayLabel: '${_weekdayName(d.weekday)} ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
+          dayLetter: _weekdayLetter(d),
+          fullDayLabel: fullDayLabel,
           minutes: m,
           fraction: fraction,
           isToday: i == days.length - 1,
@@ -332,22 +349,22 @@ class DashboardAnalytics {
     bool deltaPositive = true;
 
     if (currentTotal == 0 && prevTotal == 0) {
-      deltaLabel = 'Sem registros nos últimos 7d';
+      deltaLabel = NoesisL10n.tr('Sem registros nos últimos 7d');
       deltaPositive = false;
     } else if (prevTotal == 0) {
-      deltaLabel = 'Nova sequência semanal';
+      deltaLabel = NoesisL10n.tr('Nova sequência semanal');
       deltaPositive = true;
     } else {
       final diffPct = (((currentTotal - prevTotal) / prevTotal) * 100).round();
       deltaPct = diffPct;
       if (diffPct > 0) {
-        deltaLabel = '↑ $diffPct% vs. semana ant.';
+        deltaLabel = NoesisL10n.tr('↑ {pct}% vs. semana ant.', {'pct': '$diffPct'});
         deltaPositive = true;
       } else if (diffPct < 0) {
-        deltaLabel = '↓ ${diffPct.abs()}% vs. semana ant.';
+        deltaLabel = NoesisL10n.tr('↓ {pct}% vs. semana ant.', {'pct': '${diffPct.abs()}'});
         deltaPositive = false;
       } else {
-        deltaLabel = '= 0% vs. semana ant.';
+        deltaLabel = NoesisL10n.tr('= 0% vs. semana ant.');
         deltaPositive = true;
       }
     }
@@ -605,6 +622,7 @@ class DashboardAnalytics {
     final today = _dayOnly(referenceDate ?? DateTime.now());
     final cutoff = daysWindow != null ? today.subtract(Duration(days: daysWindow - 1)) : null;
 
+    final othersLabel = NoesisL10n.tr('Outros');
     final rawMap = <String, int>{};
     for (final s in sessions) {
       final mins = (s['duration_minutes'] as num?)?.toInt() ?? 0;
@@ -614,8 +632,8 @@ class DashboardAnalytics {
         final parsed = DateTime.tryParse(rawDate);
         if (parsed == null || _dayOnly(parsed).isBefore(cutoff)) continue;
       }
-      final subject = (s['subject'] ?? 'Outros').toString().trim();
-      final label = subject.isEmpty ? 'Outros' : subject;
+      final subject = (s['subject'] ?? othersLabel).toString().trim();
+      final label = subject.isEmpty ? othersLabel : subject;
       rawMap[label] = (rawMap[label] ?? 0) + mins;
     }
 
@@ -628,7 +646,7 @@ class DashboardAnalytics {
     final othersMinutes = sorted.skip(4).fold<int>(0, (acc, e) => acc + e.value);
     return {
       for (final e in top4) e.key: e.value,
-      'Outros': othersMinutes,
+      othersLabel: othersMinutes,
     };
   }
 
@@ -662,7 +680,12 @@ class DashboardAnalytics {
     }
 
     if (result.isEmpty) {
-      return const ['Geral', 'Matemática', 'Programação', 'Idiomas'];
+      return [
+        NoesisL10n.tr('Geral'),
+        NoesisL10n.tr('Matemática'),
+        NoesisL10n.tr('Programação'),
+        NoesisL10n.tr('Idiomas'),
+      ];
     }
     return result.take(maxCount).toList();
   }
@@ -695,7 +718,9 @@ class DashboardAnalytics {
     if (chronoExams.isNotEmpty) {
       final bySubject = <String, List<double>>{};
       for (final attempt in chronoExams) {
-        final key = attempt.subject.trim().isEmpty ? 'Geral' : attempt.subject.trim();
+        final key = attempt.subject.trim().isEmpty
+            ? NoesisL10n.tr('Geral')
+            : attempt.subject.trim();
         bySubject.putIfAbsent(key, () => []).add(attempt.scorePercentage);
       }
       bySubject.forEach((subject, scores) {
@@ -709,13 +734,19 @@ class DashboardAnalytics {
       if (weakestSubject != null && weakestAvg != null && weakestAvg! < 75.0) {
         final avgRound = weakestAvg!.round();
         return DashboardInsight(
-          badgeLabel: 'Simulados',
-          message:
-              'Sua acurácia em $weakestSubject está em $avgRound% nos simulados. '
-              'Agende uma revisão focada de 30 min para reforçar os erros.',
-          recommendedReviewTitle: 'Revisão Focada · $weakestSubject',
-          recommendedReviewDescription:
-              'Revisão direcionada gerada pelo insight do Dashboard (média atual: $avgRound%).',
+          badgeLabel: NoesisL10n.tr('Simulados'),
+          message: NoesisL10n.tr(
+            'Sua acurácia em {subject} está em {avg}% nos simulados. Agende uma revisão focada de 30 min para reforçar os erros.',
+            {'subject': weakestSubject!, 'avg': '$avgRound'},
+          ),
+          recommendedReviewTitle: NoesisL10n.tr(
+            'Revisão Focada · {subject}',
+            {'subject': weakestSubject!},
+          ),
+          recommendedReviewDescription: NoesisL10n.tr(
+            'Revisão direcionada gerada pelo insight do Dashboard (média atual: {avg}%).',
+            {'avg': '$avgRound'},
+          ),
           recommendedDurationMinutes: 30,
           targetTab: 1,
           accuracySpots: spots,
@@ -730,13 +761,28 @@ class DashboardAnalytics {
     final pendingDeck = ecosystem.mostPendingDeck;
     if (pendingCards > 0 && pendingDeck != null) {
       return DashboardInsight(
-        badgeLabel: 'Flashcards',
-        message:
-            'Você tem $pendingCards flashcard${pendingCards == 1 ? '' : 's'} para revisar, '
-            'com prioridade em "${pendingDeck.title}" (${pendingDeck.subject}).',
-        recommendedReviewTitle: 'Revisão Espaçada · ${pendingDeck.title}',
-        recommendedReviewDescription:
-            'Sessão ativa de flashcards para consolidar ${pendingDeck.subject}.',
+        badgeLabel: NoesisL10n.tr('Flashcards'),
+        message: pendingCards == 1
+            ? NoesisL10n.tr(
+                'Você tem 1 flashcard para revisar, com prioridade em "{title}" ({subject}).',
+                {'title': pendingDeck.title, 'subject': pendingDeck.subject},
+              )
+            : NoesisL10n.tr(
+                'Você tem {count} flashcards para revisar, com prioridade em "{title}" ({subject}).',
+                {
+                  'count': '$pendingCards',
+                  'title': pendingDeck.title,
+                  'subject': pendingDeck.subject,
+                },
+              ),
+        recommendedReviewTitle: NoesisL10n.tr(
+          'Revisão Espaçada · {title}',
+          {'title': pendingDeck.title},
+        ),
+        recommendedReviewDescription: NoesisL10n.tr(
+          'Sessão ativa de flashcards para consolidar {subject}.',
+          {'subject': pendingDeck.subject},
+        ),
         recommendedDurationMinutes: 25,
         targetTab: 2,
         accuracySpots: spots,
@@ -749,13 +795,23 @@ class DashboardAnalytics {
     final nextRoadmap = ecosystem.nextRoadmapStep;
     if (nextRoadmap != null) {
       return DashboardInsight(
-        badgeLabel: 'Trilhas',
-        message:
-            'Próxima etapa recomendada na trilha "${nextRoadmap.roadmap.title}": '
-            '${nextRoadmap.step.title} (~${nextRoadmap.step.estimatedHours}h).',
-        recommendedReviewTitle: 'Trilha · ${nextRoadmap.step.title}',
-        recommendedReviewDescription:
-            'Bloco prático para avançar na trilha "${nextRoadmap.roadmap.title}".',
+        badgeLabel: NoesisL10n.tr('Trilhas'),
+        message: NoesisL10n.tr(
+          'Próxima etapa recomendada na trilha "{roadmap}": {step} (~{hours}h).',
+          {
+            'roadmap': nextRoadmap.roadmap.title,
+            'step': nextRoadmap.step.title,
+            'hours': '${nextRoadmap.step.estimatedHours}',
+          },
+        ),
+        recommendedReviewTitle: NoesisL10n.tr(
+          'Trilha · {step}',
+          {'step': nextRoadmap.step.title},
+        ),
+        recommendedReviewDescription: NoesisL10n.tr(
+          'Bloco prático para avançar na trilha "{roadmap}".',
+          {'roadmap': nextRoadmap.roadmap.title},
+        ),
         recommendedDurationMinutes: 45,
         targetTab: 8,
         accuracySpots: spots,
@@ -768,15 +824,26 @@ class DashboardAnalytics {
     final upcoming = ecosystem.upcomingEvents(referenceDate: referenceDate);
     if (upcoming.isNotEmpty) {
       final first = upcoming.first;
-      final title = (first['title'] ?? 'Atividade agendada').toString();
+      final title = (first['title'] ?? NoesisL10n.tr('Atividade agendada')).toString();
       return DashboardInsight(
-        badgeLabel: 'Agenda',
-        message:
-            'Você tem ${upcoming.length} compromisso${upcoming.length == 1 ? '' : 's'} nos próximos 7 dias, '
-            'começando por "$title".',
-        recommendedReviewTitle: 'Preparação · $title',
-        recommendedReviewDescription:
-            'Bloco de preparação antes do evento "$title".',
+        badgeLabel: NoesisL10n.tr('Agenda'),
+        message: upcoming.length == 1
+            ? NoesisL10n.tr(
+                'Você tem 1 compromisso nos próximos 7 dias, começando por "{title}".',
+                {'title': title},
+              )
+            : NoesisL10n.tr(
+                'Você tem {count} compromissos nos próximos 7 dias, começando por "{title}".',
+                {'count': '${upcoming.length}', 'title': title},
+              ),
+        recommendedReviewTitle: NoesisL10n.tr(
+          'Preparação · {title}',
+          {'title': title},
+        ),
+        recommendedReviewDescription: NoesisL10n.tr(
+          'Bloco de preparação antes do evento "{title}".',
+          {'title': title},
+        ),
         recommendedDurationMinutes: 30,
         targetTab: 5,
         accuracySpots: spots,
@@ -786,12 +853,16 @@ class DashboardAnalytics {
 
     if (weeklyGoalMinutes <= 0) {
       return DashboardInsight(
-        badgeLabel: 'Consistência',
-        message:
-            'Você estudou ${formatReadableDuration(currentWeekMinutes)} nesta semana '
-            'em ritmo livre (${consistency.currentStreakDays}d de streak).',
-        recommendedReviewTitle: 'Sessão de Revisão · Noesis',
-        recommendedReviewDescription: 'Bloco prático no seu próprio ritmo.',
+        badgeLabel: NoesisL10n.tr('Consistência'),
+        message: NoesisL10n.tr(
+          'Você estudou {duration} nesta semana em ritmo livre ({days}d de streak).',
+          {
+            'duration': formatReadableDuration(currentWeekMinutes),
+            'days': '${consistency.currentStreakDays}',
+          },
+        ),
+        recommendedReviewTitle: NoesisL10n.tr('Sessão de Revisão · Noesis'),
+        recommendedReviewDescription: NoesisL10n.tr('Bloco prático no seu próprio ritmo.'),
         recommendedDurationMinutes: 30,
         targetTab: 1,
         accuracySpots: spots,
@@ -802,13 +873,17 @@ class DashboardAnalytics {
     final remainingMinutes = math.max(0, weeklyGoalMinutes - currentWeekMinutes);
     if (remainingMinutes > 0) {
       return DashboardInsight(
-        badgeLabel: 'Meta Semanal',
-        message:
-            'Você estudou ${formatReadableDuration(currentWeekMinutes)} nesta semana. '
-            'Faltam ${formatReadableDuration(remainingMinutes)} para bater sua meta semanal.',
-        recommendedReviewTitle: 'Sessão de Foco · Meta Semanal',
+        badgeLabel: NoesisL10n.tr('Meta Semanal'),
+        message: NoesisL10n.tr(
+          'Você estudou {studied} nesta semana. Faltam {remaining} para bater sua meta semanal.',
+          {
+            'studied': formatReadableDuration(currentWeekMinutes),
+            'remaining': formatReadableDuration(remainingMinutes),
+          },
+        ),
+        recommendedReviewTitle: NoesisL10n.tr('Sessão de Foco · Meta Semanal'),
         recommendedReviewDescription:
-            'Bloco planejado para avançar na meta semanal de estudos.',
+            NoesisL10n.tr('Bloco planejado para avançar na meta semanal de estudos.'),
         recommendedDurationMinutes: 45,
         targetTab: 7,
         accuracySpots: spots,
@@ -817,12 +892,13 @@ class DashboardAnalytics {
     }
 
     return DashboardInsight(
-      badgeLabel: 'Consistência',
-      message:
-          'Meta semanal atingida com ${consistency.currentStreakDays}d de streak! '
-          'Consolide seu conhecimento criando um simulado ou nova trilha.',
-      recommendedReviewTitle: 'Revisão Consolidada · Noesis',
-      recommendedReviewDescription: 'Sessão de consolidação semanal.',
+      badgeLabel: NoesisL10n.tr('Consistência'),
+      message: NoesisL10n.tr(
+        'Meta semanal atingida com {days}d de streak! Consolide seu conhecimento criando um simulado ou nova trilha.',
+        {'days': '${consistency.currentStreakDays}'},
+      ),
+      recommendedReviewTitle: NoesisL10n.tr('Revisão Consolidada · Noesis'),
+      recommendedReviewDescription: NoesisL10n.tr('Sessão de consolidação semanal.'),
       recommendedDurationMinutes: 30,
       targetTab: 1,
       accuracySpots: spots,

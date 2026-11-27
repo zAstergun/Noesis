@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'insights_economy_config.dart';
+import 'localization/noesis_l10n.dart';
 import 'supabase_service.dart';
 
 class NoesisAnnouncement {
@@ -40,7 +41,7 @@ class NoesisAnnouncement {
 
 class NoesisRemotePlatformConfig {
   final bool maintenanceMode;
-  final String maintenanceMessage;
+  final String? _maintenanceMessageOverride;
   final bool allowGuestMode;
   final bool allowRegistration;
   final Map<String, bool> featureFlags;
@@ -51,8 +52,7 @@ class NoesisRemotePlatformConfig {
 
   const NoesisRemotePlatformConfig({
     this.maintenanceMode = false,
-    this.maintenanceMessage =
-        'O Noesis está passando por uma manutenção programada para melhorias. Voltamos em instantes!',
+    String? maintenanceMessage,
     this.allowGuestMode = true,
     this.allowRegistration = true,
     this.featureFlags = const {
@@ -70,7 +70,15 @@ class NoesisRemotePlatformConfig {
     this.versionControl = const {},
     this.economyConfig = const {},
     this.aiGovernance = const {},
-  });
+  }) : _maintenanceMessageOverride = maintenanceMessage;
+
+  String get maintenanceMessage {
+    final override = _maintenanceMessageOverride?.trim() ?? '';
+    if (override.isNotEmpty) return override;
+    return NoesisL10n.tr(
+      'O Noesis está passando por uma manutenção programada para melhorias. Voltamos em instantes!',
+    );
+  }
 
   factory NoesisRemotePlatformConfig.fromRow(Map<String, dynamic> row) {
     final rawFlags = row['feature_flags'];
@@ -101,12 +109,7 @@ class NoesisRemotePlatformConfig {
 
     return NoesisRemotePlatformConfig(
       maintenanceMode: row['maintenance_mode'] == true,
-      maintenanceMessage: (row['maintenance_message'] ?? '')
-              .toString()
-              .trim()
-              .isNotEmpty
-          ? row['maintenance_message'].toString().trim()
-          : 'O Noesis está passando por uma manutenção programada para melhorias. Voltamos em instantes!',
+      maintenanceMessage: (row['maintenance_message'] ?? '').toString().trim(),
       allowGuestMode: row['allow_guest_mode'] != false,
       allowRegistration: row['allow_registration'] != false,
       featureFlags: flags,
@@ -336,9 +339,9 @@ class NoesisCrmService {
           ? (profile?['full_name'] ??
                   user.userMetadata?['full_name'] ??
                   user.email?.split('@').first ??
-                  'Estudante Aster')
+                  NoesisL10n.tr('Estudante Aster'))
               .toString()
-          : 'Visitante Noesis';
+          : NoesisL10n.tr('Visitante Noesis');
 
       await Supabase.instance.client.rpc(
         'crm_record_presence_ping',

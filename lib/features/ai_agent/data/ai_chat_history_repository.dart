@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../quizzes/data/saved_exams_store_stub.dart'
     if (dart.library.io) '../../quizzes/data/saved_exams_store_io.dart'
     if (dart.library.js_interop) '../../quizzes/data/saved_exams_store_web.dart' as local_store;
@@ -26,7 +27,7 @@ class AiChatSession {
         if (txt.isNotEmpty) return txt;
       }
     }
-    return 'Conversa salva';
+    return NoesisL10n.tr('Conversa salva');
   }
 
   Map<String, dynamic> toJson() => {
@@ -41,7 +42,7 @@ class AiChatSession {
     final rawMsgs = (json['messages'] as List?) ?? const [];
     return AiChatSession(
       id: (json['id'] ?? '').toString(),
-      title: (json['title'] ?? 'Conversa Noesis AI').toString(),
+      title: (json['title'] ?? NoesisL10n.tr('Conversa Noesis AI')).toString(),
       createdAt: DateTime.tryParse((json['created_at'] ?? '').toString()) ?? DateTime.now(),
       updatedAt: DateTime.tryParse((json['updated_at'] ?? '').toString()) ?? DateTime.now(),
       messages: rawMsgs

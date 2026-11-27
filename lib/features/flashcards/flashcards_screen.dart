@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/gemini_service.dart';
+import '../../core/localization/noesis_l10n.dart';
 import '../../core/shop_service.dart';
 import '../../core/supabase_service.dart';
 import '../../core/theme.dart';
@@ -54,7 +55,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     }
     try {
       final files = await FilePicker.pickFiles(
-        dialogTitle: 'Selecionar arquivo de áudio MP3',
+        dialogTitle: NoesisL10n.tr('Selecionar arquivo de áudio MP3'),
         type: FileType.custom,
         allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'weba'],
       );
@@ -71,7 +72,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       if (bytes.length > 15 * 1024 * 1024) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('O arquivo de áudio deve ter no máximo 15MB.')),
+            SnackBar(content: Text(NoesisL10n.tr('O arquivo de áudio deve ter no máximo 15MB.'))),
           );
         }
         return null;
@@ -87,7 +88,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       debugPrint('Erro ao selecionar arquivo de áudio: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao anexar arquivo de áudio: $e')),
+          SnackBar(content: Text(NoesisL10n.tr('Erro ao anexar arquivo de áudio: {error}', {'error': e}))),
         );
       }
       return null;
@@ -236,7 +237,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   void _startStudySession(FlashcardDeck deck, {bool reviewAll = false}) {
     if (deck.cards.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este baralho ainda não tem cartões. Adicione cartões antes de estudar!')),
+        SnackBar(content: Text(NoesisL10n.tr('Este baralho ainda não tem cartões. Adicione cartões antes de estudar!'))),
       );
       return;
     }
@@ -359,9 +360,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       _requeuedCardIds.add(updatedCard.id);
       if (mounted && _studyQueue.length - _activeCardIndex == 1) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 2),
-            content: Text('Cartão difícil mantido na fila para reforço ativo.'),
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            content: Text(NoesisL10n.tr('Cartão difícil mantido na fila para reforço ativo.')),
           ),
         );
       }
@@ -445,7 +446,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   Future<DeckFileContent?> _pickFileHelper() async {
     try {
       final files = await FilePicker.pickFiles(
-        dialogTitle: 'Selecionar baralho Anki (.apkg), Markdown ou Texto',
+        dialogTitle: NoesisL10n.tr('Selecionar baralho Anki (.apkg), Markdown ou Texto'),
         type: FileType.custom,
         allowedExtensions: ['apkg', 'colpkg', 'anki', 'txt', 'md', 'csv', 'tsv', 'json', 'zip'],
       );
@@ -464,7 +465,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao ler arquivo: $e')),
+          SnackBar(content: Text(NoesisL10n.tr('Erro ao ler arquivo: {error}', {'error': e}))),
         );
       }
     }
@@ -488,10 +489,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   void _openImportDeckReviewDialog(DeckFileContent fileContent, {List<Flashcard>? initialCards}) {
     final List<Flashcard> editableCards = List.from(initialCards ?? fileContent.parsedCards);
     final titleCtrl = TextEditingController(
-      text: fileContent.suggestedTitle.isNotEmpty ? fileContent.suggestedTitle : 'Novo Baralho',
+      text: fileContent.suggestedTitle.isNotEmpty ? fileContent.suggestedTitle : NoesisL10n.tr('Novo Baralho'),
     );
     final subjectCtrl = TextEditingController(
-      text: fileContent.suggestedSubject.isNotEmpty ? fileContent.suggestedSubject : 'Geral',
+      text: fileContent.suggestedSubject.isNotEmpty ? fileContent.suggestedSubject : NoesisL10n.tr('Geral'),
     );
     final searchCtrl = TextEditingController();
     String cardSearchQuery = '';
@@ -554,7 +555,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Revisar e Importar Flashcards 📚',
+                                  dialogCtx.tr('Revisar e Importar Flashcards 📚'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -562,7 +563,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                 ),
                                 Text(
-                                  '${fileContent.fileName} · ${editableCards.length} cartões encontrados (edite como preferir)',
+                                  dialogCtx.tr(
+                                    '{fileName} · {count} cartões encontrados (edite como preferir)',
+                                    {'fileName': fileContent.fileName, 'count': editableCards.length},
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -614,7 +618,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     Row(
                                       children: [
                                         Text(
-                                          'Baralho Volumoso Detectado (${editableCards.length} cartões)',
+                                          dialogCtx.tr('Baralho Volumoso Detectado ({count} cartões)', {'count': editableCards.length}),
                                           style: GoogleFonts.manrope(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w800,
@@ -629,7 +633,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                           ),
                                           child: Text(
-                                            '> 20 cartões',
+                                            dialogCtx.tr('> 20 cartões'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w700,
@@ -641,7 +645,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      'A IA pode analisar o conteúdo e separar automaticamente esses cartões em baralhos temáticos menores para um aprendizado com melhor retenção.',
+                                      dialogCtx.tr('A IA pode analisar o conteúdo e separar automaticamente esses cartões em baralhos temáticos menores para um aprendizado com melhor retenção.'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 11.5,
                                         color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -670,7 +674,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         );
                                       },
                                 icon: const Icon(Icons.splitscreen_rounded, size: 16),
-                                label: const Text('Separar com IA ✨'),
+                                label: Text(dialogCtx.tr('Separar com IA ✨')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AsterTheme.primary(context),
                                   foregroundColor: AsterTheme.onPrimary(context),
@@ -693,7 +697,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TÍTULO DO BARALHO',
+                                  dialogCtx.tr('TÍTULO DO BARALHO'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -705,9 +709,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 TextField(
                                   controller: titleCtrl,
                                   enabled: !isSaving,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Nome do baralho...',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: InputDecoration(
+                                    hintText: dialogCtx.tr('Nome do baralho...'),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   ),
                                 ),
                               ],
@@ -720,7 +724,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'MATÉRIA / DISCIPLINA',
+                                  dialogCtx.tr('MATÉRIA / DISCIPLINA'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -732,9 +736,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 TextField(
                                   controller: subjectCtrl,
                                   enabled: !isSaving,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Ex: Idiomas, Segurança...',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: InputDecoration(
+                                    hintText: dialogCtx.tr('Ex: Idiomas, Segurança...'),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   ),
                                 ),
                               ],
@@ -757,7 +761,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 });
                               },
                               decoration: InputDecoration(
-                                hintText: 'Pesquisar cartões (${matchingIndices.length}/${editableCards.length})...',
+                                hintText: dialogCtx.tr(
+                                  'Pesquisar cartões ({matches}/{total})...',
+                                  {'matches': matchingIndices.length, 'total': editableCards.length},
+                                ),
                                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                                 suffixIcon: cardSearchQuery.isNotEmpty
                                     ? IconButton(
@@ -778,7 +785,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           const SizedBox(width: 10),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.add_rounded, size: 16),
-                            label: const Text('Novo Cartão'),
+                            label: Text(dialogCtx.tr('Novo Cartão')),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
@@ -809,8 +816,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ? Center(
                                 child: Text(
                                   editableCards.isEmpty
-                                      ? 'Nenhum cartão neste baralho ainda. Adicione um novo cartão acima!'
-                                      : 'Nenhum cartão corresponde à pesquisa "$cardSearchQuery".',
+                                      ? dialogCtx.tr('Nenhum cartão neste baralho ainda. Adicione um novo cartão acima!')
+                                      : dialogCtx.tr('Nenhum cartão corresponde à pesquisa "{query}".', {'query': cardSearchQuery}),
                                   style: GoogleFonts.manrope(
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                                     fontSize: 13,
@@ -892,7 +899,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                           ),
                                                           const SizedBox(width: 4),
                                                           Text(
-                                                            isPlaying ? 'Tocando' : 'Áudio Anexado',
+                                                            isPlaying
+                                                                ? listCtx.tr('Tocando')
+                                                                : listCtx.tr('Áudio Anexado'),
                                                             style: GoogleFonts.manrope(
                                                               fontSize: 10.5,
                                                               fontWeight: FontWeight.w700,
@@ -908,7 +917,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               const SizedBox(width: 4),
                                               IconButton(
                                                 icon: const Icon(Icons.upload_file_rounded, size: 14),
-                                                tooltip: 'Trocar arquivo de áudio MP3',
+                                                tooltip: listCtx.tr('Trocar arquivo de áudio MP3'),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(),
                                                 onPressed: isSaving
@@ -926,7 +935,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               const SizedBox(width: 4),
                                               IconButton(
                                                 icon: const Icon(Icons.close_rounded, size: 14),
-                                                tooltip: 'Remover áudio',
+                                                tooltip: listCtx.tr('Remover áudio'),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(),
                                                 onPressed: isSaving
@@ -962,7 +971,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        'Anexar MP3',
+                                                        listCtx.tr('Anexar MP3'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
@@ -1000,7 +1009,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       const Icon(Icons.auto_awesome_rounded, size: 12, color: AsterConstants.menta),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        'Gerar Áudio IA',
+                                                        listCtx.tr('Gerar Áudio IA'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
@@ -1015,7 +1024,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             const Spacer(),
                                             IconButton(
                                               icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                              tooltip: 'Excluir cartão',
+                                              tooltip: listCtx.tr('Excluir cartão'),
                                               onPressed: isSaving
                                                   ? null
                                                   : () {
@@ -1030,7 +1039,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         // Frente / Pergunta
                                         Text(
-                                          'FRENTE / PERGUNTA',
+                                          listCtx.tr('FRENTE / PERGUNTA'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w800,
@@ -1046,7 +1055,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           maxLines: null,
                                           minLines: 1,
                                           decoration: InputDecoration(
-                                            hintText: 'Escreva a pergunta ou conceito...',
+                                            hintText: listCtx.tr('Escreva a pergunta ou conceito...'),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                             filled: true,
@@ -1059,7 +1068,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         // Verso / Resposta
                                         Text(
-                                          'VERSO / RESPOSTA',
+                                          listCtx.tr('VERSO / RESPOSTA'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w800,
@@ -1075,7 +1084,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           maxLines: null,
                                           minLines: 2,
                                           decoration: InputDecoration(
-                                            hintText: 'Escreva a resposta e explicação...',
+                                            hintText: listCtx.tr('Escreva a resposta e explicação...'),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                             filled: true,
@@ -1101,13 +1110,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.chevron_left_rounded),
-                                  tooltip: 'Página anterior',
+                                  tooltip: dialogCtx.tr('Página anterior'),
                                   onPressed: currentPage > 0
                                       ? () => setDialogState(() => currentPage--)
                                       : null,
                                 ),
                                 Text(
-                                  'Pág ${currentPage + 1} de $totalPages',
+                                  dialogCtx.tr('Pág {curr} de {total}', {'curr': currentPage + 1, 'total': totalPages}),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -1116,7 +1125,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.chevron_right_rounded),
-                                  tooltip: 'Próxima página',
+                                  tooltip: dialogCtx.tr('Próxima página'),
                                   onPressed: currentPage < totalPages - 1
                                       ? () => setDialogState(() => currentPage++)
                                       : null,
@@ -1125,7 +1134,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             )
                           else
                             Text(
-                              '${editableCards.length} cartões prontos',
+                              dialogCtx.tr('{count} cartões prontos', {'count': editableCards.length}),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -1137,7 +1146,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               TextButton(
                                 onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                                 child: Text(
-                                  'Cancelar',
+                                  dialogCtx.tr('Cancelar'),
                                   style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                 ),
                               ),
@@ -1146,7 +1155,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 OutlinedButton.icon(
                                   icon: Icon(Icons.splitscreen_rounded, size: 16, color: AsterTheme.primary(context)),
                                   label: Text(
-                                    'Separar com IA ✨',
+                                    dialogCtx.tr('Separar com IA ✨'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1179,7 +1188,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 const SizedBox(width: 8),
                               ],
                               SoftClayPillButton(
-                                text: 'Salvar Baralho (${editableCards.length}) 🚀',
+                                text: dialogCtx.tr('Salvar Baralho ({count}) 🚀', {'count': editableCards.length}),
                                 icon: Icons.check_circle_rounded,
                                 onPressed: isSaving
                                     ? null
@@ -1197,7 +1206,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         if (validCards.isEmpty) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Adicione pelo menos 1 cartão válido com pergunta ou resposta.')),
+                                            SnackBar(content: Text(NoesisL10n.tr('Adicione pelo menos 1 cartão válido com pergunta ou resposta.'))),
                                           );
                                           return;
                                         }
@@ -1214,19 +1223,22 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                   Icon(Icons.auto_awesome_rounded, color: AsterTheme.primary(context), size: 22),
                                                   const SizedBox(width: 10),
                                                   Text(
-                                                    'Separar Baralho com IA?',
+                                                    askCtx.tr('Separar Baralho com IA?'),
                                                     style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 16),
                                                   ),
                                                 ],
                                               ),
                                               content: Text(
-                                                'Este baralho contém ${validCards.length} cartões (acima de 20). Estudar baralhos menores e temáticos proporciona muito mais retenção cognitiva.\n\nDeseja que a IA faça a separação automática em baralhos temáticos agora?',
+                                                askCtx.tr(
+                                                  'Este baralho contém {count} cartões (acima de 20). Estudar baralhos menores e temáticos proporciona muito mais retenção cognitiva.\n\nDeseja que a IA faça a separação automática em baralhos temáticos agora?',
+                                                  {'count': validCards.length},
+                                                ),
                                                 style: GoogleFonts.manrope(fontSize: 13),
                                               ),
                                               actions: [
                                                 TextButton(
                                                   onPressed: () => Navigator.pop(askCtx, false),
-                                                  child: Text('Salvar Como Baralho Único', style: GoogleFonts.manrope()),
+                                                  child: Text(askCtx.tr('Salvar Como Baralho Único'), style: GoogleFonts.manrope()),
                                                 ),
                                                 ElevatedButton.icon(
                                                   style: ElevatedButton.styleFrom(
@@ -1235,7 +1247,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                   ),
                                                   onPressed: () => Navigator.pop(askCtx, true),
                                                   icon: const Icon(Icons.splitscreen_rounded, size: 16),
-                                                  label: const Text('Dividir com IA ✨'),
+                                                  label: Text(askCtx.tr('Dividir com IA ✨')),
                                                 ),
                                               ],
                                             ),
@@ -1259,7 +1271,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
                                             title: title,
                                             subject: subject,
-                                            description: 'Importado de ${fileContent.fileName} (${validCards.length} cartões).',
+                                            description: NoesisL10n.tr(
+                                              'Importado de {file} ({count} cartões).',
+                                              {'file': fileContent.fileName, 'count': validCards.length},
+                                            ),
                                             cards: validCards,
                                             createdAt: DateTime.now(),
                                           );
@@ -1271,14 +1286,21 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           if (!mounted) return;
 
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Baralho "$title" salvo com ${validCards.length} cartões! 🎉')),
+                                            SnackBar(
+                                              content: Text(
+                                                NoesisL10n.tr(
+                                                  'Baralho "{title}" salvo com {count} cartões! 🎉',
+                                                  {'title': title, 'count': validCards.length},
+                                                ),
+                                              ),
+                                            ),
                                           );
                                           _startStudySession(deck);
                                         } catch (e) {
                                           if (dialogCtx.mounted) setDialogState(() => isSaving = false);
                                           if (!mounted) return;
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Erro ao salvar baralho: $e')),
+                                            SnackBar(content: Text(NoesisL10n.tr('Erro ao salvar baralho: {error}', {'error': e}))),
                                           );
                                         }
                                       },
@@ -1337,7 +1359,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Organizando Baralhos com IA 🧠✨',
+                  context.tr('Organizando Baralhos com IA 🧠✨'),
                   style: GoogleFonts.manrope(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -1346,7 +1368,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Analisando o conteúdo dos ${cards.length} cartões e agrupando em blocos de ~$targetCardsPerDeck...',
+                  context.tr(
+                    'Analisando o conteúdo dos {count} cartões e agrupando em blocos de ~{target}...',
+                    {'count': cards.length, 'target': targetCardsPerDeck},
+                  ),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.manrope(
                     fontSize: 12.5,
@@ -1385,7 +1410,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
       if (mounted) {
         Navigator.pop(context); // Fechar loading
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao separar baralhos com IA: $e')),
+          SnackBar(content: Text(NoesisL10n.tr('Erro ao separar baralhos com IA: {error}', {'error': e}))),
         );
       }
     }
@@ -1462,7 +1487,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 Row(
                                   children: [
                                     Text(
-                                      'Divisão de Baralhos por IA 🗂️✨',
+                                      dialogCtx.tr('Divisão de Baralhos por IA 🗂️✨'),
                                       style: GoogleFonts.manrope(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w800,
@@ -1477,7 +1502,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                       ),
                                       child: Text(
-                                        '${editors.length} Baralhos Gerados',
+                                        dialogCtx.tr('{count} Baralhos Gerados', {'count': editors.length}),
                                         style: GoogleFonts.manrope(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
@@ -1489,7 +1514,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'A IA organizou $totalCards cartões em baralhos temáticos específicos. Ajuste a nomeação e detalhes de cada um antes de concluir:',
+                                  dialogCtx.tr(
+                                    'A IA organizou {count} cartões em baralhos temáticos específicos. Ajuste a nomeação e detalhes de cada um antes de concluir:',
+                                    {'count': totalCards},
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1522,7 +1550,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Edite os títulos dos baralhos livremente. Você também pode expandir para ver os cartões e transferir entre baralhos.',
+                                dialogCtx.tr('Edite os títulos dos baralhos livremente. Você também pode expandir para ver os cartões e transferir entre baralhos.'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1531,7 +1559,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ),
                             OutlinedButton.icon(
                               icon: const Icon(Icons.add_rounded, size: 16),
-                              label: const Text('Novo Baralho'),
+                              label: Text(dialogCtx.tr('Novo Baralho')),
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
@@ -1542,9 +1570,16 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       setDialogState(() {
                                         editors.add(_AiSplitDeckEditor(
                                           id: 'deck-custom-${DateTime.now().millisecondsSinceEpoch}',
-                                          titleCtrl: TextEditingController(text: '$baseTitle · Parte ${editors.length + 1}'),
+                                          titleCtrl: TextEditingController(
+                                            text: NoesisL10n.tr(
+                                              '{title} · Parte {part}',
+                                              {'title': baseTitle, 'part': editors.length + 1},
+                                            ),
+                                          ),
                                           subjectCtrl: TextEditingController(text: baseSubject),
-                                          descriptionCtrl: TextEditingController(text: 'Novo sub-baralho personalizado.'),
+                                          descriptionCtrl: TextEditingController(
+                                            text: NoesisL10n.tr('Novo sub-baralho personalizado.'),
+                                          ),
                                           colorHex: '4A6BF5',
                                           cards: [],
                                           isExpanded: true,
@@ -1573,7 +1608,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             Icon(Icons.tune_rounded, size: 18, color: AsterTheme.primary(context)),
                             const SizedBox(width: 8),
                             Text(
-                              'Tamanho por baralho:',
+                              dialogCtx.tr('Tamanho por baralho:'),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -1587,7 +1622,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               children: [20, 30, 40, 50, 100].map((size) {
                                 final isSelected = currentTargetCards == size;
                                 return SoftClayChoiceChip(
-                                  label: size == 30 ? '$size cards ✨' : '$size cards',
+                                  label: size == 30
+                                      ? dialogCtx.tr('{count} cards ✨', {'count': size})
+                                      : dialogCtx.tr('{count} cards', {'count': size}),
                                   selected: isSelected,
                                   compact: true,
                                   enabled: !(isReorganizing || isSavingAll),
@@ -1634,7 +1671,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Reorganizando...',
+                                dialogCtx.tr('Reorganizando...'),
                                 style: GoogleFonts.manrope(fontSize: 11, color: AsterTheme.primary(context), fontWeight: FontWeight.w700),
                               ),
                             ],
@@ -1695,7 +1732,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         ),
                                         const SizedBox(width: 10),
                                         Text(
-                                          'Baralho #${i + 1}',
+                                          dialogCtx.tr('Baralho #{num}', {'num': i + 1}),
                                           style: GoogleFonts.manrope(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w800,
@@ -1710,7 +1747,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                           ),
                                           child: Text(
-                                            '${editor.cards.length} cartões',
+                                            dialogCtx.tr('{count} cartões', {'count': editor.cards.length}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -1726,7 +1763,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
                                           ),
                                           label: Text(
-                                            editor.isExpanded ? 'Recolher' : 'Ver cartões (${editor.cards.length})',
+                                            editor.isExpanded
+                                                ? dialogCtx.tr('Recolher')
+                                                : dialogCtx.tr('Ver cartões ({count})', {'count': editor.cards.length}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.w700,
@@ -1743,7 +1782,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           const SizedBox(width: 4),
                                           IconButton(
                                             icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                            tooltip: 'Remover este baralho e mover cartões para o anterior',
+                                            tooltip: dialogCtx.tr('Remover este baralho e mover cartões para o anterior'),
                                             onPressed: isSavingAll
                                                 ? null
                                                 : () {
@@ -1778,7 +1817,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                   Row(
                                                     children: [
                                                       Text(
-                                                        'TÍTULO DO BARALHO (EDITÁVEL)',
+                                                        dialogCtx.tr('TÍTULO DO BARALHO (EDITÁVEL)'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 9.5,
                                                           fontWeight: FontWeight.w800,
@@ -1795,7 +1834,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     controller: editor.titleCtrl,
                                                     enabled: !isSavingAll,
                                                     decoration: InputDecoration(
-                                                      hintText: 'Nome do baralho gerado pela IA...',
+                                                      hintText: dialogCtx.tr('Nome do baralho gerado pela IA...'),
                                                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                                       fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                                       filled: true,
@@ -1811,7 +1850,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'MATÉRIA / DISCIPLINA',
+                                                    dialogCtx.tr('MATÉRIA / DISCIPLINA'),
                                                     style: GoogleFonts.manrope(
                                                       fontSize: 9.5,
                                                       fontWeight: FontWeight.w800,
@@ -1824,7 +1863,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     controller: editor.subjectCtrl,
                                                     enabled: !isSavingAll,
                                                     decoration: InputDecoration(
-                                                      hintText: 'Ex: Criptografia...',
+                                                      hintText: dialogCtx.tr('Ex: Criptografia...'),
                                                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                                       fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                                       filled: true,
@@ -1845,7 +1884,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
                                               Text(
-                                                'Cartões neste baralho (${editor.cards.length}):',
+                                                dialogCtx.tr('Cartões neste baralho ({count}):', {'count': editor.cards.length}),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11.5,
                                                   fontWeight: FontWeight.w700,
@@ -1853,7 +1892,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 ),
                                               ),
                                               Text(
-                                                'Você pode transferir cartões para outro baralho',
+                                                dialogCtx.tr('Você pode transferir cartões para outro baralho'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 10.5,
                                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1870,7 +1909,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 borderRadius: BorderRadius.circular(AsterConstants.radiusMedium),
                                               ),
                                               child: Text(
-                                                'Nenhum cartão neste baralho. Mova cartões de outros baralhos para cá.',
+                                                dialogCtx.tr('Nenhum cartão neste baralho. Mova cartões de outros baralhos para cá.'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 12,
                                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -1913,7 +1952,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                           crossAxisAlignment: CrossAxisAlignment.start,
                                                           children: [
                                                             Text(
-                                                              frontCut.isNotEmpty ? frontCut : '(Frente vazia)',
+                                                              frontCut.isNotEmpty ? frontCut : cardCtx.tr('(Frente vazia)'),
                                                               maxLines: 1,
                                                               overflow: TextOverflow.ellipsis,
                                                               style: GoogleFonts.manrope(
@@ -1923,7 +1962,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                               ),
                                                             ),
                                                             Text(
-                                                              backCut.isNotEmpty ? backCut : '(Verso vazio)',
+                                                              backCut.isNotEmpty ? backCut : cardCtx.tr('(Verso vazio)'),
                                                               maxLines: 1,
                                                               overflow: TextOverflow.ellipsis,
                                                               style: GoogleFonts.manrope(
@@ -1936,7 +1975,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       ),
                                                       if (editors.length > 1) ...[
                                                         PopupMenuButton<int>(
-                                                          tooltip: 'Mover para outro baralho',
+                                                          tooltip: cardCtx.tr('Mover para outro baralho'),
                                                           icon: const Icon(Icons.drive_file_move_outline, size: 16),
                                                           onSelected: (targetIdx) {
                                                             setDialogState(() {
@@ -1950,7 +1989,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                                 PopupMenuItem(
                                                                   value: t,
                                                                   child: Text(
-                                                                    'Mover para Baralho #${t + 1} (${editors[t].titleCtrl.text.isNotEmpty ? editors[t].titleCtrl.text : 'Sem título'})',
+                                                                    mCtx.tr(
+                                                                      'Mover para Baralho #{num} ({title})',
+                                                                      {
+                                                                        'num': t + 1,
+                                                                        'title': editors[t].titleCtrl.text.isNotEmpty
+                                                                            ? editors[t].titleCtrl.text
+                                                                            : mCtx.tr('Sem título'),
+                                                                      },
+                                                                    ),
                                                                     style: GoogleFonts.manrope(fontSize: 12),
                                                                   ),
                                                                 ),
@@ -1959,7 +2006,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       ],
                                                       IconButton(
                                                         icon: const Icon(Icons.close_rounded, size: 16, color: AsterConstants.coral),
-                                                        tooltip: 'Remover cartão',
+                                                        tooltip: cardCtx.tr('Remover cartão'),
                                                         onPressed: isSavingAll
                                                             ? null
                                                             : () {
@@ -1991,7 +2038,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [
                           TextButton.icon(
                             icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                            label: Text(fileContent != null ? 'Voltar ao Baralho Único' : 'Cancelar'),
+                            label: Text(
+                              fileContent != null
+                                  ? dialogCtx.tr('Voltar ao Baralho Único')
+                                  : dialogCtx.tr('Cancelar'),
+                            ),
                             onPressed: isSavingAll
                                 ? null
                                 : () {
@@ -2002,7 +2053,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   },
                           ),
                           SoftClayPillButton(
-                            text: 'Salvar Todos os Baralhos (${editors.where((e) => e.cards.isNotEmpty).length}) 🚀',
+                            text: dialogCtx.tr(
+                              'Salvar Todos os Baralhos ({count}) 🚀',
+                              {'count': editors.where((e) => e.cards.isNotEmpty).length},
+                            ),
                             icon: Icons.check_circle_rounded,
                             onPressed: isSavingAll
                                 ? null
@@ -2010,7 +2064,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     final validDecks = editors.where((e) => e.cards.isNotEmpty).toList();
                                     if (validDecks.isEmpty) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Nenhum baralho possui cartões válidos para salvar.')),
+                                        SnackBar(
+                                          content: Text(NoesisL10n.tr('Nenhum baralho possui cartões válidos para salvar.')),
+                                        ),
                                       );
                                       return;
                                     }
@@ -2024,17 +2080,22 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         final e = validDecks[i];
                                         final title = e.titleCtrl.text.trim().isNotEmpty
                                             ? e.titleCtrl.text.trim()
-                                            : '$baseTitle · Parte ${i + 1}';
+                                            : NoesisL10n.tr('{title} · Parte {part}', {'title': baseTitle, 'part': i + 1});
                                         final subject = e.subjectCtrl.text.trim().isNotEmpty
                                             ? e.subjectCtrl.text.trim()
                                             : baseSubject;
 
-                                        final sourceLabel = fileContent != null ? 'importado de ${fileContent.fileName}' : 'dividido de $baseTitle';
+                                        final sourceLabel = fileContent != null
+                                            ? NoesisL10n.tr('importado de {fileName}', {'fileName': fileContent.fileName})
+                                            : NoesisL10n.tr('dividido de {title}', {'title': baseTitle});
                                         final deck = FlashcardDeck(
                                           id: 'deck-${now.millisecondsSinceEpoch}-$i',
                                           title: title,
                                           subject: subject,
-                                          description: 'Baralho temático $sourceLabel (${e.cards.length} cartões).',
+                                          description: NoesisL10n.tr(
+                                            'Baralho temático {source} ({count} cartões).',
+                                            {'source': sourceLabel, 'count': e.cards.length},
+                                          ),
                                           cards: e.cards,
                                           createdAt: now.add(Duration(seconds: i)),
                                           colorHex: e.colorHex,
@@ -2056,7 +2117,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text('🎉 ${savedDecks.length} baralhos temáticos criados com sucesso! Bons estudos!'),
+                                          content: Text(
+                                            NoesisL10n.tr(
+                                              '🎉 {count} baralhos temáticos criados com sucesso! Bons estudos!',
+                                              {'count': savedDecks.length},
+                                            ),
+                                          ),
                                           duration: const Duration(seconds: 4),
                                         ),
                                       );
@@ -2068,7 +2134,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       if (dialogCtx.mounted) setDialogState(() => isSavingAll = false);
                                       if (!mounted) return;
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Erro ao salvar baralhos: $e')),
+                                        SnackBar(content: Text(NoesisL10n.tr('Erro ao salvar baralhos: {error}', {'error': e}))),
                                       );
                                     }
                                   },
@@ -2132,7 +2198,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Gerar Flashcards do Arquivo ✨',
+                                  dialogCtx.tr('Gerar Flashcards do Arquivo ✨'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -2166,7 +2232,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           border: Border.all(color: AsterTheme.primary(context).withValues(alpha: 0.2)),
                         ),
                         child: Text(
-                          'Detectamos notas/resumos no arquivo. A IA lerá o texto para formular os cartões técnicos, e você poderá revisar e editar cada um antes de salvar.',
+                          dialogCtx.tr('Detectamos notas/resumos no arquivo. A IA lerá o texto para formular os cartões técnicos, e você poderá revisar e editar cada um antes de salvar.'),
                           style: GoogleFonts.manrope(
                             fontSize: 12.5,
                             color: isDark ? AsterConstants.textLight : AsterConstants.textDark,
@@ -2178,7 +2244,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                       // Tema / Título
                       Text(
-                        'TÍTULO DO BARALHO',
+                        dialogCtx.tr('TÍTULO DO BARALHO'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -2190,7 +2256,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       TextField(
                         controller: titleCtrl,
                         enabled: !isGenerating,
-                        decoration: const InputDecoration(hintText: 'Nome do baralho...'),
+                        decoration: InputDecoration(hintText: dialogCtx.tr('Nome do baralho...')),
                       ),
                       const SizedBox(height: 14),
 
@@ -2203,7 +2269,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'MATÉRIA / DISCIPLINA',
+                                  dialogCtx.tr('MATÉRIA / DISCIPLINA'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -2215,7 +2281,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 TextField(
                                   controller: subjectCtrl,
                                   enabled: !isGenerating,
-                                  decoration: const InputDecoration(hintText: 'Ex: Idiomas, Segurança...'),
+                                  decoration: InputDecoration(hintText: dialogCtx.tr('Ex: Idiomas, Segurança...')),
                                 ),
                               ],
                             ),
@@ -2227,7 +2293,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'QUANTIDADE',
+                                  dialogCtx.tr('QUANTIDADE'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -2246,12 +2312,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     child: DropdownButton<int>(
                                       value: count,
                                       isExpanded: true,
-                                      items: const [
-                                        DropdownMenuItem(value: 5, child: Text('5 cartões')),
-                                        DropdownMenuItem(value: 8, child: Text('8 cartões')),
-                                        DropdownMenuItem(value: 12, child: Text('12 cartões')),
-                                        DropdownMenuItem(value: 16, child: Text('16 cartões')),
-                                      ],
+                                      items: [5, 8, 12, 16]
+                                          .map(
+                                            (c) => DropdownMenuItem(
+                                              value: c,
+                                              child: Text(dialogCtx.tr('{count} cartões', {'count': c})),
+                                            ),
+                                          )
+                                          .toList(),
                                       onChanged: isGenerating
                                           ? null
                                           : (val) {
@@ -2280,7 +2348,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               ),
                               const SizedBox(width: 14),
                               Text(
-                                'A IA está formulando seus flashcards...',
+                                dialogCtx.tr('A IA está formulando seus flashcards...'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -2297,13 +2365,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             TextButton(
                               onPressed: () => Navigator.pop(dialogCtx),
                               child: Text(
-                                'Cancelar',
+                                dialogCtx.tr('Cancelar'),
                                 style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                               ),
                             ),
                             const SizedBox(width: 12),
                             SoftClayPillButton(
-                              text: 'Gerar e Revisar ✨',
+                              text: dialogCtx.tr('Gerar e Revisar ✨'),
                               icon: Icons.auto_awesome_rounded,
                               onPressed: () async {
                                 final topic = titleCtrl.text.trim().isNotEmpty
@@ -2327,8 +2395,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     final val = e.value;
                                     return Flashcard(
                                       id: 'fc-${DateTime.now().millisecondsSinceEpoch}-${e.key}',
-                                      front: val['front']?.toString() ?? 'Pergunta',
-                                      back: val['back']?.toString() ?? 'Resposta',
+                                      front: val['front']?.toString() ?? NoesisL10n.tr('Pergunta'),
+                                      back: val['back']?.toString() ?? NoesisL10n.tr('Resposta'),
                                       tags: val['tags'] is List ? List<String>.from(val['tags']) : [subject],
                                     );
                                   }).toList();
@@ -2342,7 +2410,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   if (dialogCtx.mounted) setDialogState(() => isGenerating = false);
                                   if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Erro ao gerar flashcards: $e')),
+                                    SnackBar(content: Text(NoesisL10n.tr('Erro ao gerar flashcards: {error}', {'error': e}))),
                                   );
                                 }
                               },
@@ -2365,7 +2433,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   // ----------------------------------------------------
   void _openGenerateAiFlashcardsDialog() {
     final topicCtrl = TextEditingController();
-    final subjectCtrl = TextEditingController(text: 'Tecnologia');
+    final subjectCtrl = TextEditingController(text: context.tr('Tecnologia'));
     final notesCtrl = TextEditingController();
     int count = 6;
     String difficulty = 'Médio / Prático';
@@ -2408,7 +2476,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Gerar Flashcards com IA ✨',
+                                    dialogCtx.tr('Gerar Flashcards com IA ✨'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -2416,7 +2484,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     ),
                                   ),
                                   Text(
-                                    'Crie baralhos focados em temas específicos com Active Recall',
+                                    dialogCtx.tr('Crie baralhos focados em temas específicos com Active Recall'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2436,7 +2504,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                         // Tema Específico
                         Text(
-                          'TEMA ESPECÍFICO *',
+                          dialogCtx.tr('TEMA ESPECÍFICO *'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -2449,7 +2517,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           controller: topicCtrl,
                           enabled: !isGenerating,
                           decoration: InputDecoration(
-                            hintText: 'Ex: Criptografia Assimétrica, OWASP Injection, K8s Pod Lifecycle...',
+                            hintText: dialogCtx.tr('Ex: Criptografia Assimétrica, OWASP Injection, K8s Pod Lifecycle...'),
                             hintStyle: GoogleFonts.manrope(fontSize: 13, color: isDark ? AsterConstants.textFaintDark : AsterConstants.textFaint),
                           ),
                         ),
@@ -2464,7 +2532,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'MATÉRIA / DISCIPLINA',
+                                    dialogCtx.tr('MATÉRIA / DISCIPLINA'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -2476,8 +2544,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   TextField(
                                     controller: subjectCtrl,
                                     enabled: !isGenerating,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Ex: Segurança, Cloud, Algoritmos',
+                                    decoration: InputDecoration(
+                                      hintText: dialogCtx.tr('Ex: Segurança, Cloud, Algoritmos'),
                                     ),
                                   ),
                                 ],
@@ -2490,7 +2558,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'QUANTIDADE',
+                                    dialogCtx.tr('QUANTIDADE'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -2510,12 +2578,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         value: count,
                                         isExpanded: true,
                                         icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                                        items: const [
-                                          DropdownMenuItem(value: 5, child: Text('5 cartões')),
-                                          DropdownMenuItem(value: 8, child: Text('8 cartões')),
-                                          DropdownMenuItem(value: 12, child: Text('12 cartões')),
-                                          DropdownMenuItem(value: 16, child: Text('16 cartões')),
-                                        ],
+                                        items: [5, 8, 12, 16]
+                                            .map(
+                                              (c) => DropdownMenuItem(
+                                                value: c,
+                                                child: Text(dialogCtx.tr('{count} cartões', {'count': c})),
+                                              ),
+                                            )
+                                            .toList(),
                                         onChanged: isGenerating ? null : (val) {
                                           if (val != null) setDialogState(() => count = val);
                                         },
@@ -2531,7 +2601,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                         // Nível de Dificuldade
                         Text(
-                          'NÍVEL DE PROFUNDIDADE',
+                          dialogCtx.tr('NÍVEL DE PROFUNDIDADE'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -2546,7 +2616,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           children: ['Iniciante / Conceitos', 'Médio / Prático', 'Avançado / Técnico'].map((level) {
                             final isSel = difficulty == level;
                             return SoftClayChoiceChip(
-                              label: level,
+                              label: dialogCtx.tr(level),
                               selected: isSel,
                               enabled: !isGenerating,
                               onTap: () => setDialogState(() => difficulty = level),
@@ -2557,7 +2627,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                         // Anotações opcionais / Contexto
                         Text(
-                          'MATERIAL DE APOIO / ANOTAÇÕES (OPCIONAL)',
+                          dialogCtx.tr('MATERIAL DE APOIO / ANOTAÇÕES (OPCIONAL)'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -2570,8 +2640,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           controller: notesCtrl,
                           enabled: !isGenerating,
                           maxLines: 3,
-                          decoration: const InputDecoration(
-                            hintText: 'Cole um resumo, trecho de documentação ou tópicos essenciais para guiar a IA...',
+                          decoration: InputDecoration(
+                            hintText: dialogCtx.tr('Cole um resumo, trecho de documentação ou tópicos essenciais para guiar a IA...'),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -2589,7 +2659,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
-                                  'A IA está gerando seus flashcards técnicos...',
+                                  dialogCtx.tr('A IA está gerando seus flashcards técnicos...'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -2606,20 +2676,24 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               TextButton(
                                 onPressed: () => Navigator.pop(dialogCtx),
                                 child: Text(
-                                  'Cancelar',
+                                  dialogCtx.tr('Cancelar'),
                                   style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               SoftClayPillButton(
-                                text: 'Gerar Flashcards ✨',
+                                text: dialogCtx.tr('Gerar Flashcards ✨'),
                                 icon: Icons.auto_awesome_rounded,
                                 onPressed: () async {
                                   final topic = topicCtrl.text.trim();
-                                  final subject = subjectCtrl.text.trim().isEmpty ? 'Geral' : subjectCtrl.text.trim();
+                                  final subject = subjectCtrl.text.trim().isEmpty
+                                      ? NoesisL10n.tr('Geral')
+                                      : subjectCtrl.text.trim();
                                   if (topic.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Por favor, informe o tema específico para gerar os flashcards.')),
+                                      SnackBar(
+                                        content: Text(NoesisL10n.tr('Por favor, informe o tema específico para gerar os flashcards.')),
+                                      ),
                                     );
                                     return;
                                   }
@@ -2638,8 +2712,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       final val = e.value;
                                       return Flashcard(
                                         id: 'fc-${DateTime.now().millisecondsSinceEpoch}-${e.key}',
-                                        front: val['front']?.toString() ?? 'Pergunta',
-                                        back: val['back']?.toString() ?? 'Resposta',
+                                        front: val['front']?.toString() ?? NoesisL10n.tr('Pergunta'),
+                                        back: val['back']?.toString() ?? NoesisL10n.tr('Resposta'),
                                         tags: val['tags'] is List ? List<String>.from(val['tags']) : [subject, topic],
                                       );
                                     }).toList();
@@ -2648,7 +2722,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       id: 'deck-${DateTime.now().millisecondsSinceEpoch}',
                                       title: topic,
                                       subject: subject,
-                                      description: 'Baralho de retenção ativa sobre $topic ($difficulty).',
+                                      description: NoesisL10n.tr(
+                                        'Baralho de retenção ativa sobre {topic} ({difficulty}).',
+                                        {'topic': topic, 'difficulty': NoesisL10n.tr(difficulty)},
+                                      ),
                                       cards: flashcards,
                                       createdAt: DateTime.now(),
                                     );
@@ -2662,7 +2739,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     if (!mounted) return;
 
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Baralho "${deck.title}" criado com ${deck.cards.length} cartões! 🎉')),
+                                      SnackBar(
+                                        content: Text(
+                                          NoesisL10n.tr(
+                                            'Baralho "{title}" criado com {count} cartões! 🎉',
+                                            {'title': deck.title, 'count': deck.cards.length},
+                                          ),
+                                        ),
+                                      ),
                                     );
 
                                     // Launch study session immediately
@@ -2673,7 +2757,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     }
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Erro ao gerar flashcards: $e')),
+                                      SnackBar(content: Text(NoesisL10n.tr('Erro ao gerar flashcards: {error}', {'error': e}))),
                                     );
                                   }
                                 },
@@ -2697,7 +2781,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
   // ----------------------------------------------------
   void _openCreateManualDeckDialog() {
     final titleCtrl = TextEditingController();
-    final subjectCtrl = TextEditingController(text: 'Tecnologia');
+    final subjectCtrl = TextEditingController(text: context.tr('Tecnologia'));
     final descCtrl = TextEditingController();
     final List<Map<String, dynamic>> cardsControllers = [
       {'front': TextEditingController(), 'back': TextEditingController(), 'audioUrl': null},
@@ -2737,7 +2821,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Criar Novo Baralho',
+                                  dialogCtx.tr('Criar Novo Baralho'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -2745,7 +2829,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                 ),
                                 Text(
-                                  'Adicione perguntas e respostas personalizadas para o seu estudo',
+                                  dialogCtx.tr('Adicione perguntas e respostas personalizadas para o seu estudo'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -2773,9 +2857,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     flex: 3,
                                     child: TextField(
                                       controller: titleCtrl,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Título do Baralho *',
-                                        hintText: 'Ex: Resumo de Redes & Protocolos',
+                                      decoration: InputDecoration(
+                                        labelText: dialogCtx.tr('Título do Baralho *'),
+                                        hintText: dialogCtx.tr('Ex: Resumo de Redes & Protocolos'),
                                       ),
                                     ),
                                   ),
@@ -2784,9 +2868,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     flex: 2,
                                     child: TextField(
                                       controller: subjectCtrl,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Matéria *',
-                                        hintText: 'Ex: Redes',
+                                      decoration: InputDecoration(
+                                        labelText: dialogCtx.tr('Matéria *'),
+                                        hintText: dialogCtx.tr('Ex: Redes'),
                                       ),
                                     ),
                                   ),
@@ -2795,9 +2879,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               const SizedBox(height: 12),
                               TextField(
                                 controller: descCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Descrição (opcional)',
-                                  hintText: 'Ex: Principais tópicos para a prova de sexta',
+                                decoration: InputDecoration(
+                                  labelText: dialogCtx.tr('Descrição (opcional)'),
+                                  hintText: dialogCtx.tr('Ex: Principais tópicos para a prova de sexta'),
                                 ),
                               ),
                               const SizedBox(height: 20),
@@ -2806,7 +2890,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'CARTÕES (${cardsControllers.length})',
+                                    dialogCtx.tr('CARTÕES ({count})', {'count': cardsControllers.length}),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -2816,7 +2900,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                   TextButton.icon(
                                     icon: const Icon(Icons.add_rounded, size: 16),
-                                    label: const Text('Adicionar Cartão'),
+                                    label: Text(dialogCtx.tr('Adicionar Cartão')),
                                     onPressed: () {
                                       setDialogState(() {
                                         cardsControllers.add({
@@ -2851,7 +2935,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       Row(
                                         children: [
                                           Text(
-                                            'Cartão #${idx + 1}',
+                                            dialogCtx.tr('Cartão #{num}', {'num': idx + 1}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -2880,7 +2964,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                         Icon(isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded, size: 12, color: isPlaying ? Colors.white : AsterTheme.primary(context)),
                                                         const SizedBox(width: 4),
                                                         Text(
-                                                          isPlaying ? 'Tocando' : 'Áudio Anexado',
+                                                          isPlaying ? dialogCtx.tr('Tocando') : dialogCtx.tr('Áudio Anexado'),
                                                           style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: isPlaying ? Colors.white : AsterTheme.primary(context)),
                                                         ),
                                                       ],
@@ -2892,7 +2976,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             const SizedBox(width: 4),
                                             IconButton(
                                               icon: const Icon(Icons.upload_file_rounded, size: 14),
-                                              tooltip: 'Trocar MP3',
+                                              tooltip: dialogCtx.tr('Trocar MP3'),
                                               padding: EdgeInsets.zero,
                                               constraints: const BoxConstraints(),
                                               onPressed: () async {
@@ -2908,7 +2992,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             const SizedBox(width: 4),
                                             IconButton(
                                               icon: const Icon(Icons.close_rounded, size: 14),
-                                              tooltip: 'Remover áudio',
+                                              tooltip: dialogCtx.tr('Remover áudio'),
                                               padding: EdgeInsets.zero,
                                               constraints: const BoxConstraints(),
                                               onPressed: () {
@@ -2940,7 +3024,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      'Anexar MP3',
+                                                      dialogCtx.tr('Anexar MP3'),
                                                       style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterTheme.primary(context)),
                                                     ),
                                                   ],
@@ -2955,7 +3039,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 final text = f.isNotEmpty ? f : b;
                                                 if (text.isEmpty) {
                                                   ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Digite o conteúdo da frente ou verso para gerar o áudio.')),
+                                                    SnackBar(
+                                                      content: Text(NoesisL10n.tr('Digite o conteúdo da frente ou verso para gerar o áudio.')),
+                                                    ),
                                                   );
                                                   return;
                                                 }
@@ -2979,7 +3065,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     const Icon(Icons.auto_awesome_rounded, size: 12, color: AsterConstants.menta),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      'Gerar Áudio IA',
+                                                      dialogCtx.tr('Gerar Áudio IA'),
                                                       style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: AsterConstants.menta),
                                                     ),
                                                   ],
@@ -3004,20 +3090,20 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       const SizedBox(height: 8),
                                       TextField(
                                         controller: ctrls['front'] as TextEditingController,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Frente: Pergunta, termo ou conceito...',
+                                        decoration: InputDecoration(
+                                          hintText: dialogCtx.tr('Frente: Pergunta, termo ou conceito...'),
                                           filled: false,
-                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
                                         ),
                                       ),
                                       const SizedBox(height: 8),
                                       TextField(
                                         controller: ctrls['back'] as TextEditingController,
                                         maxLines: 2,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Verso: Resposta, explicação ou regra mnemônica...',
+                                        decoration: InputDecoration(
+                                          hintText: dialogCtx.tr('Verso: Resposta, explicação ou regra mnemônica...'),
                                           filled: false,
-                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
                                         ),
                                       ),
                                     ],
@@ -3035,18 +3121,25 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(dialogCtx),
-                            child: Text('Cancelar', style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
+                            child: Text(
+                              dialogCtx.tr('Cancelar'),
+                              style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           SoftClayPillButton(
-                            text: 'Salvar Baralho',
+                            text: dialogCtx.tr('Salvar Baralho'),
                             icon: Icons.check_rounded,
                             onPressed: () async {
                               final title = titleCtrl.text.trim();
-                              final subject = subjectCtrl.text.trim().isEmpty ? 'Geral' : subjectCtrl.text.trim();
+                              final subject = subjectCtrl.text.trim().isEmpty
+                                  ? NoesisL10n.tr('Geral')
+                                  : subjectCtrl.text.trim();
                               if (title.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Por favor, informe um título para o baralho.')),
+                                  SnackBar(
+                                    content: Text(NoesisL10n.tr('Por favor, informe um título para o baralho.')),
+                                  ),
                                 );
                                 return;
                               }
@@ -3059,8 +3152,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 if (f.isNotEmpty || b.isNotEmpty) {
                                   cards.add(Flashcard(
                                     id: 'fc-${DateTime.now().millisecondsSinceEpoch}-$i',
-                                    front: f.isNotEmpty ? f : 'Pergunta #${i + 1}',
-                                    back: b.isNotEmpty ? b : 'Resposta #${i + 1}',
+                                    front: f.isNotEmpty
+                                        ? f
+                                        : NoesisL10n.tr('Pergunta #{num}', {'num': i + 1}),
+                                    back: b.isNotEmpty
+                                        ? b
+                                        : NoesisL10n.tr('Resposta #{num}', {'num': i + 1}),
                                     audioUrl: audio,
                                     tags: [subject],
                                   ));
@@ -3069,7 +3166,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                               if (cards.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Adicione pelo menos um cartão com frente e verso.')),
+                                  SnackBar(
+                                    content: Text(NoesisL10n.tr('Adicione pelo menos um cartão com frente e verso.')),
+                                  ),
                                 );
                                 return;
                               }
@@ -3092,7 +3191,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               if (!mounted) return;
 
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Baralho "$title" criado com sucesso!')),
+                                SnackBar(
+                                  content: Text(
+                                    NoesisL10n.tr('Baralho "{title}" criado com sucesso!', {'title': title}),
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -3137,7 +3240,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Novo Cartão em "${deck.title}"',
+                        ctx.tr('Novo Cartão em "{title}"', {'title': deck.title}),
                         style: GoogleFonts.manrope(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -3147,18 +3250,18 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       const SizedBox(height: 16),
                       TextField(
                         controller: frontCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Frente (Pergunta ou Conceito)',
-                          hintText: 'Ex: O que é o princípio do menor privilégio?',
+                        decoration: InputDecoration(
+                          labelText: ctx.tr('Frente (Pergunta ou Conceito)'),
+                          hintText: ctx.tr('Ex: O que é o princípio do menor privilégio?'),
                         ),
                       ),
                       const SizedBox(height: 14),
                       TextField(
                         controller: backCtrl,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Verso (Resposta ou Explicação)',
-                          hintText: 'Ex: Conceder apenas os acessos estritamente necessários para executar uma tarefa.',
+                        decoration: InputDecoration(
+                          labelText: ctx.tr('Verso (Resposta ou Explicação)'),
+                          hintText: ctx.tr('Ex: Conceder apenas os acessos estritamente necessários para executar uma tarefa.'),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -3183,7 +3286,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                newAudioUrl != null ? 'Áudio anexado ao cartão' : 'Adicionar áudio / narração (opcional)',
+                                newAudioUrl != null
+                                    ? ctx.tr('Áudio anexado ao cartão')
+                                    : ctx.tr('Adicionar áudio / narração (opcional)'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: newAudioUrl != null ? FontWeight.w700 : FontWeight.w500,
@@ -3200,7 +3305,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   final isPlaying = playingUrl == newAudioUrl;
                                   return OutlinedButton.icon(
                                     icon: Icon(isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded, size: 14),
-                                    label: Text(isPlaying ? 'Pausar' : 'Ouvir'),
+                                    label: Text(isPlaying ? ctx.tr('Pausar') : ctx.tr('Ouvir')),
                                     style: OutlinedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       visualDensity: VisualDensity.compact,
@@ -3212,13 +3317,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               const SizedBox(width: 4),
                               IconButton(
                                 icon: const Icon(Icons.close_rounded, size: 16, color: AsterConstants.coral),
-                                tooltip: 'Remover áudio',
+                                tooltip: ctx.tr('Remover áudio'),
                                 onPressed: () => setDialogState(() => newAudioUrl = null),
                               ),
                             ] else ...[
                               OutlinedButton.icon(
                                 icon: const Icon(Icons.upload_file_rounded, size: 14),
-                                label: const Text('Anexar MP3'),
+                                label: Text(ctx.tr('Anexar MP3')),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   visualDensity: VisualDensity.compact,
@@ -3236,7 +3341,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 icon: isGeneratingAudio
                                     ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                     : const Icon(Icons.auto_awesome_rounded, size: 12),
-                                label: Text(isGeneratingAudio ? 'Gerando...' : 'Gerar IA ✨'),
+                                label: Text(isGeneratingAudio ? ctx.tr('Gerando...') : ctx.tr('Gerar IA ✨')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AsterTheme.primary(context),
                                   foregroundColor: AsterTheme.onPrimary(context),
@@ -3249,7 +3354,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         final text = frontCtrl.text.trim().isNotEmpty ? frontCtrl.text.trim() : backCtrl.text.trim();
                                         if (text.isEmpty) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Digite a pergunta ou resposta antes de gerar o áudio.')),
+                                            SnackBar(
+                                              content: Text(NoesisL10n.tr('Digite a pergunta ou resposta antes de gerar o áudio.')),
+                                            ),
                                           );
                                           return;
                                         }
@@ -3275,11 +3382,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(dialogCtx),
-                            child: Text('Cancelar', style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
+                            child: Text(
+                              ctx.tr('Cancelar'),
+                              style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           SoftClayPillButton(
-                            text: 'Adicionar',
+                            text: ctx.tr('Adicionar'),
                             onPressed: () async {
                               final f = frontCtrl.text.trim();
                               final b = backCtrl.text.trim();
@@ -3287,8 +3397,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                               final newCard = Flashcard(
                                 id: 'fc-${DateTime.now().millisecondsSinceEpoch}',
-                                front: f.isNotEmpty ? f : 'Conceito',
-                                back: b.isNotEmpty ? b : 'Explicação',
+                                front: f.isNotEmpty ? f : NoesisL10n.tr('Conceito'),
+                                back: b.isNotEmpty ? b : NoesisL10n.tr('Explicação'),
                                 tags: [deck.subject],
                                 audioUrl: newAudioUrl,
                               );
@@ -3304,7 +3414,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               if (!mounted) return;
 
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Cartão adicionado com sucesso!')),
+                                SnackBar(content: Text(NoesisL10n.tr('Cartão adicionado com sucesso!'))),
                               );
                             },
                           ),
@@ -3390,7 +3500,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Editar Baralho ✏️',
+                                  dialogCtx.tr('Editar Baralho ✏️'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -3398,7 +3508,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                 ),
                                 Text(
-                                  '${editableCards.length} cartões · Edite as informações e conteúdo como desejar',
+                                  dialogCtx.tr(
+                                    '{count} cartões · Edite as informações e conteúdo como desejar',
+                                    {'count': editableCards.length},
+                                  ),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -3425,7 +3538,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'TÍTULO DO BARALHO *',
+                                  dialogCtx.tr('TÍTULO DO BARALHO *'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -3438,7 +3551,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   controller: titleCtrl,
                                   enabled: !isSaving,
                                   decoration: InputDecoration(
-                                    hintText: 'Nome do baralho...',
+                                    hintText: dialogCtx.tr('Nome do baralho...'),
                                     fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                                     filled: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -3454,7 +3567,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'MATÉRIA / DISCIPLINA',
+                                  dialogCtx.tr('MATÉRIA / DISCIPLINA'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
@@ -3467,7 +3580,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   controller: subjectCtrl,
                                   enabled: !isSaving,
                                   decoration: InputDecoration(
-                                    hintText: 'Ex: Criptografia, Inglês...',
+                                    hintText: dialogCtx.tr('Ex: Criptografia, Inglês...'),
                                     fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                                     filled: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -3483,7 +3596,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'DESCRIÇÃO (OPCIONAL)',
+                            dialogCtx.tr('DESCRIÇÃO (OPCIONAL)'),
                             style: GoogleFonts.manrope(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -3496,7 +3609,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             controller: descCtrl,
                             enabled: !isSaving,
                             decoration: InputDecoration(
-                              hintText: 'Descrição sobre os temas deste baralho...',
+                              hintText: dialogCtx.tr('Descrição sobre os temas deste baralho...'),
                               fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                               filled: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -3514,7 +3627,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               controller: searchCtrl,
                               enabled: !isSaving,
                               decoration: InputDecoration(
-                                hintText: 'Pesquisar cartões (${editableCards.length})...',
+                                hintText: dialogCtx.tr('Pesquisar cartões ({count})...', {'count': editableCards.length}),
                                 prefixIcon: const Icon(Icons.search_rounded, size: 20),
                                 fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                                 filled: true,
@@ -3531,7 +3644,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           const SizedBox(width: 12),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Novo Cartão'),
+                            label: Text(dialogCtx.tr('Novo Cartão')),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               side: BorderSide(color: AsterTheme.primary(context)),
@@ -3548,7 +3661,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           id: 'fc-manual-${DateTime.now().millisecondsSinceEpoch}',
                                           front: '',
                                           back: '',
-                                          tags: [subjectCtrl.text.trim().isNotEmpty ? subjectCtrl.text.trim() : 'Geral'],
+                                          tags: [
+                                            subjectCtrl.text.trim().isNotEmpty
+                                                ? subjectCtrl.text.trim()
+                                                : NoesisL10n.tr('Geral'),
+                                          ],
                                         ),
                                       );
                                       currentPage = 0;
@@ -3564,7 +3681,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         child: editableCards.isEmpty
                             ? Center(
                                 child: Text(
-                                  'Nenhum cartão neste baralho ainda.\nClique em "+ Novo Cartão" para adicionar!',
+                                  dialogCtx.tr('Nenhum cartão neste baralho ainda.\nClique em "+ Novo Cartão" para adicionar!'),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.manrope(
                                     fontSize: 14,
@@ -3636,7 +3753,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                           ),
                                                           const SizedBox(width: 4),
                                                           Text(
-                                                            isPlaying ? 'Tocando' : 'Áudio Anexado',
+                                                            isPlaying
+                                                                ? listCtx.tr('Tocando')
+                                                                : listCtx.tr('Áudio Anexado'),
                                                             style: GoogleFonts.manrope(
                                                               fontSize: 10.5,
                                                               fontWeight: FontWeight.w700,
@@ -3652,7 +3771,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               const SizedBox(width: 4),
                                               IconButton(
                                                 icon: const Icon(Icons.upload_file_rounded, size: 14),
-                                                tooltip: 'Trocar arquivo de áudio MP3',
+                                                tooltip: listCtx.tr('Trocar arquivo de áudio MP3'),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(),
                                                 onPressed: isSaving
@@ -3670,7 +3789,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               const SizedBox(width: 4),
                                               IconButton(
                                                 icon: const Icon(Icons.close_rounded, size: 14),
-                                                tooltip: 'Remover áudio',
+                                                tooltip: listCtx.tr('Remover áudio'),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(),
                                                 onPressed: isSaving
@@ -3706,7 +3825,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       Icon(Icons.audio_file_rounded, size: 12, color: AsterTheme.primary(context)),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        'Anexar MP3',
+                                                        listCtx.tr('Anexar MP3'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
@@ -3744,7 +3863,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       const Icon(Icons.auto_awesome_rounded, size: 12, color: AsterConstants.menta),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        'Gerar Áudio IA',
+                                                        listCtx.tr('Gerar Áudio IA'),
                                                         style: GoogleFonts.manrope(
                                                           fontSize: 10.5,
                                                           fontWeight: FontWeight.w700,
@@ -3759,7 +3878,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             const Spacer(),
                                             IconButton(
                                               icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                              tooltip: 'Excluir cartão',
+                                              tooltip: listCtx.tr('Excluir cartão'),
                                               onPressed: isSaving
                                                   ? null
                                                   : () {
@@ -3774,7 +3893,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         // Frente / Pergunta
                                         Text(
-                                          'FRENTE / PERGUNTA',
+                                          listCtx.tr('FRENTE / PERGUNTA'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w800,
@@ -3790,7 +3909,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           maxLines: null,
                                           minLines: 1,
                                           decoration: InputDecoration(
-                                            hintText: 'Escreva a pergunta ou conceito...',
+                                            hintText: listCtx.tr('Escreva a pergunta ou conceito...'),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                             filled: true,
@@ -3803,7 +3922,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         // Verso / Resposta
                                         Text(
-                                          'VERSO / RESPOSTA',
+                                          listCtx.tr('VERSO / RESPOSTA'),
                                           style: GoogleFonts.manrope(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w800,
@@ -3819,7 +3938,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           maxLines: null,
                                           minLines: 2,
                                           decoration: InputDecoration(
-                                            hintText: 'Escreva a resposta e explicação...',
+                                            hintText: listCtx.tr('Escreva a resposta e explicação...'),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             fillColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
                                             filled: true,
@@ -3845,11 +3964,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.chevron_left_rounded),
-                                  tooltip: 'Página anterior',
+                                  tooltip: dialogCtx.tr('Página anterior'),
                                   onPressed: currentPage > 0 ? () => setDialogState(() => currentPage--) : null,
                                 ),
                                 Text(
-                                  'Pág ${currentPage + 1} de $totalPages',
+                                  dialogCtx.tr('Pág {curr} de {total}', {'curr': currentPage + 1, 'total': totalPages}),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -3858,14 +3977,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.chevron_right_rounded),
-                                  tooltip: 'Próxima página',
+                                  tooltip: dialogCtx.tr('Próxima página'),
                                   onPressed: currentPage < totalPages - 1 ? () => setDialogState(() => currentPage++) : null,
                                 ),
                               ],
                             )
                           else
                             Text(
-                              '${editableCards.length} cartões no baralho',
+                              dialogCtx.tr('{count} cartões no baralho', {'count': editableCards.length}),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -3877,7 +3996,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               TextButton(
                                 onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                                 child: Text(
-                                  'Cancelar',
+                                  dialogCtx.tr('Cancelar'),
                                   style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted),
                                 ),
                               ),
@@ -3890,7 +4009,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                       )
                                     : const Icon(Icons.save_rounded, size: 18),
-                                label: Text(isSaving ? 'Salvando...' : 'Salvar Baralho 💾'),
+                                label: Text(isSaving ? dialogCtx.tr('Salvando...') : dialogCtx.tr('Salvar Baralho 💾')),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AsterTheme.primary(context),
                                   foregroundColor: AsterTheme.onPrimary(context),
@@ -3910,7 +4029,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                                         if (validCards.isEmpty) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('O baralho precisa ter pelo menos um cartão com conteúdo.')),
+                                            SnackBar(
+                                              content: Text(NoesisL10n.tr('O baralho precisa ter pelo menos um cartão com conteúdo.')),
+                                            ),
                                           );
                                           return;
                                         }
@@ -3941,7 +4062,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         }
 
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Baralho "$newTitle" atualizado com sucesso! 🎉')),
+                                          SnackBar(
+                                            content: Text(
+                                              NoesisL10n.tr('Baralho "{title}" atualizado com sucesso! 🎉', {'title': newTitle}),
+                                            ),
+                                          ),
                                         );
                                       },
                               ),
@@ -3971,12 +4096,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         return AlertDialog(
           backgroundColor: isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusLarge)),
-          title: Text('Excluir Baralho?', style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
-          content: Text('Tem certeza que deseja excluir "${deck.title}" e seus ${deck.cards.length} cartões?'),
+          title: Text(ctx.tr('Excluir Baralho?'), style: GoogleFonts.manrope(fontWeight: FontWeight.w800)),
+          content: Text(
+            ctx.tr(
+              'Tem certeza que deseja excluir "{title}" e seus {count} cartões?',
+              {'title': deck.title, 'count': deck.cards.length},
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancelar', style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
+              child: Text(ctx.tr('Cancelar'), style: GoogleFonts.manrope(color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AsterConstants.coral),
@@ -3989,10 +4119,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                 await _loadDecks();
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Baralho excluído com sucesso.')),
+                  SnackBar(content: Text(NoesisL10n.tr('Baralho excluído com sucesso.'))),
                 );
               },
-              child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+              child: Text(ctx.tr('Excluir'), style: const TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -4035,7 +4165,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.groupScope != null ? 'Flashcards do Grupo' : 'Flashcards Cognitivos',
+                                widget.groupScope != null
+                                    ? context.tr('Flashcards do Grupo')
+                                    : context.tr('Flashcards Cognitivos'),
                                 style: GoogleFonts.manrope(
                                   fontSize: isCompactPage ? 22 : 26,
                                   fontWeight: FontWeight.w800,
@@ -4046,8 +4178,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               const SizedBox(height: 4),
                               Text(
                                 widget.groupScope != null
-                                    ? 'Crie baralhos, gere com IA ✨, importe ou anexe ao grupo. Seu progresso nos cartões é individual.'
-                                    : 'Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.',
+                                    ? context.tr('Crie baralhos, gere com IA ✨, importe ou anexe ao grupo. Seu progresso nos cartões é individual.')
+                                    : context.tr('Domine conceitos técnicos complexos através de repetição espaçada e recuperação ativa.'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 13,
                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -4064,7 +4196,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       OutlinedButton.icon(
                                         key: const Key('group_attach_deck_button'),
                                         icon: const Icon(Icons.attach_file_rounded, size: 18),
-                                        label: const Text('Anexar Meu Baralho'),
+                                        label: Text(context.tr('Anexar Meu Baralho')),
                                         style: OutlinedButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                                           side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
@@ -4074,7 +4206,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       ),
                                     OutlinedButton.icon(
                                       icon: const Icon(Icons.upload_file_rounded, size: 18),
-                                      label: const Text('Importar Arquivo'),
+                                      label: Text(context.tr('Importar Arquivo')),
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                                         side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
@@ -4085,7 +4217,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     OutlinedButton.icon(
                                       key: widget.groupScope != null ? const Key('group_create_deck_button') : null,
                                       icon: const Icon(Icons.add_rounded, size: 18),
-                                      label: const Text('Novo Baralho'),
+                                      label: Text(context.tr('Novo Baralho')),
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                                         side: BorderSide(color: isDark ? AsterConstants.surfaceInsetDark : AsterConstants.surfaceInset),
@@ -4094,7 +4226,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       onPressed: _openCreateManualDeckDialog,
                                     ),
                                     SoftClayPillButton(
-                                      text: 'Gerar com IA ✨',
+                                      text: context.tr('Gerar com IA ✨'),
                                       icon: Icons.auto_awesome_rounded,
                                       onPressed: _openGenerateAiFlashcardsDialog,
                                     ),
@@ -4152,11 +4284,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           children: [
                                             SizedBox(
                                               width: (constraints.maxWidth - 76) / 2,
-                                              child: _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
+                                              child: _buildStatItem(context.tr('Baralhos Ativos'), '${_decks.length}', AsterTheme.primary(context), isDark),
                                             ),
                                             SizedBox(
                                               width: (constraints.maxWidth - 76) / 2,
-                                              child: _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
+                                              child: _buildStatItem(context.tr('Total de Cartões'), '$totalCards', AsterConstants.menta, isDark),
                                             ),
                                             SizedBox(
                                               width: (constraints.maxWidth - 76) / 2,
@@ -4167,7 +4299,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 child: Padding(
                                                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                                                   child: _buildStatItem(
-                                                    'Para Revisar',
+                                                    context.tr('Para Revisar'),
                                                     '$totalPendingCards',
                                                     totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
                                                     isDark,
@@ -4182,22 +4314,22 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
                                                 child: Padding(
                                                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                                  child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                                  child: _buildStatItem(context.tr('Dominados (Fácil)'), '$masteredCards', AsterConstants.ambar, isDark),
                                                 ),
                                               ),
                                             ),
                                             SizedBox(
                                               width: double.infinity,
-                                              child: _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
+                                              child: _buildStatItem(context.tr('Retenção Média'), '$avgRetention%', AsterTheme.primary(context), isDark),
                                             ),
                                           ],
                                         )
                                       : Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                                           children: [
-                                            _buildStatItem('Baralhos Ativos', '${_decks.length}', AsterTheme.primary(context), isDark),
+                                            _buildStatItem(context.tr('Baralhos Ativos'), '${_decks.length}', AsterTheme.primary(context), isDark),
                                             _buildDivider(isDark),
-                                            _buildStatItem('Total de Cartões', '$totalCards', AsterConstants.menta, isDark),
+                                            _buildStatItem(context.tr('Total de Cartões'), '$totalCards', AsterConstants.menta, isDark),
                                             _buildDivider(isDark),
                                             InkWell(
                                               key: const Key('flashcards_review_queue_stat'),
@@ -4206,7 +4338,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               child: Padding(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                 child: _buildStatItem(
-                                                  'Para Revisar',
+                                                  context.tr('Para Revisar'),
                                                   '$totalPendingCards',
                                                   totalPendingCards > 0 ? AsterConstants.coral : AsterConstants.menta,
                                                   isDark,
@@ -4219,11 +4351,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               onTap: () => setState(() => _statusFilter = _DeckStatusFilter.completed),
                                               child: Padding(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                child: _buildStatItem('Dominados (Fácil)', '$masteredCards', AsterConstants.ambar, isDark),
+                                                child: _buildStatItem(context.tr('Dominados (Fácil)'), '$masteredCards', AsterConstants.ambar, isDark),
                                               ),
                                             ),
                                             _buildDivider(isDark),
-                                            _buildStatItem('Retenção Média', '$avgRetention%', AsterTheme.primary(context), isDark),
+                                            _buildStatItem(context.tr('Retenção Média'), '$avgRetention%', AsterTheme.primary(context), isDark),
                                           ],
                                         ),
                                 ),
@@ -4250,7 +4382,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           controller: _searchController,
                                           onChanged: (val) => setState(() => _searchQuery = val),
                                           decoration: InputDecoration(
-                                            hintText: 'Buscar por título, conceito ou pergunta...',
+                                            hintText: context.tr('Buscar por título, conceito ou pergunta...'),
                                             prefixIcon: const Icon(Icons.search_rounded, size: 20),
                                             filled: true,
                                             fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
@@ -4312,8 +4444,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               const SizedBox(width: 8),
                                               Text(
                                                 totalPendingCards > 0
-                                                    ? 'O que revisar ($totalPendingCards)'
-                                                    : 'Tudo em dia ✓',
+                                                    ? context.tr('O que revisar ({count})', {'count': totalPendingCards})
+                                                    : context.tr('Tudo em dia ✓'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 12.5,
                                                   fontWeight: FontWeight.w800,
@@ -4338,7 +4470,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     children: [
                                       _buildStatusFilterPill(
                                         key: const Key('filter_status_all'),
-                                        label: 'Todos (${_decks.length})',
+                                        label: context.tr('Todos ({count})', {'count': _decks.length}),
                                         icon: Icons.layers_rounded,
                                         selected: _statusFilter == _DeckStatusFilter.all,
                                         activeColor: AsterTheme.primary(context),
@@ -4347,7 +4479,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       ),
                                       _buildStatusFilterPill(
                                         key: const Key('filter_status_to_review'),
-                                        label: 'Para Revisar ($toReviewDecksCount)',
+                                        label: context.tr('Para Revisar ({count})', {'count': toReviewDecksCount}),
                                         icon: Icons.bolt_rounded,
                                         selected: _statusFilter == _DeckStatusFilter.toReview,
                                         activeColor: AsterConstants.coral,
@@ -4356,7 +4488,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       ),
                                       _buildStatusFilterPill(
                                         key: const Key('filter_status_completed'),
-                                        label: 'Completos / Dominados ($completedDecksCount)',
+                                        label: context.tr('Completos / Dominados ({count})', {'count': completedDecksCount}),
                                         icon: Icons.check_circle_rounded,
                                         selected: _statusFilter == _DeckStatusFilter.completed,
                                         activeColor: AsterConstants.menta,
@@ -4374,7 +4506,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       children: _uniqueSubjects.map((sub) {
                                         final isSel = _selectedSubjectFilter == sub;
                                         return Padding(
-                                          padding: const EdgeInsets.only(right: 8),
+                                          padding: const EdgeInsetsDirectional.only(end: 8),
                                           child: InkWell(
                                             borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                                             onTap: () => setState(() => _selectedSubjectFilter = sub),
@@ -4396,7 +4528,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                     const SizedBox(width: 5),
                                                   ],
                                                   Text(
-                                                    sub,
+                                                    sub == 'Todos' ? context.tr('Todos') : sub,
                                                     style: GoogleFonts.manrope(
                                                       fontSize: 12,
                                                       fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
@@ -4436,12 +4568,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 const SizedBox(height: 14),
                                 Text(
                                   _searchQuery.isNotEmpty
-                                      ? 'Nenhum baralho encontrado para "$_searchQuery".'
+                                      ? context.tr('Nenhum baralho encontrado para "{query}".', {'query': _searchQuery})
                                       : (_statusFilter == _DeckStatusFilter.completed
-                                          ? 'Nenhum baralho completo ou dominado ainda.'
+                                          ? context.tr('Nenhum baralho completo ou dominado ainda.')
                                           : (_statusFilter == _DeckStatusFilter.toReview
-                                              ? 'Nenhum baralho pendente de revisão no momento! 🎉'
-                                              : 'Nenhum baralho nesta matéria.')),
+                                              ? context.tr('Nenhum baralho pendente de revisão no momento! 🎉')
+                                              : context.tr('Nenhum baralho nesta matéria.'))),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.manrope(
                                     fontSize: 15,
@@ -4452,8 +4584,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 const SizedBox(height: 16),
                                 SoftClayPillButton(
                                   text: _statusFilter != _DeckStatusFilter.all
-                                      ? 'Mostrar Todos os Baralhos'
-                                      : 'Gerar com IA ✨',
+                                      ? context.tr('Mostrar Todos os Baralhos')
+                                      : context.tr('Gerar com IA ✨'),
                                   onPressed: _statusFilter != _DeckStatusFilter.all
                                       ? () => setState(() {
                                             _statusFilter = _DeckStatusFilter.all;
@@ -4624,8 +4756,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           children: [
                             Text(
                               focusDeck != null
-                                  ? 'Pendências · ${focusDeck.title}'
-                                  : 'Central de Revisão Inteligente',
+                                  ? dialogCtx.tr('Pendências · {title}', {'title': focusDeck.title})
+                                  : dialogCtx.tr('Central de Revisão Inteligente'),
                               style: GoogleFonts.manrope(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -4633,7 +4765,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               ),
                             ),
                             Text(
-                              'Cartões já aprendidos (Fácil) não entram na fila automática.',
+                              dialogCtx.tr('Cartões já aprendidos (Fácil) não entram na fila automática.'),
                               style: GoogleFonts.manrope(
                                 fontSize: 12,
                                 color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -4662,7 +4794,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           const Icon(Icons.verified_rounded, size: 36, color: AsterConstants.menta),
                           const SizedBox(height: 10),
                           Text(
-                            'Tudo em dia! Nenhum cartão pendente para aprender.',
+                            dialogCtx.tr('Tudo em dia! Nenhum cartão pendente para aprender.'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.manrope(
                               fontSize: 14,
@@ -4712,8 +4844,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '${pending.length} pendente${pending.length == 1 ? '' : 's'} · '
-                                            '$hardCount difíceis · $newCount novos · $dueGoodCount revisão 24h+',
+                                            pending.length == 1
+                                                ? dialogCtx.tr(
+                                                    '1 pendente · {hard} difíceis · {newCount} novos · {due} revisão 24h+',
+                                                    {'hard': hardCount, 'newCount': newCount, 'due': dueGoodCount},
+                                                  )
+                                                : dialogCtx.tr(
+                                                    '{pending} pendentes · {hard} difíceis · {newCount} novos · {due} revisão 24h+',
+                                                    {'pending': pending.length, 'hard': hardCount, 'newCount': newCount, 'due': dueGoodCount},
+                                                  ),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11.5,
                                               fontWeight: FontWeight.w600,
@@ -4725,7 +4864,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     ),
                                     const SizedBox(width: 10),
                                     SoftClayPillButton(
-                                      text: 'Estudar (${pending.length})',
+                                      text: dialogCtx.tr('Estudar ({count})', {'count': pending.length}),
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                       onPressed: () {
                                         Navigator.pop(dialogCtx);
@@ -4836,7 +4975,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Dividir Baralho com IA 🗂️✨',
+                                  dialogCtx.tr('Dividir Baralho com IA 🗂️✨'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
@@ -4844,7 +4983,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                   ),
                                 ),
                                 Text(
-                                  '${deck.title} · ${deck.cards.length} cartões',
+                                  dialogCtx.tr('{title} · {count} cartões', {'title': deck.title, 'count': deck.cards.length}),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12,
                                     color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -4862,7 +5001,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       const SizedBox(height: 18),
 
                       Text(
-                        'A IA irá analisar o conteúdo e agrupar os cartões em sub-baralhos temáticos menores para um aprendizado com retenção superior.',
+                        dialogCtx.tr('A IA irá analisar o conteúdo e agrupar os cartões em sub-baralhos temáticos menores para um aprendizado com retenção superior.'),
                         style: GoogleFonts.manrope(
                           fontSize: 12.5,
                           height: 1.45,
@@ -4872,7 +5011,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       const SizedBox(height: 18),
 
                       Text(
-                        'TAMANHO DESEJADO POR BARALHO',
+                        dialogCtx.tr('TAMANHO DESEJADO POR BARALHO'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -4888,7 +5027,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [20, 30, 40, 50].map((size) {
                           final isSelected = selectedCardsPerDeck == size;
                           return SoftClayChoiceChip(
-                            label: size == 30 ? '$size cartões (Ideal) ✨' : '$size cartões',
+                            label: size == 30
+                                ? dialogCtx.tr('{count} cartões (Ideal) ✨', {'count': size})
+                                : dialogCtx.tr('{count} cartões', {'count': size}),
                             selected: isSelected,
                             onTap: () => setDialogState(() => selectedCardsPerDeck = size),
                           );
@@ -4908,7 +5049,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Serão gerados cerca de $estimatedDecks baralhos temáticos com nomes automáticos.',
+                                dialogCtx.tr(
+                                  'Serão gerados cerca de {count} baralhos temáticos com nomes automáticos.',
+                                  {'count': estimatedDecks},
+                                ),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
@@ -4927,7 +5071,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         dense: true,
                         activeColor: AsterTheme.primary(context),
                         title: Text(
-                          'Substituir baralho original pelos novos baralhos menores',
+                          dialogCtx.tr('Substituir baralho original pelos novos baralhos menores'),
                           style: GoogleFonts.manrope(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -4935,7 +5079,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           ),
                         ),
                         subtitle: Text(
-                          'Remove o baralho volumoso original após salvar para evitar duplicatas.',
+                          dialogCtx.tr('Remove o baralho volumoso original após salvar para evitar duplicatas.'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -4953,7 +5097,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           TextButton(
                             onPressed: () => Navigator.pop(dialogCtx),
                             child: Text(
-                              'Cancelar',
+                              dialogCtx.tr('Cancelar'),
                               style: GoogleFonts.manrope(
                                 color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                               ),
@@ -4961,7 +5105,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           ),
                           const SizedBox(width: 12),
                           SoftClayPillButton(
-                            text: 'Dividir com IA ✨',
+                            text: dialogCtx.tr('Dividir com IA ✨'),
                             icon: Icons.splitscreen_rounded,
                             onPressed: () {
                               Navigator.pop(dialogCtx);
@@ -5040,7 +5184,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                     ),
                     child: Text(
-                      isCompleted ? 'Completo ✓' : '$pendingCount p/ revisar',
+                      isCompleted
+                          ? context.tr('Completo ✓')
+                          : context.tr('{count} p/ revisar', {'count': pendingCount}),
                       style: GoogleFonts.manrope(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -5063,13 +5209,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                 },
                 itemBuilder: (ctx) => [
                   if (pendingCount > 0)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'check_pending',
                       child: Row(
                         children: [
-                          Icon(Icons.pending_actions_rounded, size: 18, color: AsterConstants.coral),
-                          SizedBox(width: 8),
-                          Text('Ver O Que Falta Revisar'),
+                          const Icon(Icons.pending_actions_rounded, size: 18, color: AsterConstants.coral),
+                          const SizedBox(width: 8),
+                          Text(ctx.tr('Ver O Que Falta Revisar')),
                         ],
                       ),
                     ),
@@ -5080,27 +5226,27 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [
                           Icon(Icons.replay_rounded, size: 18, color: AsterTheme.primary(context)),
                           const SizedBox(width: 8),
-                          const Text('Revisar Todos os Cartões'),
+                          Text(ctx.tr('Revisar Todos os Cartões')),
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_note_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text('Editar Baralho'),
+                        const Icon(Icons.edit_note_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Text(ctx.tr('Editar Baralho')),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'add',
                     child: Row(
                       children: [
-                        Icon(Icons.add_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text('Adicionar Cartão'),
+                        const Icon(Icons.add_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Text(ctx.tr('Adicionar Cartão')),
                       ],
                     ),
                   ),
@@ -5111,17 +5257,17 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         children: [
                           Icon(Icons.splitscreen_rounded, size: 18, color: AsterTheme.primary(context)),
                           const SizedBox(width: 8),
-                          const Text('Dividir em Baralhos Menores ✨'),
+                          Text(ctx.tr('Dividir em Baralhos Menores ✨')),
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                        SizedBox(width: 8),
-                        Text('Excluir Baralho', style: TextStyle(color: AsterConstants.coral)),
+                        const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
+                        const SizedBox(width: 8),
+                        Text(ctx.tr('Excluir Baralho'), style: const TextStyle(color: AsterConstants.coral)),
                       ],
                     ),
                   ),
@@ -5147,7 +5293,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
           // Description
           Text(
-            deck.description.isNotEmpty ? deck.description : 'Sem descrição.',
+            deck.description.isNotEmpty ? deck.description : context.tr('Sem descrição.'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.manrope(
@@ -5164,7 +5310,10 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
               Row(
                 children: [
                   Text(
-                    '${deck.cardCount} cartões · ${deck.masteredCount} dominados',
+                    context.tr(
+                      '{cards} cartões · {mastered} dominados',
+                      {'cards': deck.cardCount, 'mastered': deck.masteredCount},
+                    ),
                     style: GoogleFonts.manrope(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -5188,7 +5337,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             Icon(Icons.splitscreen_rounded, size: 10, color: AsterTheme.primary(context)),
                             const SizedBox(width: 3),
                             Text(
-                              'Dividir IA ✨',
+                              context.tr('Dividir IA ✨'),
                               style: GoogleFonts.manrope(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
@@ -5203,7 +5352,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                 ],
               ),
               Text(
-                '${(progress * 100).toInt()}% dominado',
+                context.tr('{pct}% dominado', {'pct': (progress * 100).toInt()}),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -5229,8 +5378,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
               icon: Icon(isCompleted ? Icons.replay_rounded : Icons.play_arrow_rounded, size: 18),
               label: Text(
                 deck.cards.isEmpty
-                    ? 'Sem cartões'
-                    : (isCompleted ? 'Revisar Tudo 🔄' : 'Estudar Agora 🚀'),
+                    ? context.tr('Sem cartões')
+                    : (isCompleted ? context.tr('Revisar Tudo 🔄') : context.tr('Estudar Agora 🚀')),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isCompleted ? AsterConstants.menta : color,
@@ -5298,7 +5447,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Editar Flashcard ✍️',
+                                    dialogCtx.tr('Editar Flashcard ✍️'),
                                     style: GoogleFonts.manrope(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -5306,7 +5455,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     ),
                                   ),
                                   Text(
-                                    'Cartão ${_activeCardIndex + 1} de ${_activeStudyDeck!.cards.length} · ${_activeStudyDeck!.title}',
+                                    dialogCtx.tr(
+                                      'Cartão {curr} de {total} · {title}',
+                                      {
+                                        'curr': _activeCardIndex + 1,
+                                        'total': _activeStudyDeck!.cards.length,
+                                        'title': _activeStudyDeck!.title,
+                                      },
+                                    ),
                                     style: GoogleFonts.manrope(
                                       fontSize: 12,
                                       color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -5326,7 +5482,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                         // Frente (Pergunta ou Conceito)
                         Text(
-                          'FRENTE (PERGUNTA OU CONCEITO) *',
+                          dialogCtx.tr('FRENTE (PERGUNTA OU CONCEITO) *'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -5341,7 +5497,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           maxLines: null,
                           minLines: 2,
                           decoration: InputDecoration(
-                            hintText: 'Escreva a pergunta ou conceito...',
+                            hintText: dialogCtx.tr('Escreva a pergunta ou conceito...'),
                             fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                             filled: true,
                           ),
@@ -5350,7 +5506,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
 
                         // Verso (Resposta ou Explicação)
                         Text(
-                          'VERSO (RESPOSTA OU EXPLICAÇÃO) *',
+                          dialogCtx.tr('VERSO (RESPOSTA OU EXPLICAÇÃO) *'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -5365,7 +5521,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           maxLines: null,
                           minLines: 3,
                           decoration: InputDecoration(
-                            hintText: 'Escreva a resposta e explicação...',
+                            hintText: dialogCtx.tr('Escreva a resposta e explicação...'),
                             fillColor: isDark ? AsterConstants.surfaceAltDark : AsterConstants.surfaceAlt,
                             filled: true,
                           ),
@@ -5376,7 +5532,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         Row(
                           children: [
                             Text(
-                              'ÁUDIO DO CARTÃO 🎙️',
+                              dialogCtx.tr('ÁUDIO DO CARTÃO 🎙️'),
                               style: GoogleFonts.manrope(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
@@ -5405,7 +5561,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       child: Row(
                                         children: [
                                           Text(
-                                            'Pergunta (Frente)',
+                                            dialogCtx.tr('Pergunta (Frente)'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -5431,7 +5587,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       child: Row(
                                         children: [
                                           Text(
-                                            'Resposta (Verso)',
+                                            dialogCtx.tr('Resposta (Verso)'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,
@@ -5457,7 +5613,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             final isFrontTab = audioTab == 0;
                             final currentAudio = isFrontTab ? frontAudioUrl : backAudioUrl;
                             final currentText = isFrontTab ? frontCtrl.text.trim() : backCtrl.text.trim();
-                            final sideLabel = isFrontTab ? 'Pergunta' : 'Resposta';
+                            final sideLabel = isFrontTab ? ctx.tr('Pergunta') : ctx.tr('Resposta');
 
                             return Container(
                               padding: const EdgeInsets.all(12),
@@ -5486,7 +5642,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                'Áudio Anexado',
+                                                ctx.tr('Áudio Anexado'),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
@@ -5494,7 +5650,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 ),
                                               ),
                                               Text(
-                                                'Disponível para a $sideLabel do cartão',
+                                                ctx.tr('Disponível para a {side} do cartão', {'side': sideLabel}),
                                                 style: GoogleFonts.manrope(
                                                   fontSize: 11,
                                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -5512,7 +5668,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                 AudioService().playAudio(currentAudio);
                                               },
                                               icon: Icon(isPlaying ? Icons.pause_rounded : Icons.volume_up_rounded, size: 16),
-                                              label: Text(isPlaying ? 'Pausar' : 'Ouvir'),
+                                              label: Text(isPlaying ? ctx.tr('Pausar') : ctx.tr('Ouvir')),
                                               style: OutlinedButton.styleFrom(
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                 visualDensity: VisualDensity.compact,
@@ -5523,7 +5679,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         const SizedBox(width: 6),
                                         IconButton(
                                           icon: const Icon(Icons.upload_file_rounded, size: 18),
-                                          tooltip: 'Trocar arquivo de áudio MP3',
+                                          tooltip: ctx.tr('Trocar arquivo de áudio MP3'),
                                           onPressed: (isSaving || isGeneratingAudio)
                                               ? null
                                               : () async {
@@ -5544,13 +5700,20 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           icon: isGeneratingAudio
                                               ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AsterTheme.primary(context)))
                                               : Icon(Icons.auto_awesome_rounded, size: 18, color: AsterTheme.primary(context)),
-                                          tooltip: 'Regerar áudio com IA ✨',
+                                          tooltip: ctx.tr('Regerar áudio com IA ✨'),
                                           onPressed: (isSaving || isGeneratingAudio)
                                               ? null
                                               : () async {
                                                   if (currentText.isEmpty) {
                                                     ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text('Escreva o texto da $sideLabel antes de gerar o áudio.')),
+                                                      SnackBar(
+                                                        content: Text(
+                                                          NoesisL10n.tr(
+                                                            'Escreva o texto da {side} antes de gerar o áudio.',
+                                                            {'side': isFrontTab ? NoesisL10n.tr('Pergunta') : NoesisL10n.tr('Resposta')},
+                                                          ),
+                                                        ),
+                                                      ),
                                                     );
                                                     return;
                                                   }
@@ -5571,7 +5734,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       setDialogState(() => isGeneratingAudio = false);
                                                       if (dialogCtx.mounted) {
                                                         ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                                          const SnackBar(content: Text('Não foi possível gerar áudio no momento.')),
+                                                          SnackBar(content: Text(NoesisL10n.tr('Não foi possível gerar áudio no momento.'))),
                                                         );
                                                       }
                                                     }
@@ -5583,7 +5746,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         const SizedBox(width: 4),
                                         IconButton(
                                           icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AsterConstants.coral),
-                                          tooltip: 'Remover áudio',
+                                          tooltip: ctx.tr('Remover áudio'),
                                           onPressed: isSaving
                                               ? null
                                               : () {
@@ -5612,7 +5775,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
-                                            'Sem áudio anexado na $sideLabel. Você pode anexar um MP3 ou gerar a narração com IA!',
+                                            ctx.tr('Sem áudio anexado na {side}. Você pode anexar um MP3 ou gerar a narração com IA!', {'side': sideLabel}),
                                             style: GoogleFonts.manrope(
                                               fontSize: 12,
                                               color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
@@ -5637,7 +5800,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                   }
                                                 },
                                           icon: const Icon(Icons.upload_file_rounded, size: 14),
-                                          label: const Text('Anexar MP3'),
+                                          label: Text(ctx.tr('Anexar MP3')),
                                           style: OutlinedButton.styleFrom(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AsterConstants.radiusPill)),
@@ -5651,7 +5814,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                               : () async {
                                                   if (currentText.isEmpty) {
                                                     ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text('Escreva o texto da $sideLabel antes de gerar o áudio.')),
+                                                      SnackBar(
+                                                        content: Text(
+                                                          NoesisL10n.tr(
+                                                            'Escreva o texto da {side} antes de gerar o áudio.',
+                                                            {'side': isFrontTab ? NoesisL10n.tr('Pergunta') : NoesisL10n.tr('Resposta')},
+                                                          ),
+                                                        ),
+                                                      ),
                                                     );
                                                     return;
                                                   }
@@ -5672,7 +5842,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                                       setDialogState(() => isGeneratingAudio = false);
                                                       if (dialogCtx.mounted) {
                                                         ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                                                          const SnackBar(content: Text('Não foi possível gerar áudio no momento.')),
+                                                          SnackBar(content: Text(NoesisL10n.tr('Não foi possível gerar áudio no momento.'))),
                                                         );
                                                       }
                                                     }
@@ -5683,7 +5853,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           icon: isGeneratingAudio
                                               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                               : const Icon(Icons.auto_awesome_rounded, size: 14),
-                                          label: Text(isGeneratingAudio ? 'Gerando...' : 'Gerar com IA ✨'),
+                                          label: Text(isGeneratingAudio ? ctx.tr('Gerando...') : ctx.tr('Gerar com IA ✨')),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AsterTheme.primary(context),
                                             foregroundColor: Colors.white,
@@ -5705,7 +5875,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             TextButton(
                               onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                               child: Text(
-                                'Cancelar',
+                                dialogCtx.tr('Cancelar'),
                                 style: GoogleFonts.manrope(
                                   color: isDark ? AsterConstants.textMutedDark : AsterConstants.textMuted,
                                 ),
@@ -5713,7 +5883,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ),
                             const SizedBox(width: 12),
                             SoftClayPillButton(
-                              text: 'Salvar Alterações',
+                              text: dialogCtx.tr('Salvar Alterações'),
                               icon: Icons.check_circle_rounded,
                               onPressed: isSaving
                                   ? null
@@ -5722,7 +5892,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       final newBack = backCtrl.text.trim();
                                       if (newFront.isEmpty || newBack.isEmpty) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('A frente e o verso não podem ficar vazios.')),
+                                          SnackBar(
+                                            content: Text(NoesisL10n.tr('A frente e o verso não podem ficar vazios.')),
+                                          ),
                                         );
                                         return;
                                       }
@@ -5774,7 +5946,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       });
 
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Cartão atualizado com sucesso! ✍️')),
+                                        SnackBar(content: Text(NoesisL10n.tr('Cartão atualizado com sucesso! ✍️'))),
                                       );
                                     },
                             ),
@@ -5850,7 +6022,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
               return AppBar(
                 leadingWidth: shiftLeft ? 138 : null,
                 leading: Padding(
-                  padding: EdgeInsets.only(left: shiftLeft ? 84 : 0),
+                  padding: EdgeInsetsDirectional.only(start: shiftLeft ? 84 : 0),
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
                     onPressed: _exitStudySession,
@@ -5870,7 +6042,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       ),
                     ),
                     Text(
-                      'Cartão ${_activeCardIndex + 1} de $total · ${_studyPendingOnly ? 'Somente pendentes' : 'Revisão completa'}',
+                      context.tr(
+                        'Cartão {curr} de {total} · {mode}',
+                        {
+                          'curr': _activeCardIndex + 1,
+                          'total': total,
+                          'mode': _studyPendingOnly ? context.tr('Somente pendentes') : context.tr('Revisão completa'),
+                        },
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -5885,7 +6064,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         OutlinedButton.icon(
                           icon: Icon(Icons.edit_outlined, size: 15, color: AsterTheme.primary(context)),
                           label: Text(
-                            'Editar Cartão',
+                            context.tr('Editar Cartão'),
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -5903,7 +6082,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         OutlinedButton.icon(
                           icon: Icon(Icons.edit_note_rounded, size: 17, color: AsterTheme.primary(context)),
                           label: Text(
-                            'Editar Baralho',
+                            context.tr('Editar Baralho'),
                             style: GoogleFonts.manrope(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -5921,12 +6100,12 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       ]
                     : [
                         IconButton(
-                          tooltip: 'Editar Cartão',
+                          tooltip: context.tr('Editar Cartão'),
                           icon: Icon(Icons.edit_outlined, size: 20, color: AsterTheme.primary(context)),
                           onPressed: () => _openEditCurrentCardDialog(card),
                         ),
                         IconButton(
-                          tooltip: 'Editar Baralho',
+                          tooltip: context.tr('Editar Baralho'),
                           icon: Icon(Icons.edit_note_rounded, size: 22, color: AsterTheme.primary(context)),
                           onPressed: () => _openEditDeckDialog(deck),
                         ),
@@ -5965,8 +6144,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         const SizedBox(width: 6),
                         Text(
                           isRequeued
-                              ? 'Cartão difícil voltou na fila para reforço'
-                              : 'Toque no cartão para virar e conferir a resposta',
+                              ? context.tr('Cartão difícil voltou na fila para reforço')
+                              : context.tr('Toque no cartão para virar e conferir a resposta'),
                           style: GoogleFonts.manrope(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -6033,7 +6212,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                     key: const ValueKey('rating_buttons'),
                                     children: [
                                       Text(
-                                        'Como foi a sua lembrança deste conceito?',
+                                        context.tr('Como foi a sua lembrança deste conceito?'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w700,
@@ -6045,22 +6224,22 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           _buildRatingButton(
-                                            label: 'Difícil 🔴',
-                                            subtitle: 'Errei / Revisar logo',
+                                            label: context.tr('Difícil 🔴'),
+                                            subtitle: context.tr('Errei / Revisar logo'),
                                             color: AsterConstants.coral,
                                             onTap: () => _rateCurrentCard('hard'),
                                           ),
                                           const SizedBox(width: 12),
                                           _buildRatingButton(
-                                            label: 'Bom 🟡',
-                                            subtitle: 'Lembrei com esforço',
+                                            label: context.tr('Bom 🟡'),
+                                            subtitle: context.tr('Lembrei com esforço'),
                                             color: AsterConstants.ambar,
                                             onTap: () => _rateCurrentCard('good'),
                                           ),
                                           const SizedBox(width: 12),
                                           _buildRatingButton(
-                                            label: 'Fácil 🟢',
-                                            subtitle: 'Dominei o conceito',
+                                            label: context.tr('Fácil 🟢'),
+                                            subtitle: context.tr('Dominei o conceito'),
                                             color: AsterConstants.menta,
                                             onTap: () => _rateCurrentCard('easy'),
                                           ),
@@ -6088,7 +6267,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                           Icon(Icons.flip_camera_android_rounded, size: 16, color: AsterTheme.primary(context)),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'Ver Resposta (Virar Cartão) 👆',
+                                            context.tr('Ver Resposta (Virar Cartão) 👆'),
                                             style: GoogleFonts.manrope(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,
@@ -6147,7 +6326,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                   borderRadius: BorderRadius.circular(AsterConstants.radiusPill),
                 ),
                 child: Text(
-                  isFront ? 'FRENTE · ACTIVE RECALL' : 'VERSO · EXPLICAÇÃO',
+                  isFront ? context.tr('FRENTE · ACTIVE RECALL') : context.tr('VERSO · EXPLICAÇÃO'),
                   style: GoogleFonts.manrope(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
@@ -6174,7 +6353,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       Icon(Icons.edit_outlined, size: 13, color: AsterTheme.primary(context)),
                       const SizedBox(width: 4),
                       Text(
-                        'Editar',
+                        context.tr('Editar'),
                         style: GoogleFonts.manrope(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -6262,7 +6441,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        isPlaying ? 'Ouvindo Áudio...' : 'Ouvir Áudio 🔊',
+                                        isPlaying ? context.tr('Ouvindo Áudio...') : context.tr('Ouvir Áudio 🔊'),
                                         style: GoogleFonts.manrope(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
@@ -6278,7 +6457,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                           const SizedBox(width: 6),
                           IconButton(
                             icon: Icon(Icons.auto_awesome_rounded, size: 16, color: AsterTheme.primary(context)),
-                            tooltip: isFront ? 'Regerar áudio da Pergunta com IA ✨' : 'Regerar áudio da Resposta com IA ✨',
+                            tooltip: isFront
+                                ? context.tr('Regerar áudio da Pergunta com IA ✨')
+                                : context.tr('Regerar áudio da Resposta com IA ✨'),
                             onPressed: () async {
                               await _generateAndAttachStudySideAudio(card: card, isFront: isFront);
                             },
@@ -6306,7 +6487,7 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                               Icon(Icons.auto_awesome_rounded, size: 13, color: AsterTheme.primary(context)),
                               const SizedBox(width: 6),
                               Text(
-                                'Gerar Áudio com IA ✨',
+                                context.tr('Gerar Áudio com IA ✨'),
                                 style: GoogleFonts.manrope(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -6329,7 +6510,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                isFront ? 'Toque para revelar a resposta 👆' : 'Toque para desvirar 🔄',
+                isFront
+                    ? context.tr('Toque para revelar a resposta 👆')
+                    : context.tr('Toque para desvirar 🔄'),
                 style: GoogleFonts.manrope(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -6426,7 +6609,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      remainingPending.isEmpty ? 'Baralho Completo! 🎉' : 'Sessão Concluída! 🎉',
+                      remainingPending.isEmpty
+                          ? context.tr('Baralho Completo! 🎉')
+                          : context.tr('Sessão Concluída! 🎉'),
                       style: GoogleFonts.manrope(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -6436,8 +6621,14 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                     const SizedBox(height: 6),
                     Text(
                       remainingPending.isEmpty
-                          ? 'Todos os cartões de "${deck.title}" foram aprendidos ou revisados. Cartões dominados não voltarão até vencer o intervalo.'
-                          : 'Você concluiu esta rodada em "${deck.title}". Ainda faltam ${remainingPending.length} cartões pendentes.',
+                          ? context.tr(
+                              'Todos os cartões de "{title}" foram aprendidos ou revisados. Cartões dominados não voltarão até vencer o intervalo.',
+                              {'title': deck.title},
+                            )
+                          : context.tr(
+                              'Você concluiu esta rodada em "{title}". Ainda faltam {count} cartões pendentes.',
+                              {'title': deck.title, 'count': remainingPending.length},
+                            ),
                       textAlign: TextAlign.center,
                       style: GoogleFonts.manrope(
                         fontSize: 13,
@@ -6456,9 +6647,9 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildSummaryMetric('Fácil 🟢', '$_sessionEasyCount', AsterConstants.menta),
-                          _buildSummaryMetric('Bom 🟡', '$_sessionGoodCount', AsterConstants.ambar),
-                          _buildSummaryMetric('Difícil 🔴', '$_sessionHardCount', AsterConstants.coral),
+                          _buildSummaryMetric(context.tr('Fácil 🟢'), '$_sessionEasyCount', AsterConstants.menta),
+                          _buildSummaryMetric(context.tr('Bom 🟡'), '$_sessionGoodCount', AsterConstants.ambar),
+                          _buildSummaryMetric(context.tr('Difícil 🔴'), '$_sessionHardCount', AsterConstants.coral),
                         ],
                       ),
                     ),
@@ -6471,8 +6662,8 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         icon: const Icon(Icons.timer_outlined, size: 18),
                         label: Text(
                           widget.groupScope != null
-                              ? 'Registrar ${minutesSpent}min no Diário do Grupo ⏱️'
-                              : 'Registrar ${minutesSpent}min no Tracker de Estudos ⏱️',
+                              ? context.tr('Registrar {minutes}min no Diário do Grupo ⏱️', {'minutes': minutesSpent})
+                              : context.tr('Registrar {minutes}min no Tracker de Estudos ⏱️', {'minutes': minutesSpent}),
                         ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -6480,35 +6671,41 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                         ),
                         onPressed: () async {
                           final mins = minutesSpent > 0 ? minutesSpent : 15;
-                          final notesText =
-                              'Revisão de $totalStudied cartões via repetição espaçada no Noesis.';
+                          final notesText = NoesisL10n.tr(
+                            'Revisão de {count} cartões via repetição espaçada no Noesis.',
+                            {'count': totalStudied},
+                          );
+                          final topicText = NoesisL10n.tr(
+                            'Revisão de Flashcards: {title}',
+                            {'title': deck.title},
+                          );
                           final scope = widget.groupScope;
                           if (scope != null) {
                             await StudyGroupsService.instance.addStudyLogEntry(
                               groupId: scope.groupId,
                               subject: deck.subject,
-                              topic: 'Revisão de Flashcards: ${deck.title}',
+                              topic: topicText,
                               durationMinutes: mins,
                               notes: notesText,
                             );
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Sessão registrada no Diário do Grupo! 📊'),
+                              SnackBar(
+                                content: Text(NoesisL10n.tr('Sessão registrada no Diário do Grupo! 📊')),
                               ),
                             );
                           } else {
                             await SupabaseService.addStudySession(
                               subject: deck.subject,
-                              topic: 'Revisão de Flashcards: ${deck.title}',
+                              topic: topicText,
                               durationMinutes: mins,
                               studyDate: DateTime.now(),
                               notes: notesText,
                             );
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Sessão registrada no seu Dashboard! 📊'),
+                              SnackBar(
+                                content: Text(NoesisL10n.tr('Sessão registrada no seu Dashboard! 📊')),
                               ),
                             );
                           }
@@ -6527,15 +6724,15 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
                             ),
                             child: Text(
                               remainingPending.isEmpty
-                                  ? 'Revisar Tudo Novamente'
-                                  : 'Continuar Pendentes (${remainingPending.length})',
+                                  ? context.tr('Revisar Tudo Novamente')
+                                  : context.tr('Continuar Pendentes ({count})', {'count': remainingPending.length}),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: SoftClayPillButton(
-                            text: 'Concluir',
+                            text: context.tr('Concluir'),
                             onPressed: _exitStudySession,
                           ),
                         ),
@@ -6558,10 +6755,13 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
     final textToSpeak = isFront ? card.front : card.back;
     if (textToSpeak.trim().isEmpty) return;
 
-    final sideName = isFront ? 'da Pergunta' : 'da Resposta';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Gerando áudio $sideName com IA... ✨'),
+        content: Text(
+          isFront
+              ? NoesisL10n.tr('Gerando áudio da Pergunta com IA... ✨')
+              : NoesisL10n.tr('Gerando áudio da Resposta com IA... ✨'),
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -6605,7 +6805,11 @@ class FlashcardsScreenState extends State<FlashcardsScreen> with SingleTickerPro
         AudioService().playAudio(audioData);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Áudio $sideName anexado com sucesso ao cartão! 🎙️'),
+            content: Text(
+              isFront
+                  ? NoesisL10n.tr('Áudio da Pergunta anexado com sucesso ao cartão! 🎙️')
+                  : NoesisL10n.tr('Áudio da Resposta anexado com sucesso ao cartão! 🎙️'),
+            ),
           ),
         );
       }

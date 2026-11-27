@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants.dart';
+import '../../../core/localization/noesis_l10n.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/insight_icon.dart';
 import '../../../widgets/vip_privileges.dart';
@@ -57,8 +58,12 @@ class _PublicUserProfileDialog extends StatelessWidget {
           backgroundColor: res.ok ? AsterConstants.menta : AsterConstants.coral,
           content: Text(
             res.ok
-                ? (res.message ?? '@${profile.username} adicionado ao grupo "${group.name}"!')
-                : (res.error ?? 'Não foi possível convidar.'),
+                ? (res.message ??
+                    NoesisL10n.tr('@{username} adicionado ao grupo "{group}"!', {
+                      'username': profile.username,
+                      'group': group.name,
+                    }))
+                : (res.error ?? NoesisL10n.tr('Não foi possível convidar.')),
             style: const TextStyle(color: Colors.white),
           ),
         ),
@@ -73,7 +78,9 @@ class _PublicUserProfileDialog extends StatelessWidget {
     final primaryCol = AsterTheme.primary(context);
     final cardCol = isDark ? AsterConstants.surfaceCardDark : AsterConstants.surfaceCard;
     final formattedWeeklyTime = DashboardAnalytics.formatReadableDuration(profile.weeklyMinutes);
-    final streakLabel = '${profile.streakDays} ${profile.streakDays == 1 ? 'dia' : 'dias'}';
+    final streakLabel = profile.streakDays == 1
+        ? NoesisL10n.tr('{count} dia', {'count': profile.streakDays})
+        : NoesisL10n.tr('{count} dias', {'count': profile.streakDays});
 
     return Dialog(
       key: const Key('public_profile_modal'),
@@ -136,8 +143,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
                         ),
                         child: Stack(
                           children: [
-                            Positioned(
-                              right: -24,
+                            PositionedDirectional(
+                              end: -24,
                               top: -28,
                               child: Container(
                                 width: 112,
@@ -148,8 +155,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            Positioned(
-                              left: -18,
+                            PositionedDirectional(
+                              start: -18,
                               bottom: -30,
                               child: Container(
                                 width: 88,
@@ -161,8 +168,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
                               ),
                             ),
                             if (previewNotice != null)
-                              Positioned(
-                                left: 14,
+                              PositionedDirectional(
+                                start: 14,
                                 top: 12,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -194,8 +201,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                            Positioned(
-                              right: 10,
+                            PositionedDirectional(
+                              end: 10,
                               top: 10,
                               child: Material(
                                 color: cardCol.withValues(alpha: 0.86),
@@ -231,8 +238,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
                               radius: 38,
                               ringBackgroundColor: cardCol,
                             ),
-                            Positioned(
-                              right: -2,
+                            PositionedDirectional(
+                              end: -2,
                               bottom: 0,
                               child: Container(
                                 padding: const EdgeInsets.all(3),
@@ -308,7 +315,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                   NoesisEloBadge(tier: elo, size: 16),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Elo ${elo.name}',
+                                    context.tr('Elo {name}', {'name': elo.localizedName}),
                                     style: GoogleFonts.manrope(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w800,
@@ -321,14 +328,14 @@ class _PublicUserProfileDialog extends StatelessWidget {
                             if ((profile.equippedTitleId ?? '').isNotEmpty)
                               ProfileTitleBadge(titleId: profile.equippedTitleId),
                             if (!profile.isCurrentUser && isMutual)
-                              const SoftClayTag(
-                                label: 'Seguem-se mutuamente',
+                              SoftClayTag(
+                                label: context.tr('Seguem-se mutuamente'),
                                 color: AsterConstants.menta,
                                 icon: Icons.sync_alt_rounded,
                               )
                             else if (!profile.isCurrentUser && followsMe)
                               SoftClayTag(
-                                label: 'Segue você',
+                                label: context.tr('Segue você'),
                                 color: primaryCol,
                               ),
                           ],
@@ -360,7 +367,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                 child: Text(
                                   (profile.bio ?? '').trim().isNotEmpty
                                       ? profile.bio!.trim()
-                                      : 'Estudante ativo no ecossistema Noesis.',
+                                      : context.tr('Estudante ativo no ecossistema Noesis.'),
                                   style: GoogleFonts.manrope(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
@@ -383,7 +390,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                     context,
                                     cardKey: const Key('public_profile_stat_time'),
                                     icon: Icons.schedule_rounded,
-                                    label: 'Tempo na semana',
+                                    label: context.tr('Tempo na semana'),
                                     value: formattedWeeklyTime,
                                     color: primaryCol,
                                   ),
@@ -394,7 +401,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                     context,
                                     cardKey: const Key('public_profile_stat_streak'),
                                     icon: Icons.local_fire_department_rounded,
-                                    label: 'Sequência',
+                                    label: context.tr('Sequência'),
                                     value: streakLabel,
                                     color: const Color(0xFFF59E0B),
                                   ),
@@ -409,7 +416,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                     context,
                                     cardKey: const Key('public_profile_stat_insights'),
                                     leadingWidget: const InsightCoinIcon(size: 14),
-                                    label: 'Insights na semana',
+                                    label: context.tr('Insights na semana'),
                                     value: '+${profile.weeklyInsights}',
                                     color: AsterConstants.menta,
                                   ),
@@ -463,7 +470,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                               Expanded(
                                 child: SoftClayPillButton(
                                   key: const Key('public_profile_follow_button'),
-                                  text: isFollowing ? 'Seguindo' : 'Seguir',
+                                  text: isFollowing ? context.tr('Seguindo') : context.tr('Seguir'),
                                   icon: isFollowing ? Icons.check_rounded : Icons.person_add_alt_1_rounded,
                                   isSecondary: isFollowing,
                                   onPressed: () => social.toggleFollow(profile),
@@ -477,7 +484,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                     onPressed: () => _inviteToGroup(context, invitableGroups.first),
                                     icon: const Icon(Icons.group_add_rounded, size: 16),
                                     label: Text(
-                                      'Convidar p/ Grupo',
+                                      context.tr('Convidar p/ Grupo'),
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800),
                                     ),
@@ -512,7 +519,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                                           const SizedBox(width: 6),
                                           Flexible(
                                             child: Text(
-                                              'Convidar p/ Grupo',
+                                              context.tr('Convidar p/ Grupo'),
                                               overflow: TextOverflow.ellipsis,
                                               style: GoogleFonts.manrope(
                                                 fontSize: 12,
@@ -534,7 +541,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                           SizedBox(
                             width: double.infinity,
                             child: SoftClayPillButton(
-                              text: 'Editar meu Perfil',
+                              text: context.tr('Editar meu Perfil'),
                               icon: Icons.edit_rounded,
                               onPressed: () {
                                 Navigator.of(context).pop();
@@ -558,7 +565,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                             ),
                             onPressed: () => Navigator.of(context).pop(),
                             child: Text(
-                              'Fechar',
+                              context.tr('Fechar'),
                               style: GoogleFonts.manrope(
                                 fontWeight: FontWeight.w800,
                                 color: primaryCol,
@@ -660,7 +667,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Seguidores',
+                  context.tr('Seguidores'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -692,7 +699,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Seguindo',
+                  context.tr('Seguindo'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.manrope(
@@ -748,7 +755,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Carreira Noética · Elo ${elo.name}',
+                      context.tr('Carreira Noética · Elo {name}', {'name': elo.localizedName}),
                       style: GoogleFonts.manrope(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -756,7 +763,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      elo.subtitle,
+                      elo.localizedSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
@@ -777,23 +784,26 @@ class _PublicUserProfileDialog extends StatelessWidget {
               if (profile.rankingRank != null)
                 _careerChip(
                   context,
-                  label: 'Liga #${profile.rankingRank}',
+                  label: context.tr('Liga #{rank}', {'rank': profile.rankingRank}),
                   color: primaryCol,
                 ),
               _careerChip(
                 context,
-                label: 'Melhor Elo: ${bestElo.name}',
+                label: context.tr('Melhor Elo: {name}', {'name': bestElo.localizedName}),
                 color: bestElo.accentColor,
               ),
               _careerChip(
                 context,
-                label: '${profile.accumulatedScore} pts no ranking',
+                label: context.tr('{points} pts no ranking', {'points': profile.accumulatedScore}),
                 color: AsterConstants.menta,
               ),
               if (profile.top3Finishes > 0)
                 _careerChip(
                   context,
-                  label: '${profile.top3Finishes} ${profile.top3Finishes == 1 ? 'pódio' : 'pódios'}',
+                  label: context.tr(
+                    profile.top3Finishes == 1 ? '{count} pódio' : '{count} pódios',
+                    {'count': profile.top3Finishes},
+                  ),
                   color: const Color(0xFFF59E0B),
                 ),
             ],
@@ -838,8 +848,8 @@ class _PublicUserProfileDialog extends StatelessWidget {
       for (final a in evaluated)
         (label: a.title, icon: a.icon, color: a.color, unlocked: a.unlocked),
       if (profile.isVip)
-        const (
-          label: 'Membro VIP',
+        (
+          label: context.tr('Membro VIP'),
           icon: Icons.workspace_premium_rounded,
           color: AsterVipColors.goldDark,
           unlocked: true,
@@ -867,7 +877,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
               Icon(Icons.military_tech_rounded, size: 15, color: primaryCol),
               const SizedBox(width: 6),
               Text(
-                'Conquistas em Destaque',
+                context.tr('Conquistas em Destaque'),
                 style: GoogleFonts.manrope(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -953,7 +963,7 @@ class _PublicUserProfileDialog extends StatelessWidget {
                 Icon(Icons.menu_book_rounded, size: 14, color: primaryCol),
                 const SizedBox(width: 6),
                 Text(
-                  'Matérias em foco',
+                  context.tr('Matérias em foco'),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -994,7 +1004,9 @@ class _PublicUserProfileDialog extends StatelessWidget {
                 const Icon(Icons.groups_rounded, size: 14, color: AsterConstants.menta),
                 const SizedBox(width: 6),
                 Text(
-                  profile.isCurrentUser ? 'Grupos ativos (${groups.length})' : 'Grupos em comum (${groups.length})',
+                  profile.isCurrentUser
+                      ? context.tr('Grupos ativos ({count})', {'count': groups.length})
+                      : context.tr('Grupos em comum ({count})', {'count': groups.length}),
                   style: GoogleFonts.manrope(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
