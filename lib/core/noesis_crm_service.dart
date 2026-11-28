@@ -39,6 +39,48 @@ class NoesisAnnouncement {
   String get fingerprint => '$enabled|$type|$title|$message|$ctaUrl';
 }
 
+class NoesisCrmNotice {
+  final String id;
+  final String title;
+  final String message;
+  final String tone; // 'info' | 'warning' | 'promo' | 'urgent'
+  final String ctaLabel;
+  final String ctaUrl;
+  final DateTime createdAt;
+
+  const NoesisCrmNotice({
+    required this.id,
+    required this.title,
+    required this.message,
+    this.tone = 'info',
+    this.ctaLabel = '',
+    this.ctaUrl = '',
+    required this.createdAt,
+  });
+
+  factory NoesisCrmNotice.fromRow(Map<String, dynamic> row) {
+    return NoesisCrmNotice(
+      id: (row['id'] ?? '').toString(),
+      title: (row['title'] ?? '').toString().trim(),
+      message: (row['message'] ?? '').toString().trim(),
+      tone: (row['tone'] ?? 'info').toString().trim(),
+      ctaLabel: (row['cta_label'] ?? '').toString().trim(),
+      ctaUrl: (row['cta_url'] ?? '').toString().trim(),
+      createdAt:
+          DateTime.tryParse((row['created_at'] ?? '').toString()) ?? DateTime.now(),
+    );
+  }
+
+  NoesisAnnouncement toAnnouncement() => NoesisAnnouncement(
+        enabled: true,
+        title: title,
+        message: message,
+        type: tone == 'urgent' ? 'warning' : tone,
+        ctaLabel: ctaLabel,
+        ctaUrl: ctaUrl,
+      );
+}
+
 class NoesisRemotePlatformConfig {
   final bool maintenanceMode;
   final String? _maintenanceMessageOverride;
@@ -140,9 +182,12 @@ class NoesisCrmService {
 
   final ValueNotifier<NoesisRemotePlatformConfig> configNotifier =
       ValueNotifier<NoesisRemotePlatformConfig>(const NoesisRemotePlatformConfig());
+  final ValueNotifier<List<NoesisCrmNotice>> noticesNotifier =
+      ValueNotifier<List<NoesisCrmNotice>>(const []);
 
   Timer? _heartbeatTimer;
   RealtimeChannel? _configChannel;
+  RealtimeChannel? _noticesChannel;
   String? _sessionId;
   String _currentPath = '/dashboard';
   String? _lastTouchedUid;
@@ -244,8 +289,10 @@ class NoesisCrmService {
 
     await fetchRemoteConfig();
     if (!_started || epoch != _startEpoch) return;
+    unawaited(fetchNotices());
 
     _subscribeConfigRealtime();
+    _subscribeNoticesRealtime();
     unawaited(sendPresencePing());
     unawaited(touchUserAppIfAuthenticated());
 
@@ -266,6 +313,12 @@ class NoesisCrmService {
       } catch (_) {}
       _configChannel = null;
     }
+    if (_noticesChannel != null && _hasSupabaseClient) {
+      try {
+        Supabase.instance.client.removeChannel(_noticesChannel!);
+      } catch (_) {}
+      _noticesChannel = null;
+    }
   }
 
   void updateRouteForTab(int tabIndex) {
@@ -282,6 +335,48 @@ class NoesisCrmService {
     if (!_started) return;
     unawaited(sendPresencePing());
     unawaited(touchUserAppIfAuthenticated());
+    unawaited(fetchNotices());
+  }
+
+  Future<void> fetchNotices() async {
+    if (!_hasSupabaseClient || SupabaseService.currentUser == null) {
+      noticesNotifier.value = const [];
+      return;
+    }
+    try {
+      final rows = await Supabase.instance.client
+          .from('noesis_crm_notices')
+          .select()
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .limit(20);
+      final list = (rows as List)
+          .whereType<Map>()
+          .map((r) => NoesisCrmNotice.fromRow(Map<String, dynamic>.from(r)))
+          .toList();
+      noticesNotifier.value = list;
+    } catch (e) {
+      debugPrint('NoesisCrmService: falha ao buscar noesis_crm_notices: $e');
+    }
+  }
+
+  void _subscribeNoticesRealtime() {
+    if (!_hasSupabaseClient) return;
+    try {
+      _noticesChannel = Supabase.instance.client
+          .channel('noesis-crm-notices-live')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'noesis_crm_notices',
+            callback: (_) {
+              unawaited(fetchNotices());
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('NoesisCrmService: erro ao assinar Realtime de avisos: $e');
+    }
   }
 
   Future<void> fetchRemoteConfig() async {

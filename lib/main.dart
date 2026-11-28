@@ -1831,6 +1831,22 @@ class _RootScreenState extends State<RootScreen> {
                 context: context,
                 announcement: remoteConfig.announcement,
                 isWideScreen: isWideScreen,
+              )
+            else
+              ValueListenableBuilder<List<NoesisCrmNotice>>(
+                valueListenable: NoesisCrmService.instance.noticesNotifier,
+                builder: (context, notices, _) {
+                  final urgentNotice = notices
+                      .where((n) => n.tone == 'urgent' || n.tone == 'warning')
+                      .where((n) => _dismissedAnnouncementFingerprint != 'notice:${n.id}')
+                      .firstOrNull;
+                  if (urgentNotice == null) return const SizedBox.shrink();
+                  return _buildRemoteAnnouncementBanner(
+                    context: context,
+                    announcement: urgentNotice.toAnnouncement(),
+                    isWideScreen: isWideScreen,
+                  );
+                },
               ),
 
             if (!_dismissedEmailBanner &&

@@ -13,6 +13,7 @@ import 'constants.dart';
 import 'gemini_service.dart';
 import 'insights_economy_config.dart';
 import 'localization/noesis_l10n.dart';
+import 'noesis_crm_service.dart';
 import 'shop_service.dart';
 import 'supabase_service.dart';
 import 'theme.dart';
@@ -147,6 +148,7 @@ class NotificationsService {
       });
       SupabaseService.weeklyGoalMinutesNotifier.addListener(_onGoalChanged);
       SupabaseService.dailyGoalMinutesNotifier.addListener(_onGoalChanged);
+      NoesisCrmService.instance.noticesNotifier.addListener(_onGoalChanged);
     }
     refresh();
   }
@@ -163,6 +165,7 @@ class NotificationsService {
     _calendarSub = null;
     SupabaseService.weeklyGoalMinutesNotifier.removeListener(_onGoalChanged);
     SupabaseService.dailyGoalMinutesNotifier.removeListener(_onGoalChanged);
+    NoesisCrmService.instance.noticesNotifier.removeListener(_onGoalChanged);
     _started = false;
     _streamUserId = null;
   }
@@ -486,7 +489,36 @@ class NotificationsService {
       extraActiveDates: extraActiveDates,
     );
 
-    final visible = built
+    final crmNotices = NoesisCrmService.instance.noticesNotifier.value.map((n) {
+      final NotificationTone tone;
+      final IconData icon;
+      switch (n.tone) {
+        case 'urgent':
+          tone = NotificationTone.coral;
+          icon = Icons.campaign_rounded;
+        case 'warning':
+          tone = NotificationTone.amber;
+          icon = Icons.warning_amber_rounded;
+        case 'promo':
+          tone = NotificationTone.amber;
+          icon = Icons.card_giftcard_rounded;
+        default:
+          tone = NotificationTone.primary;
+          icon = Icons.notifications_active_rounded;
+      }
+      return NoesisNotification(
+        id: 'crm_notice_${n.id}',
+        title: n.title,
+        message: n.message,
+        timeLabel: NoesisL10n.tr('Equipe Aster'),
+        icon: icon,
+        tone: tone,
+        targetTab: 0,
+        priority: n.tone == 'urgent' ? -2 : 0,
+      );
+    }).toList();
+
+    final visible = [...crmNotices, ...built]
         .where((n) => !_dismissedIds.contains(n.id))
         .map((n) => n.copyWith(isRead: _readIds.contains(n.id)))
         .toList()
