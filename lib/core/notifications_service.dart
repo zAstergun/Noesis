@@ -264,6 +264,16 @@ class NotificationsService {
       } catch (_) {}
     }
 
+    // Se o usuário acabou de logar e não tem estado salvo ainda, herda o estado de visitante local
+    if (targetUid != null && localState == null && remoteState == null) {
+      try {
+        final guestRaw = await local_store.readSavedExamsRaw(_storageKeyForUser(null));
+        if (guestRaw != null && guestRaw.trim().isNotEmpty) {
+          localState = _parseStateMap(jsonDecode(guestRaw));
+        }
+      } catch (_) {}
+    }
+
     // Se a conta mudou durante o carregamento assíncrono, descarta este resultado.
     if (SupabaseService.currentEffectiveUserId != targetUid) {
       return;
@@ -280,15 +290,25 @@ class NotificationsService {
       resolved = localState;
       shouldWriteRemote = targetUid != null;
     } else if (localState != null && remoteState != null) {
+      final mergedReads = <String>{...remoteState.readIds, ...localState.readIds};
       final localTs = localState.updatedAt;
       final remoteTs = remoteState.updatedAt;
       final localIsNewer = localTs != null &&
           (remoteTs == null || localTs.isAfter(remoteTs));
-      if (localIsNewer) {
-        resolved = localState;
+      final mergedDismissed = <String>{...remoteState.dismissedIds, ...localState.dismissedIds};
+      resolved = (
+        readIds: mergedReads,
+        dismissedIds: mergedDismissed,
+        updatedAt: localIsNewer ? localTs : remoteTs,
+      );
+      if (mergedReads.length != remoteState.readIds.length ||
+          mergedDismissed.length != remoteState.dismissedIds.length ||
+          localIsNewer) {
         shouldWriteRemote = targetUid != null;
-      } else {
-        resolved = remoteState;
+      }
+      if (mergedReads.length != localState.readIds.length ||
+          mergedDismissed.length != localState.dismissedIds.length ||
+          !localIsNewer) {
         shouldWriteLocal = true;
       }
     }

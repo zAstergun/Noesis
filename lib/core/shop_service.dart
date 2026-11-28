@@ -439,6 +439,7 @@ class ShopService {
 
     // Concede bônus de boas-vindas (+100 ✦) na primeira inicialização da carteira
     await _ensureWelcomeBonus();
+    await _syncFromCloudIfAuthenticated();
     final ledgerQuizCount = _ledger.where((tx) => tx.source == 'quiz_question').length;
     if (ledgerQuizCount > _totalQuizQuestionsAnswered) {
       _totalQuizQuestionsAnswered = ledgerQuizCount;
@@ -446,6 +447,58 @@ class ShopService {
     _recomputeFromLedger();
     await _grantMonthlyVipStreakProtectorsInternal();
     await _persist();
+  }
+
+  /// Sincroniza o razão contábil de Insights com o Supabase (puxa recompensas/ajustes/desbloqueios do CRM e envia ganhos locais pendentes).
+  Future<void> syncFromCloud() async {
+    await init();
+    await _syncFromCloudIfAuthenticated();
+    _recomputeFromLedger();
+    await _persist();
+  }
+
+  Future<void> _syncFromCloudIfAuthenticated() async {
+    final user = SupabaseService.currentUser;
+    if (user == null) return;
+    try {
+      final rows = await SupabaseService.client
+          .from('noesis_insight_ledger')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: true);
+
+      final remoteIds = <String>{};
+      for (final rawRow in (rows as List)) {
+        if (rawRow is! Map) continue;
+        final row = Map<String, dynamic>.from(rawRow);
+        final tx = ShopTransaction.fromJson(row);
+        if (tx.id.isEmpty) continue;
+        remoteIds.add(tx.id);
+        final existingIdx = _ledger.indexWhere((e) => e.id == tx.id);
+        if (existingIdx == -1) {
+          _ledger.add(tx);
+        }
+      }
+
+      // Remove itens de origem CRM/Loja que tenham sido revogados no servidor
+      _ledger.removeWhere((tx) =>
+          !remoteIds.contains(tx.id) &&
+          (tx.source == 'crm_admin' ||
+              tx.source == 'crm_reward' ||
+              tx.id.startsWith('crm_')));
+
+      // Envia lançamentos locais legítimos (ex: bônus de boas-vindas, estudos) que ainda não estão no Supabase
+      for (final tx in List<ShopTransaction>.from(_ledger)) {
+        if (!remoteIds.contains(tx.id) &&
+            tx.source != 'crm_admin' &&
+            tx.source != 'crm_reward' &&
+            !tx.id.startsWith('crm_')) {
+          await _syncLedgerEntryIfAuthenticated(tx);
+        }
+      }
+    } catch (e) {
+      debugPrint('ShopService: falha ao sincronizar ledger com Supabase: $e');
+    }
   }
 
   bool _grantFreeStreakProtector({
@@ -504,16 +557,16 @@ class ShopService {
   Future<void> _ensureWelcomeBonus() async {
     const welcomeId = 'welcome_bonus';
     if (_ledger.any((tx) => tx.id == welcomeId || tx.source == 'welcome')) return;
-    _ledger.add(
-      ShopTransaction(
-        id: welcomeId,
-        amount: InsightsEconomyConfig.effectiveWelcomeBonus,
-        description: NoesisL10n.tr('Bônus de boas-vindas'),
-        source: 'welcome',
-        reference: 'onboarding',
-        createdAt: _clock(),
-      ),
+    final tx = ShopTransaction(
+      id: welcomeId,
+      amount: InsightsEconomyConfig.effectiveWelcomeBonus,
+      description: NoesisL10n.tr('Bônus de boas-vindas'),
+      source: 'welcome',
+      reference: 'onboarding',
+      createdAt: _clock(),
     );
+    _ledger.add(tx);
+    unawaited(_syncLedgerEntryIfAuthenticated(tx));
   }
 
   Future<void> _persist() async {

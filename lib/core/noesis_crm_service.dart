@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'insights_economy_config.dart';
 import 'localization/noesis_l10n.dart';
+import 'shop_service.dart';
 import 'supabase_service.dart';
 
 class NoesisAnnouncement {
@@ -188,6 +189,7 @@ class NoesisCrmService {
   Timer? _heartbeatTimer;
   RealtimeChannel? _configChannel;
   RealtimeChannel? _noticesChannel;
+  RealtimeChannel? _ledgerChannel;
   String? _sessionId;
   String _currentPath = '/dashboard';
   String? _lastTouchedUid;
@@ -293,6 +295,7 @@ class NoesisCrmService {
 
     _subscribeConfigRealtime();
     _subscribeNoticesRealtime();
+    _subscribeLedgerRealtime();
     unawaited(sendPresencePing());
     unawaited(touchUserAppIfAuthenticated());
 
@@ -319,6 +322,12 @@ class NoesisCrmService {
       } catch (_) {}
       _noticesChannel = null;
     }
+    if (_ledgerChannel != null && _hasSupabaseClient) {
+      try {
+        Supabase.instance.client.removeChannel(_ledgerChannel!);
+      } catch (_) {}
+      _ledgerChannel = null;
+    }
   }
 
   void updateRouteForTab(int tabIndex) {
@@ -336,6 +345,32 @@ class NoesisCrmService {
     unawaited(sendPresencePing());
     unawaited(touchUserAppIfAuthenticated());
     unawaited(fetchNotices());
+    unawaited(ShopService.instance.syncFromCloud());
+  }
+
+  void _subscribeLedgerRealtime() {
+    if (!_hasSupabaseClient) return;
+    try {
+      _ledgerChannel = Supabase.instance.client
+          .channel('noesis-insight-ledger-live')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'noesis_insight_ledger',
+            callback: (payload) {
+              final uid = SupabaseService.currentUser?.id;
+              if (uid == null) return;
+              final newUid = payload.newRecord['user_id']?.toString();
+              final oldUid = payload.oldRecord['user_id']?.toString();
+              if (newUid == uid || oldUid == uid) {
+                unawaited(ShopService.instance.syncFromCloud());
+              }
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('NoesisCrmService: erro ao assinar Realtime do ledger: $e');
+    }
   }
 
   Future<void> fetchNotices() async {
