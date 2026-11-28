@@ -10,8 +10,8 @@ Esta pasta armazena os binários distribuíveis oficiais gerados a partir do có
 
 | Plataforma | Arquivo | Tamanho | SHA-256 |
 | :--- | :--- | :---: | :--- |
-| **Android (APK Release)** | [`noesis-v1.0.0-android.apk`](android/noesis-v1.0.0-android.apk) | ~70,6 MB (`73.991.395 bytes`) | `D13CA0695F4578BE4C7C196A838E7D1DAFC796E56F63D29FCDE5FC812A19ED0E` |
-| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64-setup.exe`](windows/noesis-v1.0.0-windows-x64-setup.exe) | ~13,0 MB (`13.661.776 bytes`) | `AFEA8F93BF72B7E58C4E96C8E08BE07B7C413F602F8842650B0ABE5E9BC6C98D` |
+| **Android (APK Release)** | [`noesis-v1.0.0-android.apk`](android/noesis-v1.0.0-android.apk) | ~80,6 MB (`84.489.904 bytes`) | `2138775E4A488DBB855068DD379C860C40D5C567B6911FBFB243C9AAFFFC35FE` |
+| **Windows Desktop (x64)** | [`noesis-v1.0.0-windows-x64-setup.exe`](windows/noesis-v1.0.0-windows-x64-setup.exe) | ~14,3 MB (`14.981.792 bytes`) | `7FC28313C1F0EA0064B92E12CF9A065DCA76817652A0A0FC86E6561BA7D99A79` |
 
 ---
 
