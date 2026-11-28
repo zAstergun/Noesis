@@ -300,8 +300,13 @@ class NoesisCrmService {
     unawaited(touchUserAppIfAuthenticated());
 
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       unawaited(sendPresencePing());
+      unawaited(fetchRemoteConfig());
+      if (SupabaseService.currentUser != null) {
+        unawaited(fetchNotices());
+        unawaited(ShopService.instance.syncFromCloud());
+      }
     });
   }
 
@@ -342,10 +347,28 @@ class NoesisCrmService {
 
   void onAuthChanged() {
     if (!_started) return;
+    _resubscribeRealtimeChannels();
     unawaited(sendPresencePing());
     unawaited(touchUserAppIfAuthenticated());
     unawaited(fetchNotices());
     unawaited(ShopService.instance.syncFromCloud());
+  }
+
+  void _resubscribeRealtimeChannels() {
+    if (!_hasSupabaseClient) return;
+    for (final ch in [_configChannel, _noticesChannel, _ledgerChannel]) {
+      if (ch != null) {
+        try {
+          Supabase.instance.client.removeChannel(ch);
+        } catch (_) {}
+      }
+    }
+    _configChannel = null;
+    _noticesChannel = null;
+    _ledgerChannel = null;
+    _subscribeConfigRealtime();
+    _subscribeNoticesRealtime();
+    _subscribeLedgerRealtime();
   }
 
   void _subscribeLedgerRealtime() {

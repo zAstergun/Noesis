@@ -468,6 +468,7 @@ class ShopService {
           .order('created_at', ascending: true);
 
       final remoteIds = <String>{};
+      final hadInitialLoad = _ledger.isNotEmpty;
       for (final rawRow in (rows as List)) {
         if (rawRow is! Map) continue;
         final row = Map<String, dynamic>.from(rawRow);
@@ -477,6 +478,18 @@ class ShopService {
         final existingIdx = _ledger.indexWhere((e) => e.id == tx.id);
         if (existingIdx == -1) {
           _ledger.add(tx);
+          if (hadInitialLoad &&
+              tx.amount > 0 &&
+              (tx.source == 'crm_reward' || tx.source == 'crm_admin')) {
+            latestGainNotifier.value = InsightGainEvent(
+              id: tx.id,
+              amount: tx.amount,
+              reason: tx.description,
+              source: tx.source,
+              isVipBoosted: false,
+              createdAt: tx.createdAt,
+            );
+          }
         }
       }
 
