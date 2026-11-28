@@ -357,6 +357,7 @@ class _RootScreenState extends State<RootScreen> {
   bool _isResendingEmailBanner = false;
   bool _isCheckingEmailBanner = false;
   String? _dismissedAnnouncementFingerprint;
+  final Set<String> _dismissedCrmNoticeIds = <String>{};
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _studySessionsSubscription;
   Session? _session;
@@ -1177,6 +1178,7 @@ class _RootScreenState extends State<RootScreen> {
     required BuildContext context,
     required NoesisAnnouncement announcement,
     required bool isWideScreen,
+    VoidCallback? onDismiss,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final Color accent;
@@ -1265,9 +1267,10 @@ class _RootScreenState extends State<RootScreen> {
             ),
           IconButton(
             tooltip: context.tr('Dispensar aviso'),
-            onPressed: () => setState(() {
-              _dismissedAnnouncementFingerprint = announcement.fingerprint;
-            }),
+            onPressed: onDismiss ??
+                () => setState(() {
+                  _dismissedAnnouncementFingerprint = announcement.fingerprint;
+                }),
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
             splashRadius: 16,
@@ -1840,13 +1843,16 @@ class _RootScreenState extends State<RootScreen> {
                 valueListenable: NoesisCrmService.instance.noticesNotifier,
                 builder: (context, notices, _) {
                   final urgentNotice = notices
-                      .where((n) => _dismissedAnnouncementFingerprint != 'notice:${n.id}')
+                      .where((n) => !_dismissedCrmNoticeIds.contains(n.id))
                       .firstOrNull;
                   if (urgentNotice == null) return const SizedBox.shrink();
                   return _buildRemoteAnnouncementBanner(
                     context: context,
                     announcement: urgentNotice.toAnnouncement(),
                     isWideScreen: isWideScreen,
+                    onDismiss: () => setState(() {
+                      _dismissedCrmNoticeIds.add(urgentNotice.id);
+                    }),
                   );
                 },
               ),
