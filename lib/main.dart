@@ -1843,6 +1843,7 @@ class _RootScreenState extends State<RootScreen> {
                 valueListenable: NoesisCrmService.instance.noticesNotifier,
                 builder: (context, notices, _) {
                   final urgentNotice = notices
+                      .where((n) => n.tone == 'urgent' || n.tone == 'warning')
                       .where((n) => !_dismissedCrmNoticeIds.contains(n.id))
                       .firstOrNull;
                   if (urgentNotice == null) return const SizedBox.shrink();
