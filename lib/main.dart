@@ -1002,7 +1002,10 @@ class _RootScreenState extends State<RootScreen> {
                             ),
                             const SizedBox(height: 12),
                             TextButton.icon(
-                              onPressed: NotificationsService.instance.restoreAndRefresh,
+                              onPressed: () async {
+                                await NoesisCrmService.instance.fetchNotices();
+                                await NotificationsService.instance.refresh();
+                              },
                               icon: Icon(Icons.refresh_rounded, size: 15, color: primaryCol),
                               label: Text(
                                 dialogContext.tr('Verificar notificações'),
